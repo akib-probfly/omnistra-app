@@ -1,20 +1,25 @@
 // @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, FileText, Play, Video } from 'lucide-react-native';
-import { useEffect, useRef, useState } from 'react';
-import * as SecureStore from 'expo-secure-store';
-import * as FileSystem from 'expo-file-system/legacy';
-import { ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreHorizontal, Star } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { apiFetch, latestAccessToken, uploadFile } from '../api/client';
-import { ConversationComposer, pendingComposerAttachment } from '../components/ConversationComposer';
+import { apiFetch, uploadFile } from '../api/client';
+import { useAuth } from '../auth/AuthContext';
+import { ConversationComposer } from '../components/ConversationComposer';
+import { MediaViewer } from '../components/MediaViewer';
+import { MessageBubble } from '../components/MessageBubble';
+import { ReactionPicker } from '../components/ReactionPicker';
+import { fetchAssigneeOptions, fetchMessagesPage, markConversationRead, markConversationUnread, sendReaction, sendTemplateMessage, updateConversationAssignment, updateConversationStar, updateConversationStatus } from '../api/inbox';
 import type { InboxStackParamList } from '../navigation/InboxStack';
+import { buildReactionGroups, formatTimelineDayLabel, getConversationTitle, getConversationWindowLabel, isInlineReactionMessage, isSameCalendarDay } from '../lib/inbox-utils';
 
 type Attachment = { id: string; messageId?: string | null; mediaType: string; mimeType: string; originalName: string | null; downloadUrl: string; previewUrl: string | null; thumbnailUrl: string | null; durationMs: number | null };
-type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBOUND'; text: string | null; type: string; deliveryStatus?: string; sentAt?: string | null; createdAt?: string; attachments?: Attachment[]; replyTo?: { sender?: { userName?: string | null } | null; text?: string | null } | null };
-type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'DOCUMENT' };
+type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBOUND'; senderType?: string | null; sender?: { userName?: string | null; userEmail?: string | null } | null; type: string; text: string | null; deliveryStatus?: string; failureReason?: string | null; campaignId?: string | null; campaignName?: string | null; replyToMessageId?: string | null; replyTo?: { sender?: { userName?: string | null } | null; text?: string | null } | null; sentAt?: string | null; createdAt?: string; metadata?: any; attachments?: Attachment[] };
+type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT' };
+type MediaItem = { attachId: string; src: string; thumb: string | null; mediaType: string };
 const apiUrl = (value: string | null) => {
   if (!value) return null;
   const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://osaas-mvp-api.probfly.com/api/v1';
@@ -31,41 +36,327 @@ const apiUrl = (value: string | null) => {
 };
 
 export function ConversationScreen() {
-  const insets = useSafeAreaInsets(); const navigation = useNavigation(); const route = useRoute<RouteProp<InboxStackParamList, 'Conversation'>>(); const queryClient = useQueryClient(); const listRef = useRef<FlatList<Message>>(null); const [draft, setDraft] = useState(''); const [replyTo, setReplyTo] = useState<Message | null>(null); const [attachment, setAttachment] = useState<SendAttachment | null>(null); const [gallery, setGallery] = useState<string[]>([]); const [galleryIndex, setGalleryIndex] = useState(0);
-  const messages = useQuery({ queryKey: ['messages', route.params.conversationId], queryFn: async () => { const [page, files] = await Promise.all([apiFetch<{ items: Message[] }>(`/conversations/${route.params.conversationId}/messages?limit=50`), apiFetch<{ items: Attachment[] }>(`/conversations/${route.params.conversationId}/attachments?limit=100`)]); const grouped = new Map<string, Attachment[]>(); files.items.forEach((file) => file.messageId && grouped.set(file.messageId, [...(grouped.get(file.messageId) ?? []), file])); return page.items.map((message) => { const attachments = message.attachments?.length ? message.attachments : grouped.get(message.id) ?? []; const mediaOnly = attachments.length > 0 && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(message.type); return { ...message, text: mediaOnly ? null : message.text, attachments }; }); } });
-  const send = useMutation({ mutationFn: async () => { const selected = attachment ?? pendingComposerAttachment; let attachmentIds: string[] = []; if (selected) { const workspaceId = route.params.workspaceId ?? messages.data?.find((message) => message.workspaceId)?.workspaceId; if (!workspaceId) throw new Error('Workspace information is unavailable. Please reload the conversation.'); const uploaded = await uploadFile('/files/upload', selected.uri, selected.name, selected.mimeType, { workspaceId }); attachmentIds = [uploaded.id]; } const text = selected ? undefined : draft.replace(/\u200B/g, '').trim() || undefined; return apiFetch(`/conversations/${route.params.conversationId}/messages`, { method: 'POST', body: JSON.stringify({ type: selected?.type ?? 'TEXT', text, attachmentIds, replyToMessageId: replyTo?.id }) }); }, onSuccess: () => { pendingComposerAttachment = null; setDraft(''); setAttachment(null); setReplyTo(null); queryClient.invalidateQueries({ queryKey: ['messages', route.params.conversationId], refetchType: 'active' }); setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 150); } });
-  useEffect(() => { const timer = setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100); return () => clearTimeout(timer); }, [messages.data?.length]);
-  const imageUrls = (messages.data ?? []).flatMap((message) => (message.attachments ?? []).filter((attachment) => ['IMAGE', 'STICKER'].includes(attachment.mediaType.toUpperCase()) || attachment.mimeType?.startsWith('image/')).map((attachment) => apiUrl(attachment.previewUrl ?? attachment.thumbnailUrl ?? attachment.downloadUrl)).filter((url): url is string => Boolean(url)));
-  return <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}><View style={[styles.header, { paddingTop: insets.top + 8 }]}><Pressable onPress={() => navigation.goBack()}><ArrowLeft color="#334155" size={23} /></Pressable><View style={styles.avatar}><Text>{route.params.contactName.slice(0, 1).toUpperCase()}</Text></View><Text style={styles.name}>{route.params.contactName}</Text><Text style={styles.window}>● 23h</Text></View>{messages.isLoading ? <ActivityIndicator color="#2563eb" style={styles.loader} /> : <FlatList ref={listRef} style={styles.list} data={messages.data ?? []} keyExtractor={(item) => item.id} contentContainerStyle={styles.listContent} keyboardShouldPersistTaps="handled" renderItem={({ item }) => <SwipeableMessage message={item} onReply={() => setReplyTo(item)} onImage={(url) => { setGallery(imageUrls); setGalleryIndex(Math.max(0, imageUrls.indexOf(url))); }} />} />}{messages.isError ? <Text style={styles.error}>{messages.error instanceof Error ? messages.error.message : 'Unable to load messages.'}</Text> : null}<ConversationComposer value={draft} onChange={setDraft} sending={send.isPending} attachment={attachment} onAttachment={(uri, name, mimeType, type) => setAttachment({ uri, name, mimeType, type })} onSend={() => send.mutate()} replyPreview={replyTo ? { name: route.params.contactName, text: replyTo.text ?? 'Attachment' } : null} onCancelReply={() => setReplyTo(null)} /><MediaViewer images={gallery} index={galleryIndex} onClose={() => setGallery([])} onIndex={setGalleryIndex} /></KeyboardAvoidingView>;
+  const insets = useSafeAreaInsets(); const navigation = useNavigation(); const route = useRoute<RouteProp<InboxStackParamList, 'Conversation'>>(); const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const listRef = useRef<FlatList>(null);
+  const [draft, setDraft] = useState(''); const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [attachments, setAttachments] = useState<SendAttachment[]>([]);
+  const [gallery, setGallery] = useState<MediaItem[]>([]); const [galleryIndex, setGalleryIndex] = useState(0);
+  const [reactTarget, setReactTarget] = useState<Message | null>(null);
+  const [olderMessages, setOlderMessages] = useState<Message[]>([]);
+  const [olderCursor, setOlderCursor] = useState<string | null>(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [atBottom, setAtBottom] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [header, setHeader] = useState({ isStarred: false, unreadCount: 0, status: 'OPEN' as string, conversation: null as any });
+
+  const messages = useQuery({
+    queryKey: ['messages', route.params.conversationId],
+    queryFn: async () => {
+      const [page, files] = await Promise.all([
+        apiFetch<{ items: Message[]; pageInfo?: { nextCursor?: string | null; hasMore?: boolean }; conversation?: any }>(`/conversations/${route.params.conversationId}/messages?limit=50`),
+        apiFetch<{ items: Attachment[] }>(`/conversations/${route.params.conversationId}/attachments?limit=100`),
+      ]);
+      const grouped = new Map<string, Attachment[]>();
+      files.items.forEach((file) => file.messageId && grouped.set(file.messageId, [...(grouped.get(file.messageId) ?? []), file]));
+      const items = page.items.map((message) => {
+        const messageAttachments = message.attachments?.length ? message.attachments : grouped.get(message.id) ?? [];
+        const mediaOnly = messageAttachments.length > 0 && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(message.type);
+        return { ...message, text: mediaOnly ? null : message.text, attachments: messageAttachments };
+      });
+      return { items, nextCursor: page.pageInfo?.nextCursor ?? null, hasMore: page.pageInfo?.hasMore ?? false, conversation: page.conversation ?? null };
+    },
+    staleTime: 5000, refetchInterval: 8000,
+  });
+
+  useEffect(() => {
+    if (messages.data?.conversation) {
+      setHeader((current) => ({ ...current, conversation: messages.data.conversation, isStarred: messages.data.conversation.isStarred ?? current.isStarred, unreadCount: messages.data.conversation.unreadCount ?? current.unreadCount, status: messages.data.conversation.status ?? current.status }));
+    }
+  }, [messages.data?.conversation]);
+
+  const allMessages = useMemo(() => [...olderMessages, ...(messages.data?.items ?? [])], [olderMessages, messages.data?.items]);
+  const reactionGroups = useMemo(() => buildReactionGroups(allMessages), [allMessages]);
+
+  const messageById = useMemo(() => { const map = new Map<string, Message>(); allMessages.forEach((message) => map.set(message.id, message)); return map; }, [allMessages]);
+
+  const send = useMutation({
+    mutationFn: async () => {
+      const workspaceId = route.params.workspaceId ?? allMessages.find((message) => message.workspaceId)?.workspaceId;
+      if (!workspaceId && attachments.length) throw new Error('Workspace information is unavailable. Please reload the conversation.');
+      const attachmentIds: string[] = [];
+      for (const selected of attachments) {
+        const uploaded = await uploadFile('/files/upload', selected.uri, selected.name, selected.mimeType, { workspaceId });
+        attachmentIds.push(uploaded.id);
+      }
+      const text = draft.replace(/\u200B/g, '').trim() || undefined;
+      const type = attachments.length ? (attachments[0].type === 'VOICE' ? 'VOICE' : attachments[0].type) : 'TEXT';
+      return apiFetch<Message>(`/conversations/${route.params.conversationId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ type, text, attachmentIds, replyToMessageId: replyTo?.id }),
+      });
+    },
+    onSuccess: (created) => {
+      setDraft(''); setAttachments([]); setReplyTo(null);
+      queryClient.setQueryData<any>(['messages', route.params.conversationId], (current) => {
+        if (!current || !Array.isArray(current.items)) return current;
+        return { ...current, items: [...current.items, created] };
+      });
+      queryClient.invalidateQueries({ queryKey: ['messages', route.params.conversationId], refetchType: 'active' });
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 150);
+    },
+  });
+
+  const reactMutation = useMutation({
+    mutationFn: ({ messageId, emoji }: { messageId: string; emoji: string }) => sendReaction(route.params.conversationId, messageId, emoji, 'REACT'),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['messages', route.params.conversationId], refetchType: 'active' }); },
+  });
+
+  const starMutation = useMutation({ mutationFn: (isStarred: boolean) => updateConversationStar(route.params.conversationId, isStarred), onSuccess: (_, isStarred) => setHeader((c) => ({ ...c, isStarred })) });
+  const readMutation = useMutation({ mutationFn: () => markConversationRead(route.params.conversationId), onSuccess: () => setHeader((c) => ({ ...c, unreadCount: 0 })) });
+  const unreadMutation = useMutation({ mutationFn: () => markConversationUnread(route.params.conversationId), onSuccess: () => setHeader((c) => ({ ...c, unreadCount: 1 })) });
+  const statusMutation = useMutation({ mutationFn: (status: string) => updateConversationStatus(route.params.conversationId, status as 'OPEN' | 'CLOSED'), onSuccess: (_, status) => setHeader((c) => ({ ...c, status })) });
+  const assignmentMutation = useMutation({
+    mutationFn: (assigneeWorkspaceMemberId: string | null) => updateConversationAssignment(route.params.conversationId, assigneeWorkspaceMemberId),
+    onSuccess: (_, assigneeWorkspaceMemberId) => {
+      const conversation = header.conversation as any;
+      const assignee = assigneeWorkspaceMemberId ? { ...(conversation?.assignee ?? {}), workspaceMemberId: assigneeWorkspaceMemberId } : null;
+      setHeader((c) => ({ ...c, conversation: { ...(c.conversation ?? {}), assignee } }));
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    },
+    onError: (error: Error) => Alert.alert('Could not update assignment', error.message),
+  });
+
+  useEffect(() => { const timer = setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100); return () => clearTimeout(timer); }, [messages.data?.items?.length]);
+
+  useEffect(() => { if (olderCursor && !messages.data?.hasMore && olderMessages.length === 0) setOlderCursor(null); }, [olderCursor, messages.data?.hasMore, olderMessages.length]);
+
+  const loadOlder = useCallback(async () => {
+    if (loadingOlder || !olderCursor || messages.data?.hasMore === false) return;
+    setLoadingOlder(true);
+    try {
+      const page = await fetchMessagesPage(route.params.conversationId, olderCursor, 50);
+      const files = await apiFetch<{ items: Attachment[] }>(`/conversations/${route.params.conversationId}/attachments?limit=100`);
+      const grouped = new Map<string, Attachment[]>();
+      files.items.forEach((file) => file.messageId && grouped.set(file.messageId, [...(grouped.get(file.messageId) ?? []), file]));
+      const items = page.items.map((message: any) => {
+        const messageAttachments = message.attachments?.length ? message.attachments : grouped.get(message.id) ?? [];
+        const mediaOnly = messageAttachments.length > 0 && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(message.type);
+        return { ...message, text: mediaOnly ? null : message.text, attachments: messageAttachments };
+      });
+      setOlderMessages((current) => [...items, ...current]);
+      setOlderCursor(page.pageInfo?.nextCursor ?? null);
+    } catch (error) {
+      console.error('[conversation] load older failed', error);
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [loadingOlder, olderCursor, messages.data?.hasMore, route.params.conversationId]);
+
+  useEffect(() => {
+    if (messages.data && !messages.data.hasMore) return;
+    if (messages.data?.nextCursor && !olderCursor) setOlderCursor(messages.data.nextCursor);
+  }, [messages.data, olderCursor]);
+
+  const imageUrls = useMemo(() => allMessages.flatMap((message) => (message.attachments ?? []).filter((attachment) => ['IMAGE', 'STICKER'].includes(attachment.mediaType.toUpperCase()) || attachment.mimeType?.startsWith('image/')).map((attachment) => { const src = apiUrl(attachment.previewUrl ?? attachment.thumbnailUrl ?? attachment.downloadUrl); const thumb = apiUrl(attachment.thumbnailUrl ?? attachment.previewUrl); return src ? { attachId: attachment.id, src, thumb, mediaType: attachment.mediaType } as MediaItem : null; }).filter((item): item is MediaItem => Boolean(item))), [allMessages]);
+
+  const openImage = (attachId: string) => {
+    setGallery(imageUrls);
+    setGalleryIndex(Math.max(0, imageUrls.findIndex((media) => media.attachId === attachId)));
+  };
+
+  const channelType = header.conversation?.channel?.channelType ?? route.params.channelType;
+  const channelId = header.conversation?.channel?.id ?? route.params.channelId;
+  const windowInfo = getConversationWindowLabel(header.conversation);
+  const title = getConversationTitle(header.conversation, route.params.contactName);
+  const assigneeLabel = header.conversation?.assignee?.userName ?? header.conversation?.assignee?.userEmail ?? (header.conversation?.assignee ? 'Assigned agent' : 'Unassigned');
+
+  const assignToMe = async () => {
+    setMenuOpen(false);
+    const userEmail = session?.user?.email?.toLowerCase();
+    if (!userEmail) {
+      Alert.alert('Unable to assign', 'Your user account is not available.');
+      return;
+    }
+    try {
+      const workspaceId = header.conversation?.workspaceId ?? route.params.workspaceId;
+      const options = await fetchAssigneeOptions(workspaceId, channelId);
+      const match = options.find((member) => member.email.toLowerCase() === userEmail);
+      if (!match) {
+        Alert.alert('Unable to assign', 'Could not find your workspace member profile.');
+        return;
+      }
+      assignmentMutation.mutate(match.workspaceMemberId);
+    } catch (error) {
+      Alert.alert('Could not assign', error instanceof Error ? error.message : 'Please try again.');
+    }
+  };
+
+  const onScroll = (event: any) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+    setAtBottom(distanceFromBottom < 120);
+    if (contentOffset.y < 120) loadOlder();
+  };
+
+  const renderMessage = ({ item }: { item: Message }) => <SwipeableMessage message={item} onReply={() => setReplyTo(item)} onReact={() => setReactTarget(item)} onImage={openImage} replyTarget={messageById.get(item.replyToMessageId ?? '') ?? null} reactions={reactionGroups[item.id]} />;
+
+  return (
+    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <Pressable onPress={() => navigation.goBack()}><ArrowLeft color="#334155" size={23} /></Pressable>
+        <View style={styles.avatarWrap}>
+          <View style={styles.avatar}><Text>{title.slice(0, 1).toUpperCase()}</Text></View>
+          <View style={styles.presence} />
+        </View>
+        <View style={styles.titleBlock}>
+          <Text style={styles.name} numberOfLines={1}>{title}</Text>
+          <Text style={[styles.window, windowInfo.tone === 'expired' && styles.windowExpired]}>{windowInfo.label}</Text>
+          <Text style={styles.assignee} numberOfLines={1}>{assigneeLabel}</Text>
+        </View>
+        <Pressable onPress={() => starMutation.mutate(!header.isStarred)} hitSlop={8}><Star color={header.isStarred ? '#f59e0b' : '#94a3b8'} fill={header.isStarred ? '#f59e0b' : 'none'} size={19} /></Pressable>
+        <Pressable onPress={() => { if (header.unreadCount > 0) readMutation.mutate(); else unreadMutation.mutate(); }} hitSlop={8}>{header.unreadCount > 0 ? <Mail color="#334155" size={19} /> : <MailOpen color="#334155" size={19} />}</Pressable>
+        <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}><MoreHorizontal color="#334155" size={19} /></Pressable>
+      </View>
+      {messages.isLoading ? <ActivityIndicator color="#2563eb" style={styles.loader} /> : (
+        <View style={styles.listWrap}>
+          <FlatList
+            ref={listRef}
+            style={styles.list}
+            data={allMessages}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            keyboardShouldPersistTaps="handled"
+            onScroll={onScroll}
+            scrollEventThrottle={120}
+            ListHeaderComponent={loadingOlder ? <Text style={styles.olderPill}>Loading older messages...</Text> : null}
+            renderItem={({ item, index }) => {
+              const previous = allMessages[index - 1];
+              const showDivider = !previous || !isSameCalendarDay(previous.sentAt ?? previous.createdAt, item.sentAt ?? item.createdAt);
+              return (
+                <View>
+                  {showDivider ? <Text style={styles.dayDivider}>{formatTimelineDayLabel(item.sentAt ?? item.createdAt ?? new Date())}</Text> : null}
+                  {renderMessage({ item })}
+                </View>
+              );
+            }}
+          />
+          {!atBottom ? (
+            <Pressable style={styles.fab} onPress={() => listRef.current?.scrollToEnd({ animated: true })}><ChevronDown color="#fff" size={22} /></Pressable>
+          ) : null}
+        </View>
+      )}
+      {messages.isError ? <Text style={styles.error}>{messages.error instanceof Error ? messages.error.message : 'Unable to load messages.'}</Text> : null}
+      <ConversationComposer
+        value={draft} onChange={setDraft} sending={send.isPending}
+        attachments={attachments} onAttachments={setAttachments}
+        workspaceId={route.params.workspaceId}
+        channelId={channelId} channelType={channelType} contactName={title}
+        onSendTemplate={(params) => sendTemplateMutation(route.params.conversationId, params, queryClient, setDraft)}
+        replyPreview={replyTo ? { name: replyTo.direction === 'INBOUND' ? title : 'You', text: replyTo.text ?? 'Attachment' } : null}
+        onCancelReply={() => setReplyTo(null)}
+        onSend={() => send.mutate()}
+      />
+      <ReactionPicker visible={Boolean(reactTarget)} onClose={() => setReactTarget(null)} onPick={(emoji) => { if (reactTarget) reactMutation.mutate({ messageId: reactTarget.id, emoji }); setReactTarget(null); }} onReply={() => { if (reactTarget) setReplyTo(reactTarget); setReactTarget(null); }} />
+      <MediaViewer images={gallery} index={galleryIndex} onClose={() => setGallery([])} onIndex={setGalleryIndex} />
+      <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+        <Pressable style={styles.menuOverlay} onPress={() => setMenuOpen(false)}>
+          <View style={styles.menuCard}>
+            <Text style={styles.menuTitle}>{title}</Text>
+            <View style={styles.menuRow}>
+              <Text style={styles.menuLabel}>Assigned to</Text>
+              <Text style={styles.menuValue}>{assigneeLabel}</Text>
+            </View>
+            <View style={styles.menuRow}>
+              <Text style={styles.menuLabel}>Status</Text>
+              <Text style={[styles.menuValue, header.status === 'CLOSED' && styles.menuClosed]}>{header.status === 'CLOSED' ? 'Closed' : 'Open'}</Text>
+            </View>
+            <View style={styles.menuDivider} />
+            <Pressable style={styles.menuAction} onPress={assignToMe}>
+              <Text style={styles.menuActionText}>Assign to me</Text>
+            </Pressable>
+            {header.conversation?.assignee ? (
+              <Pressable style={styles.menuAction} onPress={() => { setMenuOpen(false); assignmentMutation.mutate(null); }}>
+                <Text style={styles.menuActionText}>Unassign</Text>
+              </Pressable>
+            ) : null}
+            <Pressable style={styles.menuAction} onPress={() => { setMenuOpen(false); if (header.unreadCount > 0) readMutation.mutate(); else unreadMutation.mutate(); }}>
+              <Text style={styles.menuActionText}>{header.unreadCount > 0 ? 'Mark as read' : 'Mark as unread'}</Text>
+            </Pressable>
+            <Pressable style={styles.menuAction} onPress={() => { setMenuOpen(false); statusMutation.mutate(header.status === 'CLOSED' ? 'OPEN' : 'CLOSED'); }}>
+              <Text style={[styles.menuActionText, header.status === 'CLOSED' && styles.menuClosed]}>{header.status === 'CLOSED' ? 'Reopen conversation' : 'Mark as closed'}</Text>
+            </Pressable>
+            <Pressable style={styles.menuAction} onPress={() => setMenuOpen(false)}>
+              <Text style={styles.menuCancel}>Cancel</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+    </KeyboardAvoidingView>
+  );
 }
 
-function SwipeableMessage({ message, onReply, onImage }: { message: Message; onReply: () => void; onImage: (url: string) => void }) { const outgoing = message.direction === 'OUTBOUND'; const swipeRef = useRef<Swipeable>(null); const status = message.deliveryStatus === 'READ' ? '✓✓ Seen' : message.deliveryStatus === 'DELIVERED' ? '✓✓ Delivered' : message.deliveryStatus === 'SENT' ? '✓ Sent' : message.deliveryStatus === 'FAILED' ? 'Failed' : ''; return <Swipeable ref={swipeRef} overshootRight={false} overshootLeft={false} friction={2} renderLeftActions={() => <View style={styles.replyAction}><Text style={styles.replyIcon}>↩</Text><Text style={styles.replyActionText}>Reply</Text></View>} onSwipeableOpen={() => { swipeRef.current?.close(); onReply(); }}><View style={[styles.group, outgoing && styles.outgoingGroup]}>{(message.attachments ?? []).map((attachment) => <Attachment key={attachment.id} attachment={attachment} outgoing={outgoing} onImage={onImage} />)}{!(message.attachments?.length) && (message.type === 'VOICE' || message.type === 'AUDIO') ? <Voice outgoing={outgoing} duration={null} /> : null}{message.text ? <View style={[styles.bubble, outgoing ? styles.outgoing : styles.incoming]}>{message.replyTo ? <View style={styles.quoted}><Text style={styles.quotedName}>{message.replyTo.sender?.userName ?? 'Message'}</Text><Text numberOfLines={1} style={styles.quotedText}>{message.replyTo.text ?? 'Attachment'}</Text></View> : null}<Text style={outgoing ? styles.outgoingText : styles.messageText}>{message.text}</Text>{outgoing ? <Text style={styles.status}>{status}  {message.sentAt ? new Date(message.sentAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : ''}</Text> : null}</View> : null}</View></Swipeable>; }
-function AuthenticatedImage({ url, style, onPress, resizeMode = 'cover' }: { url: string; style: any; onPress?: () => void; resizeMode?: 'cover' | 'contain' }) { const [localUri, setLocalUri] = useState<string | null>(null); useEffect(() => { let active = true; (async () => { try { const token = await SecureStore.getItemAsync('access-token'); const target = `${FileSystem.cacheDirectory}media-${Date.now()}-${Math.random().toString(36).slice(2)}.bin`; const result = await FileSystem.downloadAsync(url, target, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); if (active && result.status === 200) setLocalUri(result.uri); else console.error('[media] download failed', url, result.status); } catch (error) { console.error('[media] download failed', url, error); } })(); return () => { active = false; }; }, [url]); return <Pressable disabled={!onPress} onPress={onPress}>{localUri ? <Image source={{ uri: localUri }} resizeMode={resizeMode} style={style} /> : <View style={[style, styles.mediaPlaceholder]}><Text style={styles.mediaPlaceholderText}>Loading image...</Text></View>}</Pressable>; }
-function Attachment({ attachment, outgoing, onImage }: { attachment: Attachment; outgoing: boolean; onImage: (url: string) => void }) { const uri = apiUrl(attachment.previewUrl ?? attachment.thumbnailUrl ?? attachment.downloadUrl); const type = attachment.mediaType.toUpperCase(); if (uri && (type === 'IMAGE' || type === 'STICKER' || attachment.mimeType?.startsWith('image/'))) return <AuthenticatedImage url={uri} style={styles.image} onPress={() => onImage(uri)} />; if (type === 'VOICE' || type === 'AUDIO') return <Voice outgoing={outgoing} duration={attachment.durationMs} />; return <View style={styles.file}>{type === 'VIDEO' ? <Video color="#2563eb" size={22} /> : <FileText color="#2563eb" size={22} />}<Text style={styles.fileName}>{attachment.originalName ?? type}</Text></View>; }
-function Voice({ outgoing, duration }: { outgoing: boolean; duration: number | null }) { const heights = [10, 16, 24, 13, 30, 19, 36, 22, 28, 14, 34, 18, 27, 12, 31, 20, 38, 16, 25, 11, 29, 18, 34, 14, 24, 10]; const accent = outgoing ? '#c9d8ff' : '#ef7655'; return <View style={[styles.voice, outgoing && styles.outgoingVoice]}><View style={styles.play}><Play color="#fff" fill="#fff" size={14} /></View><View style={styles.waveBars}>{heights.map((height, index) => <View key={`${index}-${duration ?? 0}`} style={[styles.waveBar, { height, backgroundColor: accent }]} />)}</View><Text style={[styles.duration, outgoing && styles.outgoingDuration]}>{duration ? `${Math.round(duration / 1000)}s` : '0:00'}</Text></View>; }
-function MediaViewer({ images, index, onClose, onIndex }: { images: string[]; index: number; onClose: () => void; onIndex: (index: number) => void }) { if (!images.length) return null; return <Modal visible transparent animationType="fade" onRequestClose={onClose}><View style={styles.viewer}><View style={styles.viewerTop}><View><Text style={styles.viewerTitle}>Conversation media</Text><Text style={styles.viewerTime}>{new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Text></View><View style={styles.viewerControls}><Text style={styles.zoomText}>−   100%   ＋</Text><Text style={styles.viewerIcon}>↗</Text><Pressable onPress={onClose}><Text style={styles.viewerClose}>×</Text></Pressable></View></View><View style={styles.viewerBody}>{index > 0 ? <Pressable style={[styles.viewerArrow, styles.viewerLeft]} onPress={() => onIndex(index - 1)}><Text style={styles.arrowText}>‹</Text></Pressable> : null}<AuthenticatedImage url={images[index]} style={styles.viewerImage} resizeMode="contain" />{index < images.length - 1 ? <Pressable style={[styles.viewerArrow, styles.viewerRight]} onPress={() => onIndex(index + 1)}><Text style={styles.arrowText}>›</Text></Pressable> : null}</View></View></Modal>; }
-const styles = StyleSheet.create({ screen: { backgroundColor: '#f8fbff', flex: 1 }, header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#dbe4f1', borderBottomWidth: 1, flexDirection: 'row', gap: 12, paddingHorizontal: 14, paddingVertical: 9 }, avatar: { alignItems: 'center', backgroundColor: '#f7c8ca', borderRadius: 21, height: 42, justifyContent: 'center', width: 42 }, name: { color: '#0f172a', fontWeight: '700' }, window: { color: '#55921c', marginLeft: 'auto' }, list: { flex: 1 }, listContent: { gap: 10, padding: 14 }, group: { alignItems: 'flex-start', gap: 6 }, outgoingGroup: { alignItems: 'flex-end' }, bubble: { borderRadius: 18, maxWidth: '82%', padding: 13 }, incoming: { backgroundColor: '#fff', borderColor: '#cfe0fa', borderWidth: 1 }, outgoing: { backgroundColor: '#3264f6' }, messageText: { color: '#334155', fontSize: 15 }, outgoingText: { color: '#fff', fontSize: 15 }, status: { color: '#dbeafe', fontSize: 11, marginTop: 6 }, image: { borderRadius: 18, height: 190, width: 250 }, voice: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 18, borderWidth: 1, flexDirection: 'row', padding: 10 }, outgoingVoice: { backgroundColor: '#3264f6', borderColor: '#3264f6' }, play: { alignItems: 'center', backgroundColor: '#3264f6', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 }, waveBars: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 2, height: 38, marginHorizontal: 9 }, waveBar: { borderRadius: 3, minWidth: 3 }, duration: { color: '#526987', fontSize: 11 }, outgoingDuration: { color: '#dbeafe' }, file: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 16, flexDirection: 'row', gap: 10, padding: 14 }, fileName: { color: '#17233a' }, replyAction: { alignItems: 'center', backgroundColor: '#e8f0ff', borderRadius: 16, justifyContent: 'center', marginVertical: 3, width: 72 }, replyIcon: { color: '#2563eb', fontSize: 22 }, replyActionText: { color: '#2563eb', fontSize: 11 }, loader: { marginTop: 50 }, error: { color: '#dc2626', padding: 10 } });
-Object.assign(styles as any, {
-  mediaPlaceholder: { alignItems: 'center', backgroundColor: '#e8eef7', justifyContent: 'center' },
-  mediaPlaceholderText: { color: '#64748b', fontSize: 12 },
-  quoted: { backgroundColor: '#ffffff22', borderColor: '#ffffff55', borderRadius: 12, borderWidth: 1, marginBottom: 8, paddingHorizontal: 10, paddingVertical: 7, width: '100%' },
-  quotedName: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
-  quotedText: { color: '#eef2ff', fontSize: 12, marginTop: 5 },
-  viewer: { backgroundColor: '#0f1115', flex: 1, paddingTop: 46 },
-  viewerTop: { alignItems: 'center', borderBottomColor: '#25282d', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 12, paddingHorizontal: 16 },
-  viewerTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  viewerTime: { color: '#9ca3af', fontSize: 11, marginTop: 5 },
-  viewerControls: { alignItems: 'center', flexDirection: 'row', gap: 12 },
-  zoomText: { backgroundColor: '#202328', borderColor: '#383c42', borderRadius: 22, borderWidth: 1, color: '#e5e7eb', paddingHorizontal: 16, paddingVertical: 10 },
-  viewerIcon: { backgroundColor: '#202328', borderColor: '#383c42', borderRadius: 20, color: '#e5e7eb', fontSize: 18, padding: 9 },
-  viewerClose: { color: '#fff', fontSize: 30 },
-  viewerBody: { alignItems: 'center', flex: 1, justifyContent: 'center', position: 'relative' },
-  viewerImage: { height: '78%', width: '100%' },
-  viewerArrow: { alignItems: 'center', backgroundColor: '#5d5b61cc', borderRadius: 24, height: 48, justifyContent: 'center', position: 'absolute', width: 48, zIndex: 2 },
-  viewerLeft: { left: 8 },
-  viewerRight: { right: 8 },
-  arrowText: { color: '#fff', fontSize: 36, lineHeight: 40 },
-  thumbs: { flexDirection: 'row', gap: 8, height: 70, paddingHorizontal: 12 },
-  thumb: { borderRadius: 8, height: 58, opacity: 0.65, width: 58 },
-  thumbActive: { borderColor: '#fff', borderWidth: 2, opacity: 1 },
+async function sendTemplateMutation(conversationId: string, params: { templateName: string; templateCategory?: string | null; languageCode?: string; text?: string }, queryClient: any, setDraft: (v: string) => void) {
+  try {
+    await sendTemplateMessage({ conversationId, templateName: params.templateName, templateCategory: params.templateCategory ?? null, languageCode: params.languageCode, text: params.text });
+    queryClient.invalidateQueries({ queryKey: ['messages', conversationId], refetchType: 'active' });
+    setDraft('');
+  } catch (error) {
+    Alert.alert('Could not send template', error instanceof Error ? error.message : 'Please try again.');
+  }
+}
+
+function SwipeableMessage({ message, onReply, onReact, onImage, replyTarget, reactions }: { message: Message; onReply: () => void; onReact: () => void; onImage: (attachId: string) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }> }) {
+  const outgoing = message.direction === 'OUTBOUND';
+  const swipeRef = useRef<Swipeable>(null);
+  if (isInlineReactionMessage(message)) return null;
+  const replyPreview = message.replyTo || replyTarget ? {
+    name: (message.replyTo?.sender?.userName ?? replyTarget?.sender?.userName) || (replyTarget?.direction === 'OUTBOUND' ? 'You' : 'Message'),
+    text: message.replyTo?.text ?? replyTarget?.text ?? 'Attachment',
+    imageUrl: replyTarget ? apiUrl(replyTarget.attachments?.find((a: any) => a.mediaType === 'IMAGE' || a.mimeType?.startsWith('image/'))?.previewUrl ?? replyTarget.attachments?.find((a: any) => a.mediaType === 'IMAGE' || a.mimeType?.startsWith('image/'))?.thumbnailUrl ?? null) : null,
+  } : null;
+  return (
+    <Swipeable ref={swipeRef} overshootRight={false} overshootLeft={false} friction={2} renderLeftActions={() => <View style={styles.replyAction}><Text style={styles.replyIcon}>↩</Text><Text style={styles.replyActionText}>Reply</Text></View>} onSwipeableOpen={() => { swipeRef.current?.close(); onReply(); }}>
+      <View style={[styles.group, outgoing && styles.outgoingGroup]}>
+        <MessageBubble message={message} outgoing={outgoing} attachments={message.attachments ?? []} replyPreview={replyPreview} reactions={reactions} onImage={onImage} onLongPress={onReact} />
+      </View>
+    </Swipeable>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { backgroundColor: '#f8fbff', flex: 1 },
+  header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#dbe4f1', borderBottomWidth: 1, flexDirection: 'row', gap: 12, paddingHorizontal: 14, paddingVertical: 9 },
+  avatarWrap: { position: 'relative' },
+  avatar: { alignItems: 'center', backgroundColor: '#f7c8ca', borderRadius: 21, height: 42, justifyContent: 'center', width: 42 },
+  presence: { backgroundColor: '#22c55e', borderColor: '#fff', borderRadius: 6, borderWidth: 1.5, bottom: 1, height: 12, position: 'absolute', right: 1, width: 12 },
+  titleBlock: { flex: 1, minWidth: 0 },
+  name: { color: '#0f172a', fontWeight: '700' },
+  window: { color: '#55921c', fontSize: 11, marginTop: 1 },
+  windowExpired: { color: '#dc2626' },
+  assignee: { color: '#94a3b8', fontSize: 11, marginTop: 1 },
+  list: { flex: 1 },
+  listWrap: { flex: 1 },
+  listContent: { gap: 10, padding: 14 },
+  group: { alignItems: 'flex-start', gap: 6 },
+  outgoingGroup: { alignItems: 'flex-end' },
+  dayDivider: { alignSelf: 'center', backgroundColor: '#e8eef7', borderRadius: 999, color: '#526987', fontSize: 12, fontWeight: '600', marginVertical: 8, overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 6 },
+  olderPill: { alignSelf: 'center', color: '#64748b', fontSize: 12, marginVertical: 6 },
+  error: { color: '#dc2626', padding: 14, textAlign: 'center' },
+  loader: { marginTop: 40 },
+  fab: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 22, bottom: 16, elevation: 3, height: 44, justifyContent: 'center', position: 'absolute', right: 16, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 5, width: 44 },
+  menuOverlay: { alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'center', padding: 24 },
+  menuCard: { backgroundColor: '#fff', borderRadius: 16, maxWidth: 380, padding: 18, width: '100%' },
+  menuTitle: { color: '#0f172a', fontSize: 16, fontWeight: '800', marginBottom: 10 },
+  menuRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  menuLabel: { color: '#64748b', fontSize: 13 },
+  menuValue: { color: '#0f172a', fontSize: 13, fontWeight: '700' },
+  menuClosed: { color: '#dc2626' },
+  menuDivider: { backgroundColor: '#e2e8f0', height: StyleSheet.hairlineWidth, marginVertical: 10 },
+  menuAction: { alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 10, marginTop: 6, paddingVertical: 12 },
+  menuActionText: { color: '#2563eb', fontSize: 14, fontWeight: '700' },
+  menuCancel: { color: '#94a3b8', fontSize: 14, fontWeight: '600' },
+  replyAction: { alignItems: 'center', backgroundColor: '#e8f0ff', borderRadius: 16, justifyContent: 'center', marginVertical: 3, width: 72 },
+  replyIcon: { color: '#2563eb', fontSize: 22 },
+  replyActionText: { color: '#2563eb', fontSize: 11 },
 });

@@ -4,11 +4,13 @@ const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://osaas-mvp
 const SOCKET_URL = (process.env.EXPO_PUBLIC_SOCKET_URL ?? new URL(API_BASE_URL).origin).replace(/\/$/, '');
 
 export const REALTIME_NAMESPACE = '/realtime';
+export type { Socket };
 
 export function createRealtimeSocket(accessToken: string): Socket {
   return io(`${SOCKET_URL}${REALTIME_NAMESPACE}`, {
     transports: ['websocket', 'polling'],
     auth: { token: accessToken },
     autoConnect: true,
+    withCredentials: true,
   });
 }
