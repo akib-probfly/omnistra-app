@@ -113,8 +113,8 @@ export function ConversationScreen() {
   });
 
   const starMutation = useMutation({ mutationFn: (isStarred: boolean) => updateConversationStar(route.params.conversationId, isStarred), onSuccess: (_, isStarred) => setHeader((c) => ({ ...c, isStarred })) });
-  const readMutation = useMutation({ mutationFn: () => markConversationRead(route.params.conversationId), onSuccess: () => setHeader((c) => ({ ...c, unreadCount: 0 })) });
-  const unreadMutation = useMutation({ mutationFn: () => markConversationUnread(route.params.conversationId), onSuccess: () => setHeader((c) => ({ ...c, unreadCount: 1 })) });
+  const readMutation = useMutation({ mutationFn: () => markConversationRead(route.params.conversationId), onSuccess: () => { setHeader((c) => ({ ...c, unreadCount: 0 })); setConversationUnreadInCache(queryClient, route.params.conversationId, 0); } });
+  const unreadMutation = useMutation({ mutationFn: () => markConversationUnread(route.params.conversationId), onSuccess: () => { setHeader((c) => ({ ...c, unreadCount: 1 })); setConversationUnreadInCache(queryClient, route.params.conversationId, 1); } });
   const statusMutation = useMutation({ mutationFn: (status: string) => updateConversationStatus(route.params.conversationId, status as 'OPEN' | 'CLOSED'), onSuccess: (_, status) => setHeader((c) => ({ ...c, status })) });
   const assignmentMutation = useMutation({
     mutationFn: (assigneeWorkspaceMemberId: string | null) => updateConversationAssignment(route.params.conversationId, assigneeWorkspaceMemberId),
@@ -126,6 +126,13 @@ export function ConversationScreen() {
     },
     onError: (error: Error) => Alert.alert('Could not update assignment', error.message),
   });
+
+  useEffect(() => {
+    if (!header.conversation || messages.isLoading || messages.isError) return;
+    if (header.unreadCount <= 0 || readMutation.isPending) return;
+    if (!atBottom) return;
+    readMutation.mutate();
+  }, [header.conversation, header.unreadCount, messages.isLoading, messages.isError, atBottom, readMutation.isPending]);
 
   useEffect(() => { const timer = setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100); return () => clearTimeout(timer); }, [messages.data?.items?.length]);
 
@@ -294,6 +301,19 @@ export function ConversationScreen() {
       </Modal>
     </KeyboardAvoidingView>
   );
+}
+
+function setConversationUnreadInCache(queryClient: any, conversationId: string, unreadCount: number) {
+  queryClient.setQueriesData<any>({ queryKey: ['conversations'] }, (current: any) => {
+    if (!current) return current;
+    if (Array.isArray(current?.pages)) {
+      return { ...current, pages: current.pages.map((page: any) => ({ ...page, items: (page.items ?? []).map((item: any) => item.id === conversationId ? { ...item, unreadCount } : item) })) };
+    }
+    if (Array.isArray(current?.items)) {
+      return { ...current, items: current.items.map((item: any) => item.id === conversationId ? { ...item, unreadCount } : item) };
+    }
+    return current;
+  });
 }
 
 async function sendTemplateMutation(conversationId: string, params: { templateName: string; templateCategory?: string | null; languageCode?: string; text?: string }, queryClient: any, setDraft: (v: string) => void) {
