@@ -22,6 +22,8 @@ const BRAND_COLORS: Record<string, string> = {
   WEBCHAT: '#6366f1',
 };
 
+export const channelBrandColor = (type?: string | null): string => BRAND_COLORS[(type ?? '').toUpperCase()] ?? '#334155';
+
 function FallbackGlyph({ type, glyph }: { type: string; glyph: number }) {
   if (type === 'MESSENGER') return <MessageCircle color="#fff" size={glyph} />;
   if (type === 'EMAIL') return <Mail color="#fff" size={glyph} />;
@@ -30,7 +32,7 @@ function FallbackGlyph({ type, glyph }: { type: string; glyph: number }) {
 
 export function ChannelLogo({ type, box = 48, glyph = 24, radius = 14 }: { type?: string | null; box?: number; glyph?: number; radius?: number }) {
   const t = (type ?? '').toUpperCase();
-  const color = BRAND_COLORS[t] ?? '#334155';
+  const color = channelBrandColor(t);
   const path = BRAND_PATHS[t];
   return (
     <View style={{ alignItems: 'center', backgroundColor: color, borderRadius: radius, height: box, justifyContent: 'center', width: box }}>
