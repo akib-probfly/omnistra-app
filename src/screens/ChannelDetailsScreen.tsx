@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, LoaderCircle, Pause, Play, RefreshCw, RotateCcw, Smartphone, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, FileText, LoaderCircle, RefreshCw, RotateCcw } from 'lucide-react-native';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -16,6 +16,11 @@ import {
   updateWhatsappBusinessProfile,
   type ChannelDetails,
 } from '../api/channels';
+import { ChannelLogo } from '../components/ChannelLogo';
+import { QuickAutomationTab } from '../components/QuickAutomationTab';
+import { TroubleshootTab } from '../components/TroubleshootTab';
+import { WhatsappCallingTab } from '../components/WhatsappCallingTab';
+import { WhatsappTemplatesTab } from '../components/WhatsappTemplatesTab';
 import type { ChannelsStackParamList } from '../navigation/ChannelsStack';
 
 const STATUS_TONE: Record<string, { bg: string; fg: string }> = {
@@ -63,7 +68,7 @@ export function ChannelDetailsScreen() {
   const route = useRoute<RouteProp<ChannelsStackParamList, 'ChannelDetails'>>();
   const queryClient = useQueryClient();
   const channelId = route.params.channelId;
-  const [tab, setTab] = useState<'overview' | 'business'>('overview');
+  const [tab, setTab] = useState<string>('overview');
 
   const details = useQuery({
     queryKey: ['channel-details', channelId],
@@ -153,31 +158,32 @@ export function ChannelDetailsScreen() {
         <View style={{ alignItems: 'center', padding: 32, marginTop: 40 }}>
           <Text style={styles.msgTitle}>Could not load channel</Text>
           <Text style={styles.msgText}>{details.error instanceof Error ? details.error.message : 'Please try again or return to the list.'}</Text>
-          <Pressable style={styles.primaryButton} onPress={() => details.refetch()}><RefreshCw color="#fff" size={15} /><Text style={styles.primaryButtonText}>Retry</Text></Pressable>
+          <Pressable style={[styles.primaryButton, { alignSelf: 'center', marginTop: 20, paddingHorizontal: 18, paddingVertical: 9 }]} onPress={() => details.refetch()}><RefreshCw color="#fff" size={14} /><Text style={[styles.primaryButtonText, { fontSize: 13 }]}>Retry</Text></Pressable>
         </View>
       </View>
     );
   }
 
-  return (
-    <View style={styles.screen}>
-      <HeaderBar insets={insets} onBack={() => navigation.goBack()} onRefresh={() => details.refetch()} />
+  const isMessenger = channel.type === 'MESSENGER';
+  const isWhatsapp = channel.type === 'WHATSAPP';
+  const tabs = isMessenger
+    ? [{ key: 'overview', label: 'Configuration' }, { key: 'automation', label: 'Quick Automation' }, { key: 'access', label: 'Troubleshoot' }]
+    : isWhatsapp
+      ? [{ key: 'overview', label: 'Configuration' }, { key: 'templates', label: 'Templates' }, { key: 'business', label: 'Profile' }, { key: 'calling', label: 'Calls' }, { key: 'automation', label: 'Quick Automation' }, { key: 'access', label: 'Troubleshoot' }]
+      : [{ key: 'overview', label: 'Configuration' }, { key: 'access', label: 'Troubleshoot' }];
 
-      <View style={styles.tabs}>
-        <TabButton label="Configuration" active={tab === 'overview'} onPress={() => setTab('overview')} />
-        <TabButton label="Profile" active={tab === 'business'} onPress={() => setTab('business')} />
-      </View>
-
-      {tab === 'overview' ? (
-        <ScrollView contentContainerStyle={styles.content}>
+  const renderOverview = () => {
+    if (isMessenger) {
+      const config = channel.configuration as { pageId?: string | null; pageName?: string | null; businessAccountId?: string | null; webhookSubscriptionStatus?: string | null; lastWebhookError?: string | null } | null;
+      return (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
           <View style={styles.titleCard}>
-            <View style={styles.waIcon}><Smartphone color="#fff" size={22} /></View>
+            <ChannelLogo type={channel.type} box={52} glyph={26} radius={18} />
             <View style={styles.titleCopy}>
               <Text style={styles.channelName}>{channel.name}</Text>
               <View style={styles.badges}>
                 <View style={[styles.badge, { backgroundColor: statusTone.bg }]}><Text style={[styles.badgeText, { color: statusTone.fg }]}>{channel.status}</Text></View>
                 {lifecycle.isPaused ? <View style={[styles.badge, { backgroundColor: '#fff7df' }]}><Text style={[styles.badgeText, { color: '#b45309' }]}>Paused</Text></View> : null}
-                {lifecycle.isRemoved ? <View style={[styles.badge, { backgroundColor: '#ffe4e6' }]}><Text style={[styles.badgeText, { color: '#be123c' }]}>Removed</Text></View> : null}
               </View>
             </View>
           </View>
@@ -193,87 +199,171 @@ export function ChannelDetailsScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Overview</Text>
             <View style={styles.grid}>
-              <Summary title="Phone line" value={primaryAccount?.displayPhoneNumber ?? 'Not linked'} detail={primaryAccount?.phoneNumberId ?? 'Phone number id unavailable'} />
-              <Summary title="Webhooks" value={primaryAccount?.webhookStatus ?? 'UNKNOWN'} detail={primaryAccount?.lastWebhookError ?? 'No recent webhook errors'} />
-              <Summary title="Event processing" value={lifecycle.canProcessEvents ? 'Active' : 'Stopped'} detail={formatDateLabel(channel.updatedAt)} />
-              <Summary title="Messages 24h" value={channel.messagesLast24h != null ? String(channel.messagesLast24h) : '—'} detail={channel.type} />
+              <Summary title="Page ID" value={config?.pageId ?? 'Not linked'} detail="Meta page identifier" />
+              <Summary title="Webhook" value={config?.webhookSubscriptionStatus ?? 'UNKNOWN'} detail={config?.lastWebhookError ?? 'No recent webhook errors'} />
+              <Summary title="Workspace" value={channel.workspaceName ?? '—'} detail="Parent workspace" />
+              <Summary title="Inbox status" value={lifecycle.canProcessEvents ? 'Active' : 'Stopped'} detail={formatDateLabel(channel.updatedAt)} />
             </View>
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Business information</Text>
-            <Text style={styles.cardSub}>Phone numbers and Meta-linked account details for this WhatsApp channel.</Text>
-            {channel.accounts.length > 0 ? (
-              channel.accounts.map((account) => (
-                <View key={account.id} style={styles.account}>
-                  <View style={styles.accountHead}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.accountName} numberOfLines={1}>{account.displayPhoneNumber ?? 'Linked WhatsApp account'}</Text>
-                      <Text style={styles.accountMeta}>{account.provider}</Text>
-                    </View>
-                    <View style={[styles.badge, { backgroundColor: (STATUS_TONE[account.webhookStatus] ?? STATUS_TONE.PENDING).bg }]}><Text style={[styles.badgeText, { color: (STATUS_TONE[account.webhookStatus] ?? STATUS_TONE.PENDING).fg }]}>Webhook {account.webhookStatus}</Text></View>
-                  </View>
-                  <Field label="WABA ID" value={account.wabaId ?? 'Not linked'} />
-                  <Field label="Phone number ID" value={account.phoneNumberId ?? 'Not linked'} />
-                  <Field label="Connected" value={formatDateLabel(account.connectedAt)} />
-                  <Field label="Disconnected" value={formatDateLabel(account.disconnectedAt)} />
-                </View>
-              ))
-            ) : (
-              <Text style={styles.emptyField}>No business account is linked to this channel.</Text>
-            )}
+            <Text style={styles.cardTitle}>Connection details</Text>
+            <Field label="Current state" value={channel.status} />
+            <Field label="Page name" value={config?.pageName ?? 'Not linked'} />
+            <Field label="Page ID" value={config?.pageId ?? 'Not linked'} />
+            <Field label="Webhook error" value={config?.lastWebhookError ?? 'None'} />
           </View>
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Workspace snapshot</Text>
-            <Text style={styles.cardSub}>Channel facts and quick controls.</Text>
             <Field label="Workspace" value={channel.workspaceName ?? '—'} />
             <Field label="Channel type" value={channel.type} />
-            <Field label="Status" value={channel.status} />
             <Field label="Accounts" value={String(channel.accounts.length)} />
             <Field label="Updated" value={formatDateLabel(channel.updatedAt)} />
             <Field label="Event processing" value={lifecycle.canProcessEvents ? 'Active' : 'Stopped'} />
           </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Controls</Text>
-            {lifecycle.isRemoved ? (
-              <Pressable style={[styles.primaryButton, styles.mb]} onPress={() => restore.mutate()} disabled={isBusy}><RotateCcw color="#fff" size={16} /><Text style={styles.primaryButtonText}>Restore channel</Text></Pressable>
-            ) : lifecycle.isPaused ? (
-              <Pressable style={[styles.primaryButton, styles.mb]} onPress={() => confirmPauseOrResume('resume')} disabled={isBusy}><Play color="#fff" size={16} /><Text style={styles.primaryButtonText}>Resume channel</Text></Pressable>
-            ) : (
-              <Pressable style={[styles.outlineButton, styles.mb]} onPress={() => confirmPauseOrResume('pause')} disabled={isBusy}><Pause color="#334155" size={16} /><Text style={styles.outlineButtonText}>Pause channel</Text></Pressable>
-            )}
-            {!lifecycle.isRemoved ? <Pressable style={[styles.dangerButton, styles.mb]} onPress={confirmRemove} disabled={isBusy}><Trash2 color="#dc2626" size={16} /><Text style={styles.dangerButtonText}>Remove channel</Text></Pressable> : null}
-          </View>
         </ScrollView>
-      ) : (
-        <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.card}>
-            <View style={styles.cardHead}>
-              <Text style={styles.cardTitle}>WhatsApp Business profile</Text>
-              <Pressable style={styles.syncButton} onPress={() => sync.mutate()} disabled={isBusy}><RefreshCw color="#315efb" size={15} /><Text style={styles.syncText}>Sync</Text></Pressable>
+      );
+    }
+
+    const config = channel.configuration as { displayPhoneNumber?: string | null; phoneNumberId?: string | null } | null;
+    const templateCounts = channel.templateCounts;
+    const callingSetting = channel.callBusinessCallingSetting;
+    return (
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+        <View style={styles.titleCard}>
+          <ChannelLogo type={channel.type} box={52} glyph={26} radius={18} />
+          <View style={styles.titleCopy}>
+            <Text style={styles.channelName}>{channel.name}</Text>
+            <View style={styles.badges}>
+              <View style={[styles.badge, { backgroundColor: statusTone.bg }]}><Text style={[styles.badgeText, { color: statusTone.fg }]}>{channel.status}</Text></View>
+              {lifecycle.isPaused ? <View style={[styles.badge, { backgroundColor: '#fff7df' }]}><Text style={[styles.badgeText, { color: '#b45309' }]}>Paused</Text></View> : null}
+              {lifecycle.isRemoved ? <View style={[styles.badge, { backgroundColor: '#ffe4e6' }]}><Text style={[styles.badgeText, { color: '#be123c' }]}>Removed</Text></View> : null}
             </View>
-            <Text style={styles.cardSub}>The public profile of your WhatsApp Business API account.</Text>
-
-            <FieldEdit label="About" value={draft.about} onChange={(text) => setDraft({ ...draft, about: text })} placeholder="What your business is about" multiline />
-            <FieldEdit label="Email" value={draft.email} onChange={(text) => setDraft({ ...draft, email: text })} placeholder="business@email.com" keyboardType="email-address" />
-            <FieldEdit label="Address" value={draft.address} onChange={(text) => setDraft({ ...draft, address: text })} placeholder="Add address" />
-            <FieldEdit label="Website" value={draft.websites} onChange={(text) => setDraft({ ...draft, websites: text })} placeholder="https:// (one per line)" />
-            <FieldEdit label="Description" value={draft.description} onChange={(text) => setDraft({ ...draft, description: text })} placeholder="Add description" multiline />
-
-            <Text style={styles.fieldLabel}>Category</Text>
-            <Pressable style={styles.select} onPress={() => setVerticalPicker(true)}>
-              <Text style={draft.vertical ? styles.selectText : styles.selectPlaceholder}>{WHATSAPP_BUSINESS_VERTICAL_OPTIONS.find((option) => option.value === draft.vertical)?.label ?? 'Select category'}</Text>
-            </Pressable>
-
-            <Pressable style={[styles.primaryButton, { marginTop: 18 }]} onPress={() => save.mutate()} disabled={isBusy}>
-              {save.isPending ? <LoaderCircle color="#fff" size={16} /> : null}
-              <Text style={styles.primaryButtonText}>Save profile</Text>
-            </Pressable>
           </View>
+        </View>
+
+        {lifecycle.isRemoved ? (
+          <View style={styles.dangerCard}>
+            <Text style={styles.dangerTitle}>Removal scheduled</Text>
+            <Text style={styles.dangerText}>This channel is pending permanent deletion. {lifecycle.removeReason ? `Reason: ${lifecycle.removeReason}` : ''}</Text>
+            <Pressable style={[styles.primaryButton, { marginTop: 12 }]} onPress={() => restore.mutate()}><RotateCcw color="#fff" size={15} /><Text style={styles.primaryButtonText}>Restore channel</Text></Pressable>
+          </View>
+        ) : null}
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Overview</Text>
+          <View style={styles.grid}>
+            <Summary title="Phone line" value={config?.displayPhoneNumber ?? primaryAccount?.displayPhoneNumber ?? 'Not linked'} detail={config?.phoneNumberId ?? primaryAccount?.phoneNumberId ?? 'Phone number id unavailable'} />
+            <Summary title="Templates" value={templateCounts ? String(templateCounts.total) : '—'} detail={templateCounts ? `${templateCounts.approved} approved · ${templateCounts.pending} pending` : 'No template counts'} />
+            <Summary title="Webhooks" value={primaryAccount?.webhookStatus ?? 'UNKNOWN'} detail={channel.lastWebhookError ?? primaryAccount?.lastWebhookError ?? 'No recent webhook errors'} />
+            <Summary title="Business calling" value={callingSetting?.status ?? 'Not configured'} detail={callingSetting?.lastError ?? 'Managed by Meta'} />
+            <Summary title="Event processing" value={lifecycle.canProcessEvents ? 'Active' : 'Stopped'} detail={formatDateLabel(channel.updatedAt)} />
+            <Summary title="Messages 24h" value={channel.messagesLast24h != null ? String(channel.messagesLast24h) : '—'} detail={channel.type} />
+          </View>
+          <View style={styles.overviewActions}>
+            {isWhatsapp ? <Pressable style={[styles.primaryButton, { flex: 1, paddingHorizontal: 14, paddingVertical: 9 }]} onPress={() => setTab('templates')}><FileText color="#fff" size={14} /><Text style={styles.primaryButtonText}>Open templates</Text></Pressable> : null}
+            <Pressable style={[styles.outlineButton, { flex: 1, paddingHorizontal: 14, paddingVertical: 9 }]} onPress={() => details.refetch()}><RefreshCw color="#2563eb" size={14} /><Text style={styles.outlineButtonText}>Refresh details</Text></Pressable>
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Business information</Text>
+          <Text style={styles.cardSub}>Phone numbers and Meta-linked account details for this WhatsApp channel.</Text>
+          {channel.accounts.length > 0 ? (
+            channel.accounts.map((account) => (
+              <View key={account.id} style={styles.account}>
+                <View style={styles.accountHead}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.accountName} numberOfLines={1}>{account.displayPhoneNumber ?? 'Linked WhatsApp account'}</Text>
+                    <Text style={styles.accountMeta}>{account.provider}</Text>
+                  </View>
+                  <View style={[styles.badge, { backgroundColor: (STATUS_TONE[account.webhookStatus] ?? STATUS_TONE.PENDING).bg }]}><Text style={[styles.badgeText, { color: (STATUS_TONE[account.webhookStatus] ?? STATUS_TONE.PENDING).fg }]}>Webhook {account.webhookStatus}</Text></View>
+                </View>
+                <Field label="WABA ID" value={account.wabaId ?? 'Not linked'} />
+                <Field label="Phone number ID" value={account.phoneNumberId ?? 'Not linked'} />
+                <Field label="Connected" value={formatDateLabel(account.connectedAt)} />
+                <Field label="Disconnected" value={formatDateLabel(account.disconnectedAt)} />
+              </View>
+            ))
+          ) : (
+            <Text style={styles.emptyField}>No business account is linked to this channel.</Text>
+          )}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Workspace snapshot</Text>
+          <Text style={styles.cardSub}>Channel facts and quick controls.</Text>
+          <Field label="Workspace" value={channel.workspaceName ?? '—'} />
+          <Field label="Channel type" value={channel.type} />
+          <Field label="Status" value={channel.status} />
+          <Field label="Accounts" value={String(channel.accounts.length)} />
+          <Field label="Updated" value={formatDateLabel(channel.updatedAt)} />
+          <Field label="Event processing" value={lifecycle.canProcessEvents ? 'Active' : 'Stopped'} />
+        </View>
+      </ScrollView>
+    );
+  };
+
+  const renderBusiness = () => (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+      <View style={styles.card}>
+        <View style={styles.cardHead}>
+          <Text style={styles.cardTitle}>WhatsApp Business profile</Text>
+          <Pressable style={styles.syncButton} onPress={() => sync.mutate()} disabled={isBusy}><RefreshCw color="#315efb" size={15} /><Text style={styles.syncText}>Sync</Text></Pressable>
+        </View>
+        <Text style={styles.cardSub}>The public profile of your WhatsApp Business API account.</Text>
+
+        <FieldEdit label="About" value={draft.about} onChange={(text) => setDraft({ ...draft, about: text })} placeholder="What your business is about" multiline />
+        <FieldEdit label="Email" value={draft.email} onChange={(text) => setDraft({ ...draft, email: text })} placeholder="business@email.com" keyboardType="email-address" />
+        <FieldEdit label="Address" value={draft.address} onChange={(text) => setDraft({ ...draft, address: text })} placeholder="Add address" />
+        <FieldEdit label="Website" value={draft.websites} onChange={(text) => setDraft({ ...draft, websites: text })} placeholder="https:// (one per line)" />
+        <FieldEdit label="Description" value={draft.description} onChange={(text) => setDraft({ ...draft, description: text })} placeholder="Add description" multiline />
+
+        <Text style={styles.fieldLabel}>Category</Text>
+        <Pressable style={styles.select} onPress={() => setVerticalPicker(true)}>
+          <Text style={draft.vertical ? styles.selectText : styles.selectPlaceholder}>{WHATSAPP_BUSINESS_VERTICAL_OPTIONS.find((option) => option.value === draft.vertical)?.label ?? 'Select category'}</Text>
+        </Pressable>
+
+        <Pressable style={[styles.primaryButton, { marginTop: 18 }]} onPress={() => save.mutate()} disabled={isBusy}>
+          {save.isPending ? <LoaderCircle color="#fff" size={16} /> : null}
+          <Text style={styles.primaryButtonText}>Save profile</Text>
+        </Pressable>
+      </View>
+    </ScrollView>
+  );
+
+  return (
+    <View style={styles.screen}>
+      <HeaderBar insets={insets} onBack={() => navigation.goBack()} onRefresh={() => details.refetch()} />
+
+      <View style={styles.tabBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBarContent}>
+          {tabs.map((item) => (
+            <TabButton key={item.key} label={item.label} active={tab === item.key} onPress={() => setTab(item.key)} />
+          ))}
         </ScrollView>
-      )}
+      </View>
+
+      <View style={styles.tabContent}>
+        {tab === 'overview' ? renderOverview() : null}
+        {tab === 'business' ? renderBusiness() : null}
+        {tab === 'templates' ? <WhatsappTemplatesTab channelId={channelId} /> : null}
+        {tab === 'calling' ? <WhatsappCallingTab channelId={channelId} callingSetting={channel.callBusinessCallingSetting} callDisabledReason={channel.capabilities?.callDisabledReason} /> : null}
+        {tab === 'automation' ? <QuickAutomationTab channelId={channelId} channelType={channel.type} /> : null}
+        {tab === 'access' ? (
+          <TroubleshootTab
+            channel={channel}
+            lifecycle={lifecycle}
+            primaryAccount={primaryAccount}
+            onRestore={() => restore.mutate()}
+            onRemove={confirmRemove}
+            onPauseResume={() => confirmPauseOrResume(lifecycle.isPaused ? 'resume' : 'pause')}
+            onGoToOverview={() => setTab('overview')}
+            isBusy={isBusy}
+          />
+        ) : null}
+      </View>
 
       <Modal visible={verticalPicker} transparent animationType="fade" onRequestClose={() => setVerticalPicker(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setVerticalPicker(false)}>
@@ -304,7 +394,11 @@ function HeaderBar({ insets, onBack, onRefresh }: { insets: { top: number }; onB
 }
 
 function TabButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-  return <Pressable onPress={onPress} style={[styles.tab, active && styles.tabActive]}><Text style={[styles.tabText, active && styles.tabTextActive]}>{label}</Text></Pressable>;
+  return (
+    <Pressable onPress={onPress} style={[styles.tab, active && styles.tabActive]}>
+      <Text style={[styles.tabText, active && styles.tabTextActive]} numberOfLines={1}>{label}</Text>
+    </Pressable>
+  );
 }
 
 function Summary({ title, value, detail }: { title: string; value: string; detail?: string | null }) {
@@ -328,14 +422,16 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: '#eef4fb', flex: 1 },
   header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#dce8f7', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 12, paddingHorizontal: 16 },
   headerTitle: { color: '#0f172a', fontSize: 17, fontWeight: '700' },
-  tabs: { backgroundColor: '#fff', borderBottomColor: '#dce8f7', borderBottomWidth: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingTop: 10 },
-  tab: { borderBottomColor: 'transparent', borderBottomWidth: 2, paddingBottom: 10, paddingHorizontal: 4 },
-  tabActive: { borderBottomColor: '#2563eb' },
-  tabText: { color: '#64748b', fontSize: 14, fontWeight: '600' },
-  tabTextActive: { color: '#2563eb' },
+  tabs: { flexDirection: 'row', gap: 8 },
+  tabBar: { backgroundColor: '#fff', borderBottomColor: '#dce8f7', borderBottomWidth: 1, paddingVertical: 10, paddingHorizontal: 12 },
+  tabBarContent: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  tabContent: { flex: 1 },
+  tab: { alignItems: 'center', borderRadius: 12, flexShrink: 0, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 9 },
+  tabActive: { backgroundColor: '#e7efff' },
+  tabText: { color: '#64748b', fontSize: 13, fontWeight: '600' },
+  tabTextActive: { color: '#2563eb', fontWeight: '700' },
   content: { padding: 16, paddingBottom: 40 },
   titleCard: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 20, borderWidth: 1, flexDirection: 'row', padding: 16 },
-  waIcon: { alignItems: 'center', backgroundColor: '#25D366', borderRadius: 18, height: 52, justifyContent: 'center', width: 52 },
   titleCopy: { flex: 1, marginLeft: 14 },
   channelName: { color: '#0f172a', fontSize: 19, fontWeight: '800' },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
@@ -350,6 +446,7 @@ const styles = StyleSheet.create({
   summaryTitle: { color: '#64748b', fontSize: 10, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' },
   summaryValue: { color: '#0f172a', fontSize: 16, fontWeight: '800', marginTop: 4 },
   summaryDetail: { color: '#64748b', fontSize: 11, lineHeight: 16, marginTop: 2 },
+  overviewActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },
   account: { backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 16, borderWidth: 1, marginTop: 12, padding: 14 },
   accountHead: { alignItems: 'flex-start', borderBottomColor: '#d8e6fb', borderBottomWidth: 1, flexDirection: 'row', gap: 10, justifyContent: 'space-between', paddingBottom: 12 },
   accountName: { color: '#0f172a', fontSize: 15, fontWeight: '700' },
@@ -362,11 +459,9 @@ const styles = StyleSheet.create({
   dangerTitle: { color: '#be123c', fontSize: 15, fontWeight: '700' },
   dangerText: { color: '#881337', fontSize: 13, lineHeight: 19, marginTop: 4 },
   primaryButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 14, flexDirection: 'row', gap: 6, justifyContent: 'center', paddingVertical: 12 },
-  primaryButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  outlineButton: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 6, justifyContent: 'center', paddingVertical: 12 },
-  outlineButtonText: { color: '#334155', fontSize: 14, fontWeight: '700' },
-  dangerButton: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#fecdd3', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 6, justifyContent: 'center', paddingVertical: 12 },
-  dangerButtonText: { color: '#dc2626', fontSize: 14, fontWeight: '700' },
+  primaryButtonText: { color: '#fff', flexShrink: 1, fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  outlineButton: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 6, justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 12 },
+  outlineButtonText: { color: '#2563eb', flexShrink: 1, fontSize: 13, fontWeight: '700', textAlign: 'center' },
   mb: { marginBottom: 10 },
   syncButton: { alignItems: 'center', backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 5, paddingHorizontal: 12, paddingVertical: 7 },
   syncText: { color: '#315efb', fontSize: 13, fontWeight: '700' },

@@ -4,6 +4,7 @@ import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View,
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ErrorState } from '../components/ErrorState';
+import { ChannelLogo } from '../components/ChannelLogo';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { fetchConversations, fetchConversationCount, fetchAssigneeOptions, type ConversationListItem, type AssigneeFilterOption } from '../api/inbox';
 
@@ -198,7 +199,7 @@ function ConversationRow({ conversation, onPress }: { conversation: Conversation
       <View style={styles.row}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{(conversation.contact.displayName ?? '?').slice(0, 1).toUpperCase()}</Text>
-          {conversation.channel?.channelType ? <View style={styles.channelBadge}><Text style={styles.channelBadgeText}>{channelInitial(conversation.channel.channelType)}</Text></View> : null}
+          {conversation.channel?.channelType ? <View style={styles.channelBadgeWrap}><ChannelLogo type={conversation.channel.channelType} box={22} glyph={13} radius={11} /></View> : null}
         </View>
         <View style={styles.copy}>
           <View style={styles.nameLine}>
@@ -212,11 +213,6 @@ function ConversationRow({ conversation, onPress }: { conversation: Conversation
       </View>
     </Pressable>
   );
-}
-
-function channelInitial(type?: string | null) {
-  if (!type) return '?';
-  return type.slice(0, 1);
 }
 
 function formatTime(value: string | null) {
@@ -266,15 +262,14 @@ const styles = StyleSheet.create({
   row: { borderBottomColor: '#eef2f7', borderBottomWidth: 1, flexDirection: 'row', padding: 12 },
   avatar: { alignItems: 'center', backgroundColor: '#f9c43d', borderRadius: 24, height: 48, justifyContent: 'center', position: 'relative', width: 48 },
   avatarText: { color: '#111827', fontSize: 18, fontWeight: '700' },
-  channelBadge: { alignItems: 'center', backgroundColor: '#16c784', borderColor: '#fff', borderRadius: 10, borderWidth: 2, bottom: -3, height: 20, justifyContent: 'center', position: 'absolute', right: -3, width: 20 },
-  channelBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  channelBadgeWrap: { alignItems: 'center', borderColor: '#fff', borderRadius: 11, borderWidth: 2, bottom: -4, height: 22, justifyContent: 'center', overflow: 'hidden', position: 'absolute', right: -4, width: 22 },
   copy: { flex: 1, marginLeft: 12 },
   nameLine: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   name: { color: '#111827', flex: 1, fontSize: 15, fontWeight: '700' },
   unreadBadge: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 10, justifyContent: 'center', minWidth: 20, paddingHorizontal: 5 },
   unreadText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   time: { color: '#8ba2c3', fontSize: 11 },
-  channel: { color: '#64748b', fontSize: 12, marginTop: 2 },
+  channel: { color: '#64748b', flex: 1, fontSize: 12, marginTop: 2 },
   preview: { color: '#8ba2c3', fontSize: 13, marginTop: 3 },
   empty: { alignItems: 'center', paddingTop: 60 },
   emptyTitle: { color: '#64748b', fontSize: 15, fontWeight: '700', marginTop: 12 },

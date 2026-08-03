@@ -1,27 +1,160 @@
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, ChevronRight, CircleAlert, MessageCircle, Plus, RefreshCw, Search, Smartphone } from 'lucide-react-native';
+import { CheckCircle2, ChevronRight, CircleAlert, Pause, Search } from 'lucide-react-native';
 import { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { apiFetch } from '../api/client';
+import { ChannelLogo } from '../components/ChannelLogo';
 import { ErrorState } from '../components/ErrorState';
 import type { ChannelsStackParamList } from '../navigation/ChannelsStack';
 
-type Channel = { id: string; channelName?: string | null; name?: string | null; type?: string; channelType?: string; status?: string | null; webhookStatus?: string | null; phoneNumber?: string | null; phoneNumberId?: string | null; createdAt?: string };
+type Channel = {
+  id: string;
+  channelName?: string | null;
+  name?: string | null;
+  type?: string;
+  channelType?: string;
+  status?: string | null;
+  webhookStatus?: string | null;
+  phoneNumber?: string | null;
+  phoneNumberId?: string | null;
+  createdAt?: string;
+  messagesLast24h?: number;
+  lifecycle?: { isPaused?: boolean } | null;
+  accounts?: Array<{
+    displayPhoneNumber?: string | null;
+    displayName?: string | null;
+    pageName?: string | null;
+    pageId?: string | null;
+    wabaId?: string | null;
+    phoneNumberId?: string | null;
+  }>;
+};
 type ChannelsResponse = { items: Channel[]; summary?: { connectedCount?: number; activeTodayCount?: number; issuesCount?: number; messagesLast24h?: number } };
 
 export function ChannelsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ChannelsStackParamList>>();
   const [search, setSearch] = useState('');
-  const channels = useQuery({ queryKey: ['channels', search], queryFn: () => apiFetch<ChannelsResponse>(`/channels?page=1&limit=100&sortBy=createdAt&sortOrder=desc${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''}`), staleTime: 120000 });
+  const query = `/channels?page=1&limit=100&sortBy=createdAt&sortOrder=desc${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''}`;
+  const channels = useQuery({ queryKey: ['channels', search], queryFn: () => apiFetch<ChannelsResponse>(query), staleTime: 120000 });
   const items = channels.data?.items ?? [];
   const summary = channels.data?.summary;
   const openDetails = (channel: Channel) => navigation.navigate('ChannelDetails', { channelId: channel.id, channelName: channel.channelName ?? channel.name ?? 'Channel' });
-  return <View style={styles.screen}><View style={styles.hero}><View style={styles.heroRow}><View style={styles.heroCopy}><Text style={styles.kicker}>Workspace connections</Text><Text style={styles.title}>Channels</Text><Text style={styles.subtitle}>Manage your connected customer touchpoints.</Text></View><Pressable onPress={() => navigation.navigate('ChannelCatalog', {})} style={styles.connectButton}><Plus color="#fff" size={16} /><Text style={styles.connectText}>Connect</Text></Pressable></View><View style={styles.metrics}><Metric label="Connected" value={summary?.connectedCount ?? items.filter((item) => item.status === 'CONNECTED').length} /><Metric label="Active today" value={summary?.activeTodayCount ?? 0} /><Metric label="Issues" value={summary?.issuesCount ?? items.filter((item) => item.status && item.status !== 'CONNECTED').length} /></View></View><View style={styles.search}><Search color="#8ba2c3" size={18} /><TextInput value={search} onChangeText={setSearch} placeholder="Search channels..." placeholderTextColor="#8ba2c3" style={styles.searchInput} /></View>{channels.isError ? <ErrorState message={channels.error instanceof Error ? channels.error.message : undefined} onRetry={() => channels.refetch()} /> : channels.isLoading ? <ActivityIndicator color="#2563eb" style={styles.loader} /> : <FlatList data={items} keyExtractor={(item) => item.id} refreshControl={<RefreshControl refreshing={channels.isRefetching} onRefresh={() => channels.refetch()} tintColor="#2563eb" />} contentContainerStyle={styles.list} ListEmptyComponent={<View style={styles.empty}><Smartphone color="#94a3b8" size={30} /><Text style={styles.emptyTitle}>No channels connected</Text><Text style={styles.emptyText}>Tap Connect to add WhatsApp or Messenger to this workspace.</Text><Pressable onPress={() => navigation.navigate('ChannelCatalog', {})} style={styles.emptyButton}><Text style={styles.emptyButtonText}>Connect a channel</Text></Pressable></View>} renderItem={({ item }) => <ChannelRow channel={item} onPress={() => openDetails(item)} />} />}</View>;
+
+  return (
+    <View style={styles.screen}>
+      <View style={styles.hero}>
+        <View style={styles.heroRow}>
+          <View style={styles.heroCopy}>
+            <Text style={styles.kicker}>Workspace connections</Text>
+            <Text style={styles.title}>Channels</Text>
+            <Text style={styles.subtitle}>Manage your connected customer touchpoints.</Text>
+          </View>
+        </View>
+        <View style={styles.metrics}>
+          <Metric label="Connected" value={summary?.connectedCount ?? items.filter((item) => item.status === 'CONNECTED').length} />
+          <Metric label="Active today" value={summary?.activeTodayCount ?? 0} />
+          <Metric label="Issues" value={summary?.issuesCount ?? items.filter((item) => item.status && item.status !== 'CONNECTED').length} />
+        </View>
+      </View>
+
+      <View style={styles.search}>
+        <Search color="#8ba2c3" size={18} />
+        <TextInput value={search} onChangeText={setSearch} placeholder="Search channels..." placeholderTextColor="#8ba2c3" style={styles.searchInput} />
+      </View>
+
+      {channels.isError ? (
+        <ErrorState message={channels.error instanceof Error ? channels.error.message : undefined} onRetry={() => channels.refetch()} />
+      ) : channels.isLoading ? (
+        <ActivityIndicator color="#2563eb" style={styles.loader} />
+      ) : (
+        <FlatList
+          data={items}
+          keyExtractor={(item) => item.id}
+          refreshControl={<RefreshControl refreshing={channels.isRefetching} onRefresh={() => channels.refetch()} tintColor="#2563eb" />}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <ChannelLogo box={52} glyph={26} radius={18} />
+              <Text style={styles.emptyTitle}>No channels connected</Text>
+              <Text style={styles.emptyText}>Channels connected in the web workspace will appear here automatically.</Text>
+            </View>
+          }
+          renderItem={({ item }) => <ChannelRow channel={item} onPress={() => openDetails(item)} />}
+        />
+      )}
+    </View>
+  );
 }
 
-function Metric({ label, value }: { label: string; value: number }) { return <View style={styles.metric}><Text style={styles.metricValue}>{value}</Text><Text style={styles.metricLabel}>{label}</Text></View>; }
-function ChannelRow({ channel, onPress }: { channel: Channel; onPress: () => void }) { const status = (channel.status ?? channel.webhookStatus ?? 'UNKNOWN').toUpperCase(); const connected = status === 'CONNECTED'; return <Pressable onPress={onPress} style={styles.card}><View style={[styles.channelIcon, connected ? styles.connectedIcon : styles.warningIcon]}>{channel.channelType?.toUpperCase().includes('MESSENGER') || channel.type?.toUpperCase().includes('MESSENGER') ? <MessageCircle color={connected ? '#059669' : '#d97706'} size={23} /> : <Smartphone color={connected ? '#059669' : '#d97706'} size={23} />}</View><View style={styles.copy}><View style={styles.nameLine}><Text style={styles.name}>{channel.channelName ?? channel.name ?? 'Unnamed channel'}</Text><View style={[styles.badge, connected ? styles.connectedBadge : styles.warningBadge]}>{connected ? <CheckCircle2 color="#059669" size={12} /> : <CircleAlert color="#d97706" size={12} />}<Text style={connected ? styles.connectedText : styles.warningText}>{status.toLowerCase()}</Text></View></View><Text style={styles.detail}>{channel.phoneNumber ?? channel.phoneNumberId ?? channel.channelType ?? channel.type ?? 'Channel connection'}</Text><Text style={styles.hint}>{connected ? 'Receiving messages normally' : 'Connection needs attention'}</Text></View><ChevronRight color="#94a3b8" size={20} /></Pressable>; }
+function Metric({ label, value }: { label: string; value: number }) {
+  return (
+    <View style={styles.metric}>
+      <Text style={styles.metricValue}>{value}</Text>
+      <Text style={styles.metricLabel}>{label}</Text>
+    </View>
+  );
+}
 
-const styles = StyleSheet.create({ screen: { backgroundColor: '#eef4fb', flex: 1 }, hero: { backgroundColor: '#fff', borderBottomColor: '#dce8f7', borderBottomWidth: 1, padding: 20, paddingTop: 28 }, kicker: { color: '#2563eb', fontSize: 12, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' }, title: { color: '#0f172a', fontSize: 30, fontWeight: '800', marginTop: 4 }, subtitle: { color: '#64748b', fontSize: 14, marginTop: 5 }, heroRow: { alignItems: 'flex-start', flexDirection: 'row', gap: 12 }, heroCopy: { flex: 1 }, connectButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 20, flexDirection: 'row', gap: 5, marginTop: 6, paddingHorizontal: 14, paddingVertical: 9 }, connectText: { color: '#fff', fontSize: 13, fontWeight: '700' }, metrics: { flexDirection: 'row', gap: 10, marginTop: 20 }, metric: { backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 14, flex: 1, padding: 12 }, metricValue: { color: '#0f172a', fontSize: 22, fontWeight: '800' }, metricLabel: { color: '#64748b', fontSize: 11, marginTop: 3 }, search: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 22, borderWidth: 1, flexDirection: 'row', margin: 16, paddingHorizontal: 12 }, searchInput: { color: '#17233a', flex: 1, height: 44, marginLeft: 8 }, list: { gap: 10, paddingHorizontal: 16, paddingBottom: 24 }, card: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, flexDirection: 'row', padding: 14 }, channelIcon: { alignItems: 'center', borderRadius: 14, height: 48, justifyContent: 'center', width: 48 }, connectedIcon: { backgroundColor: '#dff8ee' }, warningIcon: { backgroundColor: '#fff4d6' }, copy: { flex: 1, marginLeft: 12 }, nameLine: { alignItems: 'center', flexDirection: 'row', gap: 8 }, name: { color: '#0f172a', flexShrink: 1, fontSize: 15, fontWeight: '700' }, badge: { alignItems: 'center', borderRadius: 10, flexDirection: 'row', gap: 3, paddingHorizontal: 7, paddingVertical: 3 }, connectedBadge: { backgroundColor: '#e8fbf3' }, warningBadge: { backgroundColor: '#fff7df' }, connectedText: { color: '#047857', fontSize: 10, fontWeight: '700' }, warningText: { color: '#b45309', fontSize: 10, fontWeight: '700' }, detail: { color: '#526987', fontSize: 12, marginTop: 6 }, hint: { color: '#94a3b8', fontSize: 11, marginTop: 3 }, loader: { marginTop: 35 }, empty: { alignItems: 'center', padding: 40 }, emptyTitle: { color: '#334155', fontSize: 16, fontWeight: '700', marginTop: 12 }, emptyText: { color: '#64748b', lineHeight: 19, marginTop: 6, textAlign: 'center' }, emptyButton: { backgroundColor: '#2563eb', borderRadius: 18, marginTop: 16, paddingHorizontal: 18, paddingVertical: 10 }, emptyButtonText: { color: '#fff', fontSize: 13, fontWeight: '700' } });
+function ChannelRow({ channel, onPress }: { channel: Channel; onPress: () => void }) {
+  const status = (channel.status ?? channel.webhookStatus ?? 'UNKNOWN').toUpperCase();
+  const isPaused = channel.lifecycle?.isPaused ?? false;
+  const connected = status === 'CONNECTED' && !isPaused;
+  const primary = channel.accounts?.[0];
+  const primaryLine = primary?.displayPhoneNumber ?? primary?.displayName ?? primary?.pageName ?? channel.phoneNumber ?? channel.phoneNumberId ?? channel.type ?? channel.channelType ?? 'Channel connection';
+  const idLine = primary?.wabaId ?? primary?.phoneNumberId ?? primary?.pageId ?? channel.id.slice(-15);
+  const statusLabel = isPaused ? 'Paused' : connected ? 'Active' : status.toLowerCase();
+  const StatusIcon = isPaused ? Pause : connected ? CheckCircle2 : CircleAlert;
+  const statusTone = isPaused || !connected ? '#d97706' : '#059669';
+  return (
+    <Pressable onPress={onPress} style={styles.card}>
+      <ChannelLogo type={channel.type ?? channel.channelType} box={48} glyph={24} radius={14} />
+      <View style={styles.copy}>
+        <View style={styles.nameLine}>
+          <Text style={styles.name}>{channel.channelName ?? channel.name ?? 'Unnamed channel'}</Text>
+          <View style={[styles.badge, { backgroundColor: isPaused || !connected ? '#fff4d6' : '#dff8ee' }]}>
+            <StatusIcon color={statusTone} size={12} />
+            <Text style={{ color: statusTone, fontSize: 11, fontWeight: '600' }}>{statusLabel}</Text>
+          </View>
+        </View>
+        <Text style={styles.detail} numberOfLines={1}>{primaryLine}</Text>
+        <View style={styles.metaLine}>
+          <Text style={styles.idText} numberOfLines={1}>ID: {idLine}</Text>
+          <Text style={styles.msg24h}>{channel.messagesLast24h ?? 0} msgs / 24h</Text>
+        </View>
+      </View>
+      <ChevronRight color="#94a3b8" size={20} />
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { backgroundColor: '#eef4fb', flex: 1 },
+  hero: { backgroundColor: '#fff', borderBottomColor: '#dce8f7', borderBottomWidth: 1, padding: 20, paddingTop: 28 },
+  kicker: { color: '#2563eb', fontSize: 12, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' },
+  title: { color: '#0f172a', fontSize: 30, fontWeight: '800', marginTop: 4 },
+  subtitle: { color: '#64748b', fontSize: 14, marginTop: 5 },
+  heroRow: { alignItems: 'flex-start', flexDirection: 'row', gap: 12 },
+  heroCopy: { flex: 1 },
+  metrics: { flexDirection: 'row', gap: 10, marginTop: 20 },
+  metric: { backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 14, flex: 1, padding: 12 },
+  metricValue: { color: '#0f172a', fontSize: 22, fontWeight: '800' },
+  metricLabel: { color: '#64748b', fontSize: 11, marginTop: 3 },
+  search: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 22, borderWidth: 1, flexDirection: 'row', margin: 16, paddingHorizontal: 12 },
+  searchInput: { color: '#17233a', flex: 1, height: 44, marginLeft: 8 },
+  list: { gap: 10, paddingHorizontal: 16, paddingBottom: 24 },
+  card: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, flexDirection: 'row', padding: 14 },
+  copy: { flex: 1, marginLeft: 12 },
+  nameLine: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  name: { color: '#0f172a', flexShrink: 1, fontSize: 15, fontWeight: '700' },
+  badge: { alignItems: 'center', borderRadius: 10, flexDirection: 'row', gap: 3, paddingHorizontal: 8, paddingVertical: 3 },
+  detail: { color: '#475569', fontSize: 13, marginTop: 3 },
+  metaLine: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'space-between', marginTop: 5 },
+  idText: { color: '#94a3b8', flex: 1, fontSize: 11 },
+  msg24h: { color: '#64748b', fontSize: 11, fontWeight: '600' },
+  empty: { alignItems: 'center', paddingTop: 48 },
+  emptyTitle: { color: '#0f172a', fontSize: 16, fontWeight: '700', marginTop: 14 },
+  emptyText: { color: '#64748b', fontSize: 13, marginTop: 5, maxWidth: 240, textAlign: 'center' },
+  loader: { marginTop: 60 },
+});

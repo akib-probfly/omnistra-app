@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { requestRecordingPermissionsAsync, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
-import { FileText, Mic, Pause, Paperclip, Send, Smile, Trash2, Zap, PanelsTopLeft } from 'lucide-react-native';
+import { FileText, Mic, Pause, Paperclip, Play, Send, Smile, Trash2, Zap, PanelsTopLeft } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { fetchQuickReplies, fetchWhatsappTemplates } from '../api/inbox';
@@ -31,6 +31,7 @@ function renderTemplateSamples(body: string, variables?: Array<{ index?: number;
 export function ConversationComposer({ value, onChange, onSend, sending, attachments = [], onAttachments, replyPreview, onCancelReply, workspaceId, channelId, channelType, contactName, onSendTemplate }: Props) {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const [quickQuery, setQuickQuery] = useState('');
   const [templateOpen, setTemplateOpen] = useState(false);
@@ -94,15 +95,31 @@ export function ConversationComposer({ value, onChange, onSend, sending, attachm
   }
   async function stopRecording(send: boolean) {
     try {
+      if (paused) recorder.record();
       await recorder.stop();
     } catch (error) {
       console.error('[voice] record stop failed', error);
     }
+    setPaused(false);
     setRecording(false);
-    await setAudioModeAsync({ allowsRecording: false });
+    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
     const uri = recorder.uri;
     if (send && uri) {
       onAttachments?.([...attachments, { uri, name: 'voice-note.m4a', mimeType: 'audio/mp4', type: 'VOICE' }]);
+    }
+  }
+
+  function togglePause() {
+    try {
+      if (paused) {
+        recorder.record();
+        setPaused(false);
+      } else {
+        recorder.pause();
+        setPaused(true);
+      }
+    } catch (error) {
+      console.error('[voice] pause toggle failed', error);
     }
   }
 
@@ -132,14 +149,16 @@ export function ConversationComposer({ value, onChange, onSend, sending, attachm
     return (
       <View style={styles.recording}>
         <Pressable onPress={() => stopRecording(false)} style={styles.delete}><Trash2 color="#fff" size={17} /></Pressable>
-        <Text style={styles.recordTime}>● {`0:${String(recordingSeconds).padStart(2, '0')}`}</Text>
+        <Text style={[styles.recordTime, paused && styles.recordTimePaused]}>{paused ? '⏸ Paused' : `● ${`0:${String(recordingSeconds).padStart(2, '0')}`}`}</Text>
         <View style={styles.recordingLevels}>
           {[0.4, 0.8, 0.5, 1, 0.6, 0.9, 0.45, 0.75, 0.55, 1, 0.7, 0.4].map((height, index) => (
             <View key={index} style={[styles.levelBar, { height: height * 22 }]} />
           ))}
         </View>
-        <Pause color="#fda4af" size={18} />
-        <Pressable onPress={() => stopRecording(true)} style={styles.send}><Send color="#fff" size={18} /></Pressable>
+        <Pressable onPress={togglePause} style={[styles.pauseBtn, paused && styles.pauseBtnActive]}>
+          {paused ? <Play color="#fff" size={16} /> : <Pause color="#4338ca" size={16} />}
+        </Pressable>
+        <Pressable onPress={() => stopRecording(true)} style={styles.sendRecording}><Send color="#fff" size={18} /></Pressable>
       </View>
     );
   }
@@ -258,8 +277,12 @@ const styles = StyleSheet.create({
   recording: { alignItems: 'center', backgroundColor: '#fff5f5', borderColor: '#fecaca', borderRadius: 24, borderWidth: 1, flexDirection: 'row', gap: 12, margin: 12, padding: 12 },
   delete: { alignItems: 'center', backgroundColor: '#fee2e2', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   recordTime: { color: '#17233a', fontWeight: '600' },
+  recordTimePaused: { color: '#94a3b8' },
   recordingLevels: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 3, height: 24, justifyContent: 'center' },
   levelBar: { backgroundColor: '#2563eb', borderRadius: 2, width: 3 },
+  pauseBtn: { alignItems: 'center', backgroundColor: '#e0e7ff', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
+  pauseBtnActive: { backgroundColor: '#4338ca' },
+  sendRecording: { alignItems: 'center', backgroundColor: '#16a34a', borderRadius: 20, height: 40, justifyContent: 'center', width: 40 },
   modalBackdrop: { backgroundColor: '#0003', flex: 1, justifyContent: 'flex-end' },
   emojiPanel: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '55%', padding: 16 },
   emojiSearch: { backgroundColor: '#f5f5f5', borderRadius: 10, color: '#17233a', height: 42, paddingHorizontal: 12 },

@@ -71,19 +71,43 @@ export type Channel = {
   messagesLast24h?: number;
   lifecycle?: ChannelLifecycle | null;
   capabilities?: ChannelCapabilities | null;
+  templateCounts?: WhatsappChannelTemplateCounts | null;
   lastWebhookError?: string | null;
   callBusinessCallingSetting?: WhatsappCallingSetting | null;
 };
 
+export type WhatsappChannelTemplateCounts = {
+  total: number;
+  approved: number;
+  pending: number;
+  failed: number;
+  rejected: number;
+};
+
+export type WhatsappChannelConfiguration = {
+  provider: string;
+  wabaId: string | null;
+  phoneNumberId: string | null;
+  displayPhoneNumber: string | null;
+  businessAccountId: string | null;
+};
+
+export type MessengerChannelConfiguration = {
+  provider: string;
+  pageId: string | null;
+  pageName: string | null;
+  businessAccountId: string | null;
+  webhookSubscriptionStatus: ChannelConnectionStatus | null;
+  lastWebhookError: string | null;
+};
+
 export type ChannelDetails = Channel & {
-  configuration?: {
-    provider: string;
-    wabaId: string | null;
-    phoneNumberId: string | null;
-    displayPhoneNumber: string | null;
-    businessAccountId: string | null;
-  } | null;
+  configuration?: WhatsappChannelConfiguration | MessengerChannelConfiguration | null;
   lifecycle: ChannelLifecycle;
+  capabilities?: ChannelCapabilities | null;
+  templateCounts?: WhatsappChannelTemplateCounts | null;
+  lastWebhookError?: string | null;
+  businessProfile?: WhatsappBusinessProfile | null;
 };
 
 export type ChannelsListSummary = {
@@ -210,4 +234,76 @@ export function startMessengerConnect(workspaceId: string) {
       body: JSON.stringify({ workspaceId }),
     },
   );
+}
+
+export type ChannelQuickAutomationDay = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
+export type ChannelQuickAutomationBusinessHour = { enabled: boolean; from: string; to: string };
+export type ChannelQuickAutomationBusinessHours = Record<ChannelQuickAutomationDay, ChannelQuickAutomationBusinessHour>;
+
+export type ChannelQuickAutomationSettings = {
+  channelId: string;
+  workspaceId: string;
+  channelType: ChannelType;
+  hasStoredSettings: boolean;
+  welcomeEnabled: boolean;
+  welcomeMessage: string | null;
+  welcomeAttachments: unknown[];
+  welcomeSendFrequency: 'LIFETIME' | 'TWENTY_FOUR_HOURS' | 'EVERY_TIME';
+  offHourEnabled: boolean;
+  offHourMessage: string | null;
+  offHourAttachments: unknown[];
+  timezone: string;
+  businessHours: ChannelQuickAutomationBusinessHours;
+  channelSpecific: unknown | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type ChannelQuickAutomationSettingsUpdateInput = {
+  welcomeEnabled: boolean;
+  welcomeMessage: string | null;
+  welcomeAttachments: unknown[];
+  welcomeSendFrequency: 'LIFETIME' | 'TWENTY_FOUR_HOURS' | 'EVERY_TIME';
+  offHourEnabled: boolean;
+  offHourMessage: string | null;
+  offHourAttachments: unknown[];
+  businessHours: ChannelQuickAutomationBusinessHours;
+  channelSpecific?: unknown | null;
+};
+
+export function fetchChannelQuickAutomationSettings(channelId: string) {
+  return apiFetch<ChannelQuickAutomationSettings>(`/channels/${channelId}/automation-settings`);
+}
+
+export function updateChannelQuickAutomationSettings(channelId: string, values: ChannelQuickAutomationSettingsUpdateInput) {
+  return apiFetch<ChannelQuickAutomationSettings>(`/channels/${channelId}/automation-settings`, {
+    method: 'PATCH',
+    body: JSON.stringify(values),
+  });
+}
+
+export type WhatsappCallingUpdateResponse = {
+  success: true;
+  calling: {
+    enabled: boolean;
+    status: 'ENABLED' | 'DISABLED' | null;
+    callIconVisibility: string | null;
+    callbackPermissionStatus: string | null;
+    lastSyncedAt: string | null;
+    syncStatus: 'SUCCESS' | 'FAILED';
+    syncError: string | null;
+  };
+};
+
+export function updateWhatsappChannelCalling(channelId: string, enabled: boolean) {
+  return apiFetch<WhatsappCallingUpdateResponse>(`/channels/whatsapp/${channelId}/calling-settings`, {
+    method: 'PATCH',
+    body: JSON.stringify({ enabled }),
+  });
+}
+
+export function syncWhatsappChannelCallingSettings(channelId: string) {
+  return apiFetch<WhatsappCallingUpdateResponse>(`/calls/whatsapp/channels/${channelId}/calling-settings/sync`, {
+    method: 'POST',
+  });
 }

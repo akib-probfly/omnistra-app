@@ -1,32 +1,24 @@
 // @ts-nocheck
-import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as SecureStore from 'expo-secure-store';
-import * as FileSystem from 'expo-file-system/legacy';
-import { Pause, Play } from 'lucide-react-native';
-import { useEffect, useRef, useState } from 'react';
+import { Pause, Play, RotateCw } from 'lucide-react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 
 const PLAYBACK_RATES = [1, 1.5, 2];
+const LOAD_TIMEOUT_MS = 8000;
 let currentPlayer: any = null;
 
-function useLocalAsset(url: string): string | null {
-  const [uri, setUri] = useState<string | null>(null);
+function useAuthToken(): string | null {
+  const [token, setToken] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
-    (async () => {
-      try {
-        const token = await SecureStore.getItemAsync('access-token');
-        const target = `${FileSystem.cacheDirectory}voice-${Date.now()}-${Math.random().toString(36).slice(2)}.bin`;
-        const result = await FileSystem.downloadAsync(url, target, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-        if (active && result.status === 200) setUri(result.uri);
-        else console.error('[voice] download failed', url, result.status);
-      } catch (error) {
-        console.error('[voice] download failed', url, error);
-      }
-    })();
+    SecureStore.getItemAsync('access-token')
+      .then((value) => { if (active) setToken(value); })
+      .catch(() => {});
     return () => { active = false; };
-  }, [url]);
-  return uri;
+  }, []);
+  return token;
 }
 
 const BAR_PATTERN = [0.32, 0.55, 0.85, 0.4, 1, 0.6, 0.75, 0.45, 0.9, 0.5, 0.7, 0.35, 0.62, 0.82, 0.48, 0.95, 0.55, 0.72, 0.4, 0.88, 0.58, 0.78, 0.5, 0.66, 0.92, 0.44, 0.6, 0.34];
@@ -39,15 +31,77 @@ function formatClock(seconds: number | null): string {
   return `${minutes}:${String(secs).padStart(2, '0')}`;
 }
 
-function VoiceInner({ url, outgoing, durationMs }: { url: string; outgoing: boolean; durationMs: number | null }) {
-  const localUri = useLocalAsset(url);
-  const player = useAudioPlayer(localUri ? { uri: localUri } : null);
+function PlayerShell({ url, token, outgoing, durationMs, autoRetries, onRetry }: { url: string; token: string | null; outgoing: boolean; durationMs: number | null; autoRetries: number; onRetry: () => void }) {
+  const source = url && token ? { uri: url, headers: { Authorization: `Bearer ${token}` } } : null;
+  const player = useAudioPlayer(source);
   const status = useAudioPlayerStatus(player);
   const [rateIndex, setRateIndex] = useState(0);
+  const [failed, setFailed] = useState(false);
   const duration = status.duration > 0 ? status.duration : durationMs != null ? durationMs / 1000 : null;
   const progress = status.duration > 0 ? Math.min(1, Math.max(0, status.currentTime / status.duration)) : 0;
-  const barWrap = useRef<View>(null);
   const filledCount = Math.round(BAR_PATTERN.length * progress);
+  const barWrap = useRef<View>(null);
+  const loaded = status.isLoaded || status.duration > 0;
+
+  const playerRef = useRef(player);
+  playerRef.current = player;
+  const durationRef = useRef(duration ?? 0);
+  durationRef.current = duration ?? 0;
+
+  useEffect(() => {
+    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (loaded) {
+      setFailed(false);
+      console.log('[voice] loaded', { url, duration: status.duration, isLoaded: status.isLoaded, state: status.playbackState });
+    }
+  }, [loaded, status.duration, status.isLoaded, status.playbackState]);
+
+  useEffect(() => {
+    if (!source || loaded) return;
+    const timer = setTimeout(async () => {
+      console.warn('[voice] load timeout', { url, state: status.playbackState, isLoaded: status.isLoaded, duration: status.duration });
+      try {
+        const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        const buf = await res.arrayBuffer();
+        const magic = Array.from(new Uint8Array(buf.slice(0, 16))).map((b) => b.toString(16).padStart(2, '0')).join(' ');
+        console.warn('[voice] probe', { status: res.status, type: res.headers.get('content-type'), length: res.headers.get('content-length'), bytes: buf.byteLength, magic });
+      } catch (error) {
+        console.warn('[voice] probe failed', url, error);
+      }
+      if (autoRetries === 0) {
+        onRetry();
+      } else {
+        setFailed(true);
+      }
+    }, LOAD_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [source, loaded, status.playbackState, status.isLoaded, status.duration, autoRetries]);
+
+  useEffect(() => {
+    if (status.didJustFinish) {
+      if (currentPlayer === playerRef.current) currentPlayer = null;
+      playerRef.current?.seekTo(0).catch(() => {});
+    }
+  }, [status.didJustFinish]);
+
+  useEffect(() => {
+    return () => {
+      if (currentPlayer === playerRef.current) currentPlayer = null;
+    };
+  }, []);
+
+  const applySeek = useCallback((gesture: { locationX: number }) => {
+    barWrap.current?.measure((_x, _y, width) => {
+      const dur = durationRef.current;
+      const target = playerRef.current;
+      if (!width || dur <= 0 || !target) return;
+      const ratio = Math.min(1, Math.max(0, gesture.locationX / width));
+      target.seekTo(ratio * dur).catch(() => {});
+    });
+  }, []);
 
   const seekResponder = useRef(
     PanResponder.create({
@@ -58,31 +112,28 @@ function VoiceInner({ url, outgoing, durationMs }: { url: string; outgoing: bool
     }),
   ).current;
 
-  function applySeek(gesture: { locationX: number; x0?: number; moveX?: number }) {
-    barWrap.current?.measure((_x, _y, width) => {
-      if (!width || status.duration <= 0) return;
-      const ratio = Math.min(1, Math.max(0, gesture.locationX / width));
-      player.seekTo(ratio * status.duration);
-    });
-  }
-
   function togglePlay() {
-    if (!player) return;
+    const target = playerRef.current;
+    if (!target) return;
     if (status.playing) {
-      player.pause();
+      target.pause();
     } else {
-      if (currentPlayer && currentPlayer !== player) {
+      if (currentPlayer && currentPlayer !== target) {
         try { currentPlayer.pause(); } catch {}
       }
-      currentPlayer = player;
-      player.play();
+      const dur = durationRef.current;
+      if (dur > 0 && status.currentTime >= dur - 0.05) {
+        target.seekTo(0).catch(() => {});
+      }
+      currentPlayer = target;
+      target.play();
     }
   }
 
   function cycleRate() {
     const next = (rateIndex + 1) % PLAYBACK_RATES.length;
     setRateIndex(next);
-    player.setPlaybackRate(PLAYBACK_RATES[next], 0);
+    playerRef.current?.setPlaybackRate(PLAYBACK_RATES[next], 0);
   }
 
   const accent = outgoing ? '#cfe0ff' : '#3264f6';
@@ -90,7 +141,25 @@ function VoiceInner({ url, outgoing, durationMs }: { url: string; outgoing: bool
   const barBg = outgoing ? 'rgba(255,255,255,0.28)' : 'rgba(50,100,246,0.18)';
   const fillBg = outgoing ? 'rgba(255,255,255,0.85)' : '#3264f6';
 
-  if (!localUri) {
+  if (!source) {
+    return <View style={[styles.row, { justifyContent: 'center', paddingVertical: 14 }]}><ActivityIndicator color={accent} size="small" /></View>;
+  }
+
+  if (failed) {
+    return (
+      <View style={[styles.row, outgoing && styles.outgoingRow]}>
+        <Pressable onPress={onRetry} style={[styles.playButton, { backgroundColor: accent }]}>
+          <RotateCw color="#fff" size={16} />
+        </Pressable>
+        <View style={styles.middle}>
+          <Text style={[styles.time, { color: tint, fontWeight: '700' }]}>Couldn't load audio</Text>
+          <Text style={[styles.time, { color: tint }]}>Tap to retry</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!loaded) {
     return <View style={[styles.row, { justifyContent: 'center', paddingVertical: 14 }]}><ActivityIndicator color={accent} size="small" /></View>;
   }
 
@@ -116,9 +185,15 @@ function VoiceInner({ url, outgoing, durationMs }: { url: string; outgoing: bool
   );
 }
 
+function VoiceInner({ url, outgoing, durationMs, retryTick, onRetry }: { url: string; outgoing: boolean; durationMs: number | null; retryTick: number; onRetry: () => void }) {
+  const token = useAuthToken();
+  return <PlayerShell key={`${url}-${retryTick}`} url={url} token={token} outgoing={outgoing} durationMs={durationMs} autoRetries={retryTick} onRetry={onRetry} />;
+}
+
 export function VoiceNotePlayer({ url, outgoing = false, durationMs = null, audio = false }: { url: string; outgoing?: boolean; durationMs?: number | null; audio?: boolean }) {
+  const [retryTick, setRetryTick] = useState(0);
   if (!url) return null;
-  return <VoiceInner key={url} url={url} outgoing={outgoing} durationMs={durationMs} />;
+  return <VoiceInner key={url} url={url} outgoing={outgoing} durationMs={durationMs} retryTick={retryTick} onRetry={() => setRetryTick((t) => t + 1)} />;
 }
 
 const styles = StyleSheet.create({

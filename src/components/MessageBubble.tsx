@@ -171,9 +171,9 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
           <Text style={styles.failedText}>Failed to send: {failedReason}</Text>
         ) : null}
         {reactions && reactions.length ? (
-          <View style={[styles.reactionRow, outgoing && styles.reactionRowOutgoing]}>
+          <View style={styles.reactionRow}>
             {reactions.map((reaction: any) => (
-              <View key={reaction.emoji} style={[styles.reactionPill, outgoing && styles.reactionPillOutgoing]}>
+              <View key={reaction.emoji} style={styles.reactionPill}>
                 <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
                 {reaction.count > 1 ? <Text style={[styles.reactionCount, outgoing && styles.reactionCountOutgoing]}>{reaction.count}</Text> : null}
               </View>
@@ -188,6 +188,15 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
 function previewUrl(attachment: any): string {
   const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://osaas-mvp-api.probfly.com/api/v1';
   const value = attachment.previewUrl ?? attachment.thumbnailUrl ?? attachment.downloadUrl;
+  return resolveMediaUrl(base, value);
+}
+
+function audioUrl(attachment: any): string {
+  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://osaas-mvp-api.probfly.com/api/v1';
+  return resolveMediaUrl(base, attachment.downloadUrl ?? attachment.previewUrl ?? attachment.thumbnailUrl);
+}
+
+function resolveMediaUrl(base: string, value?: string): string {
   if (!value) return '';
   try {
     const parsed = new URL(value, `${base}/`);
@@ -199,10 +208,6 @@ function previewUrl(attachment: any): string {
   } catch {
     return `${base.replace(/\/$/, '')}/${value.replace(/^\//, '')}`;
   }
-}
-
-function audioUrl(attachment: any): string {
-  return previewUrl(attachment);
 }
 
 const styles = StyleSheet.create({
@@ -260,11 +265,9 @@ const styles = StyleSheet.create({
   editedOutgoing: { borderColor: '#ffffff33', borderWidth: 1, color: '#dbeafe' },
   editedIncoming: { borderColor: '#dbe4f1', borderWidth: 1, color: '#64748b' },
   failedText: { color: '#fda4af', fontSize: 11, marginTop: 4 },
-  reactionRow: { flexDirection: 'row', gap: 4, marginTop: -16, position: 'absolute', bottom: 8, left: -8 },
-  reactionRowOutgoing: { left: undefined, right: -8 },
-  reactionPill: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 2, paddingHorizontal: 8, paddingVertical: 3 },
-  reactionPillOutgoing: { backgroundColor: '#eef4ff' },
-  reactionEmoji: { fontSize: 13 },
-  reactionCount: { color: '#64748b', fontSize: 11, fontWeight: '700' },
-  reactionCountOutgoing: { color: '#2563eb' },
+  reactionRow: { flexDirection: 'row', gap: 5, position: 'absolute', bottom: 3, left: -8 },
+  reactionPill: { alignItems: 'center', flexDirection: 'row', gap: 2, paddingHorizontal: 3, paddingVertical: 0 },
+  reactionEmoji: { fontSize: 16 },
+  reactionCount: { color: '#64748b', fontSize: 12, fontWeight: '700' },
+  reactionCountOutgoing: { color: '#dbeafe' },
 });
