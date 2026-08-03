@@ -251,11 +251,9 @@ export function ConversationComposer({ value, onChange, onSend, sending, attachm
           <Pressable onPress={() => setQuickOpen(true)}><Zap color="#64748b" size={20} /></Pressable>
           {channelType?.toUpperCase() === 'WHATSAPP' && channelId ? <Pressable onPress={() => setTemplateOpen(true)}><PanelsTopLeft color="#16a34a" size={20} /></Pressable> : null}
           <View style={styles.spacer} />
-          {sending ? <ActivityIndicator color="#2563eb" size="small" /> : (
-            <Pressable onPress={onSend} disabled={!value.trim() && !attachments.length} style={[styles.send, (value.trim() || attachments.length) && styles.sendActive]}>
-              <Send color="#fff" size={18} />
-            </Pressable>
-          )}
+          <Pressable onPress={onSend} disabled={sending || (!value.trim() && !attachments.length)} style={[styles.send, (value.trim() || attachments.length) && styles.sendActive, sending && styles.sendDisabled]}>
+            <Send color="#fff" size={18} />
+          </Pressable>
         </View>
       </View>
     </>
@@ -269,6 +267,7 @@ const styles = StyleSheet.create({
   spacer: { flex: 1 },
   send: { alignItems: 'center', backgroundColor: '#b9dafa', borderRadius: 20, height: 40, justifyContent: 'center', width: 40 },
   sendActive: { backgroundColor: '#2563eb' },
+  sendDisabled: { opacity: 0.7 },
   attachmentRow: { gap: 6, marginBottom: 8 },
   attachment: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 16, flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8 },
   attachmentThumb: { borderRadius: 6, height: 26, marginRight: 8, width: 26 },

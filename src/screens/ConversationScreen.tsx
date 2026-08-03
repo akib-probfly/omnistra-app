@@ -8,6 +8,8 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch, uploadFile } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { setActiveConversationId } from '../api/realtime';
+import { markRecentLocalMessageSend } from '../lib/inbox-realtime-suppression';
 import { ConversationComposer } from '../components/ConversationComposer';
 import { MediaViewer } from '../components/MediaViewer';
 import { MessageBubble } from '../components/MessageBubble';
@@ -103,14 +105,62 @@ export function ConversationScreen() {
         body: JSON.stringify({ type, text, attachmentIds, replyToMessageId: replyTo?.id }),
       });
     },
-    onSuccess: (created) => {
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['messages', route.params.conversationId] });
+      const previous = queryClient.getQueryData<any>(['messages', route.params.conversationId]);
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const text = draft.replace(/\u200B/g, '').trim() || undefined;
+      const type = attachments.length ? (attachments[0].type === 'VOICE' ? 'VOICE' : attachments[0].type) : 'TEXT';
+      const optimistic: Message = {
+        id: tempId,
+        direction: 'OUTBOUND',
+        senderType: 'AGENT',
+        type,
+        text: text ?? null,
+        deliveryStatus: 'SENDING',
+        sender: { userName: session?.user?.name ?? 'You' },
+        replyToMessageId: replyTo?.id ?? null,
+        replyTo: replyTo ? { sender: replyTo.sender ?? null, text: replyTo.text } : undefined,
+        createdAt: new Date().toISOString(),
+        sentAt: new Date().toISOString(),
+        metadata: { optimistic: true },
+        attachments: attachments.map((selected) => ({
+          id: `${tempId}-${selected.uri}`,
+          mediaType: selected.type,
+          mimeType: selected.mimeType,
+          originalName: selected.name,
+          downloadUrl: selected.uri,
+          previewUrl: selected.type === 'IMAGE' || selected.type === 'VIDEO' ? selected.uri : null,
+          thumbnailUrl: selected.type === 'IMAGE' || selected.type === 'VIDEO' ? selected.uri : null,
+          durationMs: null,
+        })),
+      };
       setDraft(''); setAttachments([]); setReplyTo(null);
       queryClient.setQueryData<any>(['messages', route.params.conversationId], (current) => {
         if (!current || !Array.isArray(current.items)) return current;
-        return { ...current, items: [...current.items, created] };
+        return { ...current, items: [...current.items, optimistic] };
+      });
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+      return { tempId, previous, previousDraft: draft, previousAttachments: attachments, previousReplyTo: replyTo };
+    },
+    onSuccess: (created, _vars, context) => {
+      markRecentLocalMessageSend(route.params.conversationId, created.id);
+      queryClient.setQueryData<any>(['messages', route.params.conversationId], (current) => {
+        if (!current || !Array.isArray(current.items)) return current;
+        return { ...current, items: current.items.map((item: any) => (item.id === context?.tempId ? created : item)) };
       });
       queryClient.invalidateQueries({ queryKey: ['messages', route.params.conversationId], refetchType: 'active' });
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 150);
+    },
+    onError: (error, _vars, context) => {
+      queryClient.setQueryData<any>(['messages', route.params.conversationId], (current) => {
+        if (!current || !Array.isArray(current.items)) return current;
+        return { ...current, items: current.items.filter((item: any) => item.id !== context?.tempId) };
+      });
+      if (context?.previousDraft) setDraft(context.previousDraft);
+      if (context?.previousAttachments?.length) setAttachments(context.previousAttachments);
+      if (context?.previousReplyTo) setReplyTo(context.previousReplyTo);
+      Alert.alert('Could not send message', error instanceof Error ? error.message : 'Please try again.');
     },
   });
 
@@ -140,6 +190,11 @@ export function ConversationScreen() {
     if (!atBottom) return;
     readMutation.mutate();
   }, [header.conversation, header.unreadCount, messages.isLoading, messages.isError, atBottom, readMutation.isPending]);
+
+  useEffect(() => {
+    setActiveConversationId(route.params.conversationId);
+    return () => setActiveConversationId(null);
+  }, [route.params.conversationId]);
 
   useEffect(() => { const timer = setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100); return () => clearTimeout(timer); }, [messages.data?.items?.length]);
 
@@ -332,7 +387,7 @@ export function ConversationScreen() {
         onSendTemplate={(params) => sendTemplateMutation(route.params.conversationId, params, queryClient, setDraft)}
         replyPreview={replyTo ? { name: replyTo.direction === 'INBOUND' ? title : 'You', text: replyTo.text ?? 'Attachment' } : null}
         onCancelReply={() => setReplyTo(null)}
-        onSend={() => send.mutate()}
+        onSend={() => { if (!send.isPending) send.mutate(); }}
       />
       <ReactionPicker visible={Boolean(reactTarget)} onClose={() => setReactTarget(null)} onPick={(emoji) => { if (reactTarget) reactMutation.mutate({ messageId: reactTarget.id, emoji }); setReactTarget(null); }} onReply={() => { if (reactTarget) setReplyTo(reactTarget); setReactTarget(null); }} />
       <MediaViewer images={gallery} index={galleryIndex} onClose={() => setGallery([])} onIndex={setGalleryIndex} />

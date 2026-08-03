@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { Check, CheckCheck, Megaphone, FileText, Play, ExternalLink } from 'lucide-react-native';
 import { useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AuthenticatedImage } from './AuthenticatedImage';
 import { VoiceNotePlayer } from './VoiceNotePlayer';
 import {
@@ -165,7 +165,7 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
         <View style={styles.metaRow}>
           {outgoing && statusMeta ? (
             <Text style={[styles.status, statusMeta.showFailed && styles.statusFailed, statusMeta.showRead && styles.statusSeen]}>
-              {statusMeta.showRead ? <CheckCheck color="#7dd3fc" size={13} /> : statusMeta.showDelivered ? <CheckCheck color="#dbeafe" size={13} /> : statusMeta.showSingleTick ? <Check color="#dbeafe" size={13} /> : null}
+              {statusMeta.showSending ? <ActivityIndicator color="#dbeafe" size={11} /> : statusMeta.showRead ? <CheckCheck color="#7dd3fc" size={13} /> : statusMeta.showDelivered ? <CheckCheck color="#dbeafe" size={13} /> : statusMeta.showSingleTick ? <Check color="#dbeafe" size={13} /> : null}
               {' '}{statusMeta.label}
             </Text>
           ) : null}

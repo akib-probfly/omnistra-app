@@ -1,12 +1,13 @@
 // @ts-nocheck
 import { useQuery } from '@tanstack/react-query';
-import { Bell, Download, Menu, RefreshCw, Search, TrendingUp, UserRound, Wifi } from 'lucide-react-native';
+import { RefreshCw, Search, TrendingUp, UserRound, Wifi } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { fetchDashboard, type DashboardChannelHealthItem, type DashboardResponse, type DashboardTeamCommandCenterMember, type DashboardTrendPoint } from '../api/dashboard';
 import { channelBrandColor, ChannelLogo } from '../components/ChannelLogo';
+import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 
 type RangePreset = 'today' | '7d' | '30d';
 type PresenceFilter = 'all' | 'online' | 'offline';
@@ -397,6 +398,7 @@ export function DashboardScreen() {
   const [preset, setPreset] = useState<RangePreset>('7d');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const range = useMemo(() => resolveRange(preset), [preset]);
   const query = useMemo(() => ({ from: toUtcIso(range.from), to: toUtcIso(range.to), search: search.trim() || undefined }), [range, search]);
   const dashboard = useQuery({ queryKey: ['dashboard', query], queryFn: () => fetchDashboard(query), staleTime: 15000 });
@@ -426,28 +428,33 @@ export function DashboardScreen() {
   const applySearch = () => setSearch(searchInput.trim());
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={dashboard.isRefetching} onRefresh={() => dashboard.refetch()} tintColor="#2563eb" />}>
-      <View style={styles.topbar}><Menu color="#23364d" size={22} /><View style={styles.topActions}><View style={styles.circleButton}><Download color="#64748b" size={18} /></View><View style={styles.circleButton}><Bell color="#64748b" size={18} /></View></View></View>
-
-      <View style={styles.hero}>
-        <Text style={styles.title}>Dashboard</Text>
-        <Text style={styles.date}>{rangeLabel}</Text>
-        <View style={styles.rings}>
-          {[['CONVERSATIONS', formatNumber(summary?.totalConversations)], ['CHANNELS', formatNumber(channelsCount)], ['TEAM MEMBERS', formatNumber(teamMembers)]].map(([label, value]) => (
-            <View style={styles.ringItem} key={label}><View style={styles.ring}><Text style={styles.ringValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{value}</Text></View><Text style={styles.ringLabel}>{label}</Text></View>
-          ))}
+    <View style={styles.screen}>
+      <View style={[styles.topbar, { paddingTop: insets.top + 10 }]}>
+        <View style={styles.topbarCopy}>
+          <Text style={styles.topTitle}>Dashboard</Text>
+          <Text style={styles.topDate}>{rangeLabel}</Text>
         </View>
-        <View style={styles.controls}>
-          <View style={styles.search}><Search color="#8ba2c3" size={18} /><TextInput value={searchInput} onChangeText={setSearchInput} onSubmitEditing={applySearch} returnKeyType="search" placeholder="Search..." placeholderTextColor="#8ba2c3" style={styles.searchInput} /></View>
-          <View style={styles.segment}>
-            {(['today', '7d', '30d'] as RangePreset[]).map((item) => (
-              <Pressable key={item} style={[styles.segmentTab, preset === item && styles.segmentActive]} onPress={() => setPreset(item)}>
-                <Text style={[styles.segmentText, preset === item && styles.segmentTextActive]}>{RANGE_LABELS[item]}</Text>
-              </Pressable>
+                <NotificationBell onOpen={() => setNotificationsOpen(true)} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={dashboard.isRefetching} onRefresh={() => dashboard.refetch()} tintColor="#2563eb" />}>
+        <View style={styles.hero}>
+          <View style={styles.rings}>
+            {[['CONVERSATIONS', formatNumber(summary?.totalConversations)], ['CHANNELS', formatNumber(channelsCount)], ['TEAM MEMBERS', formatNumber(teamMembers)]].map(([label, value]) => (
+              <View style={styles.ringItem} key={label}><View style={styles.ring}><Text style={styles.ringValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{value}</Text></View><Text style={styles.ringLabel}>{label}</Text></View>
             ))}
           </View>
+          <View style={styles.controls}>
+            <View style={styles.search}><Search color="#8ba2c3" size={18} /><TextInput value={searchInput} onChangeText={setSearchInput} onSubmitEditing={applySearch} returnKeyType="search" placeholder="Search..." placeholderTextColor="#8ba2c3" style={styles.searchInput} /></View>
+            <View style={styles.segment}>
+              {(['today', '7d', '30d'] as RangePreset[]).map((item) => (
+                <Pressable key={item} style={[styles.segmentTab, preset === item && styles.segmentActive]} onPress={() => setPreset(item)}>
+                  <Text style={[styles.segmentText, preset === item && styles.segmentTextActive]}>{RANGE_LABELS[item]}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
         </View>
-      </View>
 
       {dashboard.isLoading && !dashboard.data ? (
         <ActivityIndicator color="#2563eb" style={styles.loader} />
@@ -495,19 +502,21 @@ export function DashboardScreen() {
           <Text style={styles.footerNote}>Scoped for the current workspace. Search and date range update the full dashboard.</Text>
         </>
       )}
-    </ScrollView>
+      </ScrollView>
+
+      <NotificationCenter visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { backgroundColor: '#eef4fc' },
+  screen: { backgroundColor: '#eef4fc', flex: 1 },
   content: { paddingBottom: 28 },
-  topbar: { alignItems: 'center', backgroundColor: '#fff', flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 11 },
-  topActions: { flexDirection: 'row', gap: 10 },
-  circleButton: { alignItems: 'center', borderColor: '#d3e0f3', borderRadius: 22, borderWidth: 1, height: 40, justifyContent: 'center', width: 40 },
+  topbar: { alignItems: 'center', backgroundColor: '#fff', flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 14, paddingHorizontal: 18 },
+  topbarCopy: { flex: 1, minWidth: 0 },
+  topTitle: { color: '#050914', fontSize: 24, fontWeight: '800' },
+  topDate: { color: '#5c6f8d', fontSize: 13, marginTop: 4 },
   hero: { backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 28, borderWidth: 1, margin: 12, padding: 20 },
-  title: { color: '#050914', fontSize: 26, fontWeight: '800' },
-  date: { color: '#5c6f8d', fontSize: 13, marginTop: 8 },
   rings: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 18 },
   ringItem: { alignItems: 'center', flexDirection: 'row', gap: 6 },
   ring: { alignItems: 'center', borderColor: '#3269ff', borderRadius: 26, borderWidth: 4, height: 52, justifyContent: 'center', width: 52 },

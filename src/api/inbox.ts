@@ -30,6 +30,17 @@ export type WhatsappTemplate = {
 
 export type ReactionAction = 'REACT' | 'UNREACT';
 
+export type ConversationMessaging = {
+  policyType?: 'UNRESTRICTED' | 'CUSTOMER_WINDOW' | null;
+  windowState?: 'NOT_APPLICABLE' | 'OPEN' | 'EXPIRED' | null;
+  windowExpiresAt?: string | null;
+  canSendFreeformMessage?: boolean;
+  standardWindowExpiresAt?: string | null;
+  humanAgentWindowExpiresAt?: string | null;
+  canSendStandardMessage?: boolean;
+  canSendHumanAgentMessage?: boolean;
+};
+
 export type ConversationListItem = {
   id: string;
   workspaceId: string;
@@ -42,6 +53,7 @@ export type ConversationListItem = {
   contact: { id: string; displayName: string | null; avatarUrl: string | null; primaryPhone?: string | null };
   channel: { channelId: string; channelType: string; channelName: string; displayPhoneNumber: string | null };
   assignee?: { workspaceMemberId: string; userName: string | null; userEmail: string; avatarUrl: string | null } | null;
+  messaging?: ConversationMessaging | null;
 };
 
 export type ConversationsListResponse = { items: ConversationListItem[]; pageInfo?: { nextCursor?: string | null; hasMore?: boolean } };

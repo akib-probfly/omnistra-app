@@ -74,15 +74,16 @@ export function formatMessageTime(value: string | null | undefined): string {
   return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-export type OutboundStatusMeta = { showQueued: boolean; showFailed: boolean; showSingleTick: boolean; showDelivered: boolean; showRead: boolean; label: string };
+export type OutboundStatusMeta = { showQueued: boolean; showSending: boolean; showFailed: boolean; showSingleTick: boolean; showDelivered: boolean; showRead: boolean; label: string };
 export function getOutboundStatusMeta(deliveryStatus?: string): OutboundStatusMeta {
   switch (deliveryStatus) {
-    case 'QUEUED': return { showQueued: true, showFailed: false, showSingleTick: true, showDelivered: false, showRead: false, label: 'Sent' };
-    case 'SENT': return { showQueued: false, showFailed: false, showSingleTick: true, showDelivered: false, showRead: false, label: 'Sent' };
-    case 'DELIVERED': return { showQueued: false, showFailed: false, showSingleTick: false, showDelivered: true, showRead: false, label: 'Delivered' };
-    case 'READ': return { showQueued: false, showFailed: false, showSingleTick: false, showDelivered: false, showRead: true, label: 'Seen' };
-    case 'FAILED': return { showQueued: false, showFailed: true, showSingleTick: false, showDelivered: false, showRead: false, label: 'Failed' };
-    default: return { showQueued: false, showFailed: false, showSingleTick: false, showDelivered: false, showRead: false, label: '' };
+    case 'SENDING': return { showQueued: false, showSending: true, showFailed: false, showSingleTick: false, showDelivered: false, showRead: false, label: 'Sending' };
+    case 'QUEUED': return { showQueued: true, showSending: false, showFailed: false, showSingleTick: true, showDelivered: false, showRead: false, label: 'Sent' };
+    case 'SENT': return { showQueued: false, showSending: false, showFailed: false, showSingleTick: true, showDelivered: false, showRead: false, label: 'Sent' };
+    case 'DELIVERED': return { showQueued: false, showSending: false, showFailed: false, showSingleTick: false, showDelivered: true, showRead: false, label: 'Delivered' };
+    case 'READ': return { showQueued: false, showSending: false, showFailed: false, showSingleTick: false, showDelivered: false, showRead: true, label: 'Seen' };
+    case 'FAILED': return { showQueued: false, showSending: false, showFailed: true, showSingleTick: false, showDelivered: false, showRead: false, label: 'Failed' };
+    default: return { showQueued: false, showSending: false, showFailed: false, showSingleTick: false, showDelivered: false, showRead: false, label: '' };
   }
 }
 

@@ -1,14 +1,15 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Filter, Menu, Search, Star, Inbox, X } from 'lucide-react-native';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View, RefreshControl, Switch } from 'react-native';
+import { Filter, Search, Star, Inbox, X } from 'lucide-react-native';
+import { ActivityIndicator, Animated, Easing, Modal, Pressable, StyleSheet, Text, TextInput, View, RefreshControl, Switch } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ErrorState } from '../components/ErrorState';
 import { ChannelLogo } from '../components/ChannelLogo';
 import { AuthenticatedImage } from '../components/AuthenticatedImage';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { fetchConversations, fetchConversationCount, fetchAssigneeOptions, type ConversationListItem, type AssigneeFilterOption } from '../api/inbox';
+import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
 
 type Tab = 'all' | 'unread' | 'closed';
 const CHANNEL_TYPES = ['WHATSAPP', 'MESSENGER', 'INSTAGRAM', 'EMAIL', 'WEBCHAT', 'SMS', 'TELEGRAM', 'TIKTOK'];
@@ -65,13 +66,17 @@ export function InboxScreen() {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.pageInfo?.hasMore ? (lastPage.pageInfo.nextCursor ?? undefined) : undefined,
     staleTime: 10_000,
+    refetchInterval: 15_000,
   });
 
   const count = useQuery({
     queryKey: ['conversation-count', filters],
     queryFn: () => fetchConversationCount(filters),
     staleTime: 15_000,
+    refetchInterval: 15_000,
   });
+
+  const realtimeStatus = useSyncExternalStore(subscribeRealtimeConnectionStatus, getRealtimeConnectionStatus);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -87,9 +92,14 @@ export function InboxScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Menu color="#23364d" size={22} />
-        <Text style={styles.headerTitle}>Inbox</Text>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <View style={styles.headerCopy}>
+          <View style={styles.headerTitleLine}>
+            <Text style={styles.headerTitle}>Inbox</Text>
+            <View style={[styles.statusDot, { backgroundColor: realtimeStatus === 'connected' ? '#22c55e' : realtimeStatus === 'connecting' ? '#f59e0b' : '#ef4444' }]} />
+          </View>
+          <Text style={styles.headerSubtitle}>{realtimeStatus === 'connected' ? 'Live' : realtimeStatus === 'connecting' ? 'Connecting' : 'Offline'} · new messages update in real time</Text>
+        </View>
         <View style={styles.headerActions}>
           <Pressable hitSlop={8} onPress={() => setStarredOnly((v) => !v)}><Star color={starredOnly ? '#f59e0b' : '#8ba2c3'} fill={starredOnly ? '#f59e0b' : 'none'} size={20} /></Pressable>
         </View>
@@ -201,6 +211,33 @@ function getInitials(value?: string | null) {
   return (parts.join('') || '?').toUpperCase();
 }
 
+function WindowPulseDot({ expired }: { expired: boolean }) {
+  const color = expired ? '#ef4444' : '#22c55e';
+  const ringColor = expired ? 'rgba(239,68,68,0.35)' : 'rgba(34,197,94,0.35)';
+  const pulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 1400, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 1400, easing: Easing.in(Easing.ease), useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+
+  const ringScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.9] });
+  const ringOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0] });
+
+  return (
+    <View style={styles.windowDotWrap}>
+      <Animated.View style={[styles.windowDotRing, { backgroundColor: ringColor, opacity: ringOpacity, transform: [{ scale: ringScale }] }]} />
+      <View style={[styles.windowDot, { backgroundColor: color, shadowColor: color }]} />
+    </View>
+  );
+}
+
 function AssigneeBadge({ assignee }: { assignee: ConversationListItem['assignee'] }) {
   if (!assignee) return null;
   const label = (assignee.userName?.trim() || assignee.userEmail?.trim() || 'Agent');
@@ -217,6 +254,9 @@ function AssigneeBadge({ assignee }: { assignee: ConversationListItem['assignee'
 
 function ConversationRow({ conversation, onPress }: { conversation: ConversationListItem; onPress: () => void }) {
   const assigneeName = conversation.assignee?.userName ?? conversation.assignee?.userEmail ?? null;
+  const isWhatsAppCustomerWindow = conversation.channel?.channelType === 'WHATSAPP' && conversation.messaging?.policyType === 'CUSTOMER_WINDOW';
+  const showWindowDot = isWhatsAppCustomerWindow && conversation.messaging?.windowState !== 'NOT_APPLICABLE';
+  const windowExpired = conversation.messaging?.windowState === 'EXPIRED';
   return (
     <Pressable onPress={onPress}>
       <View style={styles.row}>
@@ -227,6 +267,7 @@ function ConversationRow({ conversation, onPress }: { conversation: Conversation
         <View style={styles.copy}>
           <View style={styles.nameLine}>
             <Text style={styles.name} numberOfLines={1}>{conversation.contact.displayName ?? 'Unknown contact'}</Text>
+            {showWindowDot ? <WindowPulseDot expired={windowExpired} /> : null}
             {conversation.unreadCount > 0 ? <View style={styles.unreadBadge}><Text style={styles.unreadText}>{conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}</Text></View> : null}
           </View>
           <Text style={styles.channel} numberOfLines={1}>{conversation.channel?.channelName ?? ''}{assigneeName ? ` · ${assigneeName}` : ''}</Text>
@@ -255,9 +296,13 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: '#fff', flex: 1 },
   list: { paddingBottom: 16 },
   listFill: { flex: 1 },
-  header: { alignItems: 'center', flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 10 },
-  headerTitle: { color: '#111827', fontSize: 17, fontWeight: '700', marginLeft: 16 },
-  headerActions: { flexDirection: 'row', gap: 18, marginLeft: 'auto' },
+  header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e8eef7', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 12, paddingHorizontal: 16 },
+  headerCopy: { flex: 1, minWidth: 0 },
+  headerTitleLine: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  headerTitle: { color: '#111827', fontSize: 24, fontWeight: '800' },
+  headerSubtitle: { color: '#8ba2c3', fontSize: 12, marginTop: 4 },
+  statusDot: { borderRadius: 5, height: 9, width: 9 },
+  headerActions: { flexDirection: 'row', gap: 18, marginLeft: 12 },
   search: { alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 25, flexDirection: 'row', margin: 12, paddingHorizontal: 14 },
   input: { color: '#17233a', flex: 1, height: 42, marginLeft: 8 },
   clearSearch: { color: '#94a3b8', fontSize: 14, padding: 4 },
@@ -292,8 +337,11 @@ const styles = StyleSheet.create({
   channelBadgeWrap: { alignItems: 'center', borderColor: '#fff', borderRadius: 11, borderWidth: 2, bottom: -4, height: 22, justifyContent: 'center', overflow: 'hidden', position: 'absolute', right: -4, width: 22 },
   copy: { flex: 1, marginLeft: 12 },
   nameLine: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  name: { color: '#111827', flex: 1, fontSize: 15, fontWeight: '700' },
-  unreadBadge: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 10, justifyContent: 'center', minWidth: 20, paddingHorizontal: 5 },
+  name: { color: '#111827', fontSize: 15, fontWeight: '700', flexShrink: 1 },
+  windowDotWrap: { alignItems: 'center', height: 12, justifyContent: 'center', width: 12 },
+  windowDotRing: { borderRadius: 6, height: 12, position: 'absolute', width: 12 },
+  windowDot: { borderRadius: 4, elevation: 3, height: 8, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 5, width: 8 },
+  unreadBadge: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 10, justifyContent: 'center', marginLeft: 'auto', minWidth: 20, paddingHorizontal: 5 },
   unreadText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   time: { color: '#8ba2c3', fontSize: 11 },
   channel: { color: '#64748b', flex: 1, fontSize: 12, marginTop: 2 },

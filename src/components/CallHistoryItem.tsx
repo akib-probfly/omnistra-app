@@ -49,20 +49,17 @@ export function CallHistoryItem({ session }: { session: ConversationCallSession 
   return (
     <View style={styles.row}>
       <View style={styles.pill}>
-        <View style={[styles.iconCircle, { backgroundColor: toneStyles.iconBg }]}>
-          {renderIcon(tone, session.direction, toneStyles.iconColor)}
+        <View style={styles.line}>
+          <View style={[styles.iconCircle, { backgroundColor: toneStyles.iconBg }]}>
+            {renderIcon(tone, session.direction, toneStyles.iconColor)}
+          </View>
+          <Text style={styles.direction}>{directionLabel}</Text>
+          <Text style={styles.sep}>·</Text>
+          <Text style={[styles.outcome, { color: toneStyles.text }]}>{outcomeLabel}</Text>
+          <Text style={styles.sep}>·</Text>
+          <Text style={styles.time}>{timeLabel}</Text>
         </View>
-        <Text style={styles.direction}>{directionLabel}</Text>
-        <Text style={styles.sep}>·</Text>
-        <Text style={[styles.outcome, { color: toneStyles.text }]}>{outcomeLabel}</Text>
-        {agentLabel ? (
-          <>
-            <Text style={styles.sep}>·</Text>
-            <Text style={styles.agent} numberOfLines={1}>{agentLabel}</Text>
-          </>
-        ) : null}
-        <Text style={styles.sep}>·</Text>
-        <Text style={styles.time}>{timeLabel}</Text>
+        {agentLabel ? <Text style={styles.agent} numberOfLines={1}>{agentLabel}</Text> : null}
       </View>
     </View>
   );
@@ -78,22 +75,22 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     elevation: 1,
-    flexDirection: 'row',
-    gap: 6,
+    flexDirection: 'column',
+    gap: 2,
     justifyContent: 'center',
     maxWidth: '100%',
-    paddingLeft: 8,
-    paddingRight: 14,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.06,
     shadowRadius: 12,
   },
-  iconCircle: { alignItems: 'center', borderRadius: 11, height: 20, justifyContent: 'center', marginLeft: 6, width: 20 },
+  line: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 5, justifyContent: 'center' },
+  iconCircle: { alignItems: 'center', borderRadius: 11, height: 20, justifyContent: 'center', marginLeft: 4, width: 20 },
   direction: { color: '#1e293b', fontSize: 12, flexShrink: 0, fontWeight: '600' },
   sep: { color: '#cbd5e1', fontSize: 12 },
   outcome: { flexShrink: 1, fontSize: 12, fontWeight: '600' },
-  agent: { color: '#64748b', flexShrink: 1, fontSize: 12, maxWidth: 130 },
+  agent: { color: '#64748b', flexShrink: 1, fontSize: 11, fontWeight: '500' },
   time: { color: '#94a3b8', flexShrink: 0, fontSize: 11 },
 });
