@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch } from '../api/client';
 import { ChannelLogo } from '../components/ChannelLogo';
 import { ErrorState } from '../components/ErrorState';
+import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 import type { ChannelsStackParamList } from '../navigation/ChannelsStack';
 
 type Channel = {
@@ -34,8 +36,10 @@ type Channel = {
 type ChannelsResponse = { items: Channel[]; summary?: { connectedCount?: number; activeTodayCount?: number; issuesCount?: number; messagesLast24h?: number } };
 
 export function ChannelsScreen() {
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<ChannelsStackParamList>>();
   const [search, setSearch] = useState('');
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const query = `/channels?page=1&limit=100&sortBy=createdAt&sortOrder=desc${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''}`;
   const channels = useQuery({ queryKey: ['channels', search], queryFn: () => apiFetch<ChannelsResponse>(query), staleTime: 120000 });
   const items = channels.data?.items ?? [];
@@ -44,19 +48,17 @@ export function ChannelsScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.hero}>
-        <View style={styles.heroRow}>
-          <View style={styles.heroCopy}>
-            <Text style={styles.kicker}>Workspace connections</Text>
-            <Text style={styles.title}>Channels</Text>
-            <Text style={styles.subtitle}>Manage your connected customer touchpoints.</Text>
-          </View>
+      <View style={[styles.topbar, { paddingTop: insets.top + 10 }]}>
+        <View style={styles.topbarCopy}>
+          <Text style={styles.title}>Channels</Text>
+          <Text style={styles.subtitle}>Manage your connected customer touchpoints.</Text>
         </View>
-        <View style={styles.metrics}>
-          <Metric label="Connected" value={summary?.connectedCount ?? items.filter((item) => item.status === 'CONNECTED').length} />
-          <Metric label="Active today" value={summary?.activeTodayCount ?? 0} />
-          <Metric label="Issues" value={summary?.issuesCount ?? items.filter((item) => item.status && item.status !== 'CONNECTED').length} />
-        </View>
+        <NotificationBell onOpen={() => setNotificationsOpen(true)} />
+      </View>
+      <View style={styles.metrics}>
+        <Metric label="Connected" value={summary?.connectedCount ?? items.filter((item) => item.status === 'CONNECTED').length} />
+        <Metric label="Active today" value={summary?.activeTodayCount ?? 0} />
+        <Metric label="Issues" value={summary?.issuesCount ?? items.filter((item) => item.status && item.status !== 'CONNECTED').length} />
       </View>
 
       <View style={styles.search}>
@@ -84,6 +86,8 @@ export function ChannelsScreen() {
           renderItem={({ item }) => <ChannelRow channel={item} onPress={() => openDetails(item)} />}
         />
       )}
+
+      <NotificationCenter visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
     </View>
   );
 }
@@ -131,19 +135,17 @@ function ChannelRow({ channel, onPress }: { channel: Channel; onPress: () => voi
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: '#eef4fb', flex: 1 },
-  hero: { backgroundColor: '#fff', borderBottomColor: '#dce8f7', borderBottomWidth: 1, padding: 20, paddingTop: 28 },
-  kicker: { color: '#2563eb', fontSize: 12, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' },
-  title: { color: '#0f172a', fontSize: 30, fontWeight: '800', marginTop: 4 },
-  subtitle: { color: '#64748b', fontSize: 14, marginTop: 5 },
-  heroRow: { alignItems: 'flex-start', flexDirection: 'row', gap: 12 },
-  heroCopy: { flex: 1 },
-  metrics: { flexDirection: 'row', gap: 10, marginTop: 20 },
+  topbar: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e8eef7', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 14, paddingHorizontal: 18 },
+  topbarCopy: { flex: 1, minWidth: 0 },
+  title: { color: '#0f172a', fontSize: 24, fontWeight: '800' },
+  subtitle: { color: '#64748b', fontSize: 13, marginTop: 4 },
+  metrics: { flexDirection: 'row', gap: 10, marginTop: 16, paddingHorizontal: 16 },
   metric: { backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 14, flex: 1, padding: 12 },
   metricValue: { color: '#0f172a', fontSize: 22, fontWeight: '800' },
   metricLabel: { color: '#64748b', fontSize: 11, marginTop: 3 },
-  search: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 22, borderWidth: 1, flexDirection: 'row', margin: 16, paddingHorizontal: 12 },
+  search: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 22, borderWidth: 1, flexDirection: 'row', margin: 16, marginBottom: 0, paddingHorizontal: 12 },
   searchInput: { color: '#17233a', flex: 1, height: 44, marginLeft: 8 },
-  list: { gap: 10, paddingHorizontal: 16, paddingBottom: 24 },
+  list: { gap: 10, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 },
   card: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, flexDirection: 'row', padding: 14 },
   copy: { flex: 1, marginLeft: 12 },
   nameLine: { alignItems: 'center', flexDirection: 'row', gap: 8 },

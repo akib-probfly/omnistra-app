@@ -1,6 +1,9 @@
 import { ChevronRight, LogOut, Mail, User } from 'lucide-react-native';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../auth/AuthContext';
+import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 
 function getInitials(value?: string | null) {
   const parts = (value ?? '?').split(' ').filter(Boolean).map((part) => part[0]).slice(0, 2);
@@ -8,7 +11,9 @@ function getInitials(value?: string | null) {
 }
 
 export function SettingsScreen() {
+  const insets = useSafeAreaInsets();
   const { session, logout } = useAuth();
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const name = session?.user.name?.trim() || session?.user.email?.trim() || 'User';
   const email = session?.user.email?.trim() || '';
   const handleSignOut = () => {
@@ -19,8 +24,13 @@ export function SettingsScreen() {
   };
   return (
     <View style={styles.screen}>
-      <Text style={styles.title}>Settings</Text>
-      <Text style={styles.subtitle}>Account, members, and preferences</Text>
+      <View style={[styles.topbar, { paddingTop: insets.top + 10 }]}>
+        <View style={styles.topbarCopy}>
+          <Text style={styles.title}>Settings</Text>
+          <Text style={styles.subtitle}>Account, members, and preferences</Text>
+        </View>
+        <NotificationBell onOpen={() => setNotificationsOpen(true)} />
+      </View>
       <View style={styles.profileCard}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{getInitials(name)}</Text>
@@ -49,14 +59,17 @@ export function SettingsScreen() {
         <LogOut color="#dc2626" size={20} />
         <Text style={styles.signOutText}>Sign out</Text>
       </Pressable>
+      <NotificationCenter visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { backgroundColor: '#f8fafc', flex: 1, padding: 20, paddingTop: 28 },
-  title: { color: '#0f172a', fontSize: 30, fontWeight: '700' },
-  subtitle: { color: '#64748b', fontSize: 15, marginTop: 6 },
+  screen: { backgroundColor: '#f8fafc', flex: 1, padding: 20 },
+  topbar: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24, marginHorizontal: -20, paddingBottom: 14, paddingHorizontal: 20 },
+  topbarCopy: { flex: 1, minWidth: 0 },
+  title: { color: '#0f172a', fontSize: 24, fontWeight: '800' },
+  subtitle: { color: '#64748b', fontSize: 13, marginTop: 4 },
   profileCard: { alignItems: 'center', backgroundColor: '#fff', borderRadius: 18, flexDirection: 'row', marginTop: 24, padding: 16 },
   avatar: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 24, height: 48, justifyContent: 'center', width: 48 },
   avatarText: { color: '#fff', fontSize: 16, fontWeight: '700' },
