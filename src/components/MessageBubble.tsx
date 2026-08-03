@@ -14,6 +14,7 @@ import {
   isTemplateLikeMessage,
   getSystemMessageLabel,
   isMissedCall,
+  formatMessageTime,
 } from '../lib/inbox-utils';
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -24,14 +25,19 @@ function openLink(href?: string) {
   Linking.openURL(href).catch(() => {});
 }
 
-export function MessageBubble({ message, outgoing, attachments, replyPreview, reactions, onImage, onLongPress }: any) {
+export function MessageBubble({ message, outgoing, attachments, replyPreview, reactions, onImage, onLongPress, onReplyPress }: any) {
   const isSystem = message.senderType === 'SYSTEM' && !message.campaignId;
   if (isSystem) {
     const missed = isMissedCall(message);
+    const timestamp = message.sentAt ?? message.createdAt;
     return (
       <View style={styles.systemWrap}>
         <View style={[styles.systemPill, missed && styles.systemPillMissed]}>
-          <Text style={styles.systemText}>{getSystemMessageLabel(message)}</Text>
+          <View style={[styles.systemIconCircle, missed && styles.systemIconCircleMissed]}>
+            <Check color={missed ? '#f59e0b' : '#3b82f6'} size={12} />
+          </View>
+          <Text style={[styles.systemText, missed && styles.systemTextMissed]}>{getSystemMessageLabel(message)}</Text>
+          <Text style={styles.systemTime}>{formatMessageTime(timestamp)}</Text>
         </View>
       </View>
     );
@@ -86,13 +92,15 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
           </View>
         ) : null}
         {replyPreview ? (
-          <View style={[styles.quoted, !outgoing && styles.quotedIncoming]}>
-            <Text style={[styles.quotedName, !outgoing && styles.quotedNameIncoming]}>{replyPreview.name}</Text>
-            <View style={styles.quotedRow}>
-              {replyPreview.imageUrl ? <AuthenticatedImage url={replyPreview.imageUrl} style={styles.quotedThumb} /> : null}
-              <Text numberOfLines={1} style={[styles.quotedText, !outgoing && styles.quotedTextIncoming]}>{replyPreview.text ?? 'Attachment'}</Text>
+          <Pressable disabled={!onReplyPress} onPress={() => onReplyPress?.()} hitSlop={4} style={({ pressed }) => pressed && onReplyPress ? styles.quotedPressed : undefined}>
+            <View style={[styles.quoted, !outgoing && styles.quotedIncoming]}>
+              <Text style={[styles.quotedName, !outgoing && styles.quotedNameIncoming]}>{replyPreview.name}</Text>
+              <View style={styles.quotedRow}>
+                {replyPreview.imageUrl ? <AuthenticatedImage url={replyPreview.imageUrl} style={styles.quotedThumb} /> : null}
+                <Text numberOfLines={1} style={[styles.quotedText, !outgoing && styles.quotedTextIncoming]}>{replyPreview.text ?? 'Attachment'}</Text>
+              </View>
             </View>
-          </View>
+          </Pressable>
         ) : null}
         {templateDisplay ? (
           <View>
@@ -156,16 +164,22 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
         {showBody ? renderBody() : null}
         <View style={styles.metaRow}>
           {outgoing && statusMeta ? (
-            <Text style={[styles.status, statusMeta.showFailed && styles.statusFailed]}>
-              {statusMeta.showRead ? <CheckCheck color="#dbeafe" size={13} /> : statusMeta.showDelivered ? <CheckCheck color="#dbeafe" size={13} /> : statusMeta.showSingleTick ? <Check color="#dbeafe" size={13} /> : null}
-              {' '}{statusMeta.label}{message.sender?.userName ? `  ${message.sender.userName}` : ''}{message.sentAt ? `  ${new Date(message.sentAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}
-            </Text>
-          ) : message.sentAt ? (
-            <Text style={[styles.status, outgoing ? styles.outgoingMuted : styles.incomingTime]}>
-              {new Date(message.sentAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+            <Text style={[styles.status, statusMeta.showFailed && styles.statusFailed, statusMeta.showRead && styles.statusSeen]}>
+              {statusMeta.showRead ? <CheckCheck color="#7dd3fc" size={13} /> : statusMeta.showDelivered ? <CheckCheck color="#dbeafe" size={13} /> : statusMeta.showSingleTick ? <Check color="#dbeafe" size={13} /> : null}
+              {' '}{statusMeta.label}
             </Text>
           ) : null}
-          {edited ? <Text style={[styles.editedChip, outgoing ? styles.editedOutgoing : styles.editedIncoming]}>Edited</Text> : null}
+          <View style={styles.metaRight}>
+            {message.sentAt ? (
+              <Text style={[styles.status, outgoing ? styles.outgoingMuted : styles.incomingTime]}>
+                {outgoing && message.sender?.userName ? `${message.sender.userName}  ` : ''}
+                {new Date(message.sentAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+              </Text>
+            ) : outgoing && message.sender?.userName ? (
+              <Text style={[styles.status, styles.outgoingMuted]}>{message.sender.userName}</Text>
+            ) : null}
+            {edited ? <Text style={[styles.editedChip, outgoing ? styles.editedOutgoing : styles.editedIncoming]}>Edited</Text> : null}
+          </View>
         </View>
         {failedReason ? (
           <Text style={styles.failedText}>Failed to send: {failedReason}</Text>
@@ -212,9 +226,13 @@ function resolveMediaUrl(base: string, value?: string): string {
 
 const styles = StyleSheet.create({
   systemWrap: { alignItems: 'center', alignSelf: 'stretch' },
-  systemPill: { backgroundColor: '#e8eef7', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6 },
-  systemPillMissed: { backgroundColor: '#fef3c7' },
-  systemText: { color: '#526987', fontSize: 12, fontWeight: '600', textAlign: 'center' },
+  systemPill: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.85)', borderColor: '#e0f2fe', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 6, paddingHorizontal: 12, paddingVertical: 6, shadowColor: '#2563eb', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 8 },
+  systemPillMissed: { backgroundColor: 'rgba(255,255,255,0.85)', borderColor: '#fef3c7' },
+  systemIconCircle: { alignItems: 'center', backgroundColor: '#eff6ff', borderRadius: 10, height: 20, justifyContent: 'center', width: 20 },
+  systemIconCircleMissed: { backgroundColor: '#fffbeb' },
+  systemText: { color: '#475569', fontSize: 12, fontWeight: '500' },
+  systemTextMissed: { color: '#d97706' },
+  systemTime: { color: '#94a3b8', fontSize: 11 },
   bubble: { borderRadius: 18, maxWidth: '82%', padding: 13 },
   incoming: { backgroundColor: '#fff', borderColor: '#cfe0fa', borderWidth: 1 },
   outgoing: { backgroundColor: '#3264f6' },
@@ -228,6 +246,7 @@ const styles = StyleSheet.create({
   broadcastText: { color: '#2563eb', fontSize: 11, fontWeight: '700' },
   outgoingMuted: { color: '#dbeafe' },
   quoted: { backgroundColor: '#ffffff22', borderColor: '#ffffff55', borderRadius: 12, borderWidth: 1, marginBottom: 8, paddingHorizontal: 10, paddingVertical: 7, width: '100%' },
+  quotedPressed: { opacity: 0.6 },
   quotedIncoming: { backgroundColor: '#f1f5f9', borderColor: '#dbe4f1' },
   quotedName: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
   quotedNameIncoming: { color: '#2563eb' },
@@ -257,8 +276,10 @@ const styles = StyleSheet.create({
   docList: { gap: 6 },
   file: { alignItems: 'center', flexDirection: 'row', gap: 10, paddingVertical: 2 },
   fileName: { color: '#17233a', flex: 1, fontSize: 14 },
-  metaRow: { alignItems: 'center', flexDirection: 'row', gap: 6, justifyContent: 'flex-end', marginTop: 6 },
+  metaRow: { alignItems: 'center', flexDirection: 'row', gap: 6, marginTop: 6 },
+  metaRight: { alignItems: 'center', flexDirection: 'row', gap: 6, marginLeft: 'auto' },
   status: { color: '#dbeafe', fontSize: 11 },
+  statusSeen: { color: '#7dd3fc' },
   statusFailed: { color: '#fda4af' },
   incomingTime: { color: '#94a3b8' },
   editedChip: { borderRadius: 999, fontSize: 9, paddingHorizontal: 6, paddingVertical: 1 },

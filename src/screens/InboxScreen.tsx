@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ErrorState } from '../components/ErrorState';
 import { ChannelLogo } from '../components/ChannelLogo';
+import { AuthenticatedImage } from '../components/AuthenticatedImage';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { fetchConversations, fetchConversationCount, fetchAssigneeOptions, type ConversationListItem, type AssigneeFilterOption } from '../api/inbox';
 
@@ -195,6 +196,25 @@ export function InboxScreen() {
   );
 }
 
+function getInitials(value?: string | null) {
+  const parts = (value ?? '?').split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]);
+  return (parts.join('') || '?').toUpperCase();
+}
+
+function AssigneeBadge({ assignee }: { assignee: ConversationListItem['assignee'] }) {
+  if (!assignee) return null;
+  const label = (assignee.userName?.trim() || assignee.userEmail?.trim() || 'Agent');
+  return (
+    <View style={styles.assigneeBadge}>
+      {assignee.avatarUrl ? (
+        <AuthenticatedImage url={assignee.avatarUrl} resizeMode="cover" style={styles.assigneeImage} />
+      ) : (
+        <Text style={styles.assigneeInitials}>{getInitials(label)}</Text>
+      )}
+    </View>
+  );
+}
+
 function ConversationRow({ conversation, onPress }: { conversation: ConversationListItem; onPress: () => void }) {
   const assigneeName = conversation.assignee?.userName ?? conversation.assignee?.userEmail ?? null;
   return (
@@ -208,10 +228,13 @@ function ConversationRow({ conversation, onPress }: { conversation: Conversation
           <View style={styles.nameLine}>
             <Text style={styles.name} numberOfLines={1}>{conversation.contact.displayName ?? 'Unknown contact'}</Text>
             {conversation.unreadCount > 0 ? <View style={styles.unreadBadge}><Text style={styles.unreadText}>{conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}</Text></View> : null}
-            <Text style={styles.time}>{formatTime(conversation.lastMessageAt)}</Text>
           </View>
           <Text style={styles.channel} numberOfLines={1}>{conversation.channel?.channelName ?? ''}{assigneeName ? ` · ${assigneeName}` : ''}</Text>
           <Text style={styles.preview} numberOfLines={1}>{conversation.isUnreplied ? '↙ ' : '↗ '}{conversation.lastMessagePreview ?? 'No messages yet'}</Text>
+        </View>
+        <View style={styles.side}>
+          <Text style={styles.time}>{formatTime(conversation.lastMessageAt)}</Text>
+          <AssigneeBadge assignee={conversation.assignee} />
         </View>
       </View>
     </Pressable>
@@ -275,6 +298,10 @@ const styles = StyleSheet.create({
   time: { color: '#8ba2c3', fontSize: 11 },
   channel: { color: '#64748b', flex: 1, fontSize: 12, marginTop: 2 },
   preview: { color: '#8ba2c3', fontSize: 13, marginTop: 3 },
+  side: { alignItems: 'flex-end', alignSelf: 'stretch', flexDirection: 'column', justifyContent: 'space-between', marginLeft: 12 },
+  assigneeBadge: { alignItems: 'center', backgroundColor: '#fef3c7', borderColor: '#fff', borderRadius: 10, borderWidth: 2, height: 20, justifyContent: 'center', overflow: 'hidden', width: 20 },
+  assigneeImage: { height: 20, width: 20 },
+  assigneeInitials: { color: '#92400e', fontSize: 9, fontWeight: '700' },
   empty: { alignItems: 'center', paddingTop: 60 },
   emptyTitle: { color: '#64748b', fontSize: 15, fontWeight: '700', marginTop: 12 },
   emptyBody: { color: '#94a3b8', fontSize: 13, marginTop: 4, textAlign: 'center' },

@@ -1,3 +1,5 @@
+import type { ConversationCallSession } from '../api/inbox';
+
 const EMOJI_ONLY_MESSAGE_PATTERN = /^(?:\p{Extended_Pictographic}|\p{Emoji_Presentation}|\u200d|\ufe0f|\s)+$/u;
 
 export type MessageLike = {
@@ -169,15 +171,6 @@ export function getTemplateMessageDisplay(message: MessageLike): TemplateMessage
   return { headerType, headerText, bodyText, footerText, buttons };
 }
 
-export function formatCallDuration(seconds: number): string {
-  const total = Math.max(0, Math.round(seconds));
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const secs = total % 60;
-  if (hours > 0) return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  return `${minutes}:${String(secs).padStart(2, '0')}`;
-}
-
 export function readSystemMessageDurationSeconds(message: MessageLike): number | null {
   const meta = message.metadata ?? {};
   const candidate = meta.callSession ?? meta.call ?? meta.payload ?? meta.rawWebhookCallItem;
@@ -196,7 +189,8 @@ export function getSystemMessageLabel(message: MessageLike): string {
   const body = message.text?.trim() ?? '';
   if (body.toLowerCase() !== 'call ended') return body;
   const seconds = readSystemMessageDurationSeconds(message);
-  return seconds != null ? `Call ended · ${formatCallDuration(seconds)}` : 'Call ended';
+  const durationLabel = formatCallDurationLabel(seconds);
+  return durationLabel ? `Call ended · ${durationLabel}` : 'Call ended';
 }
 
 export function isMissedCall(message: MessageLike): boolean {
@@ -238,4 +232,261 @@ export function getMessageBody(message: MessageLike): string {
   if (message.campaignName) return message.campaignName;
   const fallbackMap: Record<string, string> = { IMAGE: '[Image]', VIDEO: '[Video]', AUDIO: '[Audio]', VOICE: '[Voice note]', DOCUMENT: '[Document]', FILE: '[Document]', LOCATION: '[Location]', STICKER: '[Sticker]', REACTION: '[Reaction]', TEMPLATE: '[Template]' };
   return fallbackMap[(message.type ?? '').toUpperCase()] ?? '';
+}
+
+// --- Call history ---
+
+export type CallHistoryTone = 'noAnswer' | 'permission' | 'permissionGranted' | 'permissionDenied' | 'permissionExpired' | 'ringing' | 'connected' | 'completed' | 'missed' | 'declined' | 'failed' | 'ended' | 'requested';
+
+const TERMINAL_CALL_OUTCOME_PRIORITY = ['MISSED', 'REJECTED', 'FAILED', 'CANCELLED'] as const;
+const ENDED_REASON_OUTCOME_RULES = [
+  { outcome: 'MISSED', keywords: ['missed', 'no answer', 'not answered'] },
+  { outcome: 'REJECTED', keywords: ['reject', 'declin'] },
+  { outcome: 'CANCELLED', keywords: ['cancel'] },
+  { outcome: 'FAILED', keywords: ['fail'] },
+] as const;
+
+export function formatCallDurationLabel(seconds: number | null): string | null {
+  if (seconds === null || Number.isNaN(seconds) || seconds < 0) return null;
+  const total = Math.floor(seconds);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const remaining = total % 60;
+  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+  if (minutes > 0) return `${minutes}m ${String(remaining).padStart(2, '0')}s`;
+  return `${remaining}s`;
+}
+
+export function formatCallHistoryTime(value?: string | null): string {
+  if (!value) return 'Now';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Now';
+  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function formatCallOutcomeReason(reason: string | null): string | null {
+  const trimmed = reason?.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.replace(/\s+/g, ' ');
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normalized) || /^wacid\./i.test(normalized) || /^wamid\./i.test(normalized)) return null;
+  return normalized;
+}
+
+function formatDateTimeLabel(value?: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+function readStringArray(value: unknown): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map((item) => `${item}`.toUpperCase());
+  return [`${value}`.toUpperCase()];
+}
+
+function resolveOutcomeByPriority(statuses: string[]): string | null {
+  return (TERMINAL_CALL_OUTCOME_PRIORITY as readonly string[]).find((outcome) => statuses.includes(outcome)) ?? null;
+}
+
+function resolveOutcomeFromEndedReason(endedReason: string | null): string | null {
+  const normalized = `${endedReason ?? ''}`.toLowerCase();
+  for (const rule of ENDED_REASON_OUTCOME_RULES) {
+    if (rule.keywords.some((keyword) => normalized.includes(keyword))) return rule.outcome;
+  }
+  return null;
+}
+
+export function isCallSessionTerminal(status: string): boolean {
+  return (TERMINAL_CALL_OUTCOME_PRIORITY as readonly string[]).includes(status);
+}
+
+export function getNormalizedCallSessionOutcome(status: string, direction?: ConversationCallSession['direction'] | null): string {
+  if (direction === 'INBOUND' && status === 'CANCELLED') return 'MISSED';
+  return status;
+}
+
+function inferCallOutcome(session: ConversationCallSession): string {
+  let outcome: string = session.status;
+  if (session.status === 'ENDED') {
+    const metadata = (session.metadata ?? {}) as Record<string, unknown>;
+    const rawCallItem = metadata.rawCallItem as Record<string, unknown> | null;
+    const rawWebhook = metadata.rawWebhook as Record<string, unknown> | null;
+    const rawStatusOutcome = resolveOutcomeByPriority(readStringArray(rawCallItem?.status));
+    if (rawStatusOutcome) {
+      outcome = rawStatusOutcome;
+    } else {
+      const webhookOutcome = resolveOutcomeByPriority([`${rawWebhook?.status ?? ''}`.toUpperCase()]);
+      if (webhookOutcome) {
+        outcome = webhookOutcome;
+      } else {
+        const endedReasonOutcome = resolveOutcomeFromEndedReason(session.endedReason);
+        if (endedReasonOutcome) {
+          outcome = endedReasonOutcome;
+        } else if (session.durationSeconds !== null) {
+          outcome = 'CONNECTED';
+        } else {
+          outcome = 'ENDED';
+        }
+      }
+    }
+  }
+  return getNormalizedCallSessionOutcome(outcome, session.direction);
+}
+
+export function getCallSessionHistoryPresentation(session: ConversationCallSession, variant: 'session' | 'permission' = 'session'): { tone: CallHistoryTone; title: string; body: string; detail: string | null } {
+  if (variant === 'permission' || session.status === 'PERMISSION_REQUESTED') {
+    const metadata = (session.metadata ?? {}) as Record<string, unknown>;
+    const permissionExpirationTimestamp = typeof metadata.permissionExpirationTimestamp === 'string' ? metadata.permissionExpirationTimestamp : null;
+    const permissionIsPermanent = metadata.permissionIsPermanent === true;
+    const permissionExpiresLabel = formatDateTimeLabel(permissionExpirationTimestamp);
+
+    if (session.permissionStatus === 'GRANTED') {
+      return {
+        tone: 'permissionGranted',
+        title: 'Permission granted',
+        body: permissionIsPermanent ? 'Customer granted permanent call permission' : 'Customer granted call permission',
+        detail: permissionIsPermanent ? 'Permission does not expire until revoked' : permissionExpiresLabel ? `Valid until ${permissionExpiresLabel}` : null,
+      };
+    }
+    if (session.permissionStatus === 'DENIED') {
+      return { tone: 'permissionDenied', title: 'Permission declined', body: 'Customer rejected the call permission request', detail: formatCallOutcomeReason(session.endedReason) };
+    }
+    if (session.permissionStatus === 'EXPIRED') {
+      return { tone: 'permissionExpired', title: 'Permission expired', body: 'Call permission request expired', detail: permissionExpiresLabel ? `Expired on ${permissionExpiresLabel}` : null };
+    }
+    return { tone: 'permission', title: 'Waiting for approval', body: session.permissionStatus === 'REQUESTED' ? 'Customer approval request sent' : 'Customer approval is pending', detail: null };
+  }
+
+  const outcome = session.endedAt !== null && !isCallSessionTerminal(session.status) ? 'ENDED' : inferCallOutcome(session);
+
+  switch (outcome) {
+    case 'REQUESTED':
+      return {
+        tone: 'requested',
+        title: 'Call requested',
+        body: session.direction === 'INBOUND' ? 'Inbound call session created' : 'Outbound call session created',
+        detail: null,
+      };
+    case 'PERMISSION_REQUESTED':
+      return { tone: 'permission', title: 'Waiting for approval', body: session.permissionStatus === 'REQUESTED' ? 'Customer approval request sent' : 'Customer approval is pending', detail: null };
+    case 'RINGING':
+      return { tone: 'ringing', title: 'Ringing', body: session.direction === 'INBOUND' ? 'Customer is calling in' : 'Outbound call is ringing', detail: null };
+    case 'CONNECTED':
+      return { tone: 'connected', title: 'Accepted call', body: 'Call connected', detail: session.durationSeconds !== null ? `Connected for ${formatCallDurationLabel(session.durationSeconds)}` : null };
+    case 'MISSED':
+      return {
+        tone: 'missed',
+        title: 'Missed call',
+        body: 'No answer',
+        detail: formatCallOutcomeReason(session.endedReason) ?? (session.direction === 'INBOUND' ? `Missed from ${session.recipientDisplayName ?? session.recipientIdentityValue}` : `Missed to ${session.recipientDisplayName ?? session.recipientIdentityValue}`),
+      };
+    case 'REJECTED':
+      return { tone: 'declined', title: 'Call declined', body: 'Rejected before connecting', detail: formatCallOutcomeReason(session.endedReason) ?? `Declined by ${session.recipientDisplayName ?? session.recipientIdentityValue}` };
+    case 'FAILED':
+      return { tone: 'failed', title: 'Call failed', body: session.endedReason ?? 'Could not connect', detail: formatCallOutcomeReason(session.endedReason) };
+    case 'CANCELLED':
+      return { tone: 'ended', title: 'Call cancelled', body: session.endedReason ?? 'Cancelled before connection', detail: formatCallOutcomeReason(session.endedReason) };
+    case 'ENDED':
+    default: {
+      const reason = formatCallOutcomeReason(session.endedReason);
+      const detail = reason && reason !== 'Call ended' ? reason : null;
+      return {
+        tone: session.durationSeconds !== null ? 'completed' : 'ended',
+        title: session.durationSeconds !== null ? 'Accepted call' : 'Call ended',
+        body: session.durationSeconds !== null ? `Connected for ${formatCallDurationLabel(session.durationSeconds)}` : 'Ended',
+        detail,
+      };
+    }
+  }
+}
+
+export function getCallSessionTimelineTimestamp(session: ConversationCallSession, variant: 'session' | 'permission' = 'session'): string {
+  if (variant === 'permission' || session.status === 'PERMISSION_REQUESTED') {
+    return session.permissionRespondedAt ?? session.requestedPermissionAt ?? session.createdAt;
+  }
+  return session.endedAt ?? session.permissionRespondedAt ?? session.connectedAt ?? session.startedAt ?? session.requestedPermissionAt ?? session.createdAt;
+}
+
+export function getCallDisplayTone(session: ConversationCallSession | null, tone: CallHistoryTone, outcomeLabel: string): CallHistoryTone {
+  if (outcomeLabel === 'No answer') return 'noAnswer';
+  if (outcomeLabel === 'Missed') return 'missed';
+  if (outcomeLabel === 'Declined') return 'declined';
+  if (outcomeLabel === 'Connected' || outcomeLabel.startsWith('Connected')) {
+    return session?.direction === 'INBOUND' ? 'connected' : 'completed';
+  }
+  return tone;
+}
+
+export function getCallOutcomeLabel(session: ConversationCallSession | null, tone: CallHistoryTone, presentationTitle: string, durationLabel: string | null): string {
+  const isInbound = session?.direction === 'INBOUND';
+  const isOutbound = session?.direction === 'OUTBOUND';
+  const connectedLabel = durationLabel ? `Connected · ${durationLabel}` : 'Connected';
+  if (presentationTitle === 'Call cancelled') return 'Cancelled';
+  switch (tone) {
+    case 'connected':
+    case 'completed':
+      return connectedLabel;
+    case 'ended':
+      if (durationLabel) return connectedLabel;
+      if (isInbound) return 'Missed';
+      if (isOutbound) return 'No answer';
+      return presentationTitle;
+    case 'missed':
+      return isOutbound ? 'No answer' : 'Missed';
+    case 'declined':
+      return 'Declined';
+    case 'ringing':
+      return 'Ringing';
+    default:
+      return presentationTitle;
+  }
+}
+
+export function getCallAgentLabel(session: ConversationCallSession | null): string | null {
+  if (!session) return null;
+  if (session.direction === 'INBOUND') {
+    return session.claimedBy?.userName?.trim() ?? session.claimedBy?.userEmail?.trim() ?? session.initiatedBy?.userName?.trim() ?? session.initiatedBy?.userEmail?.trim() ?? null;
+  }
+  return session.initiatedBy?.userName?.trim() ?? session.initiatedBy?.userEmail?.trim() ?? session.claimedBy?.userName?.trim() ?? session.claimedBy?.userEmail?.trim() ?? null;
+}
+
+const CALL_TONE_STYLES: Record<CallHistoryTone, { text: string; iconBg: string; iconColor: string }> = {
+  noAnswer: { text: '#d97706', iconBg: '#fffbeb', iconColor: '#d97706' },
+  permission: { text: '#d97706', iconBg: '#fffbeb', iconColor: '#d97706' },
+  permissionGranted: { text: '#059669', iconBg: '#ecfdf5', iconColor: '#059669' },
+  permissionDenied: { text: '#e11d48', iconBg: '#fff1f2', iconColor: '#e11d48' },
+  permissionExpired: { text: '#d97706', iconBg: '#fffbeb', iconColor: '#d97706' },
+  ringing: { text: '#0284c7', iconBg: '#f0f9ff', iconColor: '#0284c7' },
+  connected: { text: '#059669', iconBg: '#ecfdf5', iconColor: '#059669' },
+  completed: { text: '#059669', iconBg: '#ecfdf5', iconColor: '#059669' },
+  missed: { text: '#e11d48', iconBg: '#fff1f2', iconColor: '#e11d48' },
+  declined: { text: '#e11d48', iconBg: '#fff1f2', iconColor: '#e11d48' },
+  failed: { text: '#e11d48', iconBg: '#fff1f2', iconColor: '#e11d48' },
+  ended: { text: '#334155', iconBg: '#f1f5f9', iconColor: '#475569' },
+  requested: { text: '#334155', iconBg: '#f1f5f9', iconColor: '#475569' },
+};
+
+export function getCallHistoryToneStyles(tone: CallHistoryTone): { text: string; iconBg: string; iconColor: string } {
+  return CALL_TONE_STYLES[tone] ?? CALL_TONE_STYLES.requested;
+}
+
+export type ConversationTimelineEntry =
+  | { kind: 'message'; id: string; timestamp: number; message: MessageLike }
+  | { kind: 'call'; id: string; timestamp: number; session: ConversationCallSession };
+
+export function buildConversationTimeline(messages: MessageLike[], callSessions: ConversationCallSession[]): ConversationTimelineEntry[] {
+  const entries: ConversationTimelineEntry[] = [];
+  for (const message of messages) {
+    if (isInlineReactionMessage(message)) continue;
+    const timestamp = new Date(message.sentAt ?? message.createdAt ?? '').getTime();
+    entries.push({ kind: 'message', id: message.id, timestamp: Number.isNaN(timestamp) ? 0 : timestamp, message });
+  }
+  for (const session of callSessions) {
+    if (session.status === 'PERMISSION_REQUESTED') continue;
+    const timestamp = new Date(getCallSessionTimelineTimestamp(session)).getTime();
+    entries.push({ kind: 'call', id: session.id, timestamp: Number.isNaN(timestamp) ? 0 : timestamp, session });
+  }
+  entries.sort((a, b) => (a.timestamp - b.timestamp) || a.id.localeCompare(b.id));
+  return entries;
 }

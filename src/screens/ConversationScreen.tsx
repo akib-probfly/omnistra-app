@@ -12,9 +12,10 @@ import { ConversationComposer } from '../components/ConversationComposer';
 import { MediaViewer } from '../components/MediaViewer';
 import { MessageBubble } from '../components/MessageBubble';
 import { ReactionPicker } from '../components/ReactionPicker';
-import { fetchAssigneeOptions, fetchMessagesPage, markConversationRead, markConversationUnread, sendReaction, sendTemplateMessage, updateConversationAssignment, updateConversationStar, updateConversationStatus } from '../api/inbox';
+import { fetchAssigneeOptions, fetchConversationCallSessions, fetchMessagesPage, markConversationRead, markConversationUnread, sendReaction, sendTemplateMessage, updateConversationAssignment, updateConversationStar, updateConversationStatus, type ConversationCallSession } from '../api/inbox';
 import type { InboxStackParamList } from '../navigation/InboxStack';
-import { buildReactionGroups, formatTimelineDayLabel, getConversationTitle, getConversationWindowLabel, isInlineReactionMessage, isSameCalendarDay } from '../lib/inbox-utils';
+import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getConversationTitle, getConversationWindowLabel, isInlineReactionMessage, type ConversationTimelineEntry } from '../lib/inbox-utils';
+import { CallHistoryItem } from '../components/CallHistoryItem';
 
 type Attachment = { id: string; messageId?: string | null; mediaType: string; mimeType: string; originalName: string | null; downloadUrl: string; previewUrl: string | null; thumbnailUrl: string | null; durationMs: number | null };
 type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBOUND'; senderType?: string | null; sender?: { userName?: string | null; userEmail?: string | null } | null; type: string; text: string | null; deliveryStatus?: string; failureReason?: string | null; campaignId?: string | null; campaignName?: string | null; replyToMessageId?: string | null; replyTo?: { sender?: { userName?: string | null } | null; text?: string | null } | null; sentAt?: string | null; createdAt?: string; metadata?: any; attachments?: Attachment[] };
@@ -49,6 +50,11 @@ export function ConversationScreen() {
   const [atBottom, setAtBottom] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [header, setHeader] = useState({ isStarred: false, unreadCount: 0, status: 'OPEN' as string, conversation: null as any });
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasMoreRef = useRef(false);
+  const loadOlderRef = useRef<() => Promise<void>>(async () => {});
+  const timelineRef = useRef<ConversationTimelineEntry[]>([]);
 
   const messages = useQuery({
     queryKey: ['messages', route.params.conversationId],
@@ -76,6 +82,7 @@ export function ConversationScreen() {
   }, [messages.data?.conversation]);
 
   const allMessages = useMemo(() => [...olderMessages, ...(messages.data?.items ?? [])], [olderMessages, messages.data?.items]);
+  hasMoreRef.current = messages.data?.hasMore ?? false;
   const reactionGroups = useMemo(() => buildReactionGroups(allMessages), [allMessages]);
 
   const messageById = useMemo(() => { const map = new Map<string, Message>(); allMessages.forEach((message) => map.set(message.id, message)); return map; }, [allMessages]);
@@ -136,6 +143,8 @@ export function ConversationScreen() {
 
   useEffect(() => { const timer = setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100); return () => clearTimeout(timer); }, [messages.data?.items?.length]);
 
+  useEffect(() => () => { if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current); }, []);
+
   useEffect(() => { if (olderCursor && !messages.data?.hasMore && olderMessages.length === 0) setOlderCursor(null); }, [olderCursor, messages.data?.hasMore, olderMessages.length]);
 
   const loadOlder = useCallback(async () => {
@@ -160,6 +169,48 @@ export function ConversationScreen() {
     }
   }, [loadingOlder, olderCursor, messages.data?.hasMore, route.params.conversationId]);
 
+  loadOlderRef.current = loadOlder;
+
+  const clearHighlight = useCallback(() => {
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+      highlightTimeoutRef.current = null;
+    }
+    setHighlightedMessageId(null);
+  }, []);
+
+  const highlightMessage = useCallback((messageId: string) => {
+    clearHighlight();
+    setHighlightedMessageId(messageId);
+    highlightTimeoutRef.current = setTimeout(() => {
+      setHighlightedMessageId((current) => (current === messageId ? null : current));
+    }, 1800);
+  }, [clearHighlight]);
+
+  const jumpToMessage = useCallback((messageId: string) => {
+    const scrollToTarget = () => {
+      const index = timelineRef.current.findIndex((entry) => entry.kind === 'message' && entry.message.id === messageId);
+      if (index < 0) return false;
+      listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
+      highlightMessage(messageId);
+      return true;
+    };
+
+    if (scrollToTarget()) return;
+
+    if (!hasMoreRef.current) return;
+
+    (async () => {
+      let guard = 0;
+      while (hasMoreRef.current && guard < 20) {
+        guard += 1;
+        await loadOlderRef.current();
+        await new Promise((resolve) => setTimeout(resolve, 120));
+        if (scrollToTarget()) return;
+      }
+    })();
+  }, [highlightMessage]);
+
   useEffect(() => {
     if (messages.data && !messages.data.hasMore) return;
     if (messages.data?.nextCursor && !olderCursor) setOlderCursor(messages.data.nextCursor);
@@ -177,6 +228,16 @@ export function ConversationScreen() {
   const windowInfo = getConversationWindowLabel(header.conversation);
   const title = getConversationTitle(header.conversation, route.params.contactName);
   const assigneeLabel = header.conversation?.assignee?.userName ?? header.conversation?.assignee?.userEmail ?? (header.conversation?.assignee ? 'Assigned agent' : 'Unassigned');
+
+  const callsQuery = useQuery({
+    queryKey: ['conversation-calls', route.params.conversationId],
+    queryFn: () => fetchConversationCallSessions({ conversationId: route.params.conversationId, limit: 10 }),
+    enabled: channelType === 'WHATSAPP',
+    staleTime: 30000,
+  });
+  const callSessions: ConversationCallSession[] = callsQuery.data?.items ?? [];
+  const timeline = useMemo<ConversationTimelineEntry[]>(() => buildConversationTimeline(allMessages, callSessions), [allMessages, callSessions]);
+  timelineRef.current = timeline;
 
   const assignToMe = async () => {
     setMenuOpen(false);
@@ -206,7 +267,7 @@ export function ConversationScreen() {
     if (contentOffset.y < 120) loadOlder();
   };
 
-  const renderMessage = ({ item }: { item: Message }) => <SwipeableMessage message={item} onReply={() => setReplyTo(item)} onReact={() => setReactTarget(item)} onImage={openImage} replyTarget={messageById.get(item.replyToMessageId ?? '') ?? null} reactions={reactionGroups[item.id]} />;
+  const renderMessage = ({ item }: { item: Message }) => <SwipeableMessage message={item} onReply={() => setReplyTo(item)} onReact={() => setReactTarget(item)} onImage={openImage} replyTarget={messageById.get(item.replyToMessageId ?? '') ?? null} reactions={reactionGroups[item.id]} onJumpToMessage={jumpToMessage} />;
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -230,22 +291,31 @@ export function ConversationScreen() {
           <FlatList
             ref={listRef}
             style={styles.list}
-            data={allMessages}
-            keyExtractor={(item) => item.id}
+            data={timeline}
+            keyExtractor={(entry) => `${entry.kind}:${entry.id}`}
             contentContainerStyle={styles.listContent}
             keyboardShouldPersistTaps="handled"
             onScroll={onScroll}
             scrollEventThrottle={120}
             ListHeaderComponent={loadingOlder ? <Text style={styles.olderPill}>Loading older messages...</Text> : null}
             renderItem={({ item, index }) => {
-              const previous = allMessages[index - 1];
-              const showDivider = !previous || !isSameCalendarDay(previous.sentAt ?? previous.createdAt, item.sentAt ?? item.createdAt);
+              const previous = timeline[index - 1];
+              const showDivider = !previous || new Date(previous.timestamp).toDateString() !== new Date(item.timestamp).toDateString();
+              const highlighted = item.kind === 'message' && item.message.id === highlightedMessageId;
               return (
-                <View>
-                  {showDivider ? <Text style={styles.dayDivider}>{formatTimelineDayLabel(item.sentAt ?? item.createdAt ?? new Date())}</Text> : null}
-                  {renderMessage({ item })}
+                <View style={highlighted ? styles.highlightRow : undefined}>
+                  {showDivider ? <Text style={styles.dayDivider}>{formatTimelineDayLabel(new Date(item.timestamp))}</Text> : null}
+                  {item.kind === 'call' ? <CallHistoryItem session={item.session} /> : renderMessage({ item: item.message })}
                 </View>
               );
+            }}
+            onScrollToIndexFailed={({ index, averageItemLength }) => {
+              listRef.current?.scrollToOffset({ offset: Math.max(0, index * averageItemLength), animated: false });
+              setTimeout(() => {
+                listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
+                const entry = timelineRef.current[index];
+                if (entry?.kind === 'message') highlightMessage(entry.message.id);
+              }, 120);
             }}
           />
           {!atBottom ? (
@@ -362,10 +432,11 @@ function ConversationSkeleton() {
   );
 }
 
-function SwipeableMessage({ message, onReply, onReact, onImage, replyTarget, reactions }: { message: Message; onReply: () => void; onReact: () => void; onImage: (attachId: string) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }> }) {
+function SwipeableMessage({ message, onReply, onReact, onImage, replyTarget, reactions, onJumpToMessage }: { message: Message; onReply: () => void; onReact: () => void; onImage: (attachId: string) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }>; onJumpToMessage?: (messageId: string) => void }) {
   const outgoing = message.direction === 'OUTBOUND';
   const swipeRef = useRef<Swipeable>(null);
   if (isInlineReactionMessage(message)) return null;
+  const replyTargetId = message.replyToMessageId ?? replyTarget?.id ?? message.replyTo?.id ?? null;
   const replyPreview = message.replyTo || replyTarget ? {
     name: (message.replyTo?.sender?.userName ?? replyTarget?.sender?.userName) || (replyTarget?.direction === 'OUTBOUND' ? 'You' : 'Message'),
     text: message.replyTo?.text ?? replyTarget?.text ?? 'Attachment',
@@ -374,7 +445,7 @@ function SwipeableMessage({ message, onReply, onReact, onImage, replyTarget, rea
   return (
     <Swipeable ref={swipeRef} overshootRight={false} overshootLeft={false} friction={2} renderLeftActions={() => <View style={styles.replyAction}><Text style={styles.replyIcon}>↩</Text><Text style={styles.replyActionText}>Reply</Text></View>} onSwipeableOpen={() => { swipeRef.current?.close(); onReply(); }}>
       <View style={[styles.group, outgoing && styles.outgoingGroup]}>
-        <MessageBubble message={message} outgoing={outgoing} attachments={message.attachments ?? []} replyPreview={replyPreview} reactions={reactions} onImage={onImage} onLongPress={onReact} />
+        <MessageBubble message={message} outgoing={outgoing} attachments={message.attachments ?? []} replyPreview={replyPreview} reactions={reactions} onImage={onImage} onLongPress={onReact} onReplyPress={onJumpToMessage && replyTargetId ? () => onJumpToMessage(replyTargetId) : undefined} />
       </View>
     </Swipeable>
   );
@@ -394,6 +465,7 @@ const styles = StyleSheet.create({
   list: { flex: 1 },
   listWrap: { flex: 1 },
   listContent: { gap: 10, padding: 14 },
+  highlightRow: { backgroundColor: 'rgba(50,102,246,0.10)', borderRadius: 14, paddingVertical: 2 },
   group: { alignItems: 'flex-start', gap: 6 },
   outgoingGroup: { alignItems: 'flex-end' },
   dayDivider: { alignSelf: 'center', backgroundColor: '#e8eef7', borderRadius: 999, color: '#526987', fontSize: 12, fontWeight: '600', marginVertical: 8, overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 6 },

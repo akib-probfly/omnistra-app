@@ -190,6 +190,62 @@ export async function fetchMessagesPage(conversationId: string, cursor?: string,
   return apiFetch<{ items: Array<Record<string, unknown>>; pageInfo?: { nextCursor?: string | null; hasMore?: boolean } }>(`/conversations/${conversationId}/messages?${query.toString()}`);
 }
 
+export type ConversationCallSessionStatus = 'REQUESTED' | 'PERMISSION_REQUESTED' | 'RINGING' | 'CONNECTED' | 'ENDED' | 'MISSED' | 'REJECTED' | 'FAILED' | 'CANCELLED';
+export type ConversationCallPermissionStatus = 'NONE' | 'REQUESTED' | 'GRANTED' | 'DENIED' | 'EXPIRED';
+export type ConversationCallMember = { userName: string | null; userEmail: string | null };
+
+export type ConversationCallSession = {
+  id: string;
+  workspaceId: string;
+  conversationId: string;
+  channelAccountId: string;
+  initiatedByWorkspaceMemberId: string | null;
+  claimedByWorkspaceMemberId: string | null;
+  claimedByUserId: string | null;
+  claimedAt: string | null;
+  initiatedBy: ConversationCallMember | null;
+  claimedBy: ConversationCallMember | null;
+  direction: 'INBOUND' | 'OUTBOUND';
+  provider: string;
+  providerCallId: string | null;
+  providerSessionId: string | null;
+  permissionRequestMessageId: string | null;
+  recipientIdentityValue: string;
+  recipientDisplayName: string | null;
+  status: ConversationCallSessionStatus;
+  permissionStatus: ConversationCallPermissionStatus;
+  requestedPermissionAt: string | null;
+  permissionRespondedAt: string | null;
+  startedAt: string | null;
+  connectedAt: string | null;
+  endedAt: string | null;
+  durationSeconds: number | null;
+  endedReason: string | null;
+  metadata?: unknown;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ConversationCallSessionsResponse = {
+  items: ConversationCallSession[];
+  pageInfo?: { nextCursor?: string | null; hasMore?: boolean };
+};
+
+export async function fetchConversationCallSessions(params: {
+  conversationId: string;
+  cursor?: string;
+  limit?: number;
+  status?: ConversationCallSessionStatus;
+  direction?: 'INBOUND' | 'OUTBOUND';
+}): Promise<ConversationCallSessionsResponse> {
+  return apiFetch<ConversationCallSessionsResponse>(`/conversations/${params.conversationId}/calls${buildQueryString({
+    cursor: params.cursor,
+    limit: params.limit ?? 10,
+    status: params.status,
+    direction: params.direction,
+  })}`);
+}
+
 export async function sendTemplateMessage(params: {
   conversationId: string;
   templateName: string;
