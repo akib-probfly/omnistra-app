@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Filter, Menu, Search, Star, Inbox, X } from 'lucide-react-native';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View, FlatList, RefreshControl, Switch } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View, RefreshControl, Switch } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { ErrorState } from '../components/ErrorState';
@@ -125,7 +126,7 @@ export function InboxScreen() {
       {conversations.isLoading ? <ActivityIndicator color="#2563eb" style={styles.loader} />
       : conversations.isError ? <ErrorState message="Unable to load conversations." onRetry={() => conversations.refetch()} />
       : (
-        <FlatList
+        <FlashList
           data={items}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <ConversationRow conversation={item} onPress={() => navigation.navigate('Conversation', { conversationId: item.id, contactName: item.contact.displayName ?? 'Unknown contact', workspaceId: item.workspaceId, channelId: item.channel?.channelId, channelType: item.channel?.channelType })} />}
@@ -133,6 +134,8 @@ export function InboxScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />}
           onEndReachedThreshold={0.4}
           onEndReached={() => { const last = conversations.data?.pages?.at(-1); if (last?.pageInfo?.hasMore && !conversations.isFetchingNextPage) conversations.fetchNextPage(); }}
+          contentContainerStyle={styles.list}
+          style={styles.listFill}
         />
       )}
 
@@ -227,6 +230,8 @@ function formatTime(value: string | null) {
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: '#fff', flex: 1 },
+  list: { paddingBottom: 16 },
+  listFill: { flex: 1 },
   header: { alignItems: 'center', flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 10 },
   headerTitle: { color: '#111827', fontSize: 17, fontWeight: '700', marginLeft: 16 },
   headerActions: { flexDirection: 'row', gap: 18, marginLeft: 'auto' },
@@ -259,8 +264,7 @@ const styles = StyleSheet.create({
   filterResetText: { color: '#dc2626', fontSize: 14, fontWeight: '600' },
   filterApply: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 12, marginTop: 10, paddingVertical: 14 },
   filterApplyText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  row: { borderBottomColor: '#eef2f7', borderBottomWidth: 1, flexDirection: 'row', padding: 12 },
-  avatar: { alignItems: 'center', backgroundColor: '#f9c43d', borderRadius: 24, height: 48, justifyContent: 'center', position: 'relative', width: 48 },
+  row: { borderBottomColor: '#eef2f7', borderBottomWidth: 1, flexDirection: 'row', padding: 12 },  avatar: { alignItems: 'center', backgroundColor: '#f9c43d', borderRadius: 24, height: 48, justifyContent: 'center', position: 'relative', width: 48 },
   avatarText: { color: '#111827', fontSize: 18, fontWeight: '700' },
   channelBadgeWrap: { alignItems: 'center', borderColor: '#fff', borderRadius: 11, borderWidth: 2, bottom: -4, height: 22, justifyContent: 'center', overflow: 'hidden', position: 'absolute', right: -4, width: 22 },
   copy: { flex: 1, marginLeft: 12 },

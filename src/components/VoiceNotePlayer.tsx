@@ -197,12 +197,12 @@ export function VoiceNotePlayer({ url, outgoing = false, durationMs = null, audi
 }
 
 const styles = StyleSheet.create({
-  row: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 18, borderWidth: 1, flexDirection: 'row', padding: 10, minWidth: 210 },
-  outgoingRow: { backgroundColor: '#3264f6', borderColor: '#3264f6' },
+  row: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 18, borderWidth: 1, flexDirection: 'row', overflow: 'hidden', padding: 10, minWidth: 190 },
+  outgoingRow: { backgroundColor: '#3264f6', borderColor: 'rgba(255,255,255,0.35)' },
   playButton: { alignItems: 'center', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   middle: { flex: 1, marginLeft: 10 },
   barRow: { alignItems: 'center', flexDirection: 'row', gap: 3, height: 20 },
-  bar: { borderRadius: 2, width: 3 },
+  bar: { borderRadius: 2, flex: 1, maxWidth: 3 },
   metaRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
   time: { fontSize: 11 },
 });
