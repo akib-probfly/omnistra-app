@@ -3,7 +3,6 @@ import { Check, CheckCheck, Megaphone, FileText, Play, ExternalLink } from 'luci
 import { useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AuthenticatedImage } from './AuthenticatedImage';
-import { VideoThumb } from './VideoThumb';
 import { VoiceNotePlayer } from './VoiceNotePlayer';
 import {
   isEmojiOnlyMessage,
@@ -138,7 +137,15 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
         ) : null}
         {videoAttachments.map((attachment: any) => (
           <Pressable key={attachment.id} style={styles.videoCard} onPress={() => onVideo?.(attachment)}>
-            <VideoThumb url={videoUrl(attachment)} style={styles.videoPoster} />
+            {videoPosterUrl(attachment) ? (
+              <AuthenticatedImage url={videoPosterUrl(attachment)} style={styles.videoPoster} />
+            ) : (
+              <View style={[styles.videoPoster, styles.videoFallback]}>
+                <View style={styles.videoGlyph}>
+                  <Play color="#fff" fill="#fff" size={20} />
+                </View>
+              </View>
+            )}
             <View style={styles.videoOverlay}>
               <View style={styles.playCircle}><Play color="#fff" fill="#fff" size={18} /></View>
             </View>
@@ -206,9 +213,9 @@ function previewUrl(attachment: any): string {
   return resolveMediaUrl(base, value);
 }
 
-function videoUrl(attachment: any): string {
+function videoPosterUrl(attachment: any): string {
   const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://osaas-mvp-api.probfly.com/api/v1';
-  const value = attachment.downloadUrl ?? attachment.previewUrl ?? attachment.thumbnailUrl;
+  const value = attachment.previewUrl ?? attachment.thumbnailUrl;
   return resolveMediaUrl(base, value);
 }
 
@@ -275,7 +282,8 @@ const styles = StyleSheet.create({
   gridImage: { width: 123, height: 123 },
   videoCard: { borderRadius: 18, overflow: 'hidden', width: 250 },
   videoPoster: { height: 160, width: 250 },
-  videoFallback: { backgroundColor: '#0f172a' },
+  videoFallback: { alignItems: 'center', backgroundColor: '#1e2a44', justifyContent: 'center' },
+  videoGlyph: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.25)', borderRadius: 999, borderWidth: 1, height: 56, justifyContent: 'center', width: 56 },
   videoOverlay: { alignItems: 'center', bottom: 0, justifyContent: 'center', left: 0, position: 'absolute', right: 0, top: 0 },
   playCircle: { alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.55)', borderRadius: 24, height: 48, justifyContent: 'center', width: 48 },
   videoName: { color: '#64748b', fontSize: 11, paddingHorizontal: 8, paddingVertical: 4 },
