@@ -122,7 +122,7 @@ export function ProfileScreen() {
                 <View style={styles.avatar}><Text style={styles.avatarText}>{getInitials(displayName)}</Text></View>
               )}
               <Pressable style={styles.avatarEdit} onPress={handlePickAvatar} hitSlop={12}>
-                <Camera color="#fff" size={15} />
+                <Camera color="#fff" size={12} />
               </Pressable>
             </View>
             <View style={styles.avatarFields}>

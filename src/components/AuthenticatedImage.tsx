@@ -4,22 +4,25 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, View } from 'react-native';
 
+const cache = new Map<string, string>();
+
+async function download(url: string): Promise<string> {
+  const existing = cache.get(url);
+  if (existing) return existing;
+  const token = await SecureStore.getItemAsync('access-token');
+  const target = `${FileSystem.cacheDirectory}media-${Date.now()}-${Math.random().toString(36).slice(2)}.img`;
+  const result = await FileSystem.downloadAsync(url, target, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (result.status !== 200) throw new Error(`Download failed with status ${result.status}`);
+  cache.set(url, result.uri);
+  return result.uri;
+}
+
 export function AuthenticatedImage({ url, style, onPress, resizeMode = 'cover', adaptive, onLoaded }: { url: string; style: any; onPress?: () => void; resizeMode?: 'cover' | 'contain'; adaptive?: boolean; onLoaded?: () => void }) {
-  const [localUri, setLocalUri] = useState<string | null>(null);
+  const [localUri, setLocalUri] = useState<string | null>(cache.get(url) ?? null);
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     let active = true;
-    (async () => {
-      try {
-        const token = await SecureStore.getItemAsync('access-token');
-        const target = `${FileSystem.cacheDirectory}media-${Date.now()}-${Math.random().toString(36).slice(2)}.bin`;
-        const result = await FileSystem.downloadAsync(url, target, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-        if (active && result.status === 200) setLocalUri(result.uri);
-        else console.error('[media] download failed', url, result.status);
-      } catch (error) {
-        console.error('[media] download failed', url, error);
-      }
-    })();
+    download(url).then((uri) => { if (active) setLocalUri(uri); }).catch((error) => { if (active) console.error('[media] download failed', url, error); });
     return () => { active = false; };
   }, [url]);
   return (

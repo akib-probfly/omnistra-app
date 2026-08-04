@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreHorizontal, Star } from 'lucide-react-native';
+import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreHorizontal, Star, UserRound } from 'lucide-react-native';
+import { ContactDetailsPanel } from '../components/ContactDetailsPanel';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
@@ -51,6 +52,7 @@ export function ConversationScreen() {
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [atBottom, setAtBottom] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [header, setHeader] = useState({ isStarred: false, unreadCount: 0, status: 'OPEN' as string, conversation: null as any });
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -348,7 +350,8 @@ export function ConversationScreen() {
         </View>
         <Pressable onPress={() => starMutation.mutate(!header.isStarred)} hitSlop={8}><Star color={header.isStarred ? '#f59e0b' : '#94a3b8'} fill={header.isStarred ? '#f59e0b' : 'none'} size={19} /></Pressable>
         <Pressable onPress={() => { if (header.unreadCount > 0) readMutation.mutate(); else unreadMutation.mutate(); }} hitSlop={8}>{header.unreadCount > 0 ? <Mail color="#334155" size={19} /> : <MailOpen color="#334155" size={19} />}</Pressable>
-        <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}><MoreHorizontal color="#334155" size={19} /></Pressable>
+        <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}><UserRound color="#334155" size={19} /></Pressable>
+        <Pressable onPress={() => setDetailsOpen(true)} hitSlop={8}><MoreHorizontal color="#334155" size={19} /></Pressable>
       </View>
       {messages.isLoading ? <ConversationSkeleton /> : (
         <View style={styles.listWrap}>
@@ -434,6 +437,15 @@ export function ConversationScreen() {
           </View>
         </Pressable>
       </Modal>
+      {header.conversation ? (
+        <ContactDetailsPanel
+          visible={detailsOpen}
+          onClose={() => setDetailsOpen(false)}
+          conversation={header.conversation as any}
+          isUpdatingStatus={statusMutation.isPending}
+          onToggleStatus={() => statusMutation.mutate(header.status === 'CLOSED' ? 'OPEN' : 'CLOSED')}
+        />
+      ) : null}
     </KeyboardAvoidingView>
   );
 }

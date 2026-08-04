@@ -21,6 +21,11 @@ export type MessageLike = {
   attachments?: Array<{ id: string; mediaType: string; mimeType?: string | null; originalName?: string | null; caption?: string | null; previewUrl?: string | null; thumbnailUrl?: string | null; downloadUrl?: string; durationMs?: number | null }>;
 };
 
+export function getInitials(value?: string | null): string {
+  const parts = (value ?? '?').split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]);
+  return (parts.join('') || '?').toUpperCase();
+}
+
 export function isEmojiOnlyMessage(body: string): boolean {
   const trimmed = body.trim();
   if (!trimmed) return false;
