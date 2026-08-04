@@ -1,8 +1,9 @@
 // @ts-nocheck
-import { Check, CheckCheck, Megaphone, FileText, Play, ExternalLink } from 'lucide-react-native';
+import { Check, CheckCheck, Megaphone, FileText, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AuthenticatedImage } from './AuthenticatedImage';
+import { VideoThumb } from './VideoThumb';
 import { VoiceNotePlayer } from './VoiceNotePlayer';
 import {
   isEmojiOnlyMessage,
@@ -18,7 +19,7 @@ import {
 } from '../lib/inbox-utils';
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
-const LONG_TEXT_THRESHOLD = 180;
+const COLLAPSED_LINE_COUNT = 4;
 
 function openLink(href?: string) {
   if (!href) return;
@@ -56,6 +57,7 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
   const edited = isMessageEdited(message);
   const failedReason = outgoing && statusMeta?.showFailed ? getMessageFailureReason(message) : null;
   const [expanded, setExpanded] = useState(false);
+  const [canExpand, setCanExpand] = useState(false);
 
   function renderBody() {
     if (!body) return null;
@@ -63,18 +65,25 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
       return <Text style={[styles.emojiOnly, outgoing && styles.outgoingText]}>{body}</Text>;
     }
     const parts = parseMessageTextParts(body);
-    const shouldTruncate = body.length > LONG_TEXT_THRESHOLD && !expanded;
+    const clamp = canExpand && !expanded;
     return (
       <View>
-        <Text style={outgoing ? styles.outgoingText : styles.messageText}>
+        <Text
+          style={outgoing ? styles.outgoingText : styles.messageText}
+          numberOfLines={clamp ? COLLAPSED_LINE_COUNT : undefined}
+          onTextLayout={(e) => {
+            if (!canExpand && e.nativeEvent.lines.length > COLLAPSED_LINE_COUNT) setCanExpand(true);
+          }}
+        >
           {parts.map((part, index) => part.type === 'url' ? (
             <Text key={index} style={[styles.link, outgoing && styles.outgoingLink]} onPress={() => openLink(part.href)}>{part.value}</Text>
           ) : (
             <Text key={index}>{part.value}</Text>
           ))}
         </Text>
-        {body.length > LONG_TEXT_THRESHOLD ? (
-          <Pressable onPress={() => setExpanded((v) => !v)} hitSlop={6}>
+        {canExpand ? (
+          <Pressable onPress={() => setExpanded((v) => !v)} hitSlop={6} style={styles.readMoreRow}>
+            {expanded ? <ChevronUp color={outgoing ? '#eaf1ff' : '#2563eb'} size={13} /> : <ChevronDown color={outgoing ? '#eaf1ff' : '#2563eb'} size={13} />}
             <Text style={[styles.readMore, outgoing && styles.outgoingLink]}>{expanded ? 'Read less' : 'Read more'}</Text>
           </Pressable>
         ) : null}
@@ -137,19 +146,13 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
         ) : null}
         {videoAttachments.map((attachment: any) => (
           <Pressable key={attachment.id} style={styles.videoCard} onPress={() => onVideo?.(attachment)}>
-            {videoPosterUrl(attachment) ? (
-              <AuthenticatedImage url={videoPosterUrl(attachment)} style={styles.videoPoster} />
-            ) : (
-              <View style={[styles.videoPoster, styles.videoFallback]}>
-                <View style={styles.videoGlyph}>
-                  <Play color="#fff" fill="#fff" size={20} />
-                </View>
+            <VideoThumb url={videoUrl(attachment)} posterUrl={videoPosterUrl(attachment)} onPress={() => onVideo?.(attachment)} />
+            {(attachment.originalName || formatBytes(attachment.sizeBytes)) ? (
+              <View style={styles.videoMetaRow}>
+                {attachment.originalName ? <Text numberOfLines={1} style={styles.videoName}>{attachment.originalName}</Text> : null}
+                {formatBytes(attachment.sizeBytes) ? <Text style={styles.videoSize}>{formatBytes(attachment.sizeBytes)}</Text> : null}
               </View>
-            )}
-            <View style={styles.videoOverlay}>
-              <View style={styles.playCircle}><Play color="#fff" fill="#fff" size={18} /></View>
-            </View>
-            {attachment.originalName ? <Text numberOfLines={1} style={styles.videoName}>{attachment.originalName}</Text> : null}
+            ) : null}
           </Pressable>
         ))}
         {voiceAttachments.length ? (
@@ -224,6 +227,19 @@ function audioUrl(attachment: any): string {
   return resolveMediaUrl(base, attachment.downloadUrl ?? attachment.previewUrl ?? attachment.thumbnailUrl);
 }
 
+function videoUrl(attachment: any): string {
+  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://osaas-mvp-api.probfly.com/api/v1';
+  return resolveMediaUrl(base, attachment.downloadUrl ?? attachment.previewUrl ?? attachment.thumbnailUrl);
+}
+
+function formatBytes(sizeBytes: number | null | undefined): string | null {
+  if (typeof sizeBytes !== 'number' || !Number.isFinite(sizeBytes) || sizeBytes <= 0) return null;
+  if (sizeBytes < 1024) return `${sizeBytes} B`;
+  if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(1)} KB`;
+  if (sizeBytes < 1024 * 1024 * 1024) return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(sizeBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
 function resolveMediaUrl(base: string, value?: string): string {
   if (!value) return '';
   try {
@@ -255,7 +271,8 @@ const styles = StyleSheet.create({
   emojiOnly: { fontSize: 44, lineHeight: 52 },
   link: { color: '#2563eb', textDecorationLine: 'underline' },
   outgoingLink: { color: '#eaf1ff' },
-  readMore: { color: '#2563eb', fontSize: 12, marginTop: 4, fontWeight: '600' },
+  readMore: { color: '#2563eb', fontSize: 12, fontWeight: '600' },
+  readMoreRow: { alignItems: 'center', flexDirection: 'row', gap: 3, marginTop: 4 },
   broadcastRow: { alignItems: 'center', flexDirection: 'row', gap: 4, marginBottom: 4 },
   broadcastText: { color: '#2563eb', fontSize: 11, fontWeight: '700' },
   outgoingMuted: { color: '#dbeafe' },
@@ -281,12 +298,9 @@ const styles = StyleSheet.create({
   imageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 3, borderRadius: 18, overflow: 'hidden', width: 250 },
   gridImage: { width: 123, height: 123 },
   videoCard: { borderRadius: 18, overflow: 'hidden', width: 250 },
-  videoPoster: { height: 160, width: 250 },
-  videoFallback: { alignItems: 'center', backgroundColor: '#1e2a44', justifyContent: 'center' },
-  videoGlyph: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.25)', borderRadius: 999, borderWidth: 1, height: 56, justifyContent: 'center', width: 56 },
-  videoOverlay: { alignItems: 'center', bottom: 0, justifyContent: 'center', left: 0, position: 'absolute', right: 0, top: 0 },
-  playCircle: { alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.55)', borderRadius: 24, height: 48, justifyContent: 'center', width: 48 },
-  videoName: { color: '#64748b', fontSize: 11, paddingHorizontal: 8, paddingVertical: 4 },
+  videoMetaRow: { alignItems: 'center', flexDirection: 'row', gap: 6, paddingHorizontal: 4, paddingVertical: 4 },
+  videoName: { color: '#64748b', flex: 1, fontSize: 11 },
+  videoSize: { color: '#94a3b8', fontSize: 11 },
   voiceWrap: { gap: 6, maxWidth: 260 },
   docList: { gap: 6 },
   file: { alignItems: 'center', flexDirection: 'row', gap: 10, paddingVertical: 2 },
