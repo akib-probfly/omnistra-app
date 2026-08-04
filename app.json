@@ -38,7 +38,8 @@
           "photosPermission": "Allow osaas-mobile to access your photos to share images and videos.",
           "cameraPermission": "Allow osaas-mobile to access your camera to send photos and videos."
         }
-      ]
+      ],
+      "expo-video"
     ],
     "extra": {
       "eas": {

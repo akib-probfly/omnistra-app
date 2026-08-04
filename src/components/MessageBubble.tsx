@@ -3,6 +3,7 @@ import { Check, CheckCheck, Megaphone, FileText, Play, ExternalLink } from 'luci
 import { useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AuthenticatedImage } from './AuthenticatedImage';
+import { VideoThumb } from './VideoThumb';
 import { VoiceNotePlayer } from './VoiceNotePlayer';
 import {
   isEmojiOnlyMessage,
@@ -25,7 +26,7 @@ function openLink(href?: string) {
   Linking.openURL(href).catch(() => {});
 }
 
-export function MessageBubble({ message, outgoing, attachments, replyPreview, reactions, onImage, onLongPress, onReplyPress }: any) {
+export function MessageBubble({ message, outgoing, attachments, replyPreview, reactions, onImage, onVideo, onLongPress, onReplyPress }: any) {
   const isSystem = message.senderType === 'SYSTEM' && !message.campaignId;
   if (isSystem) {
     const missed = isMissedCall(message);
@@ -136,13 +137,13 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
           <AuthenticatedImage url={previewUrl(imageAttachments[0])} style={styles.image} onPress={() => onImage?.(imageAttachments[0].id)} />
         ) : null}
         {videoAttachments.map((attachment: any) => (
-          <View key={attachment.id} style={styles.videoCard}>
-            {previewUrl(attachment) ? <AuthenticatedImage url={previewUrl(attachment)} style={styles.videoPoster} /> : <View style={[styles.videoPoster, styles.videoFallback]} />}
+          <Pressable key={attachment.id} style={styles.videoCard} onPress={() => onVideo?.(attachment)}>
+            <VideoThumb url={videoUrl(attachment)} style={styles.videoPoster} />
             <View style={styles.videoOverlay}>
               <View style={styles.playCircle}><Play color="#fff" fill="#fff" size={18} /></View>
             </View>
             {attachment.originalName ? <Text numberOfLines={1} style={styles.videoName}>{attachment.originalName}</Text> : null}
-          </View>
+          </Pressable>
         ))}
         {voiceAttachments.length ? (
           <View style={styles.voiceWrap}>
@@ -202,6 +203,12 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
 function previewUrl(attachment: any): string {
   const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://osaas-mvp-api.probfly.com/api/v1';
   const value = attachment.previewUrl ?? attachment.thumbnailUrl ?? attachment.downloadUrl;
+  return resolveMediaUrl(base, value);
+}
+
+function videoUrl(attachment: any): string {
+  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://osaas-mvp-api.probfly.com/api/v1';
+  const value = attachment.downloadUrl ?? attachment.previewUrl ?? attachment.thumbnailUrl;
   return resolveMediaUrl(base, value);
 }
 

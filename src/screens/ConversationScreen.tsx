@@ -13,6 +13,7 @@ import { setActiveConversationId } from '../api/realtime';
 import { markRecentLocalMessageSend } from '../lib/inbox-realtime-suppression';
 import { ConversationComposer } from '../components/ConversationComposer';
 import { MediaViewer } from '../components/MediaViewer';
+import { VideoPlayerModal } from '../components/VideoPlayer';
 import { MessageBubble } from '../components/MessageBubble';
 import { ReactionPicker } from '../components/ReactionPicker';
 import { fetchAssigneeOptions, fetchConversationCallSessions, fetchMessagesPage, markConversationRead, markConversationUnread, sendReaction, sendTemplateMessage, updateConversationAssignment, updateConversationStar, updateConversationStatus, type ConversationCallSession } from '../api/inbox';
@@ -46,6 +47,7 @@ export function ConversationScreen() {
   const [draft, setDraft] = useState(''); const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [attachments, setAttachments] = useState<SendAttachment[]>([]);
   const [gallery, setGallery] = useState<MediaItem[]>([]); const [galleryIndex, setGalleryIndex] = useState(0);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [reactTarget, setReactTarget] = useState<Message | null>(null);
   const [olderMessages, setOlderMessages] = useState<Message[]>([]);
   const [olderCursor, setOlderCursor] = useState<string | null>(null);
@@ -291,6 +293,10 @@ export function ConversationScreen() {
     setGalleryIndex(Math.max(0, imageUrls.findIndex((media) => media.attachId === attachId)));
   };
 
+  const openVideo = (attachment: { downloadUrl: string; previewUrl?: string | null }) => {
+    setVideoUrl(apiUrl(attachment.downloadUrl ?? attachment.previewUrl ?? null));
+  };
+
   const channelType = header.conversation?.channel?.channelType ?? route.params.channelType;
   const channelId = header.conversation?.channel?.id ?? route.params.channelId;
   const windowInfo = getConversationWindowLabel(header.conversation);
@@ -344,7 +350,7 @@ export function ConversationScreen() {
     if (contentOffset.y > contentSize.height - layoutMeasurement.height - 120) loadOlder();
   };
 
-  const renderMessage = ({ item }: { item: Message }) => <SwipeableMessage message={item} onReply={() => setReplyTo(item)} onReact={() => setReactTarget(item)} onImage={openImage} replyTarget={messageById.get(item.replyToMessageId ?? '') ?? null} reactions={reactionGroups[item.id]} onJumpToMessage={jumpToMessage} />;
+  const renderMessage = ({ item }: { item: Message }) => <SwipeableMessage message={item} onReply={() => setReplyTo(item)} onReact={() => setReactTarget(item)} onImage={openImage} onVideo={openVideo} replyTarget={messageById.get(item.replyToMessageId ?? '') ?? null} reactions={reactionGroups[item.id]} onJumpToMessage={jumpToMessage} />;
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -415,6 +421,7 @@ export function ConversationScreen() {
       />
       <ReactionPicker visible={Boolean(reactTarget)} onClose={() => setReactTarget(null)} onPick={(emoji) => { if (reactTarget) reactMutation.mutate({ messageId: reactTarget.id, emoji }); setReactTarget(null); }} onReply={() => { if (reactTarget) setReplyTo(reactTarget); setReactTarget(null); }} />
       <MediaViewer images={gallery} index={galleryIndex} onClose={() => setGallery([])} onIndex={setGalleryIndex} />
+      <VideoPlayerModal url={videoUrl} visible={Boolean(videoUrl)} onClose={() => setVideoUrl(null)} />
       <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
         <Pressable style={styles.menuOverlay} onPress={() => setMenuOpen(false)}>
           <View style={styles.menuCard}>
@@ -520,7 +527,7 @@ function ConversationSkeleton() {
   );
 }
 
-function SwipeableMessage({ message, onReply, onReact, onImage, replyTarget, reactions, onJumpToMessage }: { message: Message; onReply: () => void; onReact: () => void; onImage: (attachId: string) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }>; onJumpToMessage?: (messageId: string) => void }) {
+function SwipeableMessage({ message, onReply, onReact, onImage, onVideo, replyTarget, reactions, onJumpToMessage }: { message: Message; onReply: () => void; onReact: () => void; onImage: (attachId: string) => void; onVideo: (attachment: any) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }>; onJumpToMessage?: (messageId: string) => void }) {
   const outgoing = message.direction === 'OUTBOUND';
   const swipeRef = useRef<Swipeable>(null);
   if (isInlineReactionMessage(message)) return null;
@@ -533,7 +540,7 @@ function SwipeableMessage({ message, onReply, onReact, onImage, replyTarget, rea
   return (
     <Swipeable ref={swipeRef} overshootRight={false} overshootLeft={false} friction={2} renderLeftActions={() => <View style={styles.replyAction}><Text style={styles.replyIcon}>↩</Text><Text style={styles.replyActionText}>Reply</Text></View>} onSwipeableOpen={() => { swipeRef.current?.close(); onReply(); }}>
       <View style={[styles.group, outgoing && styles.outgoingGroup]}>
-        <MessageBubble message={message} outgoing={outgoing} attachments={message.attachments ?? []} replyPreview={replyPreview} reactions={reactions} onImage={onImage} onLongPress={onReact} onReplyPress={onJumpToMessage && replyTargetId ? () => onJumpToMessage(replyTargetId) : undefined} />
+        <MessageBubble message={message} outgoing={outgoing} attachments={message.attachments ?? []} replyPreview={replyPreview} reactions={reactions} onImage={onImage} onVideo={onVideo} onLongPress={onReact} onReplyPress={onJumpToMessage && replyTargetId ? () => onJumpToMessage(replyTargetId) : undefined} />
       </View>
     </Swipeable>
   );
