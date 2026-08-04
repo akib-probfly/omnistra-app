@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Bell, CheckCheck, MessageSquare, PhoneCall, Trash2, UserMinus, UserRoundCheck, X } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -126,32 +126,38 @@ export function NotificationBell({ onOpen }: { onOpen: () => void }) {
     queryKey: notificationQueryKeys.unreadCount(),
     queryFn: fetchUnreadNotificationCount,
     staleTime: 15_000,
+    refetchInterval: 15_000,
   });
   const unreadCount = unreadQuery.data ?? 0;
-  const glow = useRef(new Animated.Value(0)).current;
+  const blink = useRef(new Animated.Value(1)).current;
+
+  useFocusEffect(
+    useCallback(() => {
+      void unreadQuery.refetch();
+    }, [unreadQuery]),
+  );
 
   useEffect(() => {
     if (unreadCount > 0) {
       const loop = Animated.loop(
         Animated.sequence([
-          Animated.timing(glow, { toValue: 1, duration: 900, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-          Animated.timing(glow, { toValue: 0, duration: 900, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+          Animated.timing(blink, { toValue: 0.3, duration: 600, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+          Animated.timing(blink, { toValue: 1, duration: 600, easing: Easing.in(Easing.quad), useNativeDriver: true }),
         ]),
       );
       loop.start();
       return () => loop.stop();
     }
-    glow.setValue(0);
-  }, [unreadCount, glow]);
+    blink.setValue(1);
+  }, [unreadCount, blink]);
 
   return (
     <Pressable style={styles.bellButton} onPress={onOpen} hitSlop={8}>
       <Bell color="#64748b" size={18} />
       {unreadCount > 0 ? (
-        <>
-          <Animated.View style={[styles.bellGlow, { opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0.9] }), transform: [{ scale: glow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.8] }) }] }]} />
-          <View style={styles.bellBadge}><Text style={styles.bellBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text></View>
-        </>
+        <Animated.View style={[styles.bellBadge, { opacity: blink }]}>
+          <Text style={styles.bellBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+        </Animated.View>
       ) : null}
     </Pressable>
   );
@@ -259,7 +265,6 @@ export function NotificationCenter({ visible, onClose }: { visible: boolean; onC
 
 const styles = StyleSheet.create({
   bellButton: { alignItems: 'center', borderColor: '#d3e0f3', borderRadius: 22, borderWidth: 1, height: 40, justifyContent: 'center', position: 'relative', width: 40 },
-  bellGlow: { backgroundColor: '#f59e0b', borderRadius: 22, height: 44, position: 'absolute', width: 44 },
   bellBadge: { alignItems: 'center', backgroundColor: '#ef4444', borderRadius: 9, borderColor: '#fff', borderWidth: 1.5, height: 18, justifyContent: 'center', minWidth: 18, paddingHorizontal: 3, position: 'absolute', right: -5, top: -5 },
   bellBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
 

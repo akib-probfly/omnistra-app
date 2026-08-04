@@ -57,6 +57,7 @@ export function ConversationScreen() {
   const hasMoreRef = useRef(false);
   const loadOlderRef = useRef<() => Promise<void>>(async () => {});
   const timelineRef = useRef<ConversationTimelineEntry[]>([]);
+  const isAtBottomRef = useRef(true);
 
   const messages = useQuery({
     queryKey: ['messages', route.params.conversationId],
@@ -140,7 +141,7 @@ export function ConversationScreen() {
         if (!current || !Array.isArray(current.items)) return current;
         return { ...current, items: [...current.items, optimistic] };
       });
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+      setTimeout(() => listRef.current?.scrollToOffset({ offset: 0, animated: true }), 100);
       return { tempId, previous, previousDraft: draft, previousAttachments: attachments, previousReplyTo: replyTo };
     },
     onSuccess: (created, _vars, context) => {
@@ -150,7 +151,7 @@ export function ConversationScreen() {
         return { ...current, items: current.items.map((item: any) => (item.id === context?.tempId ? created : item)) };
       });
       queryClient.invalidateQueries({ queryKey: ['messages', route.params.conversationId], refetchType: 'active' });
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 150);
+      setTimeout(() => listRef.current?.scrollToOffset({ offset: 0, animated: true }), 150);
     },
     onError: (error, _vars, context) => {
       queryClient.setQueryData<any>(['messages', route.params.conversationId], (current) => {
@@ -195,8 +196,6 @@ export function ConversationScreen() {
     setActiveConversationId(route.params.conversationId);
     return () => setActiveConversationId(null);
   }, [route.params.conversationId]);
-
-  useEffect(() => { const timer = setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100); return () => clearTimeout(timer); }, [messages.data?.items?.length]);
 
   useEffect(() => () => { if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current); }, []);
 
@@ -244,8 +243,9 @@ export function ConversationScreen() {
 
   const jumpToMessage = useCallback((messageId: string) => {
     const scrollToTarget = () => {
-      const index = timelineRef.current.findIndex((entry) => entry.kind === 'message' && entry.message.id === messageId);
-      if (index < 0) return false;
+      const chronologicalIndex = timelineRef.current.findIndex((entry) => entry.kind === 'message' && entry.message.id === messageId);
+      if (chronologicalIndex < 0) return false;
+      const index = timelineRef.current.length - 1 - chronologicalIndex;
       listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
       highlightMessage(messageId);
       return true;
@@ -293,6 +293,14 @@ export function ConversationScreen() {
   const callSessions: ConversationCallSession[] = callsQuery.data?.items ?? [];
   const timeline = useMemo<ConversationTimelineEntry[]>(() => buildConversationTimeline(allMessages, callSessions), [allMessages, callSessions]);
   timelineRef.current = timeline;
+  const displayEntries = useMemo(() => {
+    const reversed = [...timeline].reverse();
+    return reversed.map((entry, index) => {
+      const previous = timeline[timeline.length - 1 - index - 1];
+      const showDivider = !previous || new Date(previous.timestamp).toDateString() !== new Date(entry.timestamp).toDateString();
+      return { entry, showDivider };
+    });
+  }, [timeline]);
 
   const assignToMe = async () => {
     setMenuOpen(false);
@@ -317,9 +325,10 @@ export function ConversationScreen() {
 
   const onScroll = (event: any) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
-    setAtBottom(distanceFromBottom < 120);
-    if (contentOffset.y < 120) loadOlder();
+    const atBottom = contentOffset.y < 120;
+    isAtBottomRef.current = atBottom;
+    setAtBottom(atBottom);
+    if (contentOffset.y > contentSize.height - layoutMeasurement.height - 120) loadOlder();
   };
 
   const renderMessage = ({ item }: { item: Message }) => <SwipeableMessage message={item} onReply={() => setReplyTo(item)} onReact={() => setReactTarget(item)} onImage={openImage} replyTarget={messageById.get(item.replyToMessageId ?? '') ?? null} reactions={reactionGroups[item.id]} onJumpToMessage={jumpToMessage} />;
@@ -327,7 +336,7 @@ export function ConversationScreen() {
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={() => navigation.goBack()}><ArrowLeft color="#334155" size={23} /></Pressable>
+        <Pressable onPress={() => navigation.navigate('Inbox', { screen: 'InboxList' })}><ArrowLeft color="#334155" size={23} /></Pressable>
         <View style={styles.avatarWrap}>
           <View style={styles.avatar}><Text>{title.slice(0, 1).toUpperCase()}</Text></View>
           <View style={styles.presence} />
@@ -346,21 +355,22 @@ export function ConversationScreen() {
           <FlatList
             ref={listRef}
             style={styles.list}
-            data={timeline}
-            keyExtractor={(entry) => `${entry.kind}:${entry.id}`}
+            data={displayEntries}
+            inverted
+            keyExtractor={(entry) => `${entry.entry.kind}:${entry.entry.id}`}
             contentContainerStyle={styles.listContent}
             keyboardShouldPersistTaps="handled"
             onScroll={onScroll}
             scrollEventThrottle={120}
-            ListHeaderComponent={loadingOlder ? <Text style={styles.olderPill}>Loading older messages...</Text> : null}
-            renderItem={({ item, index }) => {
-              const previous = timeline[index - 1];
-              const showDivider = !previous || new Date(previous.timestamp).toDateString() !== new Date(item.timestamp).toDateString();
-              const highlighted = item.kind === 'message' && item.message.id === highlightedMessageId;
+            onContentSizeChange={() => { if (isAtBottomRef.current) listRef.current?.scrollToOffset({ offset: 0, animated: false }); }}
+            ListFooterComponent={loadingOlder ? <Text style={styles.olderPill}>Loading older messages...</Text> : null}
+            renderItem={({ item }) => {
+              const { entry, showDivider } = item;
+              const highlighted = entry.kind === 'message' && entry.message.id === highlightedMessageId;
               return (
                 <View style={highlighted ? styles.highlightRow : undefined}>
-                  {showDivider ? <Text style={styles.dayDivider}>{formatTimelineDayLabel(new Date(item.timestamp))}</Text> : null}
-                  {item.kind === 'call' ? <CallHistoryItem session={item.session} /> : renderMessage({ item: item.message })}
+                  {showDivider ? <Text style={styles.dayDivider}>{formatTimelineDayLabel(new Date(entry.timestamp))}</Text> : null}
+                  {entry.kind === 'call' ? <CallHistoryItem session={entry.session} /> : renderMessage({ item: entry.message })}
                 </View>
               );
             }}
@@ -368,13 +378,13 @@ export function ConversationScreen() {
               listRef.current?.scrollToOffset({ offset: Math.max(0, index * averageItemLength), animated: false });
               setTimeout(() => {
                 listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
-                const entry = timelineRef.current[index];
+                const entry = displayEntries[index]?.entry;
                 if (entry?.kind === 'message') highlightMessage(entry.message.id);
               }, 120);
             }}
           />
           {!atBottom ? (
-            <Pressable style={styles.fab} onPress={() => listRef.current?.scrollToEnd({ animated: true })}><ChevronDown color="#fff" size={22} /></Pressable>
+            <Pressable style={styles.fab} onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}><ChevronDown color="#fff" size={22} /></Pressable>
           ) : null}
         </View>
       )}
