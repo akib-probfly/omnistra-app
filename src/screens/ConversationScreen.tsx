@@ -23,7 +23,7 @@ import { CallHistoryItem } from '../components/CallHistoryItem';
 type Attachment = { id: string; messageId?: string | null; mediaType: string; mimeType: string; originalName: string | null; downloadUrl: string; previewUrl: string | null; thumbnailUrl: string | null; durationMs: number | null };
 type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBOUND'; senderType?: string | null; sender?: { userName?: string | null; userEmail?: string | null } | null; type: string; text: string | null; deliveryStatus?: string; failureReason?: string | null; campaignId?: string | null; campaignName?: string | null; replyToMessageId?: string | null; replyTo?: { sender?: { userName?: string | null } | null; text?: string | null } | null; sentAt?: string | null; createdAt?: string; metadata?: any; attachments?: Attachment[] };
 type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT' };
-type MediaItem = { attachId: string; src: string; thumb: string | null; mediaType: string };
+type MediaItem = { attachId: string; src: string; mediaType: string };
 const apiUrl = (value: string | null) => {
   if (!value) return null;
   const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://osaas-mvp-api.probfly.com/api/v1';
@@ -86,7 +86,14 @@ export function ConversationScreen() {
     }
   }, [messages.data?.conversation]);
 
-  const allMessages = useMemo(() => [...olderMessages, ...(messages.data?.items ?? [])], [olderMessages, messages.data?.items]);
+  const allMessages = useMemo(() => {
+    const seen = new Set<string>();
+    const merged: Message[] = [];
+    [...olderMessages, ...(messages.data?.items ?? [])].forEach((message) => {
+      if (!seen.has(message.id)) { seen.add(message.id); merged.push(message); }
+    });
+    return merged;
+  }, [olderMessages, messages.data?.items]);
   hasMoreRef.current = messages.data?.hasMore ?? false;
   const reactionGroups = useMemo(() => buildReactionGroups(allMessages), [allMessages]);
 
@@ -216,7 +223,11 @@ export function ConversationScreen() {
         const mediaOnly = messageAttachments.length > 0 && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(message.type);
         return { ...message, text: mediaOnly ? null : message.text, attachments: messageAttachments };
       });
-      setOlderMessages((current) => [...items, ...current]);
+      setOlderMessages((current) => {
+        const existing = new Set(current.map((message) => message.id));
+        const fresh = items.filter((message) => !existing.has(message.id));
+        return [...fresh, ...current];
+      });
       setOlderCursor(page.pageInfo?.nextCursor ?? null);
     } catch (error) {
       console.error('[conversation] load older failed', error);
@@ -273,7 +284,7 @@ export function ConversationScreen() {
     if (messages.data?.nextCursor && !olderCursor) setOlderCursor(messages.data.nextCursor);
   }, [messages.data, olderCursor]);
 
-  const imageUrls = useMemo(() => allMessages.flatMap((message) => (message.attachments ?? []).filter((attachment) => ['IMAGE', 'STICKER'].includes(attachment.mediaType.toUpperCase()) || attachment.mimeType?.startsWith('image/')).map((attachment) => { const src = apiUrl(attachment.previewUrl ?? attachment.thumbnailUrl ?? attachment.downloadUrl); const thumb = apiUrl(attachment.thumbnailUrl ?? attachment.previewUrl); return src ? { attachId: attachment.id, src, thumb, mediaType: attachment.mediaType } as MediaItem : null; }).filter((item): item is MediaItem => Boolean(item))), [allMessages]);
+  const imageUrls = useMemo(() => allMessages.flatMap((message) => (message.attachments ?? []).filter((attachment) => ['IMAGE', 'STICKER'].includes(attachment.mediaType.toUpperCase()) || attachment.mimeType?.startsWith('image/')).map((attachment) => { const src = apiUrl(attachment.previewUrl ?? attachment.thumbnailUrl ?? attachment.downloadUrl); return src ? { attachId: attachment.id, src, mediaType: attachment.mediaType } as MediaItem : null; }).filter((item): item is MediaItem => Boolean(item))), [allMessages]);
 
   const openImage = (attachId: string) => {
     setGallery(imageUrls);

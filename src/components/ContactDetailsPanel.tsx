@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
     elevation: 16,
-    maxHeight: '92%',
+    height: '92%',
     overflow: 'hidden',
     shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: -4 },

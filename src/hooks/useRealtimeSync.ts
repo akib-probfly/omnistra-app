@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createRealtimeSocket, setRealtimeConnectionStatus, getActiveConversationId } from '../api/realtime';
 import { latestAccessToken } from '../api/client';
 import { shouldSuppressRealtimeMessageRefresh } from '../lib/inbox-realtime-suppression';
+import { playMessageNotificationSound } from '../lib/notificationSound';
 
 const REALTIME_READY_EVENT = 'realtime.ready';
 const REALTIME_CONVERSATION_UPDATED_EVENT = 'conversation.updated';
@@ -130,6 +131,7 @@ export function useRealtimeSync(accessToken: string | null) {
         const currentUnreadCount = getCachedConversationUnreadCount(queryClient, payload.conversationId);
         incrementConversationUnreadCountInCache(queryClient, payload.conversationId, currentUnreadCount + 1);
         if (currentUnreadCount <= 0) incrementInboxUnreadCountInCache(queryClient);
+        void playMessageNotificationSound();
       }
 
       invalidateInboxQueries(queryClient, 1200);

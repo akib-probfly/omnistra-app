@@ -6,7 +6,7 @@ import { ActivityIndicator, Image, Pressable, StyleSheet, View } from 'react-nat
 
 const cache = new Map<string, string>();
 
-async function download(url: string): Promise<string> {
+export async function downloadMedia(url: string): Promise<string> {
   const existing = cache.get(url);
   if (existing) return existing;
   const token = await SecureStore.getItemAsync('access-token');
@@ -17,12 +17,21 @@ async function download(url: string): Promise<string> {
   return result.uri;
 }
 
+export function getCachedMediaUri(url: string): string | null {
+  return cache.get(url) ?? null;
+}
+
+export function prefetchMedia(url: string): void {
+  if (!url) return;
+  void downloadMedia(url).catch(() => {});
+}
+
 export function AuthenticatedImage({ url, style, onPress, resizeMode = 'cover', adaptive, onLoaded }: { url: string; style: any; onPress?: () => void; resizeMode?: 'cover' | 'contain'; adaptive?: boolean; onLoaded?: () => void }) {
   const [localUri, setLocalUri] = useState<string | null>(cache.get(url) ?? null);
   const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     let active = true;
-    download(url).then((uri) => { if (active) setLocalUri(uri); }).catch((error) => { if (active) console.error('[media] download failed', url, error); });
+    downloadMedia(url).then((uri) => { if (active) setLocalUri(uri); }).catch((error) => { if (active) console.error('[media] download failed', url, error); });
     return () => { active = false; };
   }, [url]);
   return (

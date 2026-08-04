@@ -1,11 +1,10 @@
 // @ts-nocheck
 import { useEffect, useRef, useState } from 'react';
-import * as SecureStore from 'expo-secure-store';
-import * as FileSystem from 'expo-file-system/legacy';
-import { ActivityIndicator, Animated, Image, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Animated, FlatList, Image, Modal, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { downloadMedia, getCachedMediaUri } from './AuthenticatedImage';
 
-export type MediaGalleryItem = { attachId: string; src: string; thumb: string | null; mediaType: string };
+export type MediaGalleryItem = { attachId: string; src: string; mediaType: string };
 
 type MediaViewerProps = {
   images: MediaGalleryItem[];
@@ -14,25 +13,15 @@ type MediaViewerProps = {
   onIndex: (index: number) => void;
 };
 
-function useLocalAsset(url: string | null, prefix: string): string | null {
-  const [uri, setUri] = useState<string | null>(null);
+function useLocalAsset(url: string | null): string | null {
+  const [uri, setUri] = useState<string | null>(url ? getCachedMediaUri(url) : null);
   useEffect(() => {
-    setUri(null);
     if (!url) return;
     let active = true;
-    (async () => {
-      try {
-        const token = await SecureStore.getItemAsync('access-token');
-        const target = `${FileSystem.cacheDirectory}${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}.bin`;
-        const result = await FileSystem.downloadAsync(url, target, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-        if (active && result.status === 200) setUri(result.uri);
-        else console.error('[media] fetch failed', url, result.status);
-      } catch (error) {
-        console.error('[media] fetch failed', url, error);
-      }
-    })();
+    setUri(getCachedMediaUri(url));
+    downloadMedia(url).then((result) => { if (active) setUri(result); }).catch((error) => console.error('[media] fetch failed', url, error));
     return () => { active = false; };
-  }, [url, prefix]);
+  }, [url]);
   return uri;
 }
 
@@ -60,8 +49,8 @@ function ZoomableImage({ src, stageWidth, stageHeight }: { src: string; stageWid
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => lastScale.current > 1,
+      onMoveShouldSetPanResponder: (_, gesture) => (gesture.touches ?? []).length >= 2 || lastScale.current > 1,
       onPanResponderGrant: () => {},
       onPanResponderMove: (_, gesture) => {
         const touches = gesture.touches ?? [];
@@ -123,12 +112,25 @@ function ZoomableImage({ src, stageWidth, stageHeight }: { src: string; stageWid
 export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProps) {
   const insets = useSafeAreaInsets();
   const { width: winW, height: winH } = useWindowDimensions();
-  const item = images[index] ?? null;
-  const renderKey = item?.attachId ?? 'empty';
+  const listRef = useRef<FlatList<MediaGalleryItem>>(null);
   const visible = images.length > 0 && index >= 0 && index < images.length;
-  const stageHeight = winH - insets.top - insets.bottom - 132;
+  const stageHeight = winH - insets.top - insets.bottom;
+
+  useEffect(() => {
+    if (!visible || !listRef.current) return;
+    try {
+      listRef.current.scrollToIndex({ index, animated: false });
+    } catch {
+      // index outside rendered window; the pager handles it on next layout
+    }
+  }, [index, visible]);
 
   if (!visible) return null;
+
+  const onMomentumScrollEnd = (event: any) => {
+    const nextIndex = Math.round(event.nativeEvent.contentOffset.x / winW);
+    if (nextIndex >= 0 && nextIndex < images.length && nextIndex !== index) onIndex(nextIndex);
+  };
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose} presentationStyle="overFullScreen">
@@ -139,31 +141,38 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
           <View style={styles.topSpacer} />
         </View>
         <View style={styles.centerFill}>
-          <MainAsset key={renderKey} src={item?.src ?? ''} stageWidth={winW} stageHeight={stageHeight} />
+          <FlatList
+            ref={listRef}
+            data={images}
+            keyExtractor={(media) => media.attachId}
+            horizontal
+            pagingEnabled
+            style={styles.pager}
+            showsHorizontalScrollIndicator={false}
+            getItemLayout={(_, i) => ({ length: winW, offset: winW * i, index: i })}
+            initialScrollIndex={index}
+            onMomentumScrollEnd={onMomentumScrollEnd}
+            renderItem={({ item: media }) => (
+              <View style={{ width: winW, height: stageHeight }}>
+                <MainAsset src={media.src} stageWidth={winW} stageHeight={stageHeight} />
+              </View>
+            )}
+          />
         </View>
-        {images.length > 1 ? <BottomBar insets={insets} images={images} index={index} onIndex={onIndex} /> : null}
       </View>
     </Modal>
   );
 }
 
 function MainAsset({ src, stageWidth, stageHeight }: { src: string; stageWidth: number; stageHeight: number }) {
-  const modified = useLocalAsset(src, 'media');
+  const modified = useLocalAsset(src);
   if (!modified) return <ActivityIndicator color="#fff" size="large" />;
   return <ZoomableImage src={modified} stageWidth={stageWidth} stageHeight={stageHeight} />;
 }
 
-function BottomBar({ insets, images, index, onIndex }: { insets: any; images: MediaGalleryItem[]; index: number; onIndex: (index: number) => void }) {
-  return <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 8 }]}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbsContent}>{images.map((media, mediaIndex) => <Thumb key={media.attachId} url={media.thumb ?? media.src} active={mediaIndex === index} onPress={() => onIndex(mediaIndex)} />)}</ScrollView></View>;
-}
-
-function Thumb({ url, active, onPress }: { url: string; active: boolean; onPress: () => void }) {
-  const uri = useLocalAsset(url, 'thumb');
-  return <Pressable onPress={onPress} style={[styles.thumbWrap, active && styles.thumbActive]}>{uri ? <Image source={{ uri }} resizeMode="cover" style={styles.thumbBox} /> : <View style={[styles.thumbBox, styles.thumbLoading]}><ActivityIndicator size="small" color="#fff" /></View>}</Pressable>;
-}
-
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: '#050505' },
+  pager: { flex: 1, width: '100%' },
   centerFill: { flex: 1, alignItems: 'center', backgroundColor: '#050505', justifyContent: 'center' },
   zoomStage: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   zoomFill: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
@@ -172,10 +181,4 @@ const styles = StyleSheet.create({
   closeText: { color: '#fff', fontSize: 18, lineHeight: 20 },
   counter: { color: '#fff', fontSize: 14, fontWeight: '600' },
   topSpacer: { width: 36 },
-  bottomBar: { left: 0, position: 'absolute', right: 0, bottom: 0, zIndex: 2 },
-  thumbsContent: { gap: 10, paddingHorizontal: 16, paddingVertical: 8 },
-  thumbWrap: { borderRadius: 10, overflow: 'hidden' },
-  thumbActive: { borderColor: '#fff', borderWidth: 2 },
-  thumbBox: { borderRadius: 8, height: 60, width: 60 },
-  thumbLoading: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center' },
 });

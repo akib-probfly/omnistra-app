@@ -268,13 +268,15 @@ function ConversationRow({ conversation, onPress }: { conversation: Conversation
           <View style={styles.nameLine}>
             <Text style={styles.name} numberOfLines={1}>{conversation.contact.displayName ?? 'Unknown contact'}</Text>
             {showWindowDot ? <WindowPulseDot expired={windowExpired} /> : null}
-            {conversation.unreadCount > 0 ? <View style={styles.unreadBadge}><Text style={styles.unreadText}>{conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}</Text></View> : null}
           </View>
           <Text style={styles.channel} numberOfLines={1}>{conversation.channel?.channelName ?? ''}{assigneeName ? ` · ${assigneeName}` : ''}</Text>
           <Text style={styles.preview} numberOfLines={1}>{conversation.isUnreplied ? '↙ ' : '↗ '}{conversation.lastMessagePreview ?? 'No messages yet'}</Text>
         </View>
         <View style={styles.side}>
           <Text style={styles.time}>{formatTime(conversation.lastMessageAt)}</Text>
+          <View style={styles.sideMiddle}>
+            {conversation.unreadCount > 0 ? <View style={styles.unreadBadge}><Text style={styles.unreadText}>{conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}</Text></View> : null}
+          </View>
           <AssigneeBadge assignee={conversation.assignee} />
         </View>
       </View>
@@ -341,12 +343,13 @@ const styles = StyleSheet.create({
   windowDotWrap: { alignItems: 'center', height: 12, justifyContent: 'center', width: 12 },
   windowDotRing: { borderRadius: 6, height: 12, position: 'absolute', width: 12 },
   windowDot: { borderRadius: 4, elevation: 3, height: 8, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 5, width: 8 },
-  unreadBadge: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 10, justifyContent: 'center', marginLeft: 'auto', minWidth: 20, paddingHorizontal: 5 },
+  unreadBadge: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 10, justifyContent: 'center', minWidth: 20, paddingHorizontal: 5 },
   unreadText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   time: { color: '#8ba2c3', fontSize: 11 },
   channel: { color: '#64748b', flex: 1, fontSize: 12, marginTop: 2 },
   preview: { color: '#8ba2c3', fontSize: 13, marginTop: 3 },
   side: { alignItems: 'flex-end', alignSelf: 'stretch', flexDirection: 'column', justifyContent: 'space-between', marginLeft: 12 },
+  sideMiddle: { alignItems: 'center', flex: 1, justifyContent: 'center', minHeight: 20 },
   assigneeBadge: { alignItems: 'center', backgroundColor: '#fef3c7', borderColor: '#fff', borderRadius: 10, borderWidth: 2, height: 20, justifyContent: 'center', overflow: 'hidden', width: 20 },
   assigneeImage: { height: 20, width: 20 },
   assigneeInitials: { color: '#92400e', fontSize: 9, fontWeight: '700' },
