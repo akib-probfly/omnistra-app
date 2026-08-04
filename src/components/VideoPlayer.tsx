@@ -34,7 +34,7 @@ export function VideoPlayerModal({ url, visible, onClose }: { url: string | null
   }, [visible, player]);
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose} presentationStyle="overFullScreen">
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} presentationStyle="overFullScreen">
       <View style={styles.backdrop}>
         <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
           <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn}><X color="#fff" size={22} /></Pressable>
