@@ -7,16 +7,23 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.osaas.mobile"
     },
     "android": {
+      "package": "com.osaas.mobile",
+      "versionCode": 1,
+      "predictiveBackGestureEnabled": false,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -24,7 +31,20 @@
     "plugins": [
       "expo-secure-store",
       "@react-native-community/datetimepicker",
-      "expo-audio"
-    ]
+      "expo-audio",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow osaas-mobile to access your photos to share images and videos.",
+          "cameraPermission": "Allow osaas-mobile to access your camera to send photos and videos."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ebcf3a48-25a6-4241-b7d1-d89e0c363502"
+      }
+    },
+    "owner": "akibhasan"
   }
 }
