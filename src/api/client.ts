@@ -1,6 +1,20 @@
 import * as SecureStore from 'expo-secure-store';
 
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://osaas-mvp-api.probfly.com/api/v1').replace(/\/$/, '');
+export const apiUrl = (value: string | null): string | null => {
+  if (!value) return null;
+  const base = API_BASE_URL;
+  try {
+    const parsed = new URL(value, `${base}/`);
+    if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '0.0.0.0') {
+      const apiBase = new URL(base);
+      return `${apiBase.origin}${parsed.pathname}${parsed.search}`;
+    }
+    return parsed.toString();
+  } catch {
+    return `${base.replace(/\/$/, '')}/${value.replace(/^\//, '')}`;
+  }
+};
 export let latestAccessToken: string | null = null;
 let authExpiredHandler: (() => void) | null = null;
 

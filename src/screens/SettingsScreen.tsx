@@ -2,8 +2,10 @@ import { ChevronRight, LogOut, Mail, User } from 'lucide-react-native';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useAuth } from '../auth/AuthContext';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
+import type { SettingsStackParamList } from '../navigation/SettingsStack';
 
 function getInitials(value?: string | null) {
   const parts = (value ?? '?').split(' ').filter(Boolean).map((part) => part[0]).slice(0, 2);
@@ -12,6 +14,7 @@ function getInitials(value?: string | null) {
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NavigationProp<SettingsStackParamList>>();
   const { session, logout } = useAuth();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const name = session?.user.name?.trim() || session?.user.email?.trim() || 'User';
@@ -44,7 +47,7 @@ export function SettingsScreen() {
         </View>
       </View>
       <View style={styles.group}>
-        <Pressable style={styles.row}>
+        <Pressable style={styles.row} onPress={() => navigation.navigate('Profile')}>
           <View style={[styles.rowIcon, { backgroundColor: '#eff6ff' }]}>
             <User color="#2563eb" size={20} />
           </View>
