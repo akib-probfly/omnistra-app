@@ -145,15 +145,15 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
           <AuthenticatedImage url={previewUrl(imageAttachments[0])} style={styles.image} onPress={() => onImage?.(imageAttachments[0].id)} />
         ) : null}
         {videoAttachments.map((attachment: any) => (
-          <Pressable key={attachment.id} style={styles.videoCard} onPress={() => onVideo?.(attachment)}>
-            <VideoThumb url={videoUrl(attachment)} posterUrl={videoPosterUrl(attachment)} onPress={() => onVideo?.(attachment)} />
-            {(attachment.originalName || formatBytes(attachment.sizeBytes)) ? (
-              <View style={styles.videoMetaRow}>
-                {attachment.originalName ? <Text numberOfLines={1} style={styles.videoName}>{attachment.originalName}</Text> : null}
-                {formatBytes(attachment.sizeBytes) ? <Text style={styles.videoSize}>{formatBytes(attachment.sizeBytes)}</Text> : null}
-              </View>
-            ) : null}
-          </Pressable>
+          <VideoThumb
+            key={attachment.id}
+            url={videoUrl(attachment)}
+            posterUrl={videoPosterUrl(attachment)}
+            name={attachment.originalName}
+            sizeBytes={attachment.sizeBytes}
+            durationMs={attachment.durationMs}
+            onPress={() => onVideo?.(attachment)}
+          />
         ))}
         {voiceAttachments.length ? (
           <View style={styles.voiceWrap}>
@@ -232,14 +232,6 @@ function videoUrl(attachment: any): string {
   return resolveMediaUrl(base, attachment.downloadUrl ?? attachment.previewUrl ?? attachment.thumbnailUrl);
 }
 
-function formatBytes(sizeBytes: number | null | undefined): string | null {
-  if (typeof sizeBytes !== 'number' || !Number.isFinite(sizeBytes) || sizeBytes <= 0) return null;
-  if (sizeBytes < 1024) return `${sizeBytes} B`;
-  if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(1)} KB`;
-  if (sizeBytes < 1024 * 1024 * 1024) return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(sizeBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
 function resolveMediaUrl(base: string, value?: string): string {
   if (!value) return '';
   try {
@@ -297,10 +289,6 @@ const styles = StyleSheet.create({
   image: { borderRadius: 18, height: 190, width: 250 },
   imageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 3, borderRadius: 18, overflow: 'hidden', width: 250 },
   gridImage: { width: 123, height: 123 },
-  videoCard: { borderRadius: 18, overflow: 'hidden', width: 250 },
-  videoMetaRow: { alignItems: 'center', flexDirection: 'row', gap: 6, paddingHorizontal: 4, paddingVertical: 4 },
-  videoName: { color: '#64748b', flex: 1, fontSize: 11 },
-  videoSize: { color: '#94a3b8', fontSize: 11 },
   voiceWrap: { gap: 6, maxWidth: 260 },
   docList: { gap: 6 },
   file: { alignItems: 'center', flexDirection: 'row', gap: 10, paddingVertical: 2 },

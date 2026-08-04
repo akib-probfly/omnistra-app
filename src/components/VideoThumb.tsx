@@ -1,87 +1,95 @@
-// @ts-nocheck
-import { useEvent } from 'expo';
-import * as SecureStore from 'expo-secure-store';
-import { useVideoPlayer, VideoView } from 'expo-video';
-import { Play } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Film, Play } from 'lucide-react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AuthenticatedImage } from './AuthenticatedImage';
 
-export function VideoThumb({ url, posterUrl, onPress }: { url: string; posterUrl?: string; onPress: () => void }) {
-  const [source, setSource] = useState<{ uri: string; headers: Record<string, string> } | null>(null);
-  const [hasFrame, setHasFrame] = useState(false);
-  const [failed, setFailed] = useState(false);
+function formatBytes(sizeBytes: number | null | undefined): string | null {
+  if (typeof sizeBytes !== 'number' || !Number.isFinite(sizeBytes) || sizeBytes <= 0) return null;
+  if (sizeBytes < 1024) return `${sizeBytes} B`;
+  if (sizeBytes < 1024 * 1024) return `${(sizeBytes / 1024).toFixed(1)} KB`;
+  if (sizeBytes < 1024 * 1024 * 1024) return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(sizeBytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
 
-  useEffect(() => {
-    let active = true;
-    SecureStore.getItemAsync('access-token')
-      .then((value) => {
-        if (!active) return;
-        setSource({ uri: url, headers: value ? { Authorization: `Bearer ${value}` } : {} });
-      })
-      .catch(() => {});
-    return () => { active = false; };
-  }, [url]);
+function formatDuration(durationMs: number | null | undefined): string | null {
+  if (typeof durationMs !== 'number' || !Number.isFinite(durationMs) || durationMs <= 0) return null;
+  const totalSeconds = Math.round(durationMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
 
-  const player = useVideoPlayer(source, (p) => {
-    p.loop = false;
-    p.muted = true;
-  });
-
-  const { status } = useEvent(player, 'statusChange', { status: player.status });
-
-  useEffect(() => {
-    if (status === 'error') setFailed(true);
-  }, [status]);
-
-  useEffect(() => {
-    if (failed || !source) return;
-    setHasFrame(false);
-    if (status === 'readyToPlay' && !player.playing) {
-      player.currentTime = 0;
-      player.play();
-    }
-  }, [source, status, failed, player]);
-
-  const showVideoFrame = !posterUrl && hasFrame;
+export function VideoThumb({
+  url,
+  posterUrl,
+  name,
+  sizeBytes,
+  durationMs,
+  onPress,
+}: {
+  url: string;
+  posterUrl?: string;
+  name?: string | null;
+  sizeBytes?: number | null;
+  durationMs?: number | null;
+  onPress: () => void;
+}) {
+  const sizeLabel = formatBytes(sizeBytes);
+  const durationLabel = formatDuration(durationMs);
+  const showInfo = Boolean(name || sizeLabel);
 
   return (
-    <Pressable onPress={onPress} style={styles.wrap}>
+    <Pressable onPress={onPress} style={styles.card}>
       {posterUrl ? (
-        <AuthenticatedImage url={posterUrl} style={styles.media} resizeMode="contain" />
-      ) : showVideoFrame ? (
-        <VideoView
-          player={player}
-          style={styles.media}
-          contentFit="contain"
-          nativeControls={false}
-          onFirstFrameRender={() => { player.pause(); setHasFrame(true); }}
-        />
-      ) : failed ? (
-        <View style={[styles.media, styles.placeholder]}>
-          <View style={styles.placeholderGlyph}>
-            <Play color="#fff" fill="#fff" size={26} />
+        <AuthenticatedImage url={posterUrl} style={styles.media} resizeMode="cover" />
+      ) : (
+        <View style={styles.media}>
+          <View style={styles.glow} />
+          <View style={styles.filmGlyph}>
+            <Film color="rgba(148,163,184,0.35)" size={56} />
           </View>
         </View>
-      ) : (
-        <View style={[styles.media, styles.placeholder]}>
-          <ActivityIndicator color="#fff" size="small" />
-        </View>
       )}
+
+      <View pointerEvents="none" style={styles.shade} />
+      {durationLabel ? (
+        <View style={styles.durationChip}>
+          <Text style={styles.durationText}>{durationLabel}</Text>
+        </View>
+      ) : null}
+
       <View pointerEvents="none" style={styles.center}>
-        <View style={styles.playCircle}>
-          <Play color="#fff" fill="#fff" size={26} />
+        <View style={styles.playHalo}>
+          <View style={styles.playCircle}>
+            <Play color="#fff" fill="#fff" size={30} style={styles.playIcon} />
+          </View>
         </View>
       </View>
+
+      {showInfo ? (
+        <View pointerEvents="none" style={styles.infoBar}>
+          {name ? (
+            <Text numberOfLines={1} style={styles.infoName}>{name}</Text>
+          ) : null}
+          {sizeLabel ? <Text style={styles.infoSize}>{sizeLabel}</Text> : null}
+        </View>
+      ) : null}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { height: 160, overflow: 'hidden', position: 'relative', width: 250 },
-  media: { bottom: 0, left: 0, position: 'absolute', right: 0, top: 0 },
-  placeholder: { alignItems: 'center', backgroundColor: '#1e2a44', justifyContent: 'center' },
-  placeholderGlyph: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.25)', borderRadius: 999, borderWidth: 1, height: 56, justifyContent: 'center', width: 56 },
-  center: { alignItems: 'center', bottom: 0, justifyContent: 'center', left: 0, position: 'absolute', right: 0, top: 0 },
-  playCircle: { alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.55)', borderRadius: 24, height: 48, justifyContent: 'center', width: 48 },
+  card: { borderRadius: 18, height: 170, overflow: 'hidden', position: 'relative', width: 250 },
+  media: { ...StyleSheet.absoluteFillObject, alignItems: 'center', backgroundColor: '#0b1220', justifyContent: 'center' },
+  glow: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(37,99,235,0.16)', borderRadius: 999, height: 220, position: 'absolute', top: -60, width: 220, alignSelf: 'center' },
+  filmGlyph: { alignItems: 'center', justifyContent: 'center' },
+  shade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(2,6,23,0.25)' },
+  durationChip: { backgroundColor: 'rgba(2,6,23,0.65)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, position: 'absolute', right: 8, top: 8 },
+  durationText: { color: '#f1f5f9', fontSize: 11, fontWeight: '600' },
+  center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  playHalo: { alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.35)', borderRadius: 42, height: 84, justifyContent: 'center', width: 84 },
+  playCircle: { alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.72)', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 },
+  playIcon: { marginLeft: 4 },
+  infoBar: { alignItems: 'center', backgroundColor: 'rgba(2,6,23,0.72)', bottom: 0, flexDirection: 'row', gap: 8, left: 0, paddingHorizontal: 12, paddingVertical: 8, position: 'absolute', right: 0 },
+  infoName: { color: '#f8fafc', flex: 1, fontSize: 12, fontWeight: '600' },
+  infoSize: { color: '#cbd5e1', fontSize: 11 },
 });
