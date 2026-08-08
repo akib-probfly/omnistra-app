@@ -1,8 +1,9 @@
 // @ts-nocheck
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LoaderCircle, RefreshCw, Sparkles } from 'lucide-react-native';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { syncWhatsappChannelCallingSettings, updateWhatsappChannelCalling, type WhatsappCallingSetting } from '../api/channels';
+import { AppToggle } from './AppToggle';
 
 function formatDateLabel(value: string | null | undefined) {
   if (!value) return 'Not available';
@@ -51,7 +52,12 @@ export function WhatsappCallingTab({ channelId, callingSetting, callDisabledReas
             <Text style={styles.rowTitle}>Enable WhatsApp Calls</Text>
             <Text style={styles.rowSub}>Allow your organization to make and receive WhatsApp Calls on this channel.</Text>
           </View>
-          <Switch value={enabled} onValueChange={(value) => toggle.mutate(value)} disabled={toggle.isPending} trackColor={{ true: '#2563eb' }} thumbColor="#fff" />
+          <AppToggle
+            value={enabled}
+            onValueChange={(value) => toggle.mutate(value)}
+            disabled={toggle.isPending}
+            accessibilityLabel="Enable WhatsApp Calls"
+          />
         </View>
 
         <View style={styles.divider} />

@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LoaderCircle, Save, Zap } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AppToggle } from './AppToggle';
 import {
   fetchChannelQuickAutomationSettings,
   updateChannelQuickAutomationSettings,
@@ -113,7 +114,7 @@ export function QuickAutomationTab({ channelId, channelType }: { channelId: stri
 
         <View style={styles.toggleRow}>
           <Text style={styles.toggleLabel}>Enabled</Text>
-          <Switch value={draft.welcomeEnabled} onValueChange={(value) => setDraft({ ...draft, welcomeEnabled: value })} trackColor={{ true: '#2563eb' }} thumbColor="#fff" />
+          <AppToggle value={draft.welcomeEnabled} onValueChange={(value) => setDraft({ ...draft, welcomeEnabled: value })} accessibilityLabel="Welcome message enabled" />
         </View>
 
         {draft.welcomeEnabled ? (
@@ -147,7 +148,7 @@ export function QuickAutomationTab({ channelId, channelType }: { channelId: stri
 
         <View style={styles.toggleRow}>
           <Text style={styles.toggleLabel}>Enabled</Text>
-          <Switch value={draft.offHourEnabled} onValueChange={(value) => setDraft({ ...draft, offHourEnabled: value })} trackColor={{ true: '#2563eb' }} thumbColor="#fff" />
+          <AppToggle value={draft.offHourEnabled} onValueChange={(value) => setDraft({ ...draft, offHourEnabled: value })} accessibilityLabel="Off-hour message enabled" />
         </View>
 
         {draft.offHourEnabled ? (
@@ -170,7 +171,11 @@ export function QuickAutomationTab({ channelId, channelType }: { channelId: stri
         <Text style={styles.cardSub}>Used to decide when the off-hour message should apply.</Text>
         {DAYS.map((day) => (
           <View key={day} style={styles.dayRow}>
-            <Switch value={draft.businessHours[day].enabled} onValueChange={(value) => setDraft({ ...draft, businessHours: { ...draft.businessHours, [day]: { ...draft.businessHours[day], enabled: value } } })} trackColor={{ true: '#2563eb' }} thumbColor="#fff" />
+            <AppToggle
+              value={draft.businessHours[day].enabled}
+              onValueChange={(value) => setDraft({ ...draft, businessHours: { ...draft.businessHours, [day]: { ...draft.businessHours[day], enabled: value } } })}
+              accessibilityLabel={`${day} business hours enabled`}
+            />
             <Text style={styles.dayLabel}>{day}</Text>
             <Pressable disabled={!draft.businessHours[day].enabled} onPress={() => setPicker({ day, slot: 'from' })} style={[styles.timeChip, !draft.businessHours[day].enabled && styles.timeChipDisabled]}>
               <Text style={styles.timeChipText}>{draft.businessHours[day].from}</Text>

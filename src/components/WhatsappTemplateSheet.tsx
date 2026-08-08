@@ -30,7 +30,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -54,6 +53,7 @@ import {
   renumberTemplateVariables,
   validateTemplateForm,
 } from '../lib/whatsapp-template-utils';
+import { AppToggle } from './AppToggle';
 
 export type TemplateSheetMode = 'view' | 'edit' | 'create';
 
@@ -477,23 +477,21 @@ export function WhatsappTemplateSheet({
                     </View>
                     <View style={styles.toggleRow}>
                       <Text style={styles.toggleLabel}>Security recommendation</Text>
-                      <Switch
+                      <AppToggle
                         value={form.authIncludeSecurityRecommendation}
                         onValueChange={(value) => updateAuth({ authIncludeSecurityRecommendation: value })}
-                        trackColor={{ true: '#2563eb' }}
-                        thumbColor="#fff"
+                        accessibilityLabel="Security recommendation"
                       />
                     </View>
                     <View style={styles.toggleRow}>
                       <Text style={styles.toggleLabel}>Expiration notice</Text>
-                      <Switch
+                      <AppToggle
                         value={form.authIncludeExpirationNotice}
                         onValueChange={(value) => updateAuth({
                           authIncludeExpirationNotice: value,
                           authCodeExpirationMinutes: value ? (form.authCodeExpirationMinutes ?? 10) : undefined,
                         })}
-                        trackColor={{ true: '#2563eb' }}
-                        thumbColor="#fff"
+                        accessibilityLabel="Expiration notice"
                       />
                     </View>
                     {form.authIncludeExpirationNotice ? (
@@ -517,7 +515,7 @@ export function WhatsappTemplateSheet({
                     <Text style={styles.sectionTitle}>Header</Text>
                     <View style={styles.toggleRow}>
                       <Text style={styles.toggleLabel}>Enable header</Text>
-                      <Switch
+                      <AppToggle
                         value={form.header.enabled}
                         onValueChange={(value) => patchForm((current) => ({
                           ...current,
@@ -527,8 +525,7 @@ export function WhatsappTemplateSheet({
                             type: value ? (current.header.type === 'NONE' ? 'TEXT' : current.header.type) : 'NONE',
                           },
                         }))}
-                        trackColor={{ true: '#2563eb' }}
-                        thumbColor="#fff"
+                        accessibilityLabel="Enable header"
                       />
                     </View>
                     {form.header.enabled ? (
