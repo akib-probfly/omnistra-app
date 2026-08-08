@@ -143,7 +143,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
         <DrawerShell onClose={onClose}>
         <View style={styles.drawerHeader}>
           <Text style={styles.drawerTitle}>Contact details</Text>
-          <Pressable onPress={onClose} hitSlop={10} style={styles.drawerClose}><X color="#64748b" size={16} /></Pressable>
+           <Pressable onPress={onClose} hitSlop={10} style={styles.drawerClose}><X color="#64748b" size={20} /></Pressable>
         </View>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} keyboardShouldPersistTaps="handled">
@@ -383,7 +383,6 @@ function DrawerShell({ children, onClose }: { children: React.ReactNode; onClose
         <Pressable style={styles.drawerBackdropPress} onPress={onClose} />
       </Animated.View>
       <Animated.View style={[styles.drawer, { transform: [{ translateY }] }]}>
-        <View style={styles.grabHandle} />
         {children}
       </Animated.View>
     </View>
@@ -395,9 +394,9 @@ const styles = StyleSheet.create({
   drawerBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15,23,42,0.45)' },
   drawerBackdropPress: { flex: 1 },
   drawer: {
-    backgroundColor: '#f6f9ff',
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     elevation: 16,
     height: '92%',
     overflow: 'hidden',
@@ -406,9 +405,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.18,
     shadowRadius: 20,
   },
-  grabHandle: { alignSelf: 'center', backgroundColor: '#c7d4e6', borderRadius: 3, height: 5, marginTop: 10, width: 42 },
-  drawerHeader: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e7eefb', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16 },
-  drawerTitle: { color: '#0d1b2a', fontSize: 17, fontWeight: '800' },
+  drawerHeader: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e5e7eb', borderBottomWidth: 1, flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 16 },
+  drawerTitle: { color: '#17233a', fontSize: 17, fontWeight: '700', flex: 1 },
   drawerClose: { alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 18, height: 34, justifyContent: 'center', width: 34 },
   chatSummaryPill: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#c9def8', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 10, marginHorizontal: 16, marginTop: 14, paddingHorizontal: 14, paddingVertical: 11 },
   sparkWrap: { alignItems: 'center', backgroundColor: '#eef5ff', borderRadius: 14, height: 28, justifyContent: 'center', width: 28 },

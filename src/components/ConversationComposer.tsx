@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
   emoji: { fontSize: 28 },
   pickerPanel: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '85%', padding: 16 },
   pickerHeader: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  closeBtn: { padding: 4 },
+  closeBtn: { alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 18, height: 34, justifyContent: 'center', width: 34 },
   pickerTitle: { color: '#17233a', fontSize: 15, fontWeight: '700' },
   pickerCount: { backgroundColor: '#eef4ff', borderRadius: 10, color: '#2563eb', fontSize: 11, paddingHorizontal: 6, paddingVertical: 2 },
   pickerSearch: { backgroundColor: '#f5f5f5', borderRadius: 10, color: '#17233a', height: 42, marginTop: 12, paddingHorizontal: 12 },
