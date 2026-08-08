@@ -48,6 +48,35 @@ export type ConversationListTag = {
   isArchived?: boolean;
 };
 
+export type ConversationListLastMessage = {
+  id: string;
+  direction: 'INBOUND' | 'OUTBOUND';
+  type: string;
+  text: string | null;
+  sentAt?: string | null;
+  createdAt?: string;
+  campaignId?: string | null;
+  campaignName?: string | null;
+  metadata?: unknown;
+  attachments?: Array<{
+    caption?: string | null;
+    originalName?: string | null;
+    mediaType?: string;
+  }>;
+};
+
+export type ConversationLastInteraction =
+  | {
+      kind: 'MESSAGE';
+      at: string;
+      message: ConversationListLastMessage;
+    }
+  | {
+      kind: 'CALL';
+      at: string;
+      call: ConversationCallSession;
+    };
+
 export type ConversationListItem = {
   id: string;
   workspaceId: string;
@@ -57,6 +86,9 @@ export type ConversationListItem = {
   isUnreplied: boolean;
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  lastInteraction?: ConversationLastInteraction | null;
   contact: { id: string; displayName: string | null; avatarUrl: string | null; primaryPhone?: string | null };
   channel: { channelId: string; channelType: string; channelName: string; displayPhoneNumber: string | null };
   assignee?: { workspaceMemberId: string; userName: string | null; userEmail: string; avatarUrl: string | null } | null;

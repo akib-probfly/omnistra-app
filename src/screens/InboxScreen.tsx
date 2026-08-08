@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Filter, Search, Star, Inbox, Mail, MessageSquareText, Phone, X } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Filter, Image as ImageIcon, Inbox, Mail, MessageSquareText, Mic, Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Search, Star, Video, X } from 'lucide-react-native';
 import { ActivityIndicator, Animated, Easing, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -11,6 +11,14 @@ import { InboxCallsPane } from '../components/InboxCallsPane';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { fetchConversations, fetchConversationCount, fetchConversationUnreadCount, fetchAssigneeOptions, type ConversationCallSession, type ConversationListItem } from '../api/inbox';
 import { fetchWorkspaceTags } from '../api/conversationDetails';
+import {
+  getCallPreviewChipConfig,
+  getConversationLastInteractionPresentation,
+  isAudioPreview,
+  isImagePreview,
+  isVideoPreview,
+  isVoiceNotePreview,
+} from '../lib/conversation-last-interaction';
 import { applyUnreadOverrideToPage } from '../lib/unread-count-override';
 import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
 
@@ -585,8 +593,83 @@ function ConversationTagChips({ tags, maxVisible = 2 }: { tags?: ConversationLis
   );
 }
 
+function InteractionDirectionIndicator({ direction }: { direction: 'INBOUND' | 'OUTBOUND' | null }) {
+  if (!direction) return null;
+  const inbound = direction === 'INBOUND';
+  return inbound
+    ? <ArrowDownLeft color="#f59e0b" size={14} strokeWidth={3} />
+    : <ArrowUpRight color="#3b82f6" size={14} strokeWidth={3} />;
+}
+
+function ConversationPreviewContent({
+  conversation,
+}: {
+  conversation: ConversationListItem;
+}) {
+  const presentation = getConversationLastInteractionPresentation(conversation);
+  const preview = presentation?.preview ?? 'No messages yet';
+  const messageType = (presentation?.message?.type ?? '').toUpperCase();
+  const callChip = presentation?.kind === 'call' ? getCallPreviewChipConfig(preview) : null;
+  const showImage = messageType === 'IMAGE' || isImagePreview(preview);
+  const showVideo = messageType === 'VIDEO' || isVideoPreview(preview);
+  const showVoice = messageType === 'VOICE' || isVoiceNotePreview(preview);
+  const showAudio = messageType === 'AUDIO' || isAudioPreview(preview);
+
+  if (callChip) {
+    const Icon =
+      callChip.tone === 'missed' ? PhoneMissed
+        : callChip.tone === 'declined' ? PhoneOff
+          : callChip.tone === 'incoming' ? PhoneIncoming
+            : PhoneCall;
+    return (
+      <View style={[styles.callPreviewChip, { backgroundColor: callChip.backgroundColor }]}>
+        <Icon color={callChip.textColor} size={12} />
+        <Text style={[styles.callPreviewChipText, { color: callChip.textColor }]} numberOfLines={1}>{callChip.label}</Text>
+      </View>
+    );
+  }
+
+  if (showImage) {
+    return (
+      <View style={styles.mediaPreview}>
+        <ImageIcon color="#64748b" size={14} />
+        <Text style={styles.preview} numberOfLines={1}>Photo</Text>
+      </View>
+    );
+  }
+  if (showVideo) {
+    return (
+      <View style={styles.mediaPreview}>
+        <Video color="#64748b" size={14} />
+        <Text style={styles.preview} numberOfLines={1}>Video</Text>
+      </View>
+    );
+  }
+  if (showVoice) {
+    return (
+      <View style={styles.mediaPreview}>
+        <Mic color="#64748b" size={14} />
+        <Text style={styles.preview} numberOfLines={1}>Voice note</Text>
+      </View>
+    );
+  }
+  if (showAudio) {
+    return (
+      <View style={styles.mediaPreview}>
+        <Mic color="#64748b" size={14} />
+        <Text style={styles.preview} numberOfLines={1}>Audio</Text>
+      </View>
+    );
+  }
+
+  return <Text style={styles.preview} numberOfLines={1}>{preview}</Text>;
+}
+
 function ConversationRow({ conversation, onPress }: { conversation: ConversationListItem; onPress: () => void }) {
-  const assigneeName = conversation.assignee?.userName ?? conversation.assignee?.userEmail ?? null;
+  const presentation = getConversationLastInteractionPresentation(conversation);
+  const direction = presentation?.direction ?? null;
+  const previewTimestamp = presentation?.timestamp ?? conversation.lastMessageAt;
+  const hasUnread = conversation.unreadCount > 0;
   const isWhatsAppCustomerWindow = conversation.channel?.channelType === 'WHATSAPP' && conversation.messaging?.policyType === 'CUSTOMER_WINDOW';
   const showWindowDot = isWhatsAppCustomerWindow && conversation.messaging?.windowState !== 'NOT_APPLICABLE';
   const windowExpired = conversation.messaging?.windowState === 'EXPIRED';
@@ -599,20 +682,25 @@ function ConversationRow({ conversation, onPress }: { conversation: Conversation
         </View>
         <View style={styles.copy}>
           <View style={styles.nameLine}>
-            <Text style={styles.name} numberOfLines={1}>{conversation.contact.displayName ?? 'Unknown contact'}</Text>
+            <Text style={[styles.name, hasUnread && styles.nameUnread]} numberOfLines={1}>{conversation.contact.displayName ?? 'Unknown contact'}</Text>
             {showWindowDot ? <WindowPulseDot expired={windowExpired} /> : null}
           </View>
-          <Text style={styles.channel} numberOfLines={1}>{conversation.channel?.channelName ?? ''}{assigneeName ? ` · ${assigneeName}` : ''}</Text>
-          <Text style={styles.preview} numberOfLines={1}>{conversation.isUnreplied ? '↙ ' : '↗ '}{conversation.lastMessagePreview ?? 'No messages yet'}</Text>
+          <Text style={styles.channel} numberOfLines={1}>{conversation.channel?.channelName ?? ''}</Text>
+          <View style={styles.previewRow}>
+            <InteractionDirectionIndicator direction={direction} />
+            <View style={styles.previewContent}>
+              <ConversationPreviewContent conversation={conversation} />
+            </View>
+          </View>
           <ConversationTagChips tags={conversation.tags} />
         </View>
         <View style={styles.side}>
-          <Text style={styles.time}>{formatTime(conversation.lastMessageAt)}</Text>
-          {conversation.unreadCount > 0 ? (
-            <View style={styles.sideMiddle}>
+          <Text style={[styles.time, hasUnread && styles.timeUnread]}>{formatTime(previewTimestamp)}</Text>
+          <View style={styles.sideMiddle}>
+            {hasUnread ? (
               <View style={styles.unreadBadge}><Text style={styles.unreadText}>{conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}</Text></View>
-            </View>
-          ) : <View style={styles.sideMiddle} />}
+            ) : null}
+          </View>
           <AssigneeBadge assignee={conversation.assignee} />
         </View>
       </View>
@@ -716,15 +804,31 @@ const styles = StyleSheet.create({
   channelBadgeWrap: { alignItems: 'center', borderColor: '#fff', borderRadius: 11, borderWidth: 2, bottom: -2, height: 22, justifyContent: 'center', overflow: 'hidden', position: 'absolute', right: -2, width: 22 },
   copy: { flex: 1, marginLeft: 12, minWidth: 0 },
   nameLine: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  name: { color: '#111827', flexShrink: 1, fontSize: 15, fontWeight: '700' },
+  name: { color: '#111827', flexShrink: 1, fontSize: 15, fontWeight: '600' },
+  nameUnread: { fontWeight: '800' },
   windowDotWrap: { alignItems: 'center', height: 12, justifyContent: 'center', width: 12 },
   windowDotRing: { borderRadius: 6, height: 12, position: 'absolute', width: 12 },
   windowDot: { borderRadius: 4, elevation: 3, height: 8, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 5, width: 8 },
   unreadBadge: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 10, justifyContent: 'center', minWidth: 20, paddingHorizontal: 5 },
   unreadText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   time: { color: '#8ba2c3', fontSize: 11 },
-  channel: { color: '#64748b', fontSize: 12, marginTop: 2 },
-  preview: { color: '#8ba2c3', fontSize: 13, marginTop: 3 },
+  timeUnread: { color: '#315efb', fontWeight: '700' },
+  channel: { color: '#94a3b8', fontSize: 11, marginTop: 2, textTransform: 'capitalize' },
+  previewRow: { alignItems: 'center', flexDirection: 'row', gap: 6, marginTop: 6, minWidth: 0 },
+  previewContent: { flex: 1, minWidth: 0 },
+  preview: { color: '#64748b', fontSize: 13 },
+  mediaPreview: { alignItems: 'center', flexDirection: 'row', gap: 5, minWidth: 0 },
+  callPreviewChip: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    flexDirection: 'row',
+    gap: 4,
+    maxWidth: '100%',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  callPreviewChipText: { flexShrink: 1, fontSize: 11, fontWeight: '600' },
   tagRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'nowrap', gap: 6, marginTop: 6, overflow: 'hidden' },
   tagChip: {
     alignItems: 'center',
@@ -749,9 +853,9 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   tagMoreText: { color: '#64748b', fontSize: 11, fontWeight: '600' },
-  side: { alignItems: 'flex-end', alignSelf: 'stretch', justifyContent: 'space-between', marginLeft: 12 },
+  side: { alignItems: 'flex-end', alignSelf: 'stretch', justifyContent: 'space-between', marginLeft: 12, minWidth: 44 },
   sideMiddle: { alignItems: 'center', flexGrow: 1, justifyContent: 'center', minHeight: 20 },
-  assigneeBadge: { alignItems: 'center', backgroundColor: '#fef3c7', borderColor: '#fff', borderRadius: 10, borderWidth: 2, height: 20, justifyContent: 'center', overflow: 'hidden', width: 20 },
+  assigneeBadge: { alignItems: 'center', backgroundColor: '#fef3c7', borderColor: '#fff', borderRadius: 10, borderWidth: 2, flexShrink: 0, height: 20, justifyContent: 'center', marginTop: 4, overflow: 'hidden', width: 20 },
   assigneeImage: { height: 20, width: 20 },
   assigneeInitials: { color: '#92400e', fontSize: 9, fontWeight: '700' },
   empty: { alignItems: 'center', paddingTop: 60 },

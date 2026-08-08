@@ -393,6 +393,41 @@ export function getCallSessionStatusLabel(
   }
 }
 
+/** Sidebar/list preview labels aligned with osaas-frontend `getCallSessionSidebarPreview`. */
+export function getCallSessionSidebarPreview(session: ConversationCallSession): string {
+  const status =
+    session.endedAt !== null && !isCallSessionTerminal(session.status)
+      ? 'ENDED'
+      : inferCallOutcome(session);
+
+  switch (status) {
+    case 'MISSED':
+      return 'Missed call';
+    case 'REJECTED':
+      return 'Call declined';
+    case 'FAILED':
+      return 'Call failed';
+    case 'CANCELLED':
+      return 'Call cancelled';
+    case 'ENDED':
+      return session.durationSeconds !== null
+        ? `Call ended · ${formatCallDurationLabel(session.durationSeconds) ?? 'Live'}`
+        : 'Call ended';
+    case 'CONNECTED':
+      return 'In call';
+    case 'REQUESTED':
+      return 'Call requested';
+    case 'PERMISSION_REQUESTED':
+      if (session.permissionStatus === 'GRANTED') return 'Permission granted';
+      if (session.permissionStatus === 'DENIED') return 'Permission declined';
+      return 'Waiting for approval';
+    case 'RINGING':
+      return 'Ringing';
+    default:
+      return 'Call update';
+  }
+}
+
 export type VoiceCallButtonState = {
   canStartVoiceCall: boolean;
   tooltipMessage: string;
