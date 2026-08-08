@@ -32,14 +32,31 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     };
   }
 
-  // react-native-webrtc depends on event-target-shim@6; RN ships v5.
+  // react-native-webrtc depends on event-target-shim@6 and imports
+  // "event-target-shim/index", but v6's package exports only expose "." / "./es5".
+  // Force-resolve to the nested v6 files so Metro doesn't hit the exports error
+  // (and doesn't pick RN's event-target-shim@5).
   if (
-    moduleName.startsWith('event-target-shim')
+    (moduleName === 'event-target-shim'
+      || moduleName === 'event-target-shim/index'
+      || moduleName === 'event-target-shim/es5')
     && context.originModulePath.includes(`${path.sep}react-native-webrtc${path.sep}`)
   ) {
-    const eventTargetShimPath = resolveFrom(context.originModulePath, moduleName);
+    let shimRoot;
+    try {
+      shimRoot = path.dirname(resolveFrom(context.originModulePath, 'event-target-shim/package.json'));
+    } catch {
+      shimRoot = path.resolve(
+        __dirname,
+        'node_modules',
+        'react-native-webrtc',
+        'node_modules',
+        'event-target-shim',
+      );
+    }
+    const fileName = moduleName.endsWith('/es5') ? 'es5.js' : 'index.js';
     return {
-      filePath: eventTargetShimPath,
+      filePath: path.join(shimRoot, fileName),
       type: 'sourceFile',
     };
   }

@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Filter, Search, Star, Inbox, Mail, MessageSquareText, Phone, X } from 'lucide-react-native';
-import { ActivityIndicator, Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl, Switch } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -30,6 +30,31 @@ const FILTER_LAYERS: Array<{ id: FilterLayer; label: string }> = [
 function getChannelFilterLabel(channelType: string) {
   if (channelType === 'MESSENGER') return 'Facebook';
   return channelType.charAt(0) + channelType.slice(1).toLowerCase();
+}
+
+/** Matches frontend sidebar "Unreplied only" control (amber thumb off, blue thumb on). */
+function UnrepliedSidebarToggle({ value }: { value: boolean }) {
+  return (
+    <View style={[styles.sidebarToggleTrack, value ? styles.sidebarToggleTrackOn : styles.sidebarToggleTrackOff]}>
+      <View style={[styles.sidebarToggleThumb, value ? styles.sidebarToggleThumbOn : styles.sidebarToggleThumbOff]} />
+    </View>
+  );
+}
+
+/** Matches frontend filter-menu SwitchRow thumb style. */
+function FilterSwitchThumb({ value, tone }: { value: boolean; tone: 'amber' | 'blue' }) {
+  return (
+    <View
+      style={[
+        styles.filterSwitchTrack,
+        value
+          ? (tone === 'amber' ? styles.filterSwitchTrackAmber : styles.filterSwitchTrackBlue)
+          : styles.filterSwitchTrackOff,
+      ]}
+    >
+      <View style={[styles.filterSwitchThumb, value ? styles.filterSwitchThumbOn : styles.filterSwitchThumbOff]} />
+    </View>
+  );
 }
 
 export function InboxScreen() {
@@ -269,8 +294,14 @@ export function InboxScreen() {
           ) : null}
 
           <View style={styles.toolbar}>
-            <Pressable style={styles.unrepliedToggle} onPress={() => setUnrepliedOnly((v) => !v)}>
-              <Switch value={unrepliedOnly} onValueChange={setUnrepliedOnly} trackColor={{ true: '#2563eb' }} thumbColor="#fff" />
+            <Pressable
+              style={styles.unrepliedToggle}
+              onPress={() => setUnrepliedOnly((v) => !v)}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: unrepliedOnly }}
+              accessibilityLabel="Unreplied only"
+            >
+              <UnrepliedSidebarToggle value={unrepliedOnly} />
               <Text style={styles.unrepliedLabel}>Unreplied only</Text>
             </Pressable>
             <Pressable style={[styles.filterButton, hasAdvancedFilters && styles.filterButtonActive]} onPress={() => setFilterOpen(true)}>
@@ -433,20 +464,32 @@ export function InboxScreen() {
                     ))}
                   </View>
 
-                  <Pressable style={styles.switchRow} onPress={() => setStarredOnly((value) => !value)}>
+                  <Pressable
+                    style={styles.switchRow}
+                    onPress={() => setStarredOnly((value) => !value)}
+                    accessibilityRole="switch"
+                    accessibilityState={{ checked: starredOnly }}
+                    accessibilityLabel="Starred only"
+                  >
                     <View style={styles.switchRowCopy}>
                       <Star color="#f59e0b" size={16} fill={starredOnly ? '#f59e0b' : 'none'} />
                       <Text style={styles.switchRowLabel}>Starred only</Text>
                     </View>
-                    <Switch value={starredOnly} onValueChange={setStarredOnly} trackColor={{ true: '#f59e0b' }} thumbColor="#fff" />
+                    <FilterSwitchThumb value={starredOnly} tone="amber" />
                   </Pressable>
 
-                  <Pressable style={styles.switchRow} onPress={() => setUnrepliedOnly((value) => !value)}>
+                  <Pressable
+                    style={styles.switchRow}
+                    onPress={() => setUnrepliedOnly((value) => !value)}
+                    accessibilityRole="switch"
+                    accessibilityState={{ checked: unrepliedOnly }}
+                    accessibilityLabel="Unreplied only"
+                  >
                     <View style={styles.switchRowCopy}>
                       <Mail color="#2563eb" size={16} />
                       <Text style={styles.switchRowLabel}>Unreplied only</Text>
                     </View>
-                    <Switch value={unrepliedOnly} onValueChange={setUnrepliedOnly} trackColor={{ true: '#2563eb' }} thumbColor="#fff" />
+                    <FilterSwitchThumb value={unrepliedOnly} tone="blue" />
                   </Pressable>
                 </>
               ) : null}
@@ -582,8 +625,21 @@ const styles = StyleSheet.create({
   closedBannerTitle: { color: '#0f172a', fontSize: 12, fontWeight: '700' },
   closedBannerBody: { color: '#64748b', fontSize: 12, marginTop: 2 },
   toolbar: { alignItems: 'center', borderBottomColor: '#e2e8f0', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', padding: 12 },
-  unrepliedToggle: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  unrepliedLabel: { color: '#334155', fontSize: 13 },
+  unrepliedToggle: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 10, minWidth: 0, paddingRight: 8 },
+  unrepliedLabel: { color: '#64748b', flexShrink: 1, fontSize: 13, fontWeight: '500' },
+  sidebarToggleTrack: { borderRadius: 999, borderWidth: 1, height: 22, justify: 'relative', width: 36 },
+  sidebarToggleTrackOff: { backgroundColor: '#fff', borderColor: '#e2e8f0' },
+  sidebarToggleTrackOn: { backgroundColor: '#dbeafe', borderColor: '#bfdbfe' },
+  sidebarToggleThumb: { borderRadius: 999, borderWidth: 1, height: 18, position: 'absolute', top: 1, width: 18 },
+  sidebarToggleThumbOff: { backgroundColor: '#fffbeb', borderColor: '#e2e8f0', left: 2 },
+  sidebarToggleThumbOn: { backgroundColor: '#2563eb', borderColor: '#2563eb', left: 15 },
+  filterSwitchTrack: { borderRadius: 999, borderWidth: 1, height: 24, position: 'relative', width: 40 },
+  filterSwitchTrackOff: { backgroundColor: '#f1f5f9', borderColor: '#e2e8f0' },
+  filterSwitchTrackAmber: { backgroundColor: '#fef3c7', borderColor: '#fde68a' },
+  filterSwitchTrackBlue: { backgroundColor: '#dbeafe', borderColor: '#bfdbfe' },
+  filterSwitchThumb: { backgroundColor: '#fff', borderRadius: 999, elevation: 1, height: 20, position: 'absolute', shadowColor: '#0f172a', shadowOpacity: 0.08, shadowRadius: 2, top: 1, width: 20 },
+  filterSwitchThumbOff: { left: 2 },
+  filterSwitchThumbOn: { left: 18 },
   filterButton: { alignItems: 'center', borderColor: '#c8dcfc', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 5, paddingHorizontal: 12, paddingVertical: 7, position: 'relative' },
   filterButtonText: { color: '#64748b', fontSize: 13, fontWeight: '600' },
   filterButtonActive: { borderColor: '#2563eb' },
