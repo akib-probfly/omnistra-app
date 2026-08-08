@@ -131,7 +131,6 @@ export function useRealtimeSync(accessToken: string | null) {
         const currentUnreadCount = getCachedConversationUnreadCount(queryClient, payload.conversationId);
         incrementConversationUnreadCountInCache(queryClient, payload.conversationId, currentUnreadCount + 1);
         if (currentUnreadCount <= 0) incrementInboxUnreadCountInCache(queryClient);
-        void playMessageNotificationSound();
       }
 
       invalidateInboxQueries(queryClient, 1200);
@@ -156,6 +155,9 @@ export function useRealtimeSync(accessToken: string | null) {
       handledNotificationIds.add(payload.notificationId);
       incrementNotificationUnreadCountInCache(queryClient);
       void queryClient.invalidateQueries({ queryKey: ['notifications', 'list'], refetchType: 'active' });
+      if (payload.type === 'NEW_MESSAGE') {
+        void playMessageNotificationSound();
+      }
     };
 
     const onConnect = () => {
