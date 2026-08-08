@@ -5,14 +5,11 @@ import { RegisterScreen } from '../screens/RegisterScreen';
 import { useAuth } from '../auth/AuthContext';
 import { useState } from 'react';
 import { SplashScreen } from '../screens/SplashScreen';
-import { useRealtimeSync } from '../hooks/useRealtimeSync';
 
 export type RootStackParamList = { Main: undefined };
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function AuthenticatedApp() {
-  const { session } = useAuth();
-  useRealtimeSync(session?.accessToken ?? null);
   return (
     <Stack.Navigator>
       <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />

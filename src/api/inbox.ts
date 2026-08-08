@@ -212,7 +212,36 @@ export async function fetchMessagesPage(conversationId: string, cursor?: string,
 
 export type ConversationCallSessionStatus = 'REQUESTED' | 'PERMISSION_REQUESTED' | 'RINGING' | 'CONNECTED' | 'ENDED' | 'MISSED' | 'REJECTED' | 'FAILED' | 'CANCELLED';
 export type ConversationCallPermissionStatus = 'NONE' | 'REQUESTED' | 'GRANTED' | 'DENIED' | 'EXPIRED';
-export type ConversationCallMember = { userName: string | null; userEmail: string | null };
+export type ConversationCallMember = {
+  workspaceMemberId?: string;
+  userName: string | null;
+  userEmail: string | null;
+  avatarUrl?: string | null;
+};
+
+export type ConversationCallContact = {
+  id: string;
+  displayName: string | null;
+  primaryPhone: string | null;
+  avatarUrl: string | null;
+};
+
+export type ConversationCallChannel = {
+  channelId: string;
+  channelType: string;
+  channelName: string;
+  displayPhoneNumber: string | null;
+};
+
+export type ConversationCallConversation = {
+  id: string;
+  workspaceId: string;
+  status: 'OPEN' | 'ASSIGNED' | 'CLOSED';
+  unreadCount: number;
+  contact: ConversationCallContact;
+  channel: ConversationCallChannel;
+  assignee: ConversationCallMember | null;
+};
 
 export type ConversationCallSession = {
   id: string;
@@ -242,6 +271,7 @@ export type ConversationCallSession = {
   durationSeconds: number | null;
   endedReason: string | null;
   metadata?: unknown;
+  conversation?: ConversationCallConversation;
   createdAt: string;
   updatedAt: string;
 };
@@ -249,6 +279,13 @@ export type ConversationCallSession = {
 export type ConversationCallSessionsResponse = {
   items: ConversationCallSession[];
   pageInfo?: { nextCursor?: string | null; hasMore?: boolean };
+};
+
+export type ConversationCallSessionFeedSummary = {
+  all: number;
+  missed: number;
+  incoming: number;
+  outgoing: number;
 };
 
 export async function fetchConversationCallSessions(params: {
@@ -264,6 +301,106 @@ export async function fetchConversationCallSessions(params: {
     status: params.status,
     direction: params.direction,
   })}`);
+}
+
+export async function fetchWorkspaceCallSessions(params: {
+  cursor?: string;
+  limit?: number;
+  search?: string;
+  status?: ConversationCallSessionStatus | 'ALL';
+  direction?: 'INBOUND' | 'OUTBOUND' | 'ALL';
+} = {}): Promise<ConversationCallSessionsResponse> {
+  return apiFetch<ConversationCallSessionsResponse>(`/calls${buildQueryString({
+    cursor: params.cursor,
+    limit: params.limit ?? 20,
+    search: params.search,
+    status: params.status && params.status !== 'ALL' ? params.status : undefined,
+    direction: params.direction && params.direction !== 'ALL' ? params.direction : undefined,
+  })}`);
+}
+
+export async function fetchWorkspaceCallSessionSummary(params: { search?: string } = {}): Promise<ConversationCallSessionFeedSummary> {
+  return apiFetch<ConversationCallSessionFeedSummary>(`/calls/summary${buildQueryString({
+    search: params.search,
+  })}`);
+}
+
+export type ConversationCallSignalSession = {
+  sdpType: 'offer' | 'answer';
+  sdp: string;
+};
+
+export async function fetchActiveConversationCallSessions(params: {
+  cursor?: string;
+  limit?: number;
+} = {}): Promise<ConversationCallSessionsResponse> {
+  return apiFetch<ConversationCallSessionsResponse>(`/calls/active${buildQueryString({
+    cursor: params.cursor,
+    limit: params.limit ?? 10,
+  })}`);
+}
+
+export async function startConversationCall(params: {
+  conversationId: string;
+  note?: string | null;
+  bizOpaqueCallbackData?: string | null;
+  session: ConversationCallSignalSession;
+}): Promise<ConversationCallSession> {
+  const body: Record<string, unknown> = {
+    session: {
+      sdpType: params.session.sdpType,
+      sdp: params.session.sdp,
+    },
+  };
+  if (typeof params.note === 'string' && params.note.trim().length > 0) {
+    body.note = params.note.trim();
+  }
+  if (typeof params.bizOpaqueCallbackData === 'string' && params.bizOpaqueCallbackData.trim().length > 0) {
+    body.bizOpaqueCallbackData = params.bizOpaqueCallbackData.trim();
+  }
+  return apiFetch(`/conversations/${params.conversationId}/calls`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function answerConversationCall(params: {
+  conversationId: string;
+  callSessionId: string;
+  bizOpaqueCallbackData?: string | null;
+  session: ConversationCallSignalSession;
+}): Promise<ConversationCallSession> {
+  const body: Record<string, unknown> = {
+    session: {
+      sdpType: params.session.sdpType,
+      sdp: params.session.sdp,
+    },
+  };
+  if (typeof params.bizOpaqueCallbackData === 'string' && params.bizOpaqueCallbackData.trim().length > 0) {
+    body.bizOpaqueCallbackData = params.bizOpaqueCallbackData.trim();
+  }
+  return apiFetch(`/conversations/${params.conversationId}/calls/${params.callSessionId}/answer`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function declineConversationCall(params: {
+  conversationId: string;
+  callSessionId: string;
+}): Promise<ConversationCallSession> {
+  return apiFetch(`/conversations/${params.conversationId}/calls/${params.callSessionId}/decline`, {
+    method: 'POST',
+  });
+}
+
+export async function endConversationCall(params: {
+  conversationId: string;
+  callSessionId: string;
+}): Promise<ConversationCallSession> {
+  return apiFetch(`/conversations/${params.conversationId}/calls/${params.callSessionId}/end`, {
+    method: 'POST',
+  });
 }
 
 export async function sendTemplateMessage(params: {

@@ -3,12 +3,17 @@
     "name": "osaas-mobile",
     "slug": "osaas-mobile",
     "version": "1.0.0",
+    "scheme": "osaas",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.osaas.mobile"
+      "bundleIdentifier": "com.osaas.mobile",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Allow osaas-mobile to use your microphone for WhatsApp voice calls and voice notes.",
+        "NSCameraUsageDescription": "Allow osaas-mobile to use your camera for WhatsApp calling if required by the device."
+      }
     },
     "android": {
       "package": "com.osaas.mobile",
@@ -22,13 +27,19 @@
       },
       "permissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.INTERNET",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_CONNECT"
       ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-dev-client",
       "expo-secure-store",
       "@react-native-community/datetimepicker",
       "expo-audio",
@@ -39,7 +50,8 @@
           "cameraPermission": "Allow osaas-mobile to access your camera to send photos and videos."
         }
       ],
-      "expo-video"
+      "expo-video",
+      "@config-plugins/react-native-webrtc"
     ],
     "extra": {
       "eas": {

@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreHorizontal, Star, UserRound } from 'lucide-react-native';
+import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreHorizontal, Phone, Star, UserRound } from 'lucide-react-native';
+import Toast from 'react-native-toast-message';
 import { ContactDetailsPanel } from '../components/ContactDetailsPanel';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -19,8 +20,10 @@ import { MessageBubble } from '../components/MessageBubble';
 import { ReactionPicker } from '../components/ReactionPicker';
 import { fetchAssigneeOptions, fetchConversationCallSessions, fetchMessagesPage, markConversationRead, markConversationUnread, sendReaction, sendTemplateMessage, updateConversationAssignment, updateConversationStar, updateConversationStatus, type ConversationCallSession } from '../api/inbox';
 import type { InboxStackParamList } from '../navigation/InboxStack';
-import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getConversationTitle, getConversationWindowLabel, isInlineReactionMessage, type ConversationTimelineEntry } from '../lib/inbox-utils';
+import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getConversationTitle, getConversationWindowLabel, getVoiceCallButtonState, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry } from '../lib/inbox-utils';
 import { CallHistoryItem } from '../components/CallHistoryItem';
+import { useCallController } from '../providers/CallControllerProvider';
+import { isWhatsappCallSupported } from '../lib/whatsapp-calling';
 
 type Attachment = { id: string; messageId?: string | null; mediaType: string; mimeType: string; originalName: string | null; downloadUrl: string; previewUrl: string | null; thumbnailUrl: string | null; durationMs: number | null };
 type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBOUND'; senderType?: string | null; sender?: { userName?: string | null; userEmail?: string | null } | null; type: string; text: string | null; deliveryStatus?: string; failureReason?: string | null; campaignId?: string | null; campaignName?: string | null; replyToMessageId?: string | null; replyTo?: { sender?: { userName?: string | null } | null; text?: string | null } | null; sentAt?: string | null; createdAt?: string; metadata?: any; attachments?: Attachment[] };
@@ -44,6 +47,7 @@ const apiUrl = (value: string | null) => {
 export function ConversationScreen() {
   const insets = useSafeAreaInsets(); const navigation = useNavigation(); const route = useRoute<RouteProp<InboxStackParamList, 'Conversation'>>(); const queryClient = useQueryClient();
   const { session } = useAuth();
+  const callController = useCallController();
   const listRef = useRef<FlatList>(null);
   const [draft, setDraft] = useState(''); const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [attachments, setAttachments] = useState<SendAttachment[]>([]);
@@ -318,6 +322,40 @@ export function ConversationScreen() {
     staleTime: 30000,
   });
   const callSessions: ConversationCallSession[] = callsQuery.data?.items ?? [];
+  const activeCallSession = useMemo(
+    () => callSessions.find((session) => isLiveCallSession(session)) ?? null,
+    [callSessions],
+  );
+  const latestCallSession = callSessions[0] ?? null;
+  const voiceCallButton = getVoiceCallButtonState({
+    isWhatsAppConversation: channelType === 'WHATSAPP',
+    canManageCalls: Boolean(session),
+    isCallSessionsLoading: callsQuery.isLoading,
+    isCallControllerBusy: callController.isBusy,
+    activeCallSession,
+    latestCallSession,
+    businessCallingDisabledReason: header.conversation?.channel?.callDisabledReason ?? header.conversation?.capabilities?.callDisabledReason ?? null,
+    businessCallingStatus: header.conversation?.channel?.callBusinessCallingSetting?.status
+      ?? header.conversation?.callBusinessCallingSetting?.status
+      ?? null,
+  });
+  const startVoiceCall = async () => {
+    if (!voiceCallButton.canStartVoiceCall) {
+      Toast.show({ type: 'info', text1: 'Unable to start call', text2: voiceCallButton.tooltipMessage });
+      return;
+    }
+    if (!isWhatsappCallSupported()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Custom build required',
+        text2: 'WhatsApp calling needs a development build with WebRTC (not Expo Go).',
+      });
+      return;
+    }
+    await callController.startOutboundCall({ conversationId: route.params.conversationId });
+    void queryClient.invalidateQueries({ queryKey: ['conversation-calls', route.params.conversationId] });
+    void queryClient.invalidateQueries({ queryKey: ['active-calls'] });
+  };
   const timeline = useMemo<ConversationTimelineEntry[]>(() => buildConversationTimeline(allMessages, callSessions), [allMessages, callSessions]);
   timelineRef.current = timeline;
   const displayEntries = useMemo(() => {
@@ -373,6 +411,16 @@ export function ConversationScreen() {
           <Text style={[styles.window, windowInfo.tone === 'expired' && styles.windowExpired]}>{windowInfo.label}</Text>
           <Text style={styles.assignee} numberOfLines={1}>{assigneeLabel}</Text>
         </View>
+        {channelType === 'WHATSAPP' ? (
+          <Pressable
+            onPress={startVoiceCall}
+            hitSlop={8}
+            disabled={!voiceCallButton.canStartVoiceCall || callController.isBusy}
+            style={!voiceCallButton.canStartVoiceCall || callController.isBusy ? { opacity: 0.35 } : undefined}
+          >
+            <Phone color={voiceCallButton.canStartVoiceCall ? '#2563eb' : '#94a3b8'} size={19} />
+          </Pressable>
+        ) : null}
         <Pressable onPress={() => starMutation.mutate(!header.isStarred)} hitSlop={8}><Star color={header.isStarred ? '#f59e0b' : '#94a3b8'} fill={header.isStarred ? '#f59e0b' : 'none'} size={19} /></Pressable>
         <Pressable onPress={() => { if (header.unreadCount > 0) readMutation.mutate(); else unreadMutation.mutate(); }} hitSlop={8}>{header.unreadCount > 0 ? <Mail color="#334155" size={19} /> : <MailOpen color="#334155" size={19} />}</Pressable>
         <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}><UserRound color="#334155" size={19} /></Pressable>

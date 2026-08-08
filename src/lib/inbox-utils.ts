@@ -352,8 +352,90 @@ function resolveOutcomeFromEndedReason(endedReason: string | null): string | nul
   return null;
 }
 
+const LIVE_CALL_SESSION_STATUSES = new Set(['REQUESTED', 'PERMISSION_REQUESTED', 'RINGING', 'CONNECTED']);
+
 export function isCallSessionTerminal(status: string): boolean {
-  return (TERMINAL_CALL_OUTCOME_PRIORITY as readonly string[]).includes(status);
+  return ['ENDED', 'MISSED', 'REJECTED', 'FAILED', 'CANCELLED'].includes(status);
+}
+
+export function isLiveCallSession(session: Pick<ConversationCallSession, 'status' | 'endedAt'>) {
+  return session.endedAt == null && LIVE_CALL_SESSION_STATUSES.has(session.status);
+}
+
+export function getCallSessionStatusLabel(
+  status: ConversationCallSession['status'],
+  permissionStatus?: ConversationCallSession['permissionStatus'],
+  direction?: ConversationCallSession['direction'] | null,
+) {
+  switch (getNormalizedCallSessionOutcome(status, direction)) {
+    case 'REQUESTED':
+      return 'Call requested';
+    case 'PERMISSION_REQUESTED':
+      if (permissionStatus === 'GRANTED') return 'Permission granted';
+      if (permissionStatus === 'DENIED') return 'Permission declined';
+      return 'Waiting for approval';
+    case 'RINGING':
+      return 'Ringing';
+    case 'CONNECTED':
+      return 'In call';
+    case 'ENDED':
+      return 'Call ended';
+    case 'MISSED':
+      return 'Call missed';
+    case 'REJECTED':
+      return 'Call rejected';
+    case 'FAILED':
+      return 'Call failed';
+    case 'CANCELLED':
+      return 'Call cancelled';
+    default:
+      return status;
+  }
+}
+
+export type VoiceCallButtonState = {
+  canStartVoiceCall: boolean;
+  tooltipMessage: string;
+};
+
+export function getVoiceCallButtonState(input: {
+  isWhatsAppConversation: boolean;
+  canManageCalls: boolean;
+  isCallSessionsLoading: boolean;
+  isCallControllerBusy: boolean;
+  activeCallSession: ConversationCallSession | null;
+  latestCallSession: ConversationCallSession | null;
+  businessCallingStatus?: 'PENDING' | 'ENABLED' | 'FAILED' | 'DISABLED' | null;
+  businessCallingDisabledReason?: string | null;
+}): VoiceCallButtonState {
+  if (input.isCallSessionsLoading) {
+    return { canStartVoiceCall: false, tooltipMessage: 'Loading call status...' };
+  }
+  if (!input.isWhatsAppConversation) {
+    return { canStartVoiceCall: false, tooltipMessage: 'Voice calls are only available for WhatsApp conversations right now.' };
+  }
+  if (!input.canManageCalls) {
+    return { canStartVoiceCall: false, tooltipMessage: 'You do not have permission to start voice calls.' };
+  }
+  if (input.businessCallingDisabledReason) {
+    return { canStartVoiceCall: false, tooltipMessage: input.businessCallingDisabledReason };
+  }
+  if (input.businessCallingStatus === 'DISABLED') {
+    return { canStartVoiceCall: false, tooltipMessage: 'Business calling is disabled for this WhatsApp number.' };
+  }
+  if (input.isCallControllerBusy) {
+    return { canStartVoiceCall: false, tooltipMessage: 'Preparing the call...' };
+  }
+  if (input.activeCallSession) {
+    return { canStartVoiceCall: false, tooltipMessage: 'A voice call is already active in this conversation.' };
+  }
+  if (input.latestCallSession?.status === 'PERMISSION_REQUESTED') {
+    if (input.latestCallSession.permissionStatus === 'GRANTED') {
+      return { canStartVoiceCall: true, tooltipMessage: 'Permission granted. Start a voice call.' };
+    }
+    return { canStartVoiceCall: false, tooltipMessage: 'Permission message sent. Waiting for customer confirmation.' };
+  }
+  return { canStartVoiceCall: true, tooltipMessage: 'Start a voice call' };
 }
 
 export function getNormalizedCallSessionOutcome(status: string, direction?: ConversationCallSession['direction'] | null): string {

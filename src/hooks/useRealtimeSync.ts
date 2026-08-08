@@ -4,6 +4,7 @@ import { createRealtimeSocket, setRealtimeConnectionStatus, getActiveConversatio
 import { latestAccessToken } from '../api/client';
 import { shouldSuppressRealtimeMessageRefresh } from '../lib/inbox-realtime-suppression';
 import { playMessageNotificationSound } from '../lib/notificationSound';
+import { writeIncomingCallPrompt } from '../lib/incoming-call-prompt';
 
 const REALTIME_READY_EVENT = 'realtime.ready';
 const REALTIME_CONVERSATION_UPDATED_EVENT = 'conversation.updated';
@@ -147,6 +148,11 @@ export function useRealtimeSync(accessToken: string | null) {
           void queryClient.invalidateQueries({ queryKey: ['conversation-calls', payload.conversationId], refetchType: 'all' });
         }, 600);
       }
+      schedule('workspace-calls', () => {
+        void queryClient.invalidateQueries({ queryKey: ['workspace-calls'], refetchType: 'all' });
+        void queryClient.invalidateQueries({ queryKey: ['workspace-calls-summary'], refetchType: 'all' });
+        void queryClient.invalidateQueries({ queryKey: ['active-calls'], refetchType: 'all' });
+      }, 800);
       invalidateInboxQueries(queryClient, 1500);
     };
 
@@ -156,6 +162,11 @@ export function useRealtimeSync(accessToken: string | null) {
       incrementNotificationUnreadCountInCache(queryClient);
       void queryClient.invalidateQueries({ queryKey: ['notifications', 'list'], refetchType: 'active' });
       if (payload.type === 'NEW_MESSAGE') {
+        void playMessageNotificationSound();
+      }
+      if (payload.type === 'INCOMING_CALL') {
+        writeIncomingCallPrompt(payload as Parameters<typeof writeIncomingCallPrompt>[0]);
+        void queryClient.invalidateQueries({ queryKey: ['active-calls'], refetchType: 'all' });
         void playMessageNotificationSound();
       }
     };
