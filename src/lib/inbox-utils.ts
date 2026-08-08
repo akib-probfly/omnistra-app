@@ -612,12 +612,17 @@ export type ConversationTimelineEntry =
   | { kind: 'message'; id: string; timestamp: number; message: MessageLike }
   | { kind: 'call'; id: string; timestamp: number; session: ConversationCallSession };
 
+export function getMessageListKey(message: MessageLike & { metadata?: any }): string {
+  const clientKey = typeof message.metadata?.clientKey === 'string' ? message.metadata.clientKey : null;
+  return clientKey || message.id;
+}
+
 export function buildConversationTimeline(messages: MessageLike[], callSessions: ConversationCallSession[]): ConversationTimelineEntry[] {
   const entries: ConversationTimelineEntry[] = [];
   for (const message of messages) {
     if (isInlineReactionMessage(message)) continue;
     const timestamp = new Date(message.sentAt ?? message.createdAt ?? '').getTime();
-    entries.push({ kind: 'message', id: message.id, timestamp: Number.isNaN(timestamp) ? 0 : timestamp, message });
+    entries.push({ kind: 'message', id: getMessageListKey(message), timestamp: Number.isNaN(timestamp) ? 0 : timestamp, message });
   }
   for (const session of callSessions) {
     if (session.status === 'PERMISSION_REQUESTED') continue;

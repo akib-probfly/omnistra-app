@@ -114,9 +114,12 @@ export function useRealtimeSync(accessToken: string | null) {
 
     const handleConversationUpdated = (payload: ConversationUpdatedEvent) => {
       const isStatusOrMetaUpdate = !payload.createdMessage && !payload.messageId;
+      const isRecentLocalMessageEcho = shouldSuppressRealtimeMessageRefresh(payload.conversationId, payload.messageId);
       if (isStatusOrMetaUpdate) {
         invalidateInboxQueries(queryClient, 1500);
       }
+      // Skip thread refetch for our own send echo — cache already has the confirmed bubble.
+      if (isRecentLocalMessageEcho) return;
       if (payload.conversationId) {
         schedule(`messages:${payload.conversationId}`, () => {
           void queryClient.invalidateQueries({ queryKey: ['messages', payload.conversationId], refetchType: 'active' });
@@ -132,6 +135,12 @@ export function useRealtimeSync(accessToken: string | null) {
         const currentUnreadCount = getCachedConversationUnreadCount(queryClient, payload.conversationId);
         incrementConversationUnreadCountInCache(queryClient, payload.conversationId, currentUnreadCount + 1);
         if (currentUnreadCount <= 0) incrementInboxUnreadCountInCache(queryClient);
+      }
+
+      // Local send already patched the thread cache — skip refetch to avoid optimistic blink.
+      if (isRecentLocalMessageEcho) {
+        invalidateInboxQueries(queryClient, 1200);
+        return;
       }
 
       invalidateInboxQueries(queryClient, 1200);

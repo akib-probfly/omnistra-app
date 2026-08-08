@@ -68,6 +68,8 @@ export function ConversationScreen() {
   const timelineRef = useRef<ConversationTimelineEntry[]>([]);
   const isAtBottomRef = useRef(true);
 
+  const pendingOptimisticRef = useRef<Map<string, Message>>(new Map());
+
   const messages = useQuery({
     queryKey: ['messages', route.params.conversationId],
     queryFn: async () => {
@@ -82,9 +84,35 @@ export function ConversationScreen() {
         const mediaOnly = messageAttachments.length > 0 && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(message.type);
         return { ...message, text: mediaOnly ? null : message.text, attachments: messageAttachments };
       });
+
+      // Keep in-flight optimistic bubbles across polling/refetch overwrites.
+      const serverIds = new Set(items.map((item) => item.id));
+      pendingOptimisticRef.current.forEach((optimistic, tempId) => {
+        const serverId = typeof optimistic.metadata?.serverId === 'string' ? optimistic.metadata.serverId : null;
+        const clientKey = typeof optimistic.metadata?.clientKey === 'string' ? optimistic.metadata.clientKey : tempId;
+        if (serverId && serverIds.has(serverId)) {
+          const idx = items.findIndex((item) => item.id === serverId);
+          if (idx >= 0) {
+            items[idx] = {
+              ...items[idx],
+              metadata: {
+                ...(typeof items[idx].metadata === 'object' && items[idx].metadata ? items[idx].metadata : {}),
+                clientKey,
+              },
+            };
+          }
+          pendingOptimisticRef.current.delete(tempId);
+          return;
+        }
+        if (!serverIds.has(tempId) && !items.some((item) => item.metadata?.clientKey === clientKey)) {
+          items.push(optimistic);
+        }
+      });
+
       return { items, nextCursor: page.pageInfo?.nextCursor ?? null, hasMore: page.pageInfo?.hasMore ?? false, conversation: page.conversation ?? null };
     },
-    staleTime: 5000, refetchInterval: 8000,
+    staleTime: 5000,
+    refetchInterval: () => (pendingOptimisticRef.current.size > 0 ? false : 8000),
   });
 
   const unreadCountOverridden = useRef(false);
@@ -104,7 +132,11 @@ export function ConversationScreen() {
     const seen = new Set<string>();
     const merged: Message[] = [];
     [...olderMessages, ...(messages.data?.items ?? [])].forEach((message) => {
-      if (!seen.has(message.id)) { seen.add(message.id); merged.push(message); }
+      const key = typeof message.metadata?.clientKey === 'string' ? message.metadata.clientKey : message.id;
+      if (seen.has(key) || seen.has(message.id)) return;
+      seen.add(key);
+      seen.add(message.id);
+      merged.push(message);
     });
     return merged;
   }, [olderMessages, messages.data?.items]);
@@ -124,15 +156,22 @@ export function ConversationScreen() {
       }
       const text = draft.replace(/\u200B/g, '').trim() || undefined;
       const type = attachments.length ? (attachments[0].type === 'VOICE' ? 'VOICE' : attachments[0].type) : 'TEXT';
-      return apiFetch<Message>(`/conversations/${route.params.conversationId}/messages`, {
+      const response = await apiFetch<any>(`/conversations/${route.params.conversationId}/messages`, {
         method: 'POST',
         body: JSON.stringify({ type, text, attachmentIds, replyToMessageId: replyTo?.id }),
       });
+      // API returns { message, messages, conversation } — not a bare message.
+      const created: Message | null = response?.message
+        ?? (Array.isArray(response?.messages) ? response.messages[0] : null)
+        ?? (response?.id && response?.direction ? response : null);
+      if (!created?.id) throw new Error('Message was sent but the server response was incomplete.');
+      return created;
     },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['messages', route.params.conversationId] });
       const previous = queryClient.getQueryData<any>(['messages', route.params.conversationId]);
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const clientKey = tempId;
       const text = draft.replace(/\u200B/g, '').trim() || undefined;
       const type = attachments.length ? (attachments[0].type === 'VOICE' ? 'VOICE' : attachments[0].type) : 'TEXT';
       const optimistic: Message = {
@@ -147,7 +186,7 @@ export function ConversationScreen() {
         replyTo: replyTo ? { sender: replyTo.sender ?? null, text: replyTo.text } : undefined,
         createdAt: new Date().toISOString(),
         sentAt: new Date().toISOString(),
-        metadata: { optimistic: true },
+        metadata: { optimistic: true, clientKey },
         attachments: attachments.map((selected) => ({
           id: `${tempId}-${selected.uri}`,
           mediaType: selected.type,
@@ -159,27 +198,68 @@ export function ConversationScreen() {
           durationMs: null,
         })),
       };
+      pendingOptimisticRef.current.set(tempId, optimistic);
       setDraft(''); setAttachments([]); setReplyTo(null);
       queryClient.setQueryData<any>(['messages', route.params.conversationId], (current) => {
         if (!current || !Array.isArray(current.items)) return current;
         return { ...current, items: [...current.items, optimistic] };
       });
       setTimeout(() => listRef.current?.scrollToOffset({ offset: 0, animated: true }), 100);
-      return { tempId, previous, previousDraft: draft, previousAttachments: attachments, previousReplyTo: replyTo };
+      return { tempId, clientKey, previous, previousDraft: draft, previousAttachments: attachments, previousReplyTo: replyTo };
     },
     onSuccess: (created, _vars, context) => {
       markRecentLocalMessageSend(route.params.conversationId, created.id);
+      const clientKey = context?.clientKey ?? context?.tempId;
+      const confirmed: Message = {
+        ...created,
+        deliveryStatus: created.deliveryStatus && created.deliveryStatus !== 'SENDING' ? created.deliveryStatus : 'SENT',
+        metadata: {
+          ...(typeof created.metadata === 'object' && created.metadata ? created.metadata : {}),
+          clientKey,
+          optimistic: false,
+        },
+      };
+      // Keep until a later refetch sees the server id — preserves clientKey / avoids blink.
+      if (context?.tempId) {
+        pendingOptimisticRef.current.set(context.tempId, {
+          ...confirmed,
+          metadata: { ...confirmed.metadata, serverId: confirmed.id, clientKey },
+        });
+      }
       queryClient.setQueryData<any>(['messages', route.params.conversationId], (current) => {
         if (!current || !Array.isArray(current.items)) return current;
-        return { ...current, items: current.items.map((item: any) => (item.id === context?.tempId ? created : item)) };
+        let replaced = false;
+        const items = current.items.map((item: any) => {
+          if (item.id === context?.tempId || item.metadata?.clientKey === clientKey || item.id === confirmed.id) {
+            replaced = true;
+            return confirmed;
+          }
+          return item;
+        });
+        if (!replaced) items.push(confirmed);
+        // Drop any duplicate server copy that arrived from a racey refetch.
+        const deduped: Message[] = [];
+        const seen = new Set<string>();
+        items.forEach((item: any) => {
+          const key = item.metadata?.clientKey || item.id;
+          if (seen.has(key) || seen.has(item.id)) return;
+          seen.add(key);
+          seen.add(item.id);
+          deduped.push(item);
+        });
+        return { ...current, items: deduped };
       });
-      queryClient.invalidateQueries({ queryKey: ['messages', route.params.conversationId], refetchType: 'active' });
-      setTimeout(() => listRef.current?.scrollToOffset({ offset: 0, animated: true }), 150);
+      // Soft-refresh inbox list only — avoid wiping the thread cache (that caused the blink).
+      void queryClient.invalidateQueries({ queryKey: ['conversations'], refetchType: 'active' });
     },
     onError: (error, _vars, context) => {
+      if (context?.tempId) pendingOptimisticRef.current.delete(context.tempId);
       queryClient.setQueryData<any>(['messages', route.params.conversationId], (current) => {
         if (!current || !Array.isArray(current.items)) return current;
-        return { ...current, items: current.items.filter((item: any) => item.id !== context?.tempId) };
+        return {
+          ...current,
+          items: current.items.filter((item: any) => item.id !== context?.tempId && item.metadata?.clientKey !== context?.clientKey),
+        };
       });
       if (context?.previousDraft) setDraft(context.previousDraft);
       if (context?.previousAttachments?.length) setAttachments(context.previousAttachments);
