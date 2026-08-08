@@ -298,7 +298,7 @@ export function ConversationScreen() {
   };
 
   const channelType = header.conversation?.channel?.channelType ?? route.params.channelType;
-  const channelId = header.conversation?.channel?.id ?? route.params.channelId;
+  const channelId = header.conversation?.channel?.channelId ?? header.conversation?.channel?.id ?? route.params.channelId;
   const windowInfo = getConversationWindowLabel(header.conversation);
   const title = getConversationTitle(header.conversation, route.params.contactName);
   const assigneeLabel = header.conversation?.assignee?.userName ?? header.conversation?.assignee?.userEmail ?? (header.conversation?.assignee ? 'Assigned agent' : 'Unassigned');
@@ -418,6 +418,7 @@ export function ConversationScreen() {
         replyPreview={replyTo ? { name: replyTo.direction === 'INBOUND' ? title : 'You', text: replyTo.text ?? 'Attachment' } : null}
         onCancelReply={() => setReplyTo(null)}
         onSend={() => { if (!send.isPending) send.mutate(); }}
+        canSendFreeform={header.conversation?.messaging?.canSendFreeformMessage}
       />
       <ReactionPicker visible={Boolean(reactTarget)} onClose={() => setReactTarget(null)} onPick={(emoji) => { if (reactTarget) reactMutation.mutate({ messageId: reactTarget.id, emoji }); setReactTarget(null); }} onReply={() => { if (reactTarget) setReplyTo(reactTarget); setReactTarget(null); }} />
       <MediaViewer images={gallery} index={galleryIndex} onClose={() => setGallery([])} onIndex={setGalleryIndex} />

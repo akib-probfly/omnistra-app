@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { requestRecordingPermissionsAsync, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
-import { FileText, Mic, Pause, Paperclip, Play, Send, Smile, Trash2, Zap, PanelsTopLeft } from 'lucide-react-native';
+import { FileText, Mic, Pause, Paperclip, Play, Send, Smile, Trash2, X, Zap, PanelsTopLeft } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { fetchQuickReplies, fetchWhatsappTemplates } from '../api/inbox';
 
 type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT' };
@@ -15,6 +16,7 @@ type Props = {
   replyPreview?: { name: string; text: string } | null; onCancelReply?: () => void;
   workspaceId?: string; channelId?: string; channelType?: string; contactName?: string;
   onSendTemplate?: (params: { templateName: string; templateCategory?: string | null; languageCode?: string; text?: string }) => void;
+  canSendFreeform?: boolean;
 };
 const emojis = ['😀', '😁', '😂', '🤣', '😊', '😍', '🥰', '😘', '👍', '👏', '🙏', '🔥', '❤️', '🎉', '✅', '😅', '😉', '😎', '🤔', '😭', '😮', '🙌', '💯', '✨'];
 
@@ -28,7 +30,7 @@ function renderTemplateSamples(body: string, variables?: Array<{ index?: number;
   return body.replace(/\{\{\s*(\d+)\s*\}\}/g, (match, index) => byIndex.get(Number(index)) ?? match);
 }
 
-export function ConversationComposer({ value, onChange, onSend, sending, attachments = [], onAttachments, replyPreview, onCancelReply, workspaceId, channelId, channelType, contactName, onSendTemplate }: Props) {
+export function ConversationComposer({ value, onChange, onSend, sending, attachments = [], onAttachments, replyPreview, onCancelReply, workspaceId, channelId, channelType, contactName, onSendTemplate, canSendFreeform = true }: Props) {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [recording, setRecording] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -47,7 +49,8 @@ export function ConversationComposer({ value, onChange, onSend, sending, attachm
   const templates = useQuery({
     queryKey: ['whatsapp-templates', channelId],
     queryFn: () => fetchWhatsappTemplates(channelId),
-    enabled: templateOpen && Boolean(channelId),
+    enabled: Boolean(channelId),
+    staleTime: 60000,
   });
   const approvedTemplates = (templates.data?.items ?? []).filter((template) => (template.status ?? '').toUpperCase() === 'APPROVED').filter((template) => template.name.toLowerCase().includes(templateQuery.toLowerCase()));
 
@@ -145,6 +148,65 @@ export function ConversationComposer({ value, onChange, onSend, sending, attachm
 
   const recordingSeconds = Math.floor(recorderState.durationMillis / 1000);
 
+  const isWhatsApp = channelType?.toUpperCase() === 'WHATSAPP';
+  const windowExpired = isWhatsApp && canSendFreeform === false;
+
+  if (windowExpired) {
+    return (
+      <>
+        <Modal visible={templateOpen} transparent animationType="fade" onRequestClose={() => setTemplateOpen(false)}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setTemplateOpen(false)}>
+            <View style={styles.pickerPanel}>
+              <View style={styles.pickerHeader}><PanelsTopLeft color="#2563eb" size={16} /><Text style={styles.pickerTitle}>WhatsApp templates</Text><View style={styles.spacer} /><Pressable onPress={() => setTemplateOpen(false)} style={styles.closeBtn}><X color="#64748b" size={20} /></Pressable></View>
+              <TextInput autoFocus placeholder="Search templates..." placeholderTextColor="#94a3b8" value={templateQuery} onChangeText={setTemplateQuery} style={styles.pickerSearch} />
+              {templates.isLoading ? <ActivityIndicator color="#2563eb" style={styles.pickerLoader} /> : templates.isError ? <Text style={styles.pickerError}>Could not load templates.</Text> : (
+                <FlatList
+                  data={approvedTemplates}
+                  keyExtractor={(item) => item.id}
+                  style={styles.pickerList}
+                  keyboardShouldPersistTaps="handled"
+                  ListEmptyComponent={<Text style={styles.pickerError}>No approved templates found</Text>}
+                  renderItem={({ item }) => (
+                    <Pressable style={styles.pickerRow} onPress={() => sendTemplate(item)}>
+                      <View style={styles.templateNameRow}><Text style={styles.pickerRowTitle}>{item.name}</Text>{item.category ? <Text style={styles.templateCategory}>{String(item.category).toLowerCase()}</Text> : null}</View>
+                      {item.body ? <Text numberOfLines={2} style={styles.pickerRowBody}>{renderTemplateSamples(item.body, item.variables)}</Text> : null}
+                    </Pressable>
+                  )}
+                />
+              )}
+              <Text style={styles.pickerHint}>Send an approved template to the customer</Text>
+            </View>
+          </Pressable>
+        </Modal>
+
+        <View style={styles.blockedComposer}>
+          <LinearGradient
+            colors={['#fef2f2', '#fff1f2']}
+            style={styles.blockedGradient}
+          />
+          <View style={styles.blockedContent}>
+            <PanelsTopLeft color="#dc2626" size={20} style={styles.blockedIcon} />
+            <View style={styles.blockedTextWrap}>
+              <Text style={styles.blockedTitle}>WhatsApp window expired</Text>
+              <Text style={styles.blockedSubtitle}>The WhatsApp customer window has expired. Send an approved template message to continue.</Text>
+            </View>
+            {channelId ? (
+              <Pressable onPress={() => setTemplateOpen(true)} style={styles.blockedTemplateBtn}>
+                <LinearGradient
+                  colors={['#6366f1', '#8b5cf6']}
+                  style={styles.blockedTemplateGradient}
+                >
+                  <PanelsTopLeft color="#fff" size={16} />
+                  <Text style={styles.blockedTemplateBtnText}>Send Template</Text>
+                </LinearGradient>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      </>
+    );
+  }
+
   if (recording) {
     return (
       <View style={styles.recording}>
@@ -179,7 +241,7 @@ export function ConversationComposer({ value, onChange, onSend, sending, attachm
       <Modal visible={quickOpen} transparent animationType="fade" onRequestClose={() => setQuickOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setQuickOpen(false)}>
           <View style={styles.pickerPanel}>
-            <View style={styles.pickerHeader}><Zap color="#2563eb" size={16} /><Text style={styles.pickerTitle}>Quick replies</Text><Text style={styles.pickerCount}>{quickReplies.data?.items?.length ?? 0}</Text></View>
+             <View style={styles.pickerHeader}><Zap color="#2563eb" size={16} /><Text style={styles.pickerTitle}>Quick replies</Text><Text style={styles.pickerCount}>{quickReplies.data?.items?.length ?? 0}</Text><View style={styles.spacer} /><Pressable onPress={() => setQuickOpen(false)} style={styles.closeBtn}><X color="#64748b" size={20} /></Pressable></View>
             <TextInput autoFocus placeholder="Search by keyword, message" placeholderTextColor="#94a3b8" value={quickQuery} onChangeText={setQuickQuery} style={styles.pickerSearch} />
             {quickReplies.isLoading ? <ActivityIndicator color="#2563eb" style={styles.pickerLoader} /> : quickReplies.isError ? <Text style={styles.pickerError}>Could not load quick replies.</Text> : (
               <FlatList
@@ -206,7 +268,7 @@ export function ConversationComposer({ value, onChange, onSend, sending, attachm
       <Modal visible={templateOpen} transparent animationType="fade" onRequestClose={() => setTemplateOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setTemplateOpen(false)}>
           <View style={styles.pickerPanel}>
-            <View style={styles.pickerHeader}><PanelsTopLeft color="#2563eb" size={16} /><Text style={styles.pickerTitle}>WhatsApp templates</Text></View>
+            <View style={styles.pickerHeader}><PanelsTopLeft color="#2563eb" size={16} /><Text style={styles.pickerTitle}>WhatsApp templates</Text><View style={styles.spacer} /><Pressable onPress={() => setTemplateOpen(false)} style={styles.closeBtn}><X color="#64748b" size={20} /></Pressable></View>
             <TextInput autoFocus placeholder="Search templates..." placeholderTextColor="#94a3b8" value={templateQuery} onChangeText={setTemplateQuery} style={styles.pickerSearch} />
             {templates.isLoading ? <ActivityIndicator color="#2563eb" style={styles.pickerLoader} /> : templates.isError ? <Text style={styles.pickerError}>Could not load templates.</Text> : (
               <FlatList
@@ -288,12 +350,13 @@ const styles = StyleSheet.create({
   emojiHeading: { color: '#64748b', fontSize: 15, fontWeight: '700', marginTop: 16 },
   emojiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, paddingTop: 12 },
   emoji: { fontSize: 28 },
-  pickerPanel: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '75%', padding: 16 },
+  pickerPanel: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '85%', padding: 16 },
   pickerHeader: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  closeBtn: { padding: 4 },
   pickerTitle: { color: '#17233a', fontSize: 15, fontWeight: '700' },
   pickerCount: { backgroundColor: '#eef4ff', borderRadius: 10, color: '#2563eb', fontSize: 11, paddingHorizontal: 6, paddingVertical: 2 },
   pickerSearch: { backgroundColor: '#f5f5f5', borderRadius: 10, color: '#17233a', height: 42, marginTop: 12, paddingHorizontal: 12 },
-  pickerList: { flexGrow: 0, marginTop: 6, maxHeight: 320 },
+  pickerList: { flexGrow: 0, marginTop: 6, maxHeight: 480 },
   pickerLoader: { marginTop: 24 },
   pickerError: { color: '#64748b', fontSize: 13, paddingVertical: 18, textAlign: 'center' },
   pickerRow: { borderBottomColor: '#eef2f7', borderBottomWidth: 1, paddingVertical: 10 },
@@ -309,4 +372,14 @@ const styles = StyleSheet.create({
   replyCopy: { flex: 1, marginLeft: 6 },
   replyName: { color: '#7c3aed', fontSize: 12, fontWeight: '700' },
   replyText: { color: '#64748b', fontSize: 12, marginTop: 2 },
+  blockedComposer: { borderRadius: 24, borderWidth: 1, borderColor: '#fecaca', margin: 12, overflow: 'hidden' },
+  blockedGradient: { ...StyleSheet.absoluteFillObject },
+  blockedContent: { padding: 16, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
+  blockedIcon: { marginRight: 10 },
+  blockedTextWrap: { flex: 1, minWidth: 200 },
+  blockedTitle: { color: '#dc2626', fontWeight: '700', fontSize: 14 },
+  blockedSubtitle: { color: '#7f1d1d', fontSize: 12, marginTop: 3, lineHeight: 17 },
+  blockedTemplateBtn: { marginTop: 12, width: '100%', borderRadius: 12, overflow: 'hidden' },
+  blockedTemplateGradient: { padding: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  blockedTemplateBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });
