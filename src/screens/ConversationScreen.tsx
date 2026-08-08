@@ -11,6 +11,7 @@ import { apiFetch, uploadFile } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { setActiveConversationId } from '../api/realtime';
 import { markRecentLocalMessageSend } from '../lib/inbox-realtime-suppression';
+import { setUnreadOverride, applyUnreadOverrides } from '../lib/unread-count-override';
 import { ConversationComposer } from '../components/ConversationComposer';
 import { MediaViewer } from '../components/MediaViewer';
 import { VideoPlayerModal } from '../components/VideoPlayer';
@@ -82,9 +83,16 @@ export function ConversationScreen() {
     staleTime: 5000, refetchInterval: 8000,
   });
 
+  const unreadCountOverridden = useRef(false);
   useEffect(() => {
     if (messages.data?.conversation) {
-      setHeader((current) => ({ ...current, conversation: messages.data.conversation, isStarred: messages.data.conversation.isStarred ?? current.isStarred, unreadCount: messages.data.conversation.unreadCount ?? current.unreadCount, status: messages.data.conversation.status ?? current.status }));
+      setHeader((current) => ({
+        ...current,
+        conversation: messages.data.conversation,
+        isStarred: messages.data.conversation.isStarred ?? current.isStarred,
+        unreadCount: (unreadCountOverridden.current ? current.unreadCount : null) ?? messages.data.conversation.unreadCount ?? current.unreadCount,
+        status: messages.data.conversation.status ?? current.status,
+      }));
     }
   }, [messages.data?.conversation]);
 
@@ -182,8 +190,8 @@ export function ConversationScreen() {
   });
 
   const starMutation = useMutation({ mutationFn: (isStarred: boolean) => updateConversationStar(route.params.conversationId, isStarred), onSuccess: (_, isStarred) => setHeader((c) => ({ ...c, isStarred })) });
-  const readMutation = useMutation({ mutationFn: () => markConversationRead(route.params.conversationId), onSuccess: () => { setHeader((c) => ({ ...c, unreadCount: 0 })); setConversationUnreadInCache(queryClient, route.params.conversationId, 0); } });
-  const unreadMutation = useMutation({ mutationFn: () => markConversationUnread(route.params.conversationId), onSuccess: () => { setHeader((c) => ({ ...c, unreadCount: 1 })); setConversationUnreadInCache(queryClient, route.params.conversationId, 1); } });
+  const readMutation = useMutation({ mutationFn: () => markConversationRead(route.params.conversationId), onSuccess: () => { unreadCountOverridden.current = true; setUnreadOverride(route.params.conversationId, 0); setHeader((c) => ({ ...c, unreadCount: 0 })); setConversationUnreadInCache(queryClient, route.params.conversationId, 0); } });
+  const unreadMutation = useMutation({ mutationFn: () => markConversationUnread(route.params.conversationId), onSuccess: () => { unreadCountOverridden.current = true; setUnreadOverride(route.params.conversationId, 1); setHeader((c) => ({ ...c, unreadCount: 1 })); setConversationUnreadInCache(queryClient, route.params.conversationId, 1); } });
   const statusMutation = useMutation({ mutationFn: (status: string) => updateConversationStatus(route.params.conversationId, status as 'OPEN' | 'CLOSED'), onSuccess: (_, status) => setHeader((c) => ({ ...c, status })) });
   const assignmentMutation = useMutation({
     mutationFn: (assigneeWorkspaceMemberId: string | null) => updateConversationAssignment(route.params.conversationId, assigneeWorkspaceMemberId),

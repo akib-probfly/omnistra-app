@@ -9,6 +9,7 @@ import { ChannelLogo } from '../components/ChannelLogo';
 import { AuthenticatedImage } from '../components/AuthenticatedImage';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { fetchConversations, fetchConversationCount, fetchAssigneeOptions, type ConversationListItem, type AssigneeFilterOption } from '../api/inbox';
+import { applyUnreadOverrideToPage } from '../lib/unread-count-override';
 import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
 
 type Tab = 'all' | 'unread' | 'closed';
@@ -62,7 +63,10 @@ export function InboxScreen() {
 
   const conversations = useInfiniteQuery({
     queryKey: ['conversations', filters],
-    queryFn: ({ pageParam }) => fetchConversations({ ...filters, limit: 25, cursor: pageParam }),
+    queryFn: async ({ pageParam }) => {
+      const result = await fetchConversations({ ...filters, limit: 25, cursor: pageParam });
+      return { ...result, items: applyUnreadOverrideToPage(result.items) };
+    },
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.pageInfo?.hasMore ? (lastPage.pageInfo.nextCursor ?? undefined) : undefined,
     staleTime: 10_000,
