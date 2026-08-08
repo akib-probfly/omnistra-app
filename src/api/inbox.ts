@@ -41,6 +41,13 @@ export type ConversationMessaging = {
   canSendHumanAgentMessage?: boolean;
 };
 
+export type ConversationListTag = {
+  id: string;
+  text: string;
+  color?: string | null;
+  isArchived?: boolean;
+};
+
 export type ConversationListItem = {
   id: string;
   workspaceId: string;
@@ -54,6 +61,7 @@ export type ConversationListItem = {
   channel: { channelId: string; channelType: string; channelName: string; displayPhoneNumber: string | null };
   assignee?: { workspaceMemberId: string; userName: string | null; userEmail: string; avatarUrl: string | null } | null;
   messaging?: ConversationMessaging | null;
+  tags?: ConversationListTag[] | null;
 };
 
 export type ConversationsListResponse = { items: ConversationListItem[]; pageInfo?: { nextCursor?: string | null; hasMore?: boolean } };

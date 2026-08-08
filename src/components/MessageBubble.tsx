@@ -253,24 +253,24 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
 }
 
 function previewUrl(attachment: any): string {
-  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://osaas-mvp-api.probfly.com/api/v1';
+  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.omnistra.ai/api/v1';
   const value = attachment.previewUrl ?? attachment.thumbnailUrl ?? attachment.downloadUrl;
   return resolveMediaUrl(base, value);
 }
 
 function videoPosterUrl(attachment: any): string {
-  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://osaas-mvp-api.probfly.com/api/v1';
+  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.omnistra.ai/api/v1';
   const value = attachment.previewUrl ?? attachment.thumbnailUrl;
   return resolveMediaUrl(base, value);
 }
 
 function audioUrl(attachment: any): string {
-  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://osaas-mvp-api.probfly.com/api/v1';
+  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.omnistra.ai/api/v1';
   return resolveMediaUrl(base, attachment.downloadUrl ?? attachment.previewUrl ?? attachment.thumbnailUrl);
 }
 
 function videoUrl(attachment: any): string {
-  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://osaas-mvp-api.probfly.com/api/v1';
+  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.omnistra.ai/api/v1';
   return resolveMediaUrl(base, attachment.downloadUrl ?? attachment.previewUrl ?? attachment.thumbnailUrl);
 }
 

@@ -1,7 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Filter, Search, Star, Inbox, Mail, MessageSquareText, Phone, X } from 'lucide-react-native';
-import { ActivityIndicator, Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
+import { ActivityIndicator, Animated, Easing, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { AppToggle } from '../components/AppToggle';
@@ -291,10 +290,22 @@ export function InboxScreen() {
           {conversations.isLoading ? <ActivityIndicator color="#2563eb" style={styles.loader} />
           : conversations.isError ? <ErrorState message="Unable to load conversations." onRetry={() => conversations.refetch()} />
           : (
-            <FlashList
+            <FlatList
+              style={styles.listFill}
               data={items}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => <ConversationRow conversation={item} onPress={() => navigation.navigate('Conversation', { conversationId: item.id, contactName: item.contact.displayName ?? 'Unknown contact', workspaceId: item.workspaceId, channelId: item.channel?.channelId, channelType: item.channel?.channelType })} />}
+              renderItem={({ item }) => (
+                <ConversationRow
+                  conversation={item}
+                  onPress={() => navigation.navigate('Conversation', {
+                    conversationId: item.id,
+                    contactName: item.contact.displayName ?? 'Unknown contact',
+                    workspaceId: item.workspaceId,
+                    channelId: item.channel?.channelId,
+                    channelType: item.channel?.channelType,
+                  })}
+                />
+              )}
               ListEmptyComponent={(
                 <View style={styles.empty}>
                   <Inbox color="#c3d0e2" size={44} />
@@ -322,7 +333,11 @@ export function InboxScreen() {
               onEndReachedThreshold={0.4}
               onEndReached={() => { const last = conversations.data?.pages?.at(-1); if (last?.pageInfo?.hasMore && !conversations.isFetchingNextPage) conversations.fetchNextPage(); }}
               contentContainerStyle={styles.list}
-              style={styles.listFill}
+              removeClippedSubviews={false}
+              initialNumToRender={12}
+              windowSize={8}
+              maxToRenderPerBatch={10}
+              updateCellsBatchingPeriod={50}
             />
           )}
         </>
@@ -531,13 +546,52 @@ function AssigneeBadge({ assignee }: { assignee: ConversationListItem['assignee'
   );
 }
 
+function hexWithAlpha(color: string | null | undefined, alphaHex = '18') {
+  const value = (color ?? '#64748b').trim();
+  if (/^#([0-9a-fA-F]{6})$/.test(value)) return `${value}${alphaHex}`;
+  if (/^#([0-9a-fA-F]{3})$/.test(value)) {
+    const [r, g, b] = value.slice(1).split('');
+    return `#${r}${r}${g}${g}${b}${b}${alphaHex}`;
+  }
+  return '#e2e8f0';
+}
+
+function ConversationTagChips({ tags, maxVisible = 2 }: { tags?: ConversationListItem['tags']; maxVisible?: number }) {
+  const resolved = (tags ?? []).filter((tag) => tag && !tag.isArchived && tag.text?.trim());
+  if (!resolved.length) return null;
+  const visible = resolved.slice(0, maxVisible);
+  const hiddenCount = resolved.length - visible.length;
+
+  return (
+    <View style={styles.tagRow}>
+      {visible.map((tag) => {
+        const color = tag.color?.trim() || '#64748b';
+        return (
+          <View
+            key={tag.id}
+            style={[styles.tagChip, { backgroundColor: hexWithAlpha(color), borderColor: hexWithAlpha(color, '33') }]}
+          >
+            <View style={[styles.tagChipDot, { backgroundColor: color }]} />
+            <Text style={[styles.tagChipText, { color }]} numberOfLines={1}>{tag.text}</Text>
+          </View>
+        );
+      })}
+      {hiddenCount > 0 ? (
+        <View style={styles.tagMoreChip}>
+          <Text style={styles.tagMoreText}>+{hiddenCount}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function ConversationRow({ conversation, onPress }: { conversation: ConversationListItem; onPress: () => void }) {
   const assigneeName = conversation.assignee?.userName ?? conversation.assignee?.userEmail ?? null;
   const isWhatsAppCustomerWindow = conversation.channel?.channelType === 'WHATSAPP' && conversation.messaging?.policyType === 'CUSTOMER_WINDOW';
   const showWindowDot = isWhatsAppCustomerWindow && conversation.messaging?.windowState !== 'NOT_APPLICABLE';
   const windowExpired = conversation.messaging?.windowState === 'EXPIRED';
   return (
-    <Pressable onPress={onPress}>
+    <Pressable onPress={onPress} style={styles.rowPressable}>
       <View style={styles.row}>
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{(conversation.contact.displayName ?? '?').slice(0, 1).toUpperCase()}</Text>
@@ -550,12 +604,15 @@ function ConversationRow({ conversation, onPress }: { conversation: Conversation
           </View>
           <Text style={styles.channel} numberOfLines={1}>{conversation.channel?.channelName ?? ''}{assigneeName ? ` · ${assigneeName}` : ''}</Text>
           <Text style={styles.preview} numberOfLines={1}>{conversation.isUnreplied ? '↙ ' : '↗ '}{conversation.lastMessagePreview ?? 'No messages yet'}</Text>
+          <ConversationTagChips tags={conversation.tags} />
         </View>
         <View style={styles.side}>
           <Text style={styles.time}>{formatTime(conversation.lastMessageAt)}</Text>
-          <View style={styles.sideMiddle}>
-            {conversation.unreadCount > 0 ? <View style={styles.unreadBadge}><Text style={styles.unreadText}>{conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}</Text></View> : null}
-          </View>
+          {conversation.unreadCount > 0 ? (
+            <View style={styles.sideMiddle}>
+              <View style={styles.unreadBadge}><Text style={styles.unreadText}>{conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}</Text></View>
+            </View>
+          ) : <View style={styles.sideMiddle} />}
           <AssigneeBadge assignee={conversation.assignee} />
         </View>
       </View>
@@ -576,7 +633,7 @@ function formatTime(value: string | null) {
 const styles = StyleSheet.create({
   screen: { backgroundColor: '#fff', flex: 1 },
   list: { paddingBottom: 16 },
-  listFill: { flex: 1 },
+  listFill: { flex: 1, minHeight: 0 },
   header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e8eef7', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 12, paddingHorizontal: 16 },
   headerCopy: { flex: 1, minWidth: 0 },
   headerTitleLine: { alignItems: 'center', flexDirection: 'row', gap: 8 },
@@ -652,22 +709,48 @@ const styles = StyleSheet.create({
   filterApplyText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   emptyClearButton: { backgroundColor: '#eff6ff', borderRadius: 12, marginTop: 14, paddingHorizontal: 14, paddingVertical: 10 },
   emptyClearButtonText: { color: '#2563eb', fontSize: 13, fontWeight: '700' },
-  row: { borderBottomColor: '#eef2f7', borderBottomWidth: 1, flexDirection: 'row', padding: 12 },  avatar: { alignItems: 'center', backgroundColor: '#f9c43d', borderRadius: 24, height: 48, justifyContent: 'center', position: 'relative', width: 48 },
+  rowPressable: { backgroundColor: '#fff' },
+  row: { backgroundColor: '#fff', borderBottomColor: '#eef2f7', borderBottomWidth: 1, flexDirection: 'row', overflow: 'hidden', paddingHorizontal: 12, paddingVertical: 12 },
+  avatar: { alignItems: 'center', backgroundColor: '#f9c43d', borderRadius: 24, height: 48, justifyContent: 'center', position: 'relative', width: 48 },
   avatarText: { color: '#111827', fontSize: 18, fontWeight: '700' },
-  channelBadgeWrap: { alignItems: 'center', borderColor: '#fff', borderRadius: 11, borderWidth: 2, bottom: -4, height: 22, justifyContent: 'center', overflow: 'hidden', position: 'absolute', right: -4, width: 22 },
-  copy: { flex: 1, marginLeft: 12 },
+  channelBadgeWrap: { alignItems: 'center', borderColor: '#fff', borderRadius: 11, borderWidth: 2, bottom: -2, height: 22, justifyContent: 'center', overflow: 'hidden', position: 'absolute', right: -2, width: 22 },
+  copy: { flex: 1, marginLeft: 12, minWidth: 0 },
   nameLine: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  name: { color: '#111827', fontSize: 15, fontWeight: '700', flexShrink: 1 },
+  name: { color: '#111827', flexShrink: 1, fontSize: 15, fontWeight: '700' },
   windowDotWrap: { alignItems: 'center', height: 12, justifyContent: 'center', width: 12 },
   windowDotRing: { borderRadius: 6, height: 12, position: 'absolute', width: 12 },
   windowDot: { borderRadius: 4, elevation: 3, height: 8, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 5, width: 8 },
   unreadBadge: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 10, justifyContent: 'center', minWidth: 20, paddingHorizontal: 5 },
   unreadText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   time: { color: '#8ba2c3', fontSize: 11 },
-  channel: { color: '#64748b', flex: 1, fontSize: 12, marginTop: 2 },
+  channel: { color: '#64748b', fontSize: 12, marginTop: 2 },
   preview: { color: '#8ba2c3', fontSize: 13, marginTop: 3 },
-  side: { alignItems: 'flex-end', alignSelf: 'stretch', flexDirection: 'column', justifyContent: 'space-between', marginLeft: 12 },
-  sideMiddle: { alignItems: 'center', flex: 1, justifyContent: 'center', minHeight: 20 },
+  tagRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'nowrap', gap: 6, marginTop: 6, overflow: 'hidden' },
+  tagChip: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    flexShrink: 1,
+    gap: 5,
+    maxWidth: '70%',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  tagChipDot: { borderRadius: 3, height: 6, width: 6 },
+  tagChipText: { flexShrink: 1, fontSize: 11, fontWeight: '600' },
+  tagMoreChip: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexShrink: 0,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  tagMoreText: { color: '#64748b', fontSize: 11, fontWeight: '600' },
+  side: { alignItems: 'flex-end', alignSelf: 'stretch', justifyContent: 'space-between', marginLeft: 12 },
+  sideMiddle: { alignItems: 'center', flexGrow: 1, justifyContent: 'center', minHeight: 20 },
   assigneeBadge: { alignItems: 'center', backgroundColor: '#fef3c7', borderColor: '#fff', borderRadius: 10, borderWidth: 2, height: 20, justifyContent: 'center', overflow: 'hidden', width: 20 },
   assigneeImage: { height: 20, width: 20 },
   assigneeInitials: { color: '#92400e', fontSize: 9, fontWeight: '700' },

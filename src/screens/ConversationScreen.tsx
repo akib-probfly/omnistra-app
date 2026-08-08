@@ -31,7 +31,7 @@ type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAG
 type MediaItem = { attachId: string; src: string; mediaType: string };
 const apiUrl = (value: string | null) => {
   if (!value) return null;
-  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://osaas-mvp-api.probfly.com/api/v1';
+  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.omnistra.ai/api/v1';
   try {
     const parsed = new URL(value, `${base}/`);
     if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '0.0.0.0') {
