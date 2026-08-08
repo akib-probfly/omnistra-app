@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
   toolbar: { alignItems: 'center', borderBottomColor: '#e2e8f0', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', padding: 12 },
   unrepliedToggle: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 10, minWidth: 0, paddingRight: 8 },
   unrepliedLabel: { color: '#64748b', flexShrink: 1, fontSize: 13, fontWeight: '500' },
-  sidebarToggleTrack: { borderRadius: 999, borderWidth: 1, height: 22, justify: 'relative', width: 36 },
+  sidebarToggleTrack: { borderRadius: 999, borderWidth: 1, height: 22, position: 'relative', width: 36 },
   sidebarToggleTrackOff: { backgroundColor: '#fff', borderColor: '#e2e8f0' },
   sidebarToggleTrackOn: { backgroundColor: '#dbeafe', borderColor: '#bfdbfe' },
   sidebarToggleThumb: { borderRadius: 999, borderWidth: 1, height: 18, position: 'absolute', top: 1, width: 18 },
