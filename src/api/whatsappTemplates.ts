@@ -1,19 +1,66 @@
 import { apiFetch } from './client';
 
 export type WhatsappTemplateCategory = 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
-export type WhatsappTemplateStatus = 'DRAFT' | 'PROCESSING' | 'FAILED' | 'DELETED' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'PAUSED' | (string & {});
+export type WhatsappTemplateStatus =
+  | 'DRAFT'
+  | 'PROCESSING'
+  | 'FAILED'
+  | 'DELETED'
+  | 'PENDING'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'PAUSED'
+  | (string & {});
+export type WhatsappTemplateHeaderType = 'NONE' | 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT';
+export type WhatsappTemplateButtonType =
+  | 'QUICK_REPLY'
+  | 'URL'
+  | 'PHONE_NUMBER'
+  | 'CALL_TO_WHATSAPP'
+  | 'COPY_CODE'
+  | 'OTP';
+export type WhatsappMarketingTemplateType = 'DEFAULT' | 'CATALOG' | 'CALL_PERMISSION_REQUEST';
+export type WhatsappAuthCodeDeliveryMethod = 'ONE_TAP' | 'COPY_CODE';
+export type WhatsappTemplateVariableSection = 'HEADER' | 'BODY' | 'BUTTON';
+
+export type WhatsappTemplateButton = {
+  id: string;
+  type: WhatsappTemplateButtonType;
+  label: string;
+  url?: string;
+  phoneNumber?: string;
+  offerCode?: string;
+};
+
+export type WhatsappTemplateVariable = {
+  index: number;
+  label: string;
+  sampleValue: string;
+  section: WhatsappTemplateVariableSection;
+};
+
+export type WhatsappTemplateHeader = {
+  enabled: boolean;
+  type: WhatsappTemplateHeaderType;
+  content: string;
+};
 
 export type WhatsappTemplate = {
   id: string;
   name: string;
   category: WhatsappTemplateCategory;
+  marketingTemplateType?: WhatsappMarketingTemplateType;
+  authCodeDeliveryMethod?: WhatsappAuthCodeDeliveryMethod;
+  authIncludeSecurityRecommendation?: boolean;
+  authIncludeExpirationNotice?: boolean;
+  authCodeExpirationMinutes?: number;
   language: string;
   status: WhatsappTemplateStatus;
-  header: { enabled: boolean; type: 'NONE' | 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT'; content: string };
+  header: WhatsappTemplateHeader;
   body: string;
   footer: string;
-  buttons: Array<{ id: string; type: string; label: string; url?: string; phoneNumber?: string; offerCode?: string }>;
-  variables: Array<{ index: number; label: string; sampleValue: string; section: 'HEADER' | 'BODY' | 'BUTTON' }>;
+  buttons: WhatsappTemplateButton[];
+  variables: WhatsappTemplateVariable[];
   version: number;
   metaId: string | null;
   rejectionReason: string | null;
@@ -43,68 +90,78 @@ export type WhatsappTemplateFormValues = {
   name: string;
   language: string;
   category: WhatsappTemplateCategory;
-  header: { enabled: boolean; type: 'NONE' | 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT'; content: string };
+  marketingTemplateType: WhatsappMarketingTemplateType;
+  authCodeDeliveryMethod: WhatsappAuthCodeDeliveryMethod;
+  authIncludeSecurityRecommendation: boolean;
+  authIncludeExpirationNotice: boolean;
+  authCodeExpirationMinutes?: number;
+  header: WhatsappTemplateHeader;
   body: string;
   footer: string;
-  buttons: Array<{ id: string; type: string; label: string; url?: string; phoneNumber?: string; offerCode?: string }>;
-  variables: Array<{ index: number; label: string; sampleValue: string; section: 'HEADER' | 'BODY' | 'BUTTON' }>;
+  buttons: WhatsappTemplateButton[];
+  variables: WhatsappTemplateVariable[];
+  version: number;
 };
 
-export function buildCreateTemplatePayload(template: WhatsappTemplateFormValues) {
-  const buttonsJson =
-    template.buttons.length > 0
-      ? [
-          {
-            type: 'BUTTONS',
-            buttons: template.buttons.map((button) => ({
-              type: button.type,
-              text: button.label,
-              ...(button.type === 'URL' && button.url ? { url: button.url } : {}),
-              ...(button.type === 'PHONE_NUMBER' && button.phoneNumber ? { phone_number: button.phoneNumber } : {}),
-              ...(button.type === 'COPY_CODE' && button.offerCode ? { example: button.offerCode } : {}),
-            })),
-          },
-        ]
-      : undefined;
+function buildButtonsJson(template: WhatsappTemplateFormValues) {
+  if (template.buttons.length === 0) return undefined;
+  return [
+    {
+      type: 'BUTTONS',
+      buttons: template.buttons.map((button) => ({
+        type: button.type,
+        text: button.label,
+        ...(button.type === 'URL' && button.url ? { url: button.url } : {}),
+        ...(button.type === 'PHONE_NUMBER' && button.phoneNumber ? { phone_number: button.phoneNumber } : {}),
+        ...(button.type === 'COPY_CODE' && button.offerCode ? { example: button.offerCode } : {}),
+      })),
+    },
+  ];
+}
 
+function buildSampleVariablesJson(template: WhatsappTemplateFormValues) {
+  const samples = [...template.variables];
+
+  if (
+    template.header.enabled
+    && template.header.type !== 'NONE'
+    && template.header.type !== 'TEXT'
+    && template.header.content.trim()
+  ) {
+    samples.unshift({
+      index: 1,
+      label: 'header',
+      sampleValue: template.header.content.trim(),
+      section: 'HEADER' as const,
+    });
+  }
+
+  return samples;
+}
+
+export function buildCreateTemplatePayload(template: WhatsappTemplateFormValues) {
   return {
-    name: template.name,
+    name: template.name.trim(),
     language: template.language,
     category: template.category,
     headerType: template.header.enabled && template.header.type !== 'NONE' ? template.header.type : undefined,
     headerText: template.header.enabled && template.header.type === 'TEXT' ? template.header.content : undefined,
     bodyText: template.body,
     footerText: template.footer || undefined,
-    buttonsJson,
-    sampleVariablesJson: template.variables,
+    buttonsJson: buildButtonsJson(template),
+    sampleVariablesJson: buildSampleVariablesJson(template),
   };
 }
 
 export function buildUpdateTemplatePayload(template: WhatsappTemplateFormValues) {
-  const buttonsJson =
-    template.buttons.length > 0
-      ? [
-          {
-            type: 'BUTTONS',
-            buttons: template.buttons.map((button) => ({
-              type: button.type,
-              text: button.label,
-              ...(button.type === 'URL' && button.url ? { url: button.url } : {}),
-              ...(button.type === 'PHONE_NUMBER' && button.phoneNumber ? { phone_number: button.phoneNumber } : {}),
-              ...(button.type === 'COPY_CODE' && button.offerCode ? { example: button.offerCode } : {}),
-            })),
-          },
-        ]
-      : undefined;
-
   return {
     category: template.category,
     headerType: template.header.enabled && template.header.type !== 'NONE' ? template.header.type : undefined,
     headerText: template.header.enabled && template.header.type === 'TEXT' ? template.header.content : undefined,
     bodyText: template.body,
     footerText: template.footer || undefined,
-    buttonsJson,
-    sampleVariablesJson: template.variables,
+    buttonsJson: buildButtonsJson(template),
+    sampleVariablesJson: buildSampleVariablesJson(template),
   };
 }
 

@@ -1,8 +1,8 @@
 // @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, FileText, LoaderCircle, RefreshCw, RotateCcw } from 'lucide-react-native';
-import { useState } from 'react';
-import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -335,7 +335,12 @@ export function ChannelDetailsScreen() {
 
   return (
     <View style={styles.screen}>
-      <HeaderBar insets={insets} onBack={() => navigation.goBack()} onRefresh={() => details.refetch()} />
+      <HeaderBar
+        insets={insets}
+        onBack={() => navigation.goBack()}
+        onRefresh={() => details.refetch()}
+        refreshing={details.isFetching && !details.isLoading}
+      />
 
       <View style={styles.tabBar}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBarContent}>
@@ -383,12 +388,48 @@ export function ChannelDetailsScreen() {
   );
 }
 
-function HeaderBar({ insets, onBack, onRefresh }: { insets: { top: number }; onBack: () => void; onRefresh?: () => void }) {
+function HeaderBar({
+  insets,
+  onBack,
+  onRefresh,
+  refreshing = false,
+}: {
+  insets: { top: number };
+  onBack: () => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
+}) {
+  const spin = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!refreshing) {
+      spin.stopAnimation();
+      spin.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.timing(spin, {
+        toValue: 1,
+        duration: 800,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [refreshing, spin]);
+
+  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+
   return (
     <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
       <Pressable onPress={onBack} hitSlop={10}><ArrowLeft color="#334155" size={23} /></Pressable>
       <Text style={styles.headerTitle}>Channel details</Text>
-      <Pressable onPress={onRefresh} hitSlop={10}><RefreshCw color="#334155" size={20} /></Pressable>
+      <Pressable onPress={onRefresh} hitSlop={10} disabled={refreshing} style={refreshing ? { opacity: 0.7 } : undefined}>
+        <Animated.View style={{ transform: [{ rotate }] }}>
+          <RefreshCw color="#334155" size={20} />
+        </Animated.View>
+      </Pressable>
     </View>
   );
 }
