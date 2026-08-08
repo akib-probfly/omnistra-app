@@ -62,6 +62,8 @@ export type ConversationsFilters = {
   workspaceId?: string;
   status?: 'OPEN' | 'ASSIGNED' | 'CLOSED';
   search?: string;
+  tagIds?: string[];
+  tagText?: string;
   unreadOnly?: boolean;
   starredOnly?: boolean;
   unrepliedOnly?: boolean;
@@ -78,7 +80,9 @@ function buildQueryString(params: Record<string, string | number | boolean | str
   Object.entries(params).forEach(([key, value]) => {
     if (value === null || value === undefined || value === false) return;
     if (Array.isArray(value)) {
-      value.forEach((item) => query.append(key, item));
+      if (value.length === 0) return;
+      // Backend accepts comma-separated values (same encoding as osaas-frontend).
+      query.set(key, value.map((item) => String(item)).join(','));
     } else if (value === true) {
       query.set(key, 'true');
     } else {
@@ -94,6 +98,8 @@ export async function fetchConversations(params: ConversationsFilters = {}): Pro
     workspaceId: params.workspaceId,
     status: params.status,
     search: params.search,
+    tagIds: params.tagIds,
+    tagText: params.tagText,
     unreadOnly: params.unreadOnly,
     starredOnly: params.starredOnly,
     unrepliedOnly: params.unrepliedOnly,
@@ -111,6 +117,8 @@ export async function fetchConversationCount(params: Omit<ConversationsFilters, 
     workspaceId: params.workspaceId,
     status: params.status,
     search: params.search,
+    tagIds: params.tagIds,
+    tagText: params.tagText,
     unreadOnly: params.unreadOnly,
     starredOnly: params.starredOnly,
     unrepliedOnly: params.unrepliedOnly,
@@ -123,13 +131,13 @@ export async function fetchConversationCount(params: Omit<ConversationsFilters, 
   return response?.count ?? response?.total ?? 0;
 }
 
-export async function fetchConversationUnreadCount(params: Omit<ConversationsFilters, 'cursor' | 'limit' | 'status'> = {}): Promise<number> {
+export async function fetchConversationUnreadCount(params: Omit<ConversationsFilters, 'cursor' | 'limit' | 'status' | 'unreadOnly' | 'unrepliedOnly' | 'includeEmpty'> = {}): Promise<number> {
   const response = await apiFetch<{ count?: number; unreadCount?: number; total?: number } | number>(`/conversations/unread-count${buildQueryString({
     workspaceId: params.workspaceId,
     search: params.search,
-    unreadOnly: params.unreadOnly,
+    tagIds: params.tagIds,
+    tagText: params.tagText,
     starredOnly: params.starredOnly,
-    unrepliedOnly: params.unrepliedOnly,
     assignment: params.assignment,
     channelTypes: params.channelTypes,
     assigneeWorkspaceMemberIds: params.assigneeWorkspaceMemberIds,
