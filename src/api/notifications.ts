@@ -80,62 +80,81 @@ function buildNotificationQueryString(query: { unreadOnly?: boolean; page?: numb
   return queryString ? `?${queryString}` : '';
 }
 
-type NotificationDeliveryRecord = {
-  id: string;
-  notificationId: string;
-  workspaceId: string;
-  userId: string;
-  deliveredAt: string | null;
-  readAt: string | null;
-  seenAt: string | null;
-  suppressedReason: string | null;
-  createdAt: string;
-  updatedAt: string;
-  notification: {
-    id: string;
-    workspaceId: string;
-    type: NotificationType;
-    entityType: NotificationEntityType;
-    entityId: string;
-    conversationId: string | null;
-    channelId: string | null;
-    targetScope: 'WORKSPACE' | 'USER' | 'CONVERSATION_ASSIGNEE';
-    title: string;
-    body: string;
-    metadata: NotificationMetadata;
-    dedupeKey: string | null;
-    createdAt: string;
-    updatedAt: string;
-  };
+type RawNotificationRecord = {
+  id?: string;
+  notificationId?: string;
+  workspaceId?: string;
+  type?: NotificationType;
+  entityType?: NotificationEntityType;
+  entityId?: string;
+  conversationId?: string | null;
+  channelId?: string | null;
+  title?: string;
+  body?: string;
+  metadata?: NotificationMetadata;
+  createdAt?: string;
+  readAt?: string | null;
+  isUnread?: boolean;
+  notification?: RawNotificationRecord | null;
 };
 
-function toNotificationListItem(delivery: NotificationDeliveryRecord): NotificationListItem {
-  const nested = delivery.notification;
+/** API returns NotificationDelivery rows with nested `notification`. Handle both shapes safely. */
+export function toNotificationListItem(raw: RawNotificationRecord): NotificationListItem | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const nested = raw.notification && typeof raw.notification === 'object' ? raw.notification : null;
+  const source = nested ? { ...raw, ...nested } : raw;
+  const notificationId = nested?.id ?? raw.notificationId ?? raw.id;
+  if (!notificationId || !source.type || !source.workspaceId) return null;
+
+  const readAt = raw.readAt ?? nested?.readAt ?? null;
   return {
-    id: nested.id,
-    notificationId: nested.id,
-    workspaceId: delivery.workspaceId,
-    type: nested.type,
-    entityType: nested.entityType,
-    entityId: nested.entityId,
-    conversationId: nested.conversationId,
-    channelId: nested.channelId,
-    title: nested.title,
-    body: nested.body,
-    metadata: nested.metadata,
-    createdAt: nested.createdAt,
-    readAt: delivery.readAt,
-    isUnread: delivery.readAt == null,
+    id: notificationId,
+    notificationId,
+    workspaceId: source.workspaceId,
+    type: source.type,
+    entityType: source.entityType ?? 'MESSAGE',
+    entityId: source.entityId ?? notificationId,
+    conversationId: source.conversationId ?? null,
+    channelId: source.channelId ?? null,
+    title: source.title ?? 'Notification',
+    body: source.body ?? '',
+    metadata: source.metadata ?? null,
+    createdAt: source.createdAt ?? raw.createdAt ?? new Date().toISOString(),
+    readAt,
+    isUnread: source.isUnread ?? raw.isUnread ?? readAt == null,
+  };
+}
+
+export function notificationFromRealtimeEvent(payload: NotificationCreatedRealtimeEvent): NotificationListItem {
+  return {
+    id: payload.notificationId,
+    notificationId: payload.notificationId,
+    workspaceId: payload.workspaceId,
+    type: payload.type,
+    entityType: payload.entityType,
+    entityId: payload.entityId,
+    conversationId: payload.conversationId,
+    channelId: payload.channelId,
+    title: payload.title,
+    body: payload.body,
+    metadata: payload.metadata,
+    createdAt: payload.createdAt,
+    readAt: null,
+    isUnread: true,
   };
 }
 
 export async function fetchNotifications(query: { unreadOnly?: boolean; page?: number; limit?: number } = {}) {
-  const response = await apiFetch<{ items: NotificationDeliveryRecord[]; meta: NotificationListResponse['meta'] }>(
+  const response = await apiFetch<{ items?: RawNotificationRecord[]; meta: NotificationListResponse['meta'] }>(
     `/notifications${buildNotificationQueryString(query)}`,
     { method: 'GET' },
   );
+  const items = (response.items ?? [])
+    .map((item) => toNotificationListItem(item))
+    .filter((item): item is NotificationListItem => Boolean(item));
+
   return {
-    items: (response.items ?? []).map(toNotificationListItem),
+    items,
     meta: response.meta,
   } as NotificationListResponse;
 }

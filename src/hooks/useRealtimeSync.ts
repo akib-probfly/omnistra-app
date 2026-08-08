@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { createRealtimeSocket, setRealtimeConnectionStatus, getActiveConversationId } from '../api/realtime';
 import { latestAccessToken } from '../api/client';
+import {
+  notificationFromRealtimeEvent,
+  notificationQueryKeys,
+  type NotificationCreatedRealtimeEvent,
+  type NotificationListResponse,
+} from '../api/notifications';
 import { shouldSuppressRealtimeMessageRefresh } from '../lib/inbox-realtime-suppression';
 import { playMessageNotificationSound } from '../lib/notificationSound';
 import { writeIncomingCallPrompt } from '../lib/incoming-call-prompt';
@@ -15,21 +21,7 @@ const REALTIME_NOTIFICATION_CREATED_EVENT = 'notification.created';
 type ConversationUpdatedEvent = { workspaceId: string; conversationId: string; messageId: string | null; createdConversation: boolean; createdMessage: boolean; occurredAt: string };
 type MessageCreatedEvent = { workspaceId: string; conversationId: string; messageId: string; createdAt: string };
 type CallSessionUpdatedEvent = { workspaceId: string; conversationId: string; callSessionId: string; status: string };
-type NotificationCreatedEvent = {
-  notificationId: string;
-  workspaceId: string;
-  type: string;
-  entityType: string;
-  entityId: string;
-  conversationId: string | null;
-  channelId: string | null;
-  targetScope: string;
-  title: string;
-  body: string;
-  createdAt: string;
-  metadata: unknown;
-  recipientUserIds: string[] | null;
-};
+type NotificationCreatedEvent = NotificationCreatedRealtimeEvent;
 
 const handledNotificationIds = new Set<string>();
 
@@ -92,10 +84,41 @@ function incrementInboxUnreadCountInCache(queryClient: ReturnType<typeof useQuer
 }
 
 function incrementNotificationUnreadCountInCache(queryClient: ReturnType<typeof useQueryClient>) {
-  queryClient.setQueryData<number | { count?: number; unreadCount?: number }>(['notifications', 'unread-count'], (current) => {
+  queryClient.setQueryData<number | { count?: number; unreadCount?: number }>(notificationQueryKeys.unreadCount(), (current) => {
     if (typeof current === 'number') return current + 1;
     if (current && typeof current === 'object' && 'count' in current) return { ...current, count: (current.count ?? 0) + 1 };
     return current == null ? 1 : current;
+  });
+}
+
+function prependNotificationInCache(queryClient: ReturnType<typeof useQueryClient>, payload: NotificationCreatedEvent) {
+  const item = notificationFromRealtimeEvent(payload);
+  queryClient.setQueriesData<NotificationListResponse>({ queryKey: [...notificationQueryKeys.all, 'list'] }, (current) => {
+    if (!current || !Array.isArray(current.items)) {
+      return {
+        items: [item],
+        meta: {
+          page: 1,
+          limit: 50,
+          total: 1,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: false,
+          unreadOnly: false,
+          workspaceId: payload.workspaceId,
+        },
+      };
+    }
+    if (current.items.some((existing) => existing.id === item.id || existing.notificationId === item.notificationId)) {
+      return current;
+    }
+    return {
+      ...current,
+      items: [item, ...current.items],
+      meta: current.meta
+        ? { ...current.meta, total: (current.meta.total ?? current.items.length) + 1 }
+        : current.meta,
+    };
   });
 }
 
@@ -166,10 +189,16 @@ export function useRealtimeSync(accessToken: string | null) {
     };
 
     const handleNotificationCreated = (payload: NotificationCreatedEvent) => {
+      if (!payload?.notificationId) return;
       if (handledNotificationIds.has(payload.notificationId)) return;
       handledNotificationIds.add(payload.notificationId);
+
+      // Keep badge + list warm even while the notification sheet is closed.
       incrementNotificationUnreadCountInCache(queryClient);
-      void queryClient.invalidateQueries({ queryKey: ['notifications', 'list'], refetchType: 'active' });
+      prependNotificationInCache(queryClient, payload);
+      void queryClient.invalidateQueries({ queryKey: [...notificationQueryKeys.all, 'list'], refetchType: 'all' });
+      void queryClient.invalidateQueries({ queryKey: notificationQueryKeys.unreadCount(), refetchType: 'all' });
+
       if (payload.type === 'NEW_MESSAGE') {
         void playMessageNotificationSound();
       }

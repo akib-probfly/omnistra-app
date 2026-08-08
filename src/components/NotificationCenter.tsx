@@ -122,6 +122,12 @@ function NotificationRow({ notification, onOpen, onMarkRead }: { notification: N
 }
 
 export function NotificationBell({ onOpen }: { onOpen: () => void }) {
+  // Keep the list query mounted so realtime cache patches + invalidations stay active.
+  useQuery({
+    queryKey: notificationQueryKeys.list({ page: 1, limit: 50 }),
+    queryFn: () => fetchNotifications({ page: 1, limit: 50 }),
+    staleTime: 15_000,
+  });
   const unreadQuery = useQuery({
     queryKey: notificationQueryKeys.unreadCount(),
     queryFn: fetchUnreadNotificationCount,
@@ -172,13 +178,19 @@ export function NotificationCenter({ visible, onClose }: { visible: boolean; onC
   const notificationsQuery = useQuery({
     queryKey: notificationQueryKeys.list({ page: 1, limit: 50 }),
     queryFn: () => fetchNotifications({ page: 1, limit: 50 }),
-    enabled: visible,
+    staleTime: 15_000,
   });
   const unreadCountQuery = useQuery({
     queryKey: notificationQueryKeys.unreadCount(),
     queryFn: fetchUnreadNotificationCount,
-    enabled: visible,
+    staleTime: 15_000,
   });
+
+  useEffect(() => {
+    if (!visible) return;
+    void notificationsQuery.refetch();
+    void unreadCountQuery.refetch();
+  }, [visible]);
 
   const notifications = useMemo(() => {
     const items = notificationsQuery.data?.items ?? [];
@@ -218,7 +230,8 @@ export function NotificationCenter({ visible, onClose }: { visible: boolean; onC
     onClose();
   };
 
-  const isLoading = notificationsQuery.isLoading || unreadCountQuery.isLoading;
+  const isLoading = notificationsQuery.isLoading && !notificationsQuery.data;
+  const isError = notificationsQuery.isError;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -244,6 +257,17 @@ export function NotificationCenter({ visible, onClose }: { visible: boolean; onC
 
           {isLoading ? (
             <View style={styles.notificationLoading}><ActivityIndicator color="#2563eb" /></View>
+          ) : isError ? (
+            <View style={styles.notificationEmpty}>
+              <View style={styles.notificationEmptyIcon}><Bell color="#dc2626" size={22} /></View>
+              <Text style={styles.notificationEmptyTitle}>Couldn’t load notifications</Text>
+              <Text style={styles.notificationEmptyBody}>
+                {notificationsQuery.error instanceof Error ? notificationsQuery.error.message : 'Please try again.'}
+              </Text>
+              <Pressable style={styles.retryButton} onPress={() => void notificationsQuery.refetch()}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </Pressable>
+            </View>
           ) : notifications.length === 0 ? (
             <View style={styles.notificationEmpty}>
               <View style={styles.notificationEmptyIcon}><Bell color="#2563eb" size={22} /></View>
@@ -288,6 +312,8 @@ const styles = StyleSheet.create({
   notificationEmptyIcon: { alignItems: 'center', backgroundColor: '#dbeafe', borderRadius: 16, height: 52, justifyContent: 'center', width: 52 },
   notificationEmptyTitle: { color: '#0f172a', fontSize: 15, fontWeight: '700', marginTop: 12 },
   notificationEmptyBody: { color: '#64748b', fontSize: 13, lineHeight: 20, marginTop: 6, textAlign: 'center' },
+  retryButton: { backgroundColor: '#2563eb', borderRadius: 12, marginTop: 14, paddingHorizontal: 16, paddingVertical: 10 },
+  retryButtonText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 
   notificationRow: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#e2e8f0', borderRadius: 16, borderWidth: 1, flexDirection: 'row', marginBottom: 8, minHeight: 64, overflow: 'hidden', paddingHorizontal: 12, paddingVertical: 10, position: 'relative' },
   notificationRowUnread: { backgroundColor: '#f8faff', borderColor: '#bfdbfe' },
