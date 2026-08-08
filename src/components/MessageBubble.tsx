@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { Check, CheckCheck, FileText, ExternalLink, ChevronDown, ChevronUp, Megaphone, Sparkles } from 'lucide-react-native';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AuthenticatedImage } from './AuthenticatedImage';
 import { VideoThumb } from './VideoThumb';
@@ -17,6 +17,8 @@ import {
   isMissedCall,
   formatMessageTime,
 } from '../lib/inbox-utils';
+import { LinkPreviewCard } from './LinkPreviewCard';
+import { findFirstUrlInText } from '../lib/link-preview';
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 const COLLAPSED_LINE_COUNT = 4;
@@ -92,10 +94,12 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
   }
 
   const isTemplate = templateDisplay !== null;
+  const firstUrl = useMemo(() => findFirstUrlInText(message.text ?? ''), [message.text]);
+  const showLinkPreview = !isTemplate && firstUrl && !imageAttachments.length && !videoAttachments.length;
 
   return (
     <Pressable onLongPress={onLongPress} delayLongPress={350}>
-      <View style={[styles.bubble, isTemplate ? (outgoing ? styles.outgoingTemplate : styles.incomingTemplate) : (outgoing ? styles.outgoing : styles.incoming)]}>
+      <View style={[styles.bubble, showLinkPreview && styles.linkPreviewBubble, isTemplate ? (outgoing ? styles.outgoingTemplate : styles.incomingTemplate) : (outgoing ? styles.outgoing : styles.incoming)]}>
         {message.campaignId ? (
           <View style={styles.broadcastRow}>
             <Megaphone color={outgoing ? '#cfe0ff' : '#2563eb'} size={12} />
@@ -210,6 +214,7 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
           </View>
         ) : null}
         {showBody ? renderBody() : null}
+        {showLinkPreview ? <LinkPreviewCard url={firstUrl} outgoing={outgoing} /> : null}
         <View style={styles.metaRow}>
           {outgoing && statusMeta ? (
             <Text style={[styles.status, statusMeta.showFailed && styles.statusFailed, statusMeta.showRead && styles.statusSeen]}>
@@ -293,6 +298,7 @@ const styles = StyleSheet.create({
   systemTextMissed: { color: '#d97706' },
   systemTime: { color: '#94a3b8', fontSize: 11 },
   bubble: { borderRadius: 18, maxWidth: '82%', padding: 13 },
+  linkPreviewBubble: { maxWidth: '82%', width: '82%' },
   incoming: { backgroundColor: '#fff', borderColor: '#cfe0fa', borderWidth: 1 },
   outgoing: { backgroundColor: '#3264f6' },
   incomingTemplate: { backgroundColor: '#fff', borderColor: '#d7e6fb', borderWidth: 1, borderRadius: 16, padding: 6 },
