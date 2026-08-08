@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { Check, CheckCheck, Megaphone, FileText, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Check, CheckCheck, FileText, ExternalLink, ChevronDown, ChevronUp, Megaphone, Sparkles } from 'lucide-react-native';
 import { useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AuthenticatedImage } from './AuthenticatedImage';
@@ -91,9 +91,11 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
     );
   }
 
+  const isTemplate = templateDisplay !== null;
+
   return (
     <Pressable onLongPress={onLongPress} delayLongPress={350}>
-      <View style={[styles.bubble, outgoing ? styles.outgoing : styles.incoming]}>
+      <View style={[styles.bubble, isTemplate ? (outgoing ? styles.outgoingTemplate : styles.incomingTemplate) : (outgoing ? styles.outgoing : styles.incoming)]}>
         {message.campaignId ? (
           <View style={styles.broadcastRow}>
             <Megaphone color={outgoing ? '#cfe0ff' : '#2563eb'} size={12} />
@@ -112,23 +114,58 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
           </Pressable>
         ) : null}
         {templateDisplay ? (
-          <View>
-            <View style={styles.templateHeaderRow}>
-              <Text style={styles.templateHeaderText}>Template</Text>
+          <View style={[styles.templateCard, outgoing && styles.templateCardOutgoing]}>
+            <View style={styles.templateCardHeader}>
+              <View style={styles.templateBadge}>
+                <Sparkles color="#2563eb" size={11} />
+                <Text style={styles.templateBadgeText}>Template</Text>
+              </View>
+              {templateDisplay.category ? (
+                <View style={styles.templateCategoryBadge}>
+                  <Text style={styles.templateCategoryText}>{templateDisplay.category}</Text>
+                </View>
+              ) : null}
             </View>
-            {templateDisplay.headerText ? <Text style={[styles.templateHeader, outgoing && styles.outgoingText]}>{templateDisplay.headerText}</Text> : null}
-            {templateDisplay.bodyText ? <Text style={outgoing ? styles.outgoingText : styles.messageText}>{templateDisplay.bodyText}</Text> : null}
-            {templateDisplay.footerText ? <Text style={[styles.templateFooter, outgoing && styles.outgoingMuted]}>{templateDisplay.footerText}</Text> : null}
+            {templateDisplay.headerMediaUrl ? (
+              <View style={styles.templateHeaderMedia}>
+                {templateDisplay.headerType === 'IMAGE' ? (
+                  <AuthenticatedImage url={templateDisplay.headerMediaUrl} style={styles.templateHeaderImage} />
+                ) : templateDisplay.headerType === 'VIDEO' ? (
+                  <VideoThumb url={templateDisplay.headerMediaUrl} posterUrl={templateDisplay.headerMediaUrl} name="Video" />
+                ) : templateDisplay.headerType === 'DOCUMENT' ? (
+                  <View style={styles.templateHeaderDoc}>
+                    <FileText color="#2563eb" size={20} />
+                    <Text style={styles.templateHeaderDocText} numberOfLines={1}>Document</Text>
+                  </View>
+                ) : templateDisplay.headerText ? (
+                  <View style={styles.templateHeaderTextWrap}>
+                    <Text style={styles.templateHeaderText}>{templateDisplay.headerText}</Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : templateDisplay.headerText ? (
+              <View style={styles.templateHeaderTextWrap}>
+                <Text style={styles.templateHeaderText}>{templateDisplay.headerText}</Text>
+              </View>
+            ) : null}
+            {templateDisplay.bodyText ? (
+              <View style={styles.templateBodyWrap}>
+                <Text style={styles.templateBodyText}>{templateDisplay.bodyText}</Text>
+              </View>
+            ) : null}
+            {templateDisplay.footerText ? (
+              <Text style={styles.templateFooter}>{templateDisplay.footerText}</Text>
+            ) : null}
             {templateDisplay.buttons.length ? (
               <View style={styles.templateButtons}>
                 {templateDisplay.buttons.map((button: any, index: number) => (
                   <Pressable
                     key={index}
-                    style={[styles.templateButton, outgoing && styles.templateButtonOutgoing]}
+                    style={styles.templateButton}
                     onPress={() => { if (button.type === 'URL' && button.url) openLink(button.url); }}
                   >
-                    <Text style={[styles.templateButtonText, outgoing && styles.templateButtonTextOutgoing]}>{button.label}</Text>
-                    {button.type === 'URL' ? <ExternalLink color={outgoing ? '#cfe0ff' : '#2563eb'} size={12} /> : null}
+                    <Text style={styles.templateButtonText}>{button.label}</Text>
+                    {button.type === 'URL' ? <ExternalLink color="#2563eb" size={12} /> : null}
                   </Pressable>
                 ))}
               </View>
@@ -258,6 +295,8 @@ const styles = StyleSheet.create({
   bubble: { borderRadius: 18, maxWidth: '82%', padding: 13 },
   incoming: { backgroundColor: '#fff', borderColor: '#cfe0fa', borderWidth: 1 },
   outgoing: { backgroundColor: '#3264f6' },
+  incomingTemplate: { backgroundColor: '#fff', borderColor: '#d7e6fb', borderWidth: 1, borderRadius: 16, padding: 6 },
+  outgoingTemplate: { backgroundColor: '#315efb', borderRadius: 18, borderBottomRightRadius: 6, padding: 6 },
   messageText: { color: '#334155', fontSize: 15 },
   outgoingText: { color: '#fff', fontSize: 15 },
   emojiOnly: { fontSize: 44, lineHeight: 52 },
@@ -277,15 +316,25 @@ const styles = StyleSheet.create({
   quotedThumb: { borderRadius: 6, height: 40, width: 40 },
   quotedText: { color: '#eef2ff', flex: 1, fontSize: 12 },
   quotedTextIncoming: { color: '#526987' },
-  templateHeaderRow: { alignItems: 'center', flexDirection: 'row', marginBottom: 4 },
-  templateHeaderText: { color: '#2563eb', fontSize: 11, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' },
-  templateHeader: { fontSize: 15, fontWeight: '700', marginBottom: 4 },
-  templateFooter: { color: '#64748b', fontSize: 12, marginTop: 6 },
-  templateButtons: { gap: 6, marginTop: 10 },
-  templateButton: { alignItems: 'center', borderColor: '#cfe0fa', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 6, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 8 },
-  templateButtonOutgoing: { borderColor: '#ffffff44' },
+  templateCard: { backgroundColor: '#fff', borderColor: '#d7e6fb', borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
+  templateCardOutgoing: { borderColor: 'rgba(255,255,255,0.2)' },
+  templateCardHeader: { alignItems: 'center', borderBottomColor: '#e5e7eb', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 8 },
+  templateBadge: { alignItems: 'center', flexDirection: 'row', gap: 4 },
+  templateBadgeText: { color: '#2563eb', fontSize: 10, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
+  templateCategoryBadge: { backgroundColor: '#eef4ff', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  templateCategoryText: { color: '#2563eb', fontSize: 9, fontWeight: '700', letterSpacing: 0.3 },
+  templateHeaderMedia: { borderBottomColor: '#e5e7eb', borderBottomWidth: 1 },
+  templateHeaderImage: { height: 140, width: '100%' },
+  templateHeaderDoc: { alignItems: 'center', flexDirection: 'row', gap: 8, padding: 12 },
+  templateHeaderDocText: { color: '#334155', fontSize: 13, fontWeight: '600' },
+  templateHeaderTextWrap: { borderBottomColor: '#e5e7eb', borderBottomWidth: 1, paddingHorizontal: 12, paddingVertical: 10 },
+  templateHeaderText: { fontSize: 13, fontWeight: '700', color: '#334155' },
+  templateBodyWrap: { paddingHorizontal: 12, paddingVertical: 10 },
+  templateBodyText: { fontSize: 13, lineHeight: 20, color: '#334155' },
+  templateFooter: { color: '#64748b', fontSize: 11, paddingHorizontal: 12, paddingBottom: 8 },
+  templateButtons: { borderTopColor: '#e5e7eb', borderTopWidth: 1, gap: 6, paddingHorizontal: 12, paddingVertical: 10 },
+  templateButton: { alignItems: 'center', borderColor: '#d7e6fb', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 6, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 10 },
   templateButtonText: { color: '#2563eb', fontSize: 13, fontWeight: '700' },
-  templateButtonTextOutgoing: { color: '#eaf1ff' },
   image: { borderRadius: 18, height: 190, width: 250 },
   imageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 3, borderRadius: 18, overflow: 'hidden', width: 250 },
   gridImage: { width: 123, height: 123 },

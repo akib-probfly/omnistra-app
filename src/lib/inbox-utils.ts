@@ -127,54 +127,103 @@ export function buildReactionGroups(messages: MessageLike[]): Record<string, Rea
 }
 
 export type TemplateMessageButton = { label: string; type: string; url?: string | null };
-export type TemplateMessageDisplay = { headerType?: string; headerText?: string; bodyText: string; footerText: string; buttons: TemplateMessageButton[] };
+export type TemplateMessageDisplay = { headerType?: string; headerText?: string; headerMediaUrl?: string | null; bodyText: string; footerText: string; buttons: TemplateMessageButton[]; category?: string | null; templateName?: string | null };
 
 export function isTemplateLikeMessage(message: MessageLike): boolean {
   return message.type === 'TEMPLATE' || Boolean(message.metadata?.templateSnapshot);
 }
 
+function extractTemplateButtons(buttonsJson: unknown): TemplateMessageButton[] {
+  if (!Array.isArray(buttonsJson)) return [];
+  const result: TemplateMessageButton[] = [];
+  for (const group of buttonsJson) {
+    if (!group || !Array.isArray(group.buttons)) {
+      if (group && (group.text || group.label)) {
+        result.push({ label: group.text ?? group.label ?? '', type: group.type ?? null, url: group.url ?? null });
+      }
+      continue;
+    }
+    for (const button of group.buttons) {
+      if (!button) continue;
+      const label = button.text ?? button.label ?? button.payload;
+      if (label) {
+        result.push({ label, type: button.type ?? null, url: button.url ?? null });
+      }
+    }
+  }
+  return result;
+}
+
 export function getTemplateMessageDisplay(message: MessageLike): TemplateMessageDisplay | null {
   const snapshot = message.metadata?.templateSnapshot ?? {};
-  const components = message.metadata?.templateSnapshot?.displayComponents ?? message.metadata?.templateSnapshot?.components ?? [];
+  const componentsSource = message.metadata?.templateComponents ?? message.metadata?.templateSnapshot?.displayComponents ?? message.metadata?.templateSnapshot?.components ?? [];
+  const components = Array.isArray(componentsSource) ? componentsSource : [];
   const buttons: TemplateMessageButton[] = [];
   let headerType = '';
   let headerText = '';
+  let headerMediaUrl: string | null = null;
   let bodyText = '';
   let footerText = '';
-  if (Array.isArray(components)) {
-    components.forEach((component: any) => {
-      const type = (component?.type ?? '').toUpperCase();
-      if (type === 'HEADER') {
-        headerType = component?.format ?? '';
-        const params = component?.parameters ?? [];
+  const snapshotButtons = extractTemplateButtons(snapshot.buttonsJson ?? snapshot.buttons);
+  let buttonIndex = 0;
+
+  for (const component of components) {
+    const type = (component?.type ?? '').toString().toLowerCase();
+    if (type === 'header') {
+      headerType = (component?.format ?? '').toString().toUpperCase();
+      const params = component?.parameters ?? [];
+      if (component?.location) {
+        headerText = `${component.location.name ?? ''} ${component.location.address ?? ''}`.trim();
+      } else {
         headerText = params.filter((p: any) => typeof p?.text === 'string').map((p: any) => p.text).join(' ');
-        if (component?.location) headerText = `${component.location.name ?? ''} ${component.location.address ?? ''}`.trim();
-      } else if (type === 'BODY') {
-        const params = component?.parameters ?? [];
-        bodyText = params.filter((p: any) => typeof p?.text === 'string').map((p: any) => p.text).join('');
-      } else if (type === 'FOOTER') {
-        const params = component?.parameters ?? [];
-        footerText = params.filter((p: any) => typeof p?.text === 'string').map((p: any) => p.text).join('');
-      } else if (type === 'BUTTONS') {
-        const params = component?.parameters ?? [];
-        params.forEach((p: any) => {
-          if (p?.type === 'button' && p?.button) {
-            buttons.push({ label: p.button.text ?? '', type: p.button.type ?? p.sub_type ?? 'QUICK_REPLY', url: p.button.url ?? null });
-          }
-        });
       }
-    });
+      const mediaParam = params.find((p: any) => p?.image || p?.video || p?.document);
+      if (mediaParam) {
+        headerMediaUrl = mediaParam.image?.link ?? mediaParam.video?.link ?? mediaParam.document?.link ?? null;
+      }
+    } else if (type === 'body') {
+      const params = component?.parameters ?? [];
+      bodyText = params.filter((p: any) => typeof p?.text === 'string').map((p: any) => p.text).join('');
+    } else if (type === 'footer') {
+      const params = component?.parameters ?? [];
+      footerText = params.filter((p: any) => typeof p?.text === 'string').map((p: any) => p.text).join('');
+    } else if (type === 'button') {
+      const buttonType = component?.sub_type ?? component?.buttonType ?? component?.button_type;
+      const params = Array.isArray(component?.parameters) ? component.parameters : [];
+      const labels = params.map((p: any) => p?.text ?? p?.label ?? p?.payload).filter(Boolean);
+      for (const label of labels) {
+        const snapBtn = snapshotButtons[buttonIndex] ?? null;
+        buttons.push({ label, type: buttonType ?? null, url: buttonType?.toString().toLowerCase() === 'url' ? (snapBtn?.url ?? null) : null });
+        buttonIndex += 1;
+      }
+    } else if (type === 'buttons') {
+      const params = Array.isArray(component?.parameters) ? component.parameters : [];
+      params.forEach((p: any) => {
+        if (p?.type === 'button' && p?.button) {
+          buttons.push({ label: p.button.text ?? '', type: p.button.type ?? p.sub_type ?? 'QUICK_REPLY', url: p.button.url ?? null });
+        } else if (p?.text || p?.label) {
+          buttons.push({ label: p.text ?? p.label ?? '', type: p.sub_type ?? p.type ?? null, url: p.url ?? null });
+        }
+      });
+    }
   }
+
   if (!bodyText && typeof snapshot.bodyText === 'string') bodyText = snapshot.bodyText;
   if (!headerText && typeof snapshot.headerText === 'string') headerText = snapshot.headerText;
   if (!footerText && typeof snapshot.footerText === 'string') footerText = snapshot.footerText;
   if (!headerType && typeof snapshot.headerType === 'string') headerType = snapshot.headerType;
-  const buttonsJson = snapshot.buttonsJson ?? message.metadata?.templateSnapshot?.buttons;
-  if (Array.isArray(buttonsJson) && buttonsJson.length && buttons.length === 0) {
-    buttonsJson.forEach((b: any) => buttons.push({ label: b.text ?? b.label ?? '', type: b.type ?? 'QUICK_REPLY', url: b.url ?? null }));
+  if (!headerMediaUrl && snapshot.headerMediaUrl) headerMediaUrl = snapshot.headerMediaUrl;
+  if (!bodyText && !headerText && !footerText && !headerMediaUrl && buttons.length === 0) {
+    const fallback = extractTemplateButtons(snapshot.buttonsJson ?? snapshot.buttons ?? message.metadata?.templateSnapshot?.buttonsJson);
+    buttons.push(...fallback);
+  }
+  if (buttons.length === 0 && snapshotButtons.length > 0) {
+    buttons.push(...snapshotButtons);
   }
   if (!bodyText && !headerText && !footerText && buttons.length === 0) return null;
-  return { headerType, headerText, bodyText, footerText, buttons };
+  const category = snapshot.category ?? message.metadata?.templateCategory ?? null;
+  const templateName = snapshot.templateName ?? message.metadata?.templateName ?? null;
+  return { headerType, headerText, headerMediaUrl, bodyText, footerText, buttons, category, templateName };
 }
 
 export function readSystemMessageDurationSeconds(message: MessageLike): number | null {
