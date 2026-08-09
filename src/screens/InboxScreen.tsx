@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { AppToggle } from '../components/AppToggle';
 import { ErrorState } from '../components/ErrorState';
-import { ChannelLogo } from '../components/ChannelLogo';
+import { ChannelLogo, channelBrandColor } from '../components/ChannelLogo';
 import { AuthenticatedImage } from '../components/AuthenticatedImage';
 import { InboxCallsPane } from '../components/InboxCallsPane';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -376,9 +376,24 @@ export function InboxScreen() {
                 <View style={styles.chipRow}>
                   {CHANNEL_TYPES.map((type) => {
                     const active = channelTypes.includes(type);
+                    const brand = channelBrandColor(type);
                     return (
-                      <Pressable key={type} style={[styles.chip, active && styles.chipActive]} onPress={() => setChannelTypes((current) => active ? current.filter((t) => t !== type) : [...current, type])}>
-                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{getChannelFilterLabel(type)}</Text>
+                      <Pressable
+                        key={type}
+                        style={[
+                          styles.chip,
+                          styles.channelChip,
+                          active && {
+                            backgroundColor: `${brand}14`,
+                            borderColor: brand,
+                          },
+                        ]}
+                        onPress={() => setChannelTypes((current) => active ? current.filter((t) => t !== type) : [...current, type])}
+                      >
+                        <ChannelLogo type={type} box={22} glyph={13} radius={7} />
+                        <Text style={[styles.chipText, active && { color: brand, fontWeight: '700' }]}>
+                          {getChannelFilterLabel(type)}
+                        </Text>
                       </Pressable>
                     );
                   })}
@@ -673,11 +688,25 @@ function ConversationRow({ conversation, onPress }: { conversation: Conversation
   const isWhatsAppCustomerWindow = conversation.channel?.channelType === 'WHATSAPP' && conversation.messaging?.policyType === 'CUSTOMER_WINDOW';
   const showWindowDot = isWhatsAppCustomerWindow && conversation.messaging?.windowState !== 'NOT_APPLICABLE';
   const windowExpired = conversation.messaging?.windowState === 'EXPIRED';
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  const avatarUrl = conversation.contact.avatarUrl;
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [avatarUrl]);
   return (
     <Pressable onPress={onPress} style={styles.rowPressable}>
       <View style={styles.row}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{(conversation.contact.displayName ?? '?').slice(0, 1).toUpperCase()}</Text>
+          {avatarUrl && !avatarFailed ? (
+            <AuthenticatedImage
+              url={avatarUrl}
+              resizeMode="cover"
+              style={styles.avatarImage}
+              onError={() => setAvatarFailed(true)}
+            />
+          ) : (
+            <Text style={styles.avatarText}>{(conversation.contact.displayName ?? '?').slice(0, 1).toUpperCase()}</Text>
+          )}
           {conversation.channel?.channelType ? <View style={styles.channelBadgeWrap}><ChannelLogo type={conversation.channel.channelType} box={22} glyph={13} radius={11} /></View> : null}
         </View>
         <View style={styles.copy}>
@@ -778,6 +807,7 @@ const styles = StyleSheet.create({
   sectionLabel: { color: '#64748b', fontSize: 12, fontWeight: '700', letterSpacing: 0.4, marginBottom: 8, marginTop: 4, textTransform: 'uppercase' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { borderColor: '#c8dcfc', borderRadius: 18, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 7 },
+  channelChip: { alignItems: 'center', flexDirection: 'row', gap: 8, paddingHorizontal: 10, paddingVertical: 6 },
   chipActive: { backgroundColor: '#eef4ff', borderColor: '#2563eb' },
   chipText: { color: '#526987', fontSize: 13 },
   chipTextActive: { color: '#2563eb', fontWeight: '700' },
@@ -799,7 +829,8 @@ const styles = StyleSheet.create({
   emptyClearButtonText: { color: '#2563eb', fontSize: 13, fontWeight: '700' },
   rowPressable: { backgroundColor: '#fff' },
   row: { backgroundColor: '#fff', borderBottomColor: '#eef2f7', borderBottomWidth: 1, flexDirection: 'row', overflow: 'hidden', paddingHorizontal: 12, paddingVertical: 12 },
-  avatar: { alignItems: 'center', backgroundColor: '#f9c43d', borderRadius: 24, height: 48, justifyContent: 'center', position: 'relative', width: 48 },
+  avatar: { alignItems: 'center', backgroundColor: '#f9c43d', borderRadius: 24, height: 48, justifyContent: 'center', overflow: 'visible', position: 'relative', width: 48 },
+  avatarImage: { borderRadius: 24, height: 48, width: 48 },
   avatarText: { color: '#111827', fontSize: 18, fontWeight: '700' },
   channelBadgeWrap: { alignItems: 'center', borderColor: '#fff', borderRadius: 11, borderWidth: 2, bottom: -2, height: 22, justifyContent: 'center', overflow: 'hidden', position: 'absolute', right: -2, width: 22 },
   copy: { flex: 1, marginLeft: 12, minWidth: 0 },

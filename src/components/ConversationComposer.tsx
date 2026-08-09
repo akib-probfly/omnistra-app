@@ -470,7 +470,7 @@ export function ConversationComposer({
           {isMessengerChannel ? (
             <Pressable style={styles.messengerModeChip} onPress={() => setMessengerModeOpen(true)}>
               <Text style={styles.messengerModeChipText} numberOfLines={1}>
-                {messengerMessagingMode === 'STANDARD' ? 'Standard' : 'Human Agent'}
+                {messengerMessagingMode === 'STANDARD' ? 'Standard' : 'Human'}
               </Text>
               <ChevronDown color="#475569" size={14} />
             </Pressable>
