@@ -103,7 +103,12 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
   return (
     <View style={[styles.wrap, outgoing && styles.wrapOutgoing, hasReactions && styles.wrapWithReactions]}>
       <Pressable onLongPress={onLongPress} delayLongPress={350}>
-        <View style={[styles.bubble, showLinkPreview && styles.linkPreviewBubble, isTemplate ? (outgoing ? styles.outgoingTemplate : styles.incomingTemplate) : (outgoing ? styles.outgoing : styles.incoming)]}>
+        <View style={[
+          styles.bubble,
+          outgoing ? styles.bubbleOutgoing : styles.bubbleIncoming,
+          showLinkPreview && styles.linkPreviewBubble,
+          isTemplate ? (outgoing ? styles.outgoingTemplate : styles.incomingTemplate) : (outgoing ? styles.outgoing : styles.incoming),
+        ]}>
         {message.campaignId ? (
           <View style={styles.broadcastRow}>
             <Megaphone color={outgoing ? '#cfe0ff' : '#2563eb'} size={12} />
@@ -305,12 +310,32 @@ const styles = StyleSheet.create({
   wrap: { alignSelf: 'flex-start', maxWidth: '82%' },
   wrapOutgoing: { alignSelf: 'flex-end' },
   wrapWithReactions: { marginBottom: 8 },
-  bubble: { borderRadius: 18, padding: 13 },
+  bubble: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 1,
+  },
+  bubbleIncoming: {
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    borderBottomRightRadius: 18,
+    borderBottomLeftRadius: 6,
+  },
+  bubbleOutgoing: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 6,
+  },
   linkPreviewBubble: { width: '100%' },
-  incoming: { backgroundColor: '#fff', borderColor: '#cfe0fa', borderWidth: 1 },
-  outgoing: { backgroundColor: '#3264f6' },
-  incomingTemplate: { backgroundColor: '#fff', borderColor: '#d7e6fb', borderWidth: 1, borderRadius: 16, padding: 6 },
-  outgoingTemplate: { backgroundColor: '#315efb', borderRadius: 18, borderBottomRightRadius: 6, padding: 6 },
+  incoming: { backgroundColor: '#fff', borderColor: '#d7e6fb', borderWidth: 1 },
+  outgoing: { backgroundColor: '#315efb' },
+  incomingTemplate: { backgroundColor: '#fff', borderColor: '#d7e6fb', borderWidth: 1, padding: 6 },
+  outgoingTemplate: { backgroundColor: '#315efb', padding: 6 },
   messageText: { color: '#334155', fontSize: 15 },
   outgoingText: { color: '#fff', fontSize: 15 },
   emojiOnly: { fontSize: 44, lineHeight: 52 },
