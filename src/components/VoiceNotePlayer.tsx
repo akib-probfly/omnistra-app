@@ -81,10 +81,18 @@ function PlayerShell({ url, token, outgoing, durationMs, autoRetries, onRetry }:
   }, [source, loaded, status.playbackState, status.isLoaded, status.duration, autoRetries]);
 
   useEffect(() => {
-    if (status.didJustFinish) {
-      if (currentPlayer === playerRef.current) currentPlayer = null;
-      playerRef.current?.seekTo(0).catch(() => {});
-    }
+    const target = playerRef.current;
+    if (!target) return;
+    // Ensure voice notes never loop; seek-to-0 on finish can restart playback on some devices.
+    try { target.loop = false; } catch {}
+  }, [player]);
+
+  useEffect(() => {
+    if (!status.didJustFinish) return;
+    const target = playerRef.current;
+    if (currentPlayer === target) currentPlayer = null;
+    // Stay paused at the end. Replay only when the user taps play again.
+    try { target?.pause(); } catch {}
   }, [status.didJustFinish]);
 
   useEffect(() => {
@@ -117,17 +125,25 @@ function PlayerShell({ url, token, outgoing, durationMs, autoRetries, onRetry }:
     if (!target) return;
     if (status.playing) {
       target.pause();
-    } else {
-      if (currentPlayer && currentPlayer !== target) {
-        try { currentPlayer.pause(); } catch {}
-      }
-      const dur = durationRef.current;
-      if (dur > 0 && status.currentTime >= dur - 0.05) {
-        target.seekTo(0).catch(() => {});
-      }
-      currentPlayer = target;
-      target.play();
+      return;
     }
+    if (currentPlayer && currentPlayer !== target) {
+      try { currentPlayer.pause(); } catch {}
+    }
+    const dur = durationRef.current;
+    const atEnd = status.didJustFinish || (dur > 0 && status.currentTime >= Math.max(0, dur - 0.15));
+    currentPlayer = target;
+    if (atEnd) {
+      target.seekTo(0).then(() => {
+        try { target.loop = false; } catch {}
+        target.play();
+      }).catch(() => {
+        target.play();
+      });
+      return;
+    }
+    try { target.loop = false; } catch {}
+    target.play();
   }
 
   function cycleRate() {

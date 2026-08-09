@@ -98,11 +98,12 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
   const showLinkPreview = !isTemplate && firstUrl && !imageAttachments.length && !videoAttachments.length;
 
   const hasReactions = Boolean(reactions?.length);
+  const reactionItems = hasReactions ? reactions : [];
 
   return (
     <View style={[styles.wrap, outgoing && styles.wrapOutgoing, hasReactions && styles.wrapWithReactions]}>
-    <Pressable onLongPress={onLongPress} delayLongPress={350}>
-      <View style={[styles.bubble, showLinkPreview && styles.linkPreviewBubble, isTemplate ? (outgoing ? styles.outgoingTemplate : styles.incomingTemplate) : (outgoing ? styles.outgoing : styles.incoming)]}>
+      <Pressable onLongPress={onLongPress} delayLongPress={350}>
+        <View style={[styles.bubble, showLinkPreview && styles.linkPreviewBubble, isTemplate ? (outgoing ? styles.outgoingTemplate : styles.incomingTemplate) : (outgoing ? styles.outgoing : styles.incoming)]}>
         {message.campaignId ? (
           <View style={styles.broadcastRow}>
             <Megaphone color={outgoing ? '#cfe0ff' : '#2563eb'} size={12} />
@@ -240,18 +241,18 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
         {failedReason ? (
           <Text style={styles.failedText}>Failed to send: {failedReason}</Text>
         ) : null}
-      </View>
-    </Pressable>
-    {hasReactions ? (
-      <View style={[styles.reactionRow, outgoing && styles.reactionRowOutgoing]}>
-        {reactions.map((reaction: any) => (
-          <View key={reaction.emoji} style={styles.reactionPill}>
-            <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
-            {reaction.count > 1 ? <Text style={styles.reactionCount}>{reaction.count}</Text> : null}
-          </View>
-        ))}
-      </View>
-    ) : null}
+        </View>
+      </Pressable>
+      {hasReactions ? (
+        <View style={[styles.reactionRow, outgoing && styles.reactionRowOutgoing]}>
+          {reactionItems.map((reaction) => (
+            <View key={reaction.emoji} style={styles.reactionPill}>
+              <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
+              {reaction.count > 1 ? <Text style={styles.reactionCount}>{reaction.count}</Text> : null}
+            </View>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
