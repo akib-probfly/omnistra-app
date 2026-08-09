@@ -1,5 +1,7 @@
 import { apiFetch } from './client';
 
+export type BillingInterval = 'monthly' | 'yearly';
+
 export type BillingPlanFeature = {
   key: string;
   kind?: string;
@@ -8,6 +10,17 @@ export type BillingPlanFeature = {
   monthlyLabel?: string | null;
   yearlyLabel?: string | null;
   info?: string | null;
+  monthlyInfo?: string | null;
+  yearlyInfo?: string | null;
+};
+
+export type BillingPlanInterval = {
+  price: string;
+  priceCents: number;
+  memberLimit?: number | null;
+  conversationLimit?: number | null;
+  channelLimit?: number | null;
+  features: BillingPlanFeature[];
 };
 
 export type BillingPlan = {
@@ -26,6 +39,7 @@ export type BillingPlan = {
   sortOrder?: number;
   isActive?: boolean;
   features: BillingPlanFeature[];
+  intervals?: Partial<Record<BillingInterval, BillingPlanInterval>> | null;
 };
 
 export type WorkspaceUsage = {
@@ -59,9 +73,13 @@ export type WorkspaceBillingState = {
   planKey?: string | null;
   planName?: string | null;
   subscriptionStatus?: string | null;
+  billingCycle?: BillingInterval | 'MONTHLY' | 'YEARLY' | null;
   trialStartedAt?: string | null;
   trialEndsAt?: string | null;
   subscriptionEndsAt?: string | null;
+  pendingChangePlanKey?: string | null;
+  amountCents?: number | null;
+  currency?: string | null;
 };
 
 export type InvoiceStatus = 'PAID' | 'PENDING' | 'REFUNDED' | 'FAILED';
@@ -78,6 +96,69 @@ export type WorkspaceInvoice = {
   paidAt?: string | null;
   createdAt: string;
 };
+
+export type ProrationResult = {
+  oldPlanKey: string;
+  newPlanKey: string;
+  daysRemaining: number;
+  totalDaysInPeriod: number;
+  oldPlanDailyRateCents: number;
+  newPlanDailyRateCents: number;
+  creditCents: number;
+  chargeCents: number;
+  netAmountCents: number;
+  isUpgrade: boolean;
+};
+
+export type ChangePlanResponse = {
+  subscription: SubscriptionView | null;
+  proration: ProrationResult | null;
+  requiresPayment?: boolean;
+  checkoutUrl?: string;
+  checkoutReference?: string;
+};
+
+export type PipraPayCheckoutSessionResponse = {
+  reference: string;
+  checkoutUrl: string;
+  provider: 'piprapay';
+};
+
+export function normalizeBillingCycle(value?: string | null): BillingInterval {
+  return (value ?? 'monthly').toLowerCase() === 'yearly' ? 'yearly' : 'monthly';
+}
+
+export function getPlanInterval(plan: BillingPlan | null | undefined, interval: BillingInterval) {
+  return plan?.intervals?.[interval] ?? null;
+}
+
+export function getPlanPrice(plan: BillingPlan | null | undefined, interval: BillingInterval | string | null | undefined) {
+  const cycle = normalizeBillingCycle(interval);
+  const planInterval = getPlanInterval(plan, cycle);
+  if (planInterval) return planInterval.price;
+  if (!plan) return null;
+  return cycle === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice;
+}
+
+export function getPlanPriceCents(plan: BillingPlan | null | undefined, interval: BillingInterval | string | null | undefined) {
+  const cycle = normalizeBillingCycle(interval);
+  const planInterval = getPlanInterval(plan, cycle);
+  if (planInterval) return planInterval.priceCents;
+  if (!plan) return null;
+  return cycle === 'yearly' ? plan.yearlyPriceCents : plan.monthlyPriceCents;
+}
+
+export function getPlanFeatures(plan: BillingPlan | null | undefined, interval: BillingInterval | string | null | undefined) {
+  const cycle = normalizeBillingCycle(interval);
+  return getPlanInterval(plan, cycle)?.features ?? plan?.features ?? [];
+}
+
+export function formatFeatureLabel(feature: BillingPlanFeature, interval: BillingInterval | string | null | undefined) {
+  const cycle = normalizeBillingCycle(interval);
+  return cycle === 'yearly'
+    ? feature.yearlyLabel ?? feature.label
+    : feature.monthlyLabel ?? feature.label;
+}
 
 export async function fetchBillingPlans(): Promise<{ items: BillingPlan[] }> {
   return apiFetch('/billing/plans');
@@ -107,6 +188,44 @@ export async function fetchWorkspaceInvoices(params: {
   if (params.cursor) query.set('cursor', params.cursor);
   if (params.limit != null) query.set('limit', String(params.limit));
   return apiFetch(`/billing/invoices?${query.toString()}`);
+}
+
+export async function calculateProration(workspaceId: string, targetPlanKey: string) {
+  const params = new URLSearchParams({ workspaceId, targetPlanKey });
+  return apiFetch<{ proration: ProrationResult | null }>(`/billing/subscriptions/proration?${params.toString()}`);
+}
+
+export async function changePlan(input: {
+  workspaceId: string;
+  newPlanKey: string;
+  immediate: boolean;
+  successUrl?: string;
+  cancelUrl?: string;
+}): Promise<ChangePlanResponse> {
+  return apiFetch('/billing/subscriptions/change-plan', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function createPipraPayCheckoutSession(input: {
+  workspaceId: string;
+  planKey: string;
+  billingCycle: BillingInterval;
+  successUrl: string;
+  cancelUrl: string;
+}): Promise<PipraPayCheckoutSessionResponse> {
+  return apiFetch('/billing/piprapay/create-checkout', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function confirmReturnedPipraPayPayment(workspaceId: string, reference: string) {
+  return apiFetch('/billing/piprapay/confirm-return', {
+    method: 'POST',
+    body: JSON.stringify({ workspaceId, reference }),
+  });
 }
 
 export function formatCents(cents: number | null | undefined, currency = 'USD') {

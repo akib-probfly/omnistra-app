@@ -3,9 +3,11 @@ import { SettingsScreen } from '../screens/SettingsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { WorkspaceSettingsScreen } from '../screens/WorkspaceSettingsScreen';
 import { BillingSettingsScreen } from '../screens/BillingSettingsScreen';
+import { BillingPlanDetailsScreen } from '../screens/BillingPlanDetailsScreen';
 import { NotificationSettingsScreen } from '../screens/NotificationSettingsScreen';
 import { QuickRepliesSettingsScreen } from '../screens/QuickRepliesSettingsScreen';
 import { AssignmentPolicySettingsScreen } from '../screens/AssignmentPolicySettingsScreen';
+import type { BillingInterval } from '../api/billing';
 
 export type SettingsStackParamList = {
   SettingsList: undefined;
@@ -14,7 +16,17 @@ export type SettingsStackParamList = {
   Notifications: undefined;
   QuickReplies: undefined;
   AssignmentPolicy: undefined;
-  Billing: { tab?: 'current' | 'packages' | 'invoices' | 'history' } | undefined;
+  Billing: {
+    tab?: 'current' | 'packages' | 'invoices' | 'history';
+    checkout?: 'success' | 'cancel';
+    planKey?: string;
+    reference?: string;
+  } | undefined;
+  BillingPlanDetails: {
+    planKey: string;
+    workspaceId: string;
+    cycle: BillingInterval;
+  };
 };
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
@@ -29,6 +41,7 @@ export function SettingsStack() {
       <Stack.Screen name="QuickReplies" component={QuickRepliesSettingsScreen} />
       <Stack.Screen name="AssignmentPolicy" component={AssignmentPolicySettingsScreen} />
       <Stack.Screen name="Billing" component={BillingSettingsScreen} />
+      <Stack.Screen name="BillingPlanDetails" component={BillingPlanDetailsScreen} />
     </Stack.Navigator>
   );
 }
