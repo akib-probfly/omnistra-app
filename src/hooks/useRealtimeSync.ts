@@ -3,14 +3,17 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createRealtimeSocket, setRealtimeConnectionStatus, getActiveConversationId } from '../api/realtime';
 import { latestAccessToken } from '../api/client';
 import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
   notificationFromRealtimeEvent,
   notificationQueryKeys,
   type NotificationCreatedRealtimeEvent,
   type NotificationListResponse,
+  type NotificationPreferences,
 } from '../api/notifications';
 import { shouldSuppressRealtimeMessageRefresh } from '../lib/inbox-realtime-suppression';
 import { playMessageNotificationSound } from '../lib/notificationSound';
 import { writeIncomingCallPrompt } from '../lib/incoming-call-prompt';
+import { useNotificationPreferences } from './useNotificationPreferences';
 
 const REALTIME_READY_EVENT = 'realtime.ready';
 const REALTIME_CONVERSATION_UPDATED_EVENT = 'conversation.updated';
@@ -122,9 +125,19 @@ function prependNotificationInCache(queryClient: ReturnType<typeof useQueryClien
   });
 }
 
+function shouldSurfaceNotification(
+  payload: NotificationCreatedRealtimeEvent,
+  preferences: NotificationPreferences,
+) {
+  if (!preferences.newConversationAlertsEnabled) return false;
+  if (!preferences.mentionsAndAssignmentsOnly) return true;
+  return payload.type === 'CONVERSATION_ASSIGNED' || payload.type === 'CONVERSATION_UNASSIGNED';
+}
+
 export function useRealtimeSync(accessToken: string | null) {
   const queryClient = useQueryClient();
   const [connected, setConnected] = useState(false);
+  const notificationPreferences = useNotificationPreferences();
 
   useEffect(() => {
     if (!accessToken) {
@@ -134,6 +147,17 @@ export function useRealtimeSync(accessToken: string | null) {
     }
 
     const socket = createRealtimeSocket(() => latestAccessToken ?? accessToken);
+    const preferences: NotificationPreferences = notificationPreferences.isLoaded
+      ? {
+          soundEnabled: notificationPreferences.soundEnabled,
+          backgroundSoundEnabled: notificationPreferences.backgroundSoundEnabled,
+          browserNotificationsEnabled: notificationPreferences.browserNotificationsEnabled,
+          newConversationAlertsEnabled: notificationPreferences.newConversationAlertsEnabled,
+          incomingCallAlertsEnabled: notificationPreferences.incomingCallAlertsEnabled,
+          mentionsAndAssignmentsOnly: notificationPreferences.mentionsAndAssignmentsOnly,
+          dailySummaryDigestEnabled: notificationPreferences.dailySummaryDigestEnabled,
+        }
+      : DEFAULT_NOTIFICATION_PREFERENCES;
 
     const handleConversationUpdated = (payload: ConversationUpdatedEvent) => {
       const isStatusOrMetaUpdate = !payload.createdMessage && !payload.messageId;
@@ -199,12 +223,17 @@ export function useRealtimeSync(accessToken: string | null) {
       void queryClient.invalidateQueries({ queryKey: [...notificationQueryKeys.all, 'list'], refetchType: 'all' });
       void queryClient.invalidateQueries({ queryKey: notificationQueryKeys.unreadCount(), refetchType: 'all' });
 
-      if (payload.type === 'NEW_MESSAGE') {
-        void playMessageNotificationSound();
-      }
       if (payload.type === 'INCOMING_CALL') {
-        writeIncomingCallPrompt(payload as Parameters<typeof writeIncomingCallPrompt>[0]);
-        void queryClient.invalidateQueries({ queryKey: ['active-calls'], refetchType: 'all' });
+        if (preferences.incomingCallAlertsEnabled) {
+          writeIncomingCallPrompt(payload as Parameters<typeof writeIncomingCallPrompt>[0]);
+          void queryClient.invalidateQueries({ queryKey: ['active-calls'], refetchType: 'all' });
+          if (preferences.soundEnabled) void playMessageNotificationSound();
+        }
+        return;
+      }
+
+      if (!shouldSurfaceNotification(payload, preferences)) return;
+      if (preferences.soundEnabled && (payload.type === 'NEW_MESSAGE' || payload.type === 'CONVERSATION_ASSIGNED')) {
         void playMessageNotificationSound();
       }
     };
@@ -251,7 +280,18 @@ export function useRealtimeSync(accessToken: string | null) {
       setConnected(false);
       setRealtimeConnectionStatus('disconnected');
     };
-  }, [accessToken, queryClient]);
+  }, [
+    accessToken,
+    notificationPreferences.backgroundSoundEnabled,
+    notificationPreferences.browserNotificationsEnabled,
+    notificationPreferences.dailySummaryDigestEnabled,
+    notificationPreferences.incomingCallAlertsEnabled,
+    notificationPreferences.isLoaded,
+    notificationPreferences.mentionsAndAssignmentsOnly,
+    notificationPreferences.newConversationAlertsEnabled,
+    notificationPreferences.soundEnabled,
+    queryClient,
+  ]);
 
   return { connected };
 }

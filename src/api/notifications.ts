@@ -64,11 +64,32 @@ export type NotificationCreatedRealtimeEvent = {
   recipientUserIds: string[] | null;
 };
 
+export type NotificationPreferences = {
+  soundEnabled: boolean;
+  backgroundSoundEnabled: boolean;
+  browserNotificationsEnabled: boolean;
+  newConversationAlertsEnabled: boolean;
+  incomingCallAlertsEnabled: boolean;
+  mentionsAndAssignmentsOnly: boolean;
+  dailySummaryDigestEnabled: boolean;
+};
+
+export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  soundEnabled: true,
+  backgroundSoundEnabled: false,
+  browserNotificationsEnabled: false,
+  newConversationAlertsEnabled: true,
+  incomingCallAlertsEnabled: true,
+  mentionsAndAssignmentsOnly: false,
+  dailySummaryDigestEnabled: false,
+};
+
 export const notificationQueryKeys = {
   all: ['notifications'] as const,
   list: (query: { unreadOnly?: boolean; page?: number; limit?: number }) =>
     ['notifications', 'list', query] as const,
   unreadCount: () => ['notifications', 'unread-count'] as const,
+  preferences: (workspaceId: string) => ['notifications', 'preferences', workspaceId] as const,
 };
 
 function buildNotificationQueryString(query: { unreadOnly?: boolean; page?: number; limit?: number } = {}) {
@@ -175,4 +196,20 @@ export async function markAllNotificationsAsRead() {
 
 export async function deleteAllNotifications() {
   return apiFetch<unknown>('/notifications/all', { method: 'DELETE' });
+}
+
+export async function fetchNotificationPreferences(workspaceId: string) {
+  return apiFetch<NotificationPreferences>(
+    `/notifications/preferences?workspaceId=${encodeURIComponent(workspaceId)}`,
+  );
+}
+
+export async function updateNotificationPreferences(
+  workspaceId: string,
+  preferences: NotificationPreferences,
+) {
+  return apiFetch<NotificationPreferences>('/notifications/preferences', {
+    method: 'POST',
+    body: JSON.stringify({ workspaceId, ...preferences }),
+  });
 }

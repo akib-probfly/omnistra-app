@@ -15,6 +15,7 @@ import {
 } from '../lib/incoming-call-prompt';
 import { extractWhatsappCallSignal } from '../lib/whatsapp-calling';
 import { isCallSessionTerminal, isLiveCallSession } from '../lib/inbox-utils';
+import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
 import { useCallController } from '../providers/CallControllerProvider';
 import { CallPanel } from './CallPanel';
 
@@ -175,27 +176,30 @@ export function GlobalCallLayer() {
 
   const [incomingCallPrompt, setIncomingCallPrompt] = useState<IncomingCallPrompt | null>(() => readIncomingCallPrompt());
   const dismissedPromptSessionIdsRef = useRef(new Set<string>());
+  const { incomingCallAlertsEnabled, isLoaded: areNotificationPrefsLoaded } = useNotificationPreferences();
+  const canShowIncomingCallAlerts = areNotificationPrefsLoaded && incomingCallAlertsEnabled;
 
   useEffect(() => subscribeIncomingCallPrompt((prompt) => {
     if (!prompt) {
       setIncomingCallPrompt(null);
       return;
     }
+    if (!canShowIncomingCallAlerts) return;
     if (dismissedPromptSessionIdsRef.current.has(prompt.entityId)) return;
     setIncomingCallPrompt(prompt);
-  }), []);
+  }), [canShowIncomingCallAlerts]);
 
   const visibleCallSession = useMemo(
     () => selectVisibleCallSession(activeCallsQuery.data?.items ?? [], currentUserId),
     [activeCallsQuery.data?.items, currentUserId],
   );
   const incomingCallSession = useMemo(
-    () => selectIncomingCallSession(activeCallsQuery.data?.items ?? []),
-    [activeCallsQuery.data?.items],
+    () => (canShowIncomingCallAlerts ? selectIncomingCallSession(activeCallsQuery.data?.items ?? []) : null),
+    [activeCallsQuery.data?.items, canShowIncomingCallAlerts],
   );
   const promptCallSession = useMemo(
-    () => (incomingCallPrompt ? buildPromptedCallSession(incomingCallPrompt) : null),
-    [incomingCallPrompt],
+    () => (canShowIncomingCallAlerts && incomingCallPrompt ? buildPromptedCallSession(incomingCallPrompt) : null),
+    [canShowIncomingCallAlerts, incomingCallPrompt],
   );
 
   const activeCallSession = visibleCallSession ?? incomingCallSession ?? promptCallSession;
