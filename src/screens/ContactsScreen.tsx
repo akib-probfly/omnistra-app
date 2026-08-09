@@ -28,8 +28,8 @@ import {
 import { fetchAssigneeOptions } from '../api/inbox';
 import { fetchWorkspaceTags } from '../api/conversationDetails';
 import { AppToggle } from '../components/AppToggle';
-import { AuthenticatedImage } from '../components/AuthenticatedImage';
 import { ChannelLogo } from '../components/ChannelLogo';
+import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ErrorState } from '../components/ErrorState';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 import type { ContactsStackParamList } from '../navigation/ContactsStack';
@@ -646,11 +646,7 @@ const ContactRow = memo(function ContactRow({ contact, navigation }: { contact: 
   return (
     <Pressable onPress={onPress} style={styles.card}>
       <View style={styles.avatar}>
-        {contact.avatarUrl ? (
-          <AuthenticatedImage url={contact.avatarUrl} resizeMode="cover" style={styles.avatarImage} />
-        ) : (
-          <Text style={styles.avatarText}>{getInitials(title)}</Text>
-        )}
+        <ColorfulAvatar name={title} size={48} url={contact.avatarUrl} />
         {contact.channelType ? (
           <View style={styles.channelBadge}>
             <ChannelLogo type={contact.channelType} box={18} glyph={11} radius={9} />
@@ -709,7 +705,7 @@ const styles = StyleSheet.create({
   listFill: { flex: 1 },
   list: { gap: 10, paddingBottom: 24, paddingHorizontal: 16, paddingTop: 12 },
   card: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 12, padding: 14 },
-  avatar: { alignItems: 'center', backgroundColor: '#dbeafe', borderRadius: 24, height: 48, justifyContent: 'center', position: 'relative', width: 48 },
+  avatar: { alignItems: 'center', backgroundColor: 'transparent', borderRadius: 24, height: 48, justifyContent: 'center', position: 'relative', width: 48 },
   avatarImage: { borderRadius: 24, height: 48, width: 48 },
   avatarText: { color: '#1d4ed8', fontSize: 15, fontWeight: '700' },
   channelBadge: { borderColor: '#fff', borderRadius: 10, borderWidth: 2, bottom: -2, overflow: 'hidden', position: 'absolute', right: -2 },

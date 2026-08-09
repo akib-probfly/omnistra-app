@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiUrl } from '../api/client';
 import { attachConversationTag, createConversationNote, createConversationTag, deleteConversationNote, detachConversationTag, fetchConversationAttachments, fetchConversationNotes, fetchConversationTags, fetchWorkspaceTags, updateConversationNote, updateCrmContact, type ConversationAttachment, type ConversationNote, type ConversationTag } from '../api/conversationDetails';
 import { AuthenticatedImage } from './AuthenticatedImage';
-import { getInitials } from '../lib/inbox-utils';
+import { ColorfulAvatar } from './ColorfulAvatar';
 
 export function formatPhoneNumberDisplay(phone: string | null | undefined): string | null {
   if (!phone) return null;
@@ -182,7 +182,11 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
                 <View style={styles.customerBox}>
                   <View style={styles.customerTop}>
                     <View style={styles.customerAvatarWrap}>
-                      {conversation.contact.avatarUrl ? <AuthenticatedImage url={apiUrl(conversation.contact.avatarUrl) ?? ''} resizeMode="cover" style={styles.customerAvatar} /> : <View style={[styles.customerAvatar, styles.customerAvatarFallback]}><Text style={styles.customerAvatarText}>{getInitials(contactTitle)}</Text></View>}
+                      <ColorfulAvatar
+                        name={contactTitle}
+                        size={52}
+                        url={conversation.contact.avatarUrl ? (apiUrl(conversation.contact.avatarUrl) ?? conversation.contact.avatarUrl) : null}
+                      />
                     </View>
                     <View style={styles.customerIdentity}>
                       <Text style={styles.customerName} numberOfLines={1}>{contactTitle}</Text>

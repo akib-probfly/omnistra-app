@@ -4,9 +4,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { requestRecordingPermissionsAsync, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { ChevronDown, Clock3, FileText, Mic, Pause, Paperclip, Play, Send, Smile, Trash2, X, Zap, PanelsTopLeft } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import EmojiPicker, { type EmojiType } from 'rn-emoji-keyboard';
 import { fetchQuickReplies, fetchWhatsappTemplates } from '../api/inbox';
 import {
   COMPOSER_MAX_ATTACHMENT_COUNT,
@@ -29,7 +30,6 @@ type Props = {
   canSendStandardMessage?: boolean;
   canSendHumanAgentMessage?: boolean;
 };
-const emojis = ['😀', '😁', '😂', '🤣', '😊', '😍', '🥰', '😘', '👍', '👏', '🙏', '🔥', '❤️', '🎉', '✅', '😅', '😉', '😎', '🤔', '😭', '😮', '🙌', '💯', '✨'];
 
 function renderQuickReplyBody(body: string, context: Record<string, string>): string {
   return body.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (match, key) => context[key] ?? context[key.toLowerCase()] ?? match);
@@ -62,6 +62,8 @@ export function ConversationComposer({
   canSendHumanAgentMessage = false,
 }: Props) {
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const valueRef = useRef(value);
+  valueRef.current = value;
   const [recording, setRecording] = useState(false);
   const [paused, setPaused] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
@@ -378,16 +380,32 @@ export function ConversationComposer({
 
   return (
     <>
-      <Modal visible={emojiOpen} transparent animationType="fade" onRequestClose={() => setEmojiOpen(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setEmojiOpen(false)}>
-          <View style={styles.emojiPanel}>
-            <TextInput placeholder="Search" placeholderTextColor="#94a3b8" style={styles.emojiSearch} />
-            <Text style={styles.emojiHeading}>Frequently Used</Text>
-            <View style={styles.emojiGrid}>{emojis.map((emoji) => <Pressable key={emoji} onPress={() => { onChange(`${value}${emoji}`); setEmojiOpen(false); }}><Text style={styles.emoji}>{emoji}</Text></Pressable>)}</View>
-            <Text style={styles.emojiHeading}>Smileys & People</Text>
-          </View>
-        </Pressable>
-      </Modal>
+      <EmojiPicker
+        open={emojiOpen}
+        onClose={() => setEmojiOpen(false)}
+        onEmojiSelected={(emoji: EmojiType) => {
+          const next = `${valueRef.current}${emoji.emoji}`;
+          valueRef.current = next;
+          onChange(next);
+        }}
+        allowMultipleSelections
+        enableSearchBar
+        enableRecentlyUsed
+        categoryPosition="bottom"
+        theme={{
+          backdrop: '#00000055',
+          knob: '#cbd5e1',
+          container: '#ffffff',
+          header: '#0f172a',
+          skinTonesContainer: '#f1f5f9',
+          category: {
+            icon: '#64748b',
+            iconActive: '#2563eb',
+            container: '#f8fafc',
+            containerActive: '#e2e8f0',
+          },
+        }}
+      />
 
       <Modal visible={quickOpen} transparent animationType="fade" onRequestClose={() => setQuickOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setQuickOpen(false)}>
@@ -458,6 +476,7 @@ export function ConversationComposer({
         ) : null}
         <TextInput
           multiline
+          scrollEnabled
           value={value}
           onChangeText={onChange}
           onKeyPress={handleKeyPress}
@@ -538,7 +557,13 @@ export function ConversationComposer({
 
 const styles = StyleSheet.create({
   composer: { backgroundColor: '#fff9ef', borderColor: '#cfe0fa', borderRadius: 24, borderWidth: 1, margin: 12, padding: 12 },
-  input: { color: '#334155', minHeight: 58, textAlignVertical: 'top' },
+  input: {
+    color: '#334155',
+    maxHeight: 140,
+    minHeight: 58,
+    paddingVertical: 4,
+    textAlignVertical: 'top',
+  },
   actions: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   actionDisabled: { opacity: 0.35 },
   messengerModeChip: {
@@ -593,11 +618,6 @@ const styles = StyleSheet.create({
   pauseBtnActive: { backgroundColor: '#4338ca' },
   sendRecording: { alignItems: 'center', backgroundColor: '#16a34a', borderRadius: 20, height: 40, justifyContent: 'center', width: 40 },
   modalBackdrop: { backgroundColor: '#0003', flex: 1, justifyContent: 'flex-end' },
-  emojiPanel: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '55%', padding: 16 },
-  emojiSearch: { backgroundColor: '#f5f5f5', borderRadius: 10, color: '#17233a', height: 42, paddingHorizontal: 12 },
-  emojiHeading: { color: '#64748b', fontSize: 15, fontWeight: '700', marginTop: 16 },
-  emojiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, paddingTop: 12 },
-  emoji: { fontSize: 28 },
   pickerPanel: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '85%', padding: 16 },
   pickerHeader: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   closeBtn: { alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 18, height: 34, justifyContent: 'center', width: 34 },

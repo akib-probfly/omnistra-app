@@ -25,8 +25,8 @@ import {
   updateCrmContactDetail,
 } from '../api/contacts';
 import { createWorkspaceTag, fetchWorkspaceTags } from '../api/conversationDetails';
-import { AuthenticatedImage } from '../components/AuthenticatedImage';
 import { ChannelLogo } from '../components/ChannelLogo';
+import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ErrorState } from '../components/ErrorState';
 import type { ContactsStackParamList } from '../navigation/ContactsStack';
 
@@ -248,11 +248,7 @@ export function ContactDetailsScreen() {
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}>
           <View style={styles.profileCard}>
             <View style={styles.avatar}>
-              {contact.avatarUrl ? (
-                <AuthenticatedImage url={contact.avatarUrl} resizeMode="cover" style={styles.avatarImage} />
-              ) : (
-                <Text style={styles.avatarText}>{getInitials(title)}</Text>
-              )}
+              <ColorfulAvatar name={title} size={72} url={contact.avatarUrl} />
               {contact.channelType ? (
                 <View style={styles.channelBadge}>
                   <ChannelLogo type={contact.channelType} box={22} glyph={13} radius={11} />
@@ -555,7 +551,7 @@ const styles = StyleSheet.create({
   loader: { marginTop: 60 },
   content: { gap: 12, padding: 16 },
   profileCard: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, padding: 18 },
-  avatar: { alignItems: 'center', backgroundColor: '#dbeafe', borderRadius: 36, height: 72, justifyContent: 'center', position: 'relative', width: 72 },
+  avatar: { alignItems: 'center', backgroundColor: 'transparent', borderRadius: 36, height: 72, justifyContent: 'center', position: 'relative', width: 72 },
   avatarImage: { borderRadius: 36, height: 72, width: 72 },
   avatarText: { color: '#1d4ed8', fontSize: 24, fontWeight: '700' },
   channelBadge: { borderColor: '#fff', borderRadius: 12, borderWidth: 2, bottom: -2, overflow: 'hidden', position: 'absolute', right: -2 },

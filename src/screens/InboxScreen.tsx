@@ -4,9 +4,9 @@ import { ActivityIndicator, Animated, Easing, FlatList, Modal, Pressable, Scroll
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { AppToggle } from '../components/AppToggle';
+import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ErrorState } from '../components/ErrorState';
 import { ChannelLogo, channelBrandColor } from '../components/ChannelLogo';
-import { AuthenticatedImage } from '../components/AuthenticatedImage';
 import { InboxCallsPane } from '../components/InboxCallsPane';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { fetchConversations, fetchConversationCount, fetchConversationUnreadCount, fetchAssigneeOptions, type ConversationCallSession, type ConversationListItem } from '../api/inbox';
@@ -562,11 +562,7 @@ function AssigneeBadge({ assignee }: { assignee: ConversationListItem['assignee'
   const label = (assignee.userName?.trim() || assignee.userEmail?.trim() || 'Agent');
   return (
     <View style={styles.assigneeBadge}>
-      {assignee.avatarUrl ? (
-        <AuthenticatedImage url={assignee.avatarUrl} resizeMode="cover" style={styles.assigneeImage} />
-      ) : (
-        <Text style={styles.assigneeInitials}>{getInitials(label)}</Text>
-      )}
+      <ColorfulAvatar name={label} size={20} url={assignee.avatarUrl} />
     </View>
   );
 }
@@ -690,11 +686,6 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
   const isWhatsAppCustomerWindow = conversation.channel?.channelType === 'WHATSAPP' && conversation.messaging?.policyType === 'CUSTOMER_WINDOW';
   const showWindowDot = isWhatsAppCustomerWindow && conversation.messaging?.windowState !== 'NOT_APPLICABLE';
   const windowExpired = conversation.messaging?.windowState === 'EXPIRED';
-  const [avatarFailed, setAvatarFailed] = useState(false);
-  const avatarUrl = conversation.contact.avatarUrl;
-  useEffect(() => {
-    setAvatarFailed(false);
-  }, [avatarUrl]);
   const onPress = useCallback(() => {
     navigation.navigate('Conversation', {
       conversationId: conversation.id,
@@ -708,16 +699,11 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
     <Pressable onPress={onPress} style={styles.rowPressable}>
       <View style={styles.row}>
         <View style={styles.avatar}>
-          {avatarUrl && !avatarFailed ? (
-            <AuthenticatedImage
-              url={avatarUrl}
-              resizeMode="cover"
-              style={styles.avatarImage}
-              onError={() => setAvatarFailed(true)}
-            />
-          ) : (
-            <Text style={styles.avatarText}>{(conversation.contact.displayName ?? '?').slice(0, 1).toUpperCase()}</Text>
-          )}
+          <ColorfulAvatar
+            name={conversation.contact.displayName ?? 'Unknown contact'}
+            size={48}
+            url={conversation.contact.avatarUrl}
+          />
           {conversation.channel?.channelType ? <View style={styles.channelBadgeWrap}><ChannelLogo type={conversation.channel.channelType} box={22} glyph={13} radius={11} /></View> : null}
         </View>
         <View style={styles.copy}>
@@ -840,7 +826,7 @@ const styles = StyleSheet.create({
   emptyClearButtonText: { color: '#2563eb', fontSize: 13, fontWeight: '700' },
   rowPressable: { backgroundColor: '#fff' },
   row: { backgroundColor: '#fff', borderBottomColor: '#eef2f7', borderBottomWidth: 1, flexDirection: 'row', overflow: 'hidden', paddingHorizontal: 12, paddingVertical: 12 },
-  avatar: { alignItems: 'center', backgroundColor: '#f9c43d', borderRadius: 24, height: 48, justifyContent: 'center', overflow: 'visible', position: 'relative', width: 48 },
+  avatar: { alignItems: 'center', backgroundColor: 'transparent', borderRadius: 24, height: 48, justifyContent: 'center', overflow: 'visible', position: 'relative', width: 48 },
   avatarImage: { borderRadius: 24, height: 48, width: 48 },
   avatarText: { color: '#111827', fontSize: 18, fontWeight: '700' },
   channelBadgeWrap: { alignItems: 'center', borderColor: '#fff', borderRadius: 11, borderWidth: 2, bottom: -2, height: 22, justifyContent: 'center', overflow: 'hidden', position: 'absolute', right: -2, width: 22 },

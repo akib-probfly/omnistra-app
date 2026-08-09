@@ -2,18 +2,13 @@ import { Clock3, Phone, PhoneIncoming, PhoneMissed, PhoneOff, PhoneOutgoing } fr
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ConversationCallSession } from '../api/inbox';
 import { ChannelLogo } from './ChannelLogo';
-import { AuthenticatedImage } from './AuthenticatedImage';
+import { ColorfulAvatar } from './ColorfulAvatar';
 import {
   formatCallDurationLabel,
   getCallSessionHistoryPresentation,
   getNormalizedCallSessionOutcome,
   isCallSessionTerminal,
 } from '../lib/inbox-utils';
-
-function getInitials(value?: string | null) {
-  const parts = (value ?? '?').split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]);
-  return (parts.join('') || '?').toUpperCase();
-}
 
 function getCallDisplayName(session: ConversationCallSession) {
   return (
@@ -96,13 +91,11 @@ export function CallFeedItem({ session, onPress }: { session: ConversationCallSe
   return (
     <Pressable onPress={onPress} style={styles.row}>
       <View style={styles.avatarWrap}>
-        {session.conversation?.contact.avatarUrl ? (
-          <AuthenticatedImage url={session.conversation.contact.avatarUrl} resizeMode="cover" style={styles.avatarImage} />
-        ) : (
-          <View style={styles.avatarFallback}>
-            <Text style={styles.avatarText}>{getInitials(displayName)}</Text>
-          </View>
-        )}
+        <ColorfulAvatar
+          name={displayName}
+          size={44}
+          url={session.conversation?.contact.avatarUrl}
+        />
         {channelType ? (
           <View style={styles.channelBadge}>
             <ChannelLogo type={channelType} box={18} glyph={11} radius={9} />

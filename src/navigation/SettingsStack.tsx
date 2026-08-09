@@ -7,6 +7,7 @@ import { BillingPlanDetailsScreen } from '../screens/BillingPlanDetailsScreen';
 import { NotificationSettingsScreen } from '../screens/NotificationSettingsScreen';
 import { QuickRepliesSettingsScreen } from '../screens/QuickRepliesSettingsScreen';
 import { AssignmentPolicySettingsScreen } from '../screens/AssignmentPolicySettingsScreen';
+import { InboxAppearanceSettingsScreen } from '../screens/InboxAppearanceSettingsScreen';
 import type { BillingInterval } from '../api/billing';
 
 export type SettingsStackParamList = {
@@ -14,6 +15,7 @@ export type SettingsStackParamList = {
   Profile: undefined;
   Workspace: undefined;
   Notifications: undefined;
+  InboxAppearance: undefined;
   QuickReplies: undefined;
   AssignmentPolicy: undefined;
   Billing: {
@@ -38,6 +40,7 @@ export function SettingsStack() {
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="Workspace" component={WorkspaceSettingsScreen} />
       <Stack.Screen name="Notifications" component={NotificationSettingsScreen} />
+      <Stack.Screen name="InboxAppearance" component={InboxAppearanceSettingsScreen} />
       <Stack.Screen name="QuickReplies" component={QuickRepliesSettingsScreen} />
       <Stack.Screen name="AssignmentPolicy" component={AssignmentPolicySettingsScreen} />
       <Stack.Screen name="Billing" component={BillingSettingsScreen} />

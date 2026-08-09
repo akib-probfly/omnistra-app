@@ -15,6 +15,8 @@ import { getRealtimeConnectionStatus, setActiveConversationId, subscribeRealtime
 import { markRecentLocalMessageSend } from '../lib/inbox-realtime-suppression';
 import { setUnreadOverride, applyUnreadOverrides } from '../lib/unread-count-override';
 import { ConversationComposer } from '../components/ConversationComposer';
+import { ColorfulAvatar } from '../components/ColorfulAvatar';
+import { InboxPatternBackground } from '../components/InboxPatternBackground';
 import { MediaViewer } from '../components/MediaViewer';
 import { VideoPlayerModal } from '../components/VideoPlayer';
 import { MessageBubble } from '../components/MessageBubble';
@@ -27,6 +29,7 @@ import { CallHistoryItem } from '../components/CallHistoryItem';
 import { useCallController } from '../providers/CallControllerProvider';
 import { isWhatsappCallSupported } from '../lib/whatsapp-calling';
 import { playMessageSentSound } from '../lib/notificationSound';
+import { useInboxAppearance } from '../hooks/useInboxAppearance';
 
 type Attachment = { id: string; messageId?: string | null; mediaType: string; mimeType: string; originalName: string | null; downloadUrl: string; previewUrl: string | null; thumbnailUrl: string | null; durationMs: number | null };
 type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBOUND'; senderType?: string | null; sender?: { userName?: string | null; userEmail?: string | null } | null; type: string; text: string | null; deliveryStatus?: string; failureReason?: string | null; campaignId?: string | null; campaignName?: string | null; replyToMessageId?: string | null; replyTo?: { sender?: { userName?: string | null } | null; text?: string | null } | null; sentAt?: string | null; createdAt?: string; metadata?: any; attachments?: Attachment[] };
@@ -412,6 +415,7 @@ export function ConversationScreen() {
     setVideoUrl(apiUrl(attachment.downloadUrl ?? attachment.previewUrl ?? null));
   }, []);
 
+  const { pattern: inboxPattern } = useInboxAppearance();
   const channelType = header.conversation?.channel?.channelType ?? route.params.channelType;
   const channelId = header.conversation?.channel?.channelId ?? header.conversation?.channel?.id ?? route.params.channelId;
   const isMessengerConversation = (channelType ?? '').toUpperCase() === 'MESSENGER';
@@ -555,7 +559,11 @@ export function ConversationScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={() => navigation.navigate('Inbox', { screen: 'InboxList' })}><ArrowLeft color="#334155" size={23} /></Pressable>
         <View style={styles.avatarWrap}>
-          <View style={styles.avatar}><Text>{title.slice(0, 1).toUpperCase()}</Text></View>
+          <ColorfulAvatar
+            name={title}
+            size={42}
+            url={header.conversation?.contact?.avatarUrl ?? null}
+          />
           <View style={styles.presence} />
         </View>
         <View style={styles.titleBlock}>
@@ -578,66 +586,71 @@ export function ConversationScreen() {
         <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}><UserRound color="#334155" size={19} /></Pressable>
         <Pressable onPress={() => setDetailsOpen(true)} hitSlop={8}><MoreHorizontal color="#334155" size={19} /></Pressable>
       </View>
-      {messages.isLoading ? <ConversationSkeleton /> : (
+      <View style={styles.body}>
+        <InboxPatternBackground pattern={inboxPattern} />
         <View style={styles.listWrap}>
-          <FlatList
-            ref={listRef}
-            style={styles.list}
-            data={displayEntries}
-            inverted
-            keyExtractor={(entry) => `${entry.entry.kind}:${entry.entry.id}`}
-            contentContainerStyle={styles.listContent}
-            keyboardShouldPersistTaps="handled"
-            onScroll={onScroll}
-            scrollEventThrottle={120}
-            onContentSizeChange={() => { if (isAtBottomRef.current) listRef.current?.scrollToOffset({ offset: 0, animated: false }); }}
-            ListFooterComponent={loadingOlder ? <Text style={styles.olderPill}>Loading older messages...</Text> : null}
-            renderItem={({ item }) => {
-              const { entry, showDivider } = item;
-              const highlighted = entry.kind === 'message' && entry.message.id === highlightedMessageId;
-              return (
-                <View style={highlighted ? styles.highlightRow : undefined}>
-                  {showDivider ? <Text style={styles.dayDivider}>{formatTimelineDayLabel(new Date(entry.timestamp))}</Text> : null}
-                  {entry.kind === 'call' ? (
-                    <CallHistoryItem session={entry.session} />
-                  ) : entry.kind === 'assignment' ? (
-                    <AssignmentHistoryItem event={entry.event} />
-                  ) : (
-                    renderMessage({ item: entry.message })
-                  )}
-                </View>
-              );
-            }}
-            onScrollToIndexFailed={({ index, averageItemLength }) => {
-              listRef.current?.scrollToOffset({ offset: Math.max(0, index * averageItemLength), animated: false });
-              setTimeout(() => {
-                listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
-                const entry = displayEntries[index]?.entry;
-                if (entry?.kind === 'message') highlightMessage(entry.message.id);
-              }, 120);
-            }}
-          />
-          {!atBottom ? (
-            <Pressable style={styles.fab} onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}><ChevronDown color="#fff" size={22} /></Pressable>
-          ) : null}
+          {messages.isLoading ? <ConversationSkeleton /> : (
+            <>
+              <FlatList
+                ref={listRef}
+                style={styles.list}
+                data={displayEntries}
+                inverted
+                keyExtractor={(entry) => `${entry.entry.kind}:${entry.entry.id}`}
+                contentContainerStyle={styles.listContent}
+                keyboardShouldPersistTaps="handled"
+                onScroll={onScroll}
+                scrollEventThrottle={120}
+                onContentSizeChange={() => { if (isAtBottomRef.current) listRef.current?.scrollToOffset({ offset: 0, animated: false }); }}
+                ListFooterComponent={loadingOlder ? <Text style={styles.olderPill}>Loading older messages...</Text> : null}
+                renderItem={({ item }) => {
+                  const { entry, showDivider } = item;
+                  const highlighted = entry.kind === 'message' && entry.message.id === highlightedMessageId;
+                  return (
+                    <View style={highlighted ? styles.highlightRow : undefined}>
+                      {showDivider ? <Text style={styles.dayDivider}>{formatTimelineDayLabel(new Date(entry.timestamp))}</Text> : null}
+                      {entry.kind === 'call' ? (
+                        <CallHistoryItem session={entry.session} />
+                      ) : entry.kind === 'assignment' ? (
+                        <AssignmentHistoryItem event={entry.event} />
+                      ) : (
+                        renderMessage({ item: entry.message })
+                      )}
+                    </View>
+                  );
+                }}
+                onScrollToIndexFailed={({ index, averageItemLength }) => {
+                  listRef.current?.scrollToOffset({ offset: Math.max(0, index * averageItemLength), animated: false });
+                  setTimeout(() => {
+                    listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
+                    const entry = displayEntries[index]?.entry;
+                    if (entry?.kind === 'message') highlightMessage(entry.message.id);
+                  }, 120);
+                }}
+              />
+              {!atBottom ? (
+                <Pressable style={styles.fab} onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}><ChevronDown color="#fff" size={22} /></Pressable>
+              ) : null}
+            </>
+          )}
         </View>
-      )}
-      {messages.isError ? <Text style={styles.error}>{messages.error instanceof Error ? messages.error.message : 'Unable to load messages.'}</Text> : null}
-      <ConversationComposer
-        value={draft} onChange={setDraft} sending={send.isPending}
-        attachments={attachments} onAttachments={setAttachments}
-        workspaceId={route.params.workspaceId}
-        channelId={channelId} channelType={channelType} contactName={title}
-        onSendTemplate={(params) => sendTemplateMutation(route.params.conversationId, params, queryClient, setDraft)}
-        replyPreview={replyTo ? { name: replyTo.direction === 'INBOUND' ? title : 'You', text: replyTo.text ?? 'Attachment' } : null}
-        onCancelReply={() => setReplyTo(null)}
-        onSend={() => { if (!send.isPending) send.mutate(); }}
-        canSendFreeform={canSendFreeform}
-        messengerMessagingMode={messengerMessagingMode}
-        onMessengerMessagingModeChange={setMessengerMessagingMode}
-        canSendStandardMessage={messengerAvailability.canSendStandardMessage}
-        canSendHumanAgentMessage={messengerAvailability.canSendHumanAgentMessage}
-      />
+        {messages.isError ? <Text style={styles.error}>{messages.error instanceof Error ? messages.error.message : 'Unable to load messages.'}</Text> : null}
+        <ConversationComposer
+          value={draft} onChange={setDraft} sending={send.isPending}
+          attachments={attachments} onAttachments={setAttachments}
+          workspaceId={route.params.workspaceId}
+          channelId={channelId} channelType={channelType} contactName={title}
+          onSendTemplate={(params) => sendTemplateMutation(route.params.conversationId, params, queryClient, setDraft)}
+          replyPreview={replyTo ? { name: replyTo.direction === 'INBOUND' ? title : 'You', text: replyTo.text ?? 'Attachment' } : null}
+          onCancelReply={() => setReplyTo(null)}
+          onSend={() => { if (!send.isPending) send.mutate(); }}
+          canSendFreeform={canSendFreeform}
+          messengerMessagingMode={messengerMessagingMode}
+          onMessengerMessagingModeChange={setMessengerMessagingMode}
+          canSendStandardMessage={messengerAvailability.canSendStandardMessage}
+          canSendHumanAgentMessage={messengerAvailability.canSendHumanAgentMessage}
+        />
+      </View>
       <ReactionPicker
         visible={Boolean(reactTarget)}
         onClose={() => setReactTarget(null)}
@@ -779,26 +792,26 @@ const SwipeableMessage = memo(function SwipeableMessage({ message, setReplyTo, s
 });
 
 const styles = StyleSheet.create({
-  screen: { backgroundColor: '#f8fbff', flex: 1 },
+  screen: { backgroundColor: 'transparent', flex: 1 },
+  body: { backgroundColor: 'transparent', flex: 1, overflow: 'hidden' },
   header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#dbe4f1', borderBottomWidth: 1, flexDirection: 'row', gap: 12, paddingHorizontal: 14, paddingVertical: 9 },
   avatarWrap: { position: 'relative' },
-  avatar: { alignItems: 'center', backgroundColor: '#f7c8ca', borderRadius: 21, height: 42, justifyContent: 'center', width: 42 },
   presence: { backgroundColor: '#22c55e', borderColor: '#fff', borderRadius: 6, borderWidth: 1.5, bottom: 1, height: 12, position: 'absolute', right: 1, width: 12 },
   titleBlock: { flex: 1, minWidth: 0 },
   name: { color: '#0f172a', fontWeight: '700' },
   window: { color: '#55921c', fontSize: 11, marginTop: 1 },
   windowExpired: { color: '#dc2626' },
   assignee: { color: '#94a3b8', fontSize: 11, marginTop: 1 },
-  list: { flex: 1 },
-  listWrap: { flex: 1 },
+  list: { backgroundColor: 'transparent', flex: 1 },
+  listWrap: { backgroundColor: 'transparent', flex: 1, minHeight: 0, overflow: 'hidden' },
+  error: { backgroundColor: 'transparent', color: '#dc2626', padding: 14, textAlign: 'center' },
   listContent: { gap: 10, padding: 14 },
   highlightRow: { backgroundColor: 'rgba(50,102,246,0.10)', borderRadius: 14, paddingVertical: 2 },
   group: { alignItems: 'flex-start', gap: 6 },
   outgoingGroup: { alignItems: 'flex-end' },
   dayDivider: { alignSelf: 'center', backgroundColor: '#e8eef7', borderRadius: 999, color: '#526987', fontSize: 12, fontWeight: '600', marginVertical: 8, overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 6 },
   olderPill: { alignSelf: 'center', color: '#64748b', fontSize: 12, marginVertical: 6 },
-  error: { color: '#dc2626', padding: 14, textAlign: 'center' },
-  skeleton: { flex: 1, padding: 14 },
+  skeleton: { backgroundColor: 'transparent', flex: 1, padding: 14 },
   skeletonInner: { flex: 1 },
   skeletonRow: { flexDirection: 'row', marginBottom: 12 },
   skeletonBubble: { backgroundColor: '#e5ecf5', borderRadius: 14, height: 38 },
