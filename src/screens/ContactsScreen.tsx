@@ -1,0 +1,592 @@
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ContactRound, Filter, Mail, Phone, Plus, Search, X } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Modal,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { apiFetch } from '../api/client';
+import {
+  createCrmContact,
+  fetchCrmContacts,
+  formatPhoneNumberDisplay,
+  getContactTitle,
+  type CrmContactListItem,
+} from '../api/contacts';
+import { fetchAssigneeOptions } from '../api/inbox';
+import { fetchWorkspaceTags } from '../api/conversationDetails';
+import { AppToggle } from '../components/AppToggle';
+import { AuthenticatedImage } from '../components/AuthenticatedImage';
+import { ChannelLogo } from '../components/ChannelLogo';
+import { ErrorState } from '../components/ErrorState';
+import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
+import type { ContactsStackParamList } from '../navigation/ContactsStack';
+
+type FilterLayer = 'channels' | 'labels' | 'users' | 'more';
+type AssignmentFilter = 'all' | 'assigned' | 'unassigned';
+
+type ChannelOption = {
+  id: string;
+  channelName?: string | null;
+  name?: string | null;
+  type?: string;
+  channelType?: string;
+};
+
+const FILTER_LAYERS: Array<{ id: FilterLayer; label: string }> = [
+  { id: 'channels', label: 'Channels' },
+  { id: 'labels', label: 'Labels' },
+  { id: 'users', label: 'Users' },
+  { id: 'more', label: 'More' },
+];
+
+function getInitials(value: string) {
+  return value
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase() || '?';
+}
+
+function formatRelativeActivity(value: string | null) {
+  if (!value) return 'No activity';
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return 'No activity';
+  const diffMs = Date.now() - timestamp;
+  const minutes = Math.max(1, Math.round(diffMs / 60000));
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+function hexWithAlpha(color: string | null | undefined, alphaHex = '18') {
+  const value = (color ?? '#64748b').trim();
+  if (/^#([0-9a-fA-F]{6})$/.test(value)) return `${value}${alphaHex}`;
+  if (/^#([0-9a-fA-F]{3})$/.test(value)) {
+    const [r, g, b] = value.slice(1).split('');
+    return `#${r}${r}${g}${g}${b}${b}${alphaHex}`;
+  }
+  return '#e2e8f0';
+}
+
+export function ContactsScreen() {
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<ContactsStackParamList>>();
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [filterLayer, setFilterLayer] = useState<FilterLayer>('channels');
+  const [assignment, setAssignment] = useState<AssignmentFilter>('all');
+  const [recentlyActive, setRecentlyActive] = useState(false);
+  const [channelIds, setChannelIds] = useState<string[]>([]);
+  const [tagIds, setTagIds] = useState<string[]>([]);
+  const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [userSearch, setUserSearch] = useState('');
+  const [tagSearch, setTagSearch] = useState('');
+  const [addName, setAddName] = useState('');
+  const [addPhone, setAddPhone] = useState('');
+  const [addEmail, setAddEmail] = useState('');
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+  }, []);
+
+  const onSearchChange = (value: string) => {
+    setSearch(value);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => setDebouncedSearch(value), 400);
+  };
+
+  const filters = useMemo(() => ({
+    search: debouncedSearch.trim() || undefined,
+    channelIds: channelIds.length ? channelIds : undefined,
+    tagIds: tagIds.length ? tagIds : undefined,
+    ownerWorkspaceMemberIds: ownerId ? [ownerId] : undefined,
+    assigned: assignment === 'assigned' ? true : undefined,
+    unassigned: assignment === 'unassigned' ? true : undefined,
+    recentlyActive: recentlyActive || undefined,
+  }), [debouncedSearch, channelIds, tagIds, ownerId, assignment, recentlyActive]);
+
+  const hasAdvancedFilters = channelIds.length > 0 || tagIds.length > 0 || ownerId != null || assignment !== 'all' || recentlyActive;
+
+  const contactsQuery = useInfiniteQuery({
+    queryKey: ['crm-contacts', filters],
+    queryFn: ({ pageParam }) => fetchCrmContacts({ ...filters, limit: 20, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => (lastPage.pageInfo?.hasMore ? (lastPage.pageInfo.nextCursor ?? undefined) : undefined),
+    staleTime: 20_000,
+  });
+
+  const channelsQuery = useQuery({
+    queryKey: ['channels', 'contacts-filter'],
+    queryFn: () => apiFetch<{ items: ChannelOption[] }>('/channels?page=1&limit=100&sortBy=createdAt&sortOrder=desc'),
+    enabled: filterOpen || addOpen,
+    staleTime: 60_000,
+  });
+
+  const assigneesQuery = useQuery({
+    queryKey: ['assignee-filter-options', 'contacts'],
+    queryFn: () => fetchAssigneeOptions(),
+    enabled: filterOpen,
+    staleTime: 60_000,
+  });
+
+  const tagsQuery = useQuery({
+    queryKey: ['workspace-tags', 'contacts'],
+    queryFn: () => fetchWorkspaceTags(),
+    enabled: filterOpen || addOpen,
+    staleTime: 60_000,
+  });
+
+  const items = useMemo(() => (contactsQuery.data?.pages ?? []).flatMap((page) => page.items), [contactsQuery.data]);
+  const totalCount = contactsQuery.data?.pages?.[0]?.totalCount ?? items.length;
+  const channelOptions = channelsQuery.data?.items ?? [];
+  const assigneeOptions = useMemo(() => {
+    const query = userSearch.trim().toLowerCase();
+    const options = assigneesQuery.data ?? [];
+    if (!query) return options;
+    return options.filter((member) => `${member.name ?? ''} ${member.email}`.toLowerCase().includes(query));
+  }, [assigneesQuery.data, userSearch]);
+  const tagOptions = useMemo(() => {
+    const query = tagSearch.trim().toLowerCase();
+    const tags = tagsQuery.data?.items ?? [];
+    if (!query) return tags;
+    return tags.filter((tag) => tag.text.toLowerCase().includes(query));
+  }, [tagsQuery.data?.items, tagSearch]);
+
+  const resetFilters = () => {
+    setAssignment('all');
+    setRecentlyActive(false);
+    setChannelIds([]);
+    setTagIds([]);
+    setOwnerId(null);
+    setUserSearch('');
+    setTagSearch('');
+  };
+
+  const createMutation = useMutation({
+    mutationFn: () => createCrmContact({
+      displayName: addName.trim(),
+      primaryPhone: addPhone.trim(),
+      phoneNumber: addPhone.trim(),
+      primaryEmail: addEmail.trim() || null,
+    }),
+    onSuccess: async (contact) => {
+      setAddOpen(false);
+      setAddName('');
+      setAddPhone('');
+      setAddEmail('');
+      await queryClient.invalidateQueries({ queryKey: ['crm-contacts'] });
+      navigation.navigate('ContactDetails', {
+        contactId: contact.id,
+        contactName: getContactTitle(contact),
+      });
+    },
+    onError: (error: Error) => Alert.alert('Could not create contact', error.message),
+  });
+
+  const onRefresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['crm-contacts'] });
+  }, [queryClient]);
+
+  return (
+    <View style={styles.screen}>
+      <View style={[styles.topbar, { paddingTop: insets.top + 10 }]}>
+        <View style={styles.topbarCopy}>
+          <Text style={styles.title}>Contacts</Text>
+          <Text style={styles.subtitle}>Manage and organize your contact database</Text>
+        </View>
+        <View style={styles.topbarActions}>
+          <Pressable style={styles.addButton} onPress={() => setAddOpen(true)} hitSlop={8}>
+            <Plus color="#fff" size={18} />
+          </Pressable>
+          <NotificationBell onOpen={() => setNotificationsOpen(true)} />
+        </View>
+      </View>
+
+      <View style={styles.searchRow}>
+        <View style={styles.search}>
+          <Search color="#8ba2c3" size={18} />
+          <TextInput
+            value={search}
+            onChangeText={onSearchChange}
+            placeholder="Search by name, email, or phone..."
+            placeholderTextColor="#8ba2c3"
+            style={styles.searchInput}
+          />
+          {search ? (
+            <Pressable onPress={() => { setSearch(''); setDebouncedSearch(''); }} hitSlop={8}>
+              <X color="#94a3b8" size={16} />
+            </Pressable>
+          ) : null}
+        </View>
+        <Pressable style={[styles.filterButton, hasAdvancedFilters && styles.filterButtonActive]} onPress={() => setFilterOpen(true)}>
+          <Filter color={hasAdvancedFilters ? '#2563eb' : '#64748b'} size={16} />
+          {hasAdvancedFilters ? <View style={styles.filterDot} /> : null}
+        </Pressable>
+      </View>
+
+      <Text style={styles.countLabel}>
+        {contactsQuery.isLoading ? 'Loading contacts...' : `${totalCount.toLocaleString()} contacts`}
+      </Text>
+
+      {contactsQuery.isError ? (
+        <ErrorState
+          message={contactsQuery.error instanceof Error ? contactsQuery.error.message : 'Unable to load contacts.'}
+          onRetry={() => contactsQuery.refetch()}
+        />
+      ) : contactsQuery.isLoading ? (
+        <ActivityIndicator color="#2563eb" style={styles.loader} />
+      ) : (
+        <FlatList
+          data={items}
+          keyExtractor={(item) => item.id}
+          style={styles.listFill}
+          contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={contactsQuery.isRefetching && !contactsQuery.isFetchingNextPage} onRefresh={onRefresh} tintColor="#2563eb" />}
+          onEndReachedThreshold={0.4}
+          onEndReached={() => {
+            if (contactsQuery.hasNextPage && !contactsQuery.isFetchingNextPage) {
+              void contactsQuery.fetchNextPage();
+            }
+          }}
+          ListEmptyComponent={(
+            <View style={styles.empty}>
+              <ContactRound color="#c3d0e2" size={44} />
+              <Text style={styles.emptyTitle}>No contacts found</Text>
+              <Text style={styles.emptyText}>
+                {hasAdvancedFilters || debouncedSearch.trim()
+                  ? 'Try adjusting your search or filters.'
+                  : 'Add a contact to start building your CRM list.'}
+              </Text>
+              {hasAdvancedFilters || debouncedSearch.trim() ? (
+                <Pressable
+                  style={styles.emptyClearButton}
+                  onPress={() => {
+                    resetFilters();
+                    setSearch('');
+                    setDebouncedSearch('');
+                  }}
+                >
+                  <Text style={styles.emptyClearButtonText}>Clear filters</Text>
+                </Pressable>
+              ) : (
+                <Pressable style={styles.emptyClearButton} onPress={() => setAddOpen(true)}>
+                  <Text style={styles.emptyClearButtonText}>Add contact</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+          ListFooterComponent={contactsQuery.isFetchingNextPage ? <ActivityIndicator color="#2563eb" style={{ marginVertical: 16 }} /> : null}
+          renderItem={({ item }) => (
+            <ContactRow
+              contact={item}
+              onPress={() => navigation.navigate('ContactDetails', {
+                contactId: item.id,
+                contactName: getContactTitle(item),
+              })}
+            />
+          )}
+        />
+      )}
+
+      <Modal visible={filterOpen} transparent animationType="slide" onRequestClose={() => setFilterOpen(false)}>
+        <View style={styles.sheetOverlay}>
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setFilterOpen(false)} />
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Filters</Text>
+              <Pressable onPress={() => setFilterOpen(false)} hitSlop={8}><X color="#64748b" size={20} /></Pressable>
+            </View>
+            <View style={styles.layerTabs}>
+              {FILTER_LAYERS.map((layer) => {
+                const active = filterLayer === layer.id;
+                return (
+                  <Pressable key={layer.id} style={[styles.layerTab, active && styles.layerTabActive]} onPress={() => setFilterLayer(layer.id)}>
+                    <Text style={[styles.layerTabText, active && styles.layerTabTextActive]}>{layer.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <ScrollView style={styles.optionList} keyboardShouldPersistTaps="handled">
+              {filterLayer === 'channels' ? (
+                <>
+                  {channelOptions.map((channel) => {
+                    const active = channelIds.includes(channel.id);
+                    return (
+                      <Pressable
+                        key={channel.id}
+                        style={[styles.optionRow, active && styles.optionRowActive]}
+                        onPress={() => setChannelIds((current) => (active ? current.filter((id) => id !== channel.id) : [...current, channel.id]))}
+                      >
+                        <ChannelLogo type={channel.type ?? channel.channelType} box={28} glyph={14} radius={8} />
+                        <Text style={[styles.optionText, active && styles.optionTextActive]} numberOfLines={1}>
+                          {channel.channelName ?? channel.name ?? 'Channel'}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                  {!channelOptions.length ? <Text style={styles.emptyHint}>No channels available.</Text> : null}
+                </>
+              ) : null}
+
+              {filterLayer === 'labels' ? (
+                <>
+                  <View style={styles.inlineSearch}>
+                    <Search color="#94a3b8" size={16} />
+                    <TextInput value={tagSearch} onChangeText={setTagSearch} placeholder="Search tags" placeholderTextColor="#94a3b8" style={styles.inlineSearchInput} />
+                  </View>
+                  {tagOptions.map((tag) => {
+                    const active = tagIds.includes(tag.id);
+                    const color = tag.color?.trim() || '#64748b';
+                    return (
+                      <Pressable
+                        key={tag.id}
+                        style={[styles.optionRow, active && styles.optionRowActive]}
+                        onPress={() => setTagIds((current) => (active ? current.filter((id) => id !== tag.id) : [...current, tag.id]))}
+                      >
+                        <View style={[styles.tagDot, { backgroundColor: color }]} />
+                        <Text style={[styles.optionText, active && styles.optionTextActive]} numberOfLines={1}>{tag.text}</Text>
+                      </Pressable>
+                    );
+                  })}
+                  {!tagOptions.length ? <Text style={styles.emptyHint}>No tags found.</Text> : null}
+                </>
+              ) : null}
+
+              {filterLayer === 'users' ? (
+                <>
+                  <View style={styles.inlineSearch}>
+                    <Search color="#94a3b8" size={16} />
+                    <TextInput value={userSearch} onChangeText={setUserSearch} placeholder="Search owners" placeholderTextColor="#94a3b8" style={styles.inlineSearchInput} />
+                  </View>
+                  <Pressable style={[styles.optionRow, ownerId == null && styles.optionRowActive]} onPress={() => setOwnerId(null)}>
+                    <Text style={[styles.optionText, ownerId == null && styles.optionTextActive]}>Any owner</Text>
+                  </Pressable>
+                  {assigneeOptions.map((member) => {
+                    const active = ownerId === member.workspaceMemberId;
+                    return (
+                      <Pressable key={member.workspaceMemberId} style={[styles.optionRow, active && styles.optionRowActive]} onPress={() => setOwnerId(member.workspaceMemberId)}>
+                        <Text style={[styles.optionText, active && styles.optionTextActive]} numberOfLines={1}>
+                          {member.name?.trim() || member.email}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </>
+              ) : null}
+
+              {filterLayer === 'more' ? (
+                <>
+                  <Text style={styles.sectionLabel}>Assignment</Text>
+                  <View style={styles.segment}>
+                    {([
+                      ['all', 'All'],
+                      ['assigned', 'Assigned'],
+                      ['unassigned', 'Unassigned'],
+                    ] as const).map(([value, label]) => {
+                      const active = assignment === value;
+                      return (
+                        <Pressable key={value} style={[styles.segmentOption, active && styles.segmentOptionActive]} onPress={() => setAssignment(value)}>
+                          <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <Pressable style={styles.switchRow} onPress={() => setRecentlyActive((value) => !value)}>
+                    <Text style={styles.switchLabel}>Recently active</Text>
+                    <AppToggle value={recentlyActive} variant="sidebar" />
+                  </Pressable>
+                </>
+              ) : null}
+            </ScrollView>
+
+            <Pressable style={[styles.resetButton, !hasAdvancedFilters && styles.resetDisabled]} disabled={!hasAdvancedFilters} onPress={resetFilters}>
+              <Text style={[styles.resetText, !hasAdvancedFilters && styles.resetTextDisabled]}>Reset filters</Text>
+            </Pressable>
+            <Pressable style={styles.applyButton} onPress={() => setFilterOpen(false)}>
+              <Text style={styles.applyText}>Apply</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={addOpen} transparent animationType="slide" onRequestClose={() => setAddOpen(false)}>
+        <View style={styles.sheetOverlay}>
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setAddOpen(false)} />
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Add contact</Text>
+              <Pressable onPress={() => setAddOpen(false)} hitSlop={8}><X color="#64748b" size={20} /></Pressable>
+            </View>
+            <Text style={styles.fieldLabel}>Name *</Text>
+            <TextInput value={addName} onChangeText={setAddName} placeholder="Full name" placeholderTextColor="#94a3b8" style={styles.fieldInput} />
+            <Text style={styles.fieldLabel}>Phone *</Text>
+            <TextInput value={addPhone} onChangeText={setAddPhone} placeholder="+8801XXXXXXXXX" placeholderTextColor="#94a3b8" keyboardType="phone-pad" style={styles.fieldInput} />
+            <Text style={styles.fieldLabel}>Email</Text>
+            <TextInput value={addEmail} onChangeText={setAddEmail} placeholder="name@example.com" placeholderTextColor="#94a3b8" keyboardType="email-address" autoCapitalize="none" style={styles.fieldInput} />
+            <Pressable
+              style={[styles.applyButton, (!addName.trim() || !addPhone.trim() || createMutation.isPending) && styles.applyDisabled]}
+              disabled={!addName.trim() || !addPhone.trim() || createMutation.isPending}
+              onPress={() => createMutation.mutate()}
+            >
+              {createMutation.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.applyText}>Save contact</Text>}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <NotificationCenter visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
+    </View>
+  );
+}
+
+function ContactRow({ contact, onPress }: { contact: CrmContactListItem; onPress: () => void }) {
+  const title = getContactTitle(contact);
+  const phone = formatPhoneNumberDisplay(contact.primaryPhone);
+  const tags = (contact.tags ?? []).filter((tag) => !tag.isArchived).slice(0, 2);
+  const hiddenTagCount = Math.max(0, (contact.tags ?? []).filter((tag) => !tag.isArchived).length - tags.length);
+
+  return (
+    <Pressable onPress={onPress} style={styles.card}>
+      <View style={styles.avatar}>
+        {contact.avatarUrl ? (
+          <AuthenticatedImage url={contact.avatarUrl} resizeMode="cover" style={styles.avatarImage} />
+        ) : (
+          <Text style={styles.avatarText}>{getInitials(title)}</Text>
+        )}
+        {contact.channelType ? (
+          <View style={styles.channelBadge}>
+            <ChannelLogo type={contact.channelType} box={18} glyph={11} radius={9} />
+          </View>
+        ) : null}
+      </View>
+      <View style={styles.copy}>
+        <Text style={styles.name} numberOfLines={1}>{title}</Text>
+        <View style={styles.metaRow}>
+          <Phone color="#94a3b8" size={12} />
+          <Text style={styles.metaText} numberOfLines={1}>{phone ?? 'No phone'}</Text>
+        </View>
+        <View style={styles.metaRow}>
+          <Mail color="#94a3b8" size={12} />
+          <Text style={styles.metaText} numberOfLines={1}>{contact.primaryEmail?.trim() || 'No email'}</Text>
+        </View>
+        {contact.channelName ? (
+          <View style={styles.channelPill}>
+            <Text style={styles.channelPillText} numberOfLines={1}>{contact.channelName}</Text>
+          </View>
+        ) : null}
+        {tags.length ? (
+          <View style={styles.tagRow}>
+            {tags.map((tag) => {
+              const color = tag.color?.trim() || '#64748b';
+              return (
+                <View key={tag.id} style={[styles.tagChip, { backgroundColor: hexWithAlpha(color), borderColor: hexWithAlpha(color, '33') }]}>
+                  <Text style={[styles.tagChipText, { color }]} numberOfLines={1}>{tag.text}</Text>
+                </View>
+              );
+            })}
+            {hiddenTagCount > 0 ? <Text style={styles.tagMore}>+{hiddenTagCount}</Text> : null}
+          </View>
+        ) : null}
+      </View>
+      <Text style={styles.activity}>{formatRelativeActivity(contact.lastActivityAt)}</Text>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: { backgroundColor: '#eef4fb', flex: 1 },
+  topbar: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e8eef7', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 14, paddingHorizontal: 18 },
+  topbarCopy: { flex: 1, minWidth: 0, paddingRight: 12 },
+  topbarActions: { alignItems: 'center', flexDirection: 'row', gap: 10 },
+  title: { color: '#0f172a', fontSize: 24, fontWeight: '800' },
+  subtitle: { color: '#64748b', fontSize: 13, marginTop: 4 },
+  addButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
+  searchRow: { alignItems: 'center', flexDirection: 'row', gap: 10, marginHorizontal: 16, marginTop: 16 },
+  search: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 22, borderWidth: 1, flex: 1, flexDirection: 'row', paddingHorizontal: 12 },
+  searchInput: { color: '#17233a', flex: 1, height: 44, marginLeft: 8 },
+  filterButton: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 18, borderWidth: 1, height: 44, justifyContent: 'center', position: 'relative', width: 44 },
+  filterButtonActive: { borderColor: '#2563eb' },
+  filterDot: { backgroundColor: '#2563eb', borderRadius: 4, height: 8, position: 'absolute', right: 8, top: 8, width: 8 },
+  countLabel: { color: '#64748b', fontSize: 12, fontWeight: '600', marginHorizontal: 18, marginTop: 12 },
+  listFill: { flex: 1 },
+  list: { gap: 10, paddingBottom: 24, paddingHorizontal: 16, paddingTop: 12 },
+  card: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 12, padding: 14 },
+  avatar: { alignItems: 'center', backgroundColor: '#dbeafe', borderRadius: 24, height: 48, justifyContent: 'center', position: 'relative', width: 48 },
+  avatarImage: { borderRadius: 24, height: 48, width: 48 },
+  avatarText: { color: '#1d4ed8', fontSize: 15, fontWeight: '700' },
+  channelBadge: { borderColor: '#fff', borderRadius: 10, borderWidth: 2, bottom: -2, overflow: 'hidden', position: 'absolute', right: -2 },
+  copy: { flex: 1, minWidth: 0 },
+  name: { color: '#0f172a', fontSize: 15, fontWeight: '700' },
+  metaRow: { alignItems: 'center', flexDirection: 'row', gap: 5, marginTop: 4 },
+  metaText: { color: '#64748b', flex: 1, fontSize: 12 },
+  channelPill: { alignSelf: 'flex-start', backgroundColor: '#fff7ed', borderColor: '#fed7aa', borderRadius: 999, borderWidth: 1, marginTop: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  channelPillText: { color: '#9a3412', fontSize: 11, fontWeight: '600' },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+  tagChip: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
+  tagChipText: { fontSize: 11, fontWeight: '600' },
+  tagMore: { alignSelf: 'center', color: '#64748b', fontSize: 11, fontWeight: '600' },
+  activity: { color: '#94a3b8', fontSize: 11, fontWeight: '600', marginTop: 2 },
+  empty: { alignItems: 'center', paddingTop: 48 },
+  emptyTitle: { color: '#0f172a', fontSize: 16, fontWeight: '700', marginTop: 14 },
+  emptyText: { color: '#64748b', fontSize: 13, marginTop: 5, maxWidth: 260, textAlign: 'center' },
+  emptyClearButton: { backgroundColor: '#eff6ff', borderRadius: 12, marginTop: 14, paddingHorizontal: 14, paddingVertical: 10 },
+  emptyClearButtonText: { color: '#2563eb', fontSize: 13, fontWeight: '700' },
+  loader: { marginTop: 60 },
+  sheetOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },
+  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '85%', padding: 20 },
+  sheetHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  sheetTitle: { color: '#0f172a', fontSize: 18, fontWeight: '800' },
+  layerTabs: { backgroundColor: '#f1f5f9', borderRadius: 14, flexDirection: 'row', gap: 4, marginBottom: 12, padding: 4 },
+  layerTab: { alignItems: 'center', borderRadius: 10, flex: 1, paddingVertical: 8 },
+  layerTabActive: { backgroundColor: '#fff', elevation: 1, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4 },
+  layerTabText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
+  layerTabTextActive: { color: '#0f172a', fontWeight: '700' },
+  optionList: { gap: 6, maxHeight: 320 },
+  optionRow: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 10, paddingHorizontal: 10, paddingVertical: 10 },
+  optionRowActive: { backgroundColor: '#dbeafe' },
+  optionText: { color: '#334155', flex: 1, fontSize: 14, fontWeight: '500' },
+  optionTextActive: { color: '#1d4ed8', fontWeight: '700' },
+  tagDot: { borderRadius: 5, height: 10, width: 10 },
+  emptyHint: { color: '#94a3b8', fontSize: 13, paddingVertical: 12 },
+  inlineSearch: { alignItems: 'center', backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, flexDirection: 'row', marginBottom: 8, paddingHorizontal: 10 },
+  inlineSearchInput: { color: '#17233a', flex: 1, height: 40, marginLeft: 8 },
+  sectionLabel: { color: '#64748b', fontSize: 12, fontWeight: '700', letterSpacing: 0.4, marginBottom: 8, textTransform: 'uppercase' },
+  segment: { backgroundColor: '#f1f5f9', borderRadius: 20, flexDirection: 'row', marginBottom: 12, padding: 4 },
+  segmentOption: { alignItems: 'center', borderRadius: 16, flex: 1, paddingVertical: 8 },
+  segmentOptionActive: { backgroundColor: '#fff', elevation: 1, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4 },
+  segmentText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
+  segmentTextActive: { color: '#0f172a', fontWeight: '700' },
+  switchRow: { alignItems: 'center', borderColor: '#dbeafe', borderRadius: 16, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 12 },
+  switchLabel: { color: '#334155', fontSize: 14, fontWeight: '600' },
+  resetButton: { alignItems: 'center', marginTop: 14, paddingVertical: 6 },
+  resetDisabled: { opacity: 0.45 },
+  resetText: { color: '#dc2626', fontSize: 14, fontWeight: '600' },
+  resetTextDisabled: { color: '#94a3b8' },
+  applyButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 12, marginTop: 10, paddingVertical: 14 },
+  applyDisabled: { opacity: 0.55 },
+  applyText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  fieldLabel: { color: '#334155', fontSize: 13, fontWeight: '600', marginBottom: 6, marginTop: 10 },
+  fieldInput: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, color: '#0f172a', paddingHorizontal: 12, paddingVertical: 12 },
+});
