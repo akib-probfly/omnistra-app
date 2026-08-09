@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { createRealtimeSocket, setRealtimeConnectionStatus, getActiveConversationId } from '../api/realtime';
 import { latestAccessToken } from '../api/client';
@@ -40,10 +40,12 @@ function schedule(key: string, invalidate: () => void, delay: number) {
 }
 
 function invalidateInboxQueries(queryClient: ReturnType<typeof useQueryClient>, delay: number) {
-  schedule(`inbox:${Date.now()}`, () => {
-    void queryClient.invalidateQueries({ queryKey: ['conversations'], refetchType: 'all' });
-    void queryClient.invalidateQueries({ queryKey: ['conversation-count'], refetchType: 'all' });
-    void queryClient.invalidateQueries({ queryKey: ['inbox-unread-count'], refetchType: 'all' });
+  // Stable key so rapid realtime events debounce instead of stacking.
+  // Only refetch observers that are currently mounted (not every cached filter/page).
+  schedule('inbox', () => {
+    void queryClient.invalidateQueries({ queryKey: ['conversations'], refetchType: 'active' });
+    void queryClient.invalidateQueries({ queryKey: ['conversation-count'], refetchType: 'active' });
+    void queryClient.invalidateQueries({ queryKey: ['inbox-unread-count'], refetchType: 'active' });
   }, delay);
 }
 
@@ -138,6 +140,19 @@ export function useRealtimeSync(accessToken: string | null) {
   const queryClient = useQueryClient();
   const [connected, setConnected] = useState(false);
   const notificationPreferences = useNotificationPreferences();
+  const preferencesRef = useRef<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
+
+  preferencesRef.current = notificationPreferences.isLoaded
+    ? {
+        soundEnabled: notificationPreferences.soundEnabled,
+        backgroundSoundEnabled: notificationPreferences.backgroundSoundEnabled,
+        browserNotificationsEnabled: notificationPreferences.browserNotificationsEnabled,
+        newConversationAlertsEnabled: notificationPreferences.newConversationAlertsEnabled,
+        incomingCallAlertsEnabled: notificationPreferences.incomingCallAlertsEnabled,
+        mentionsAndAssignmentsOnly: notificationPreferences.mentionsAndAssignmentsOnly,
+        dailySummaryDigestEnabled: notificationPreferences.dailySummaryDigestEnabled,
+      }
+    : DEFAULT_NOTIFICATION_PREFERENCES;
 
   useEffect(() => {
     if (!accessToken) {
@@ -147,17 +162,6 @@ export function useRealtimeSync(accessToken: string | null) {
     }
 
     const socket = createRealtimeSocket(() => latestAccessToken ?? accessToken);
-    const preferences: NotificationPreferences = notificationPreferences.isLoaded
-      ? {
-          soundEnabled: notificationPreferences.soundEnabled,
-          backgroundSoundEnabled: notificationPreferences.backgroundSoundEnabled,
-          browserNotificationsEnabled: notificationPreferences.browserNotificationsEnabled,
-          newConversationAlertsEnabled: notificationPreferences.newConversationAlertsEnabled,
-          incomingCallAlertsEnabled: notificationPreferences.incomingCallAlertsEnabled,
-          mentionsAndAssignmentsOnly: notificationPreferences.mentionsAndAssignmentsOnly,
-          dailySummaryDigestEnabled: notificationPreferences.dailySummaryDigestEnabled,
-        }
-      : DEFAULT_NOTIFICATION_PREFERENCES;
 
     const handleConversationUpdated = (payload: ConversationUpdatedEvent) => {
       const isStatusOrMetaUpdate = !payload.createdMessage && !payload.messageId;
@@ -166,7 +170,7 @@ export function useRealtimeSync(accessToken: string | null) {
         invalidateInboxQueries(queryClient, 1500);
         if (payload.conversationId) {
           schedule(`assignment-events:${payload.conversationId}`, () => {
-            void queryClient.invalidateQueries({ queryKey: ['assignment-events', payload.conversationId], refetchType: 'all' });
+            void queryClient.invalidateQueries({ queryKey: ['assignment-events', payload.conversationId], refetchType: 'active' });
           }, 800);
         }
       }
@@ -206,13 +210,13 @@ export function useRealtimeSync(accessToken: string | null) {
     const handleCallSessionUpdated = (payload: CallSessionUpdatedEvent) => {
       if (payload.conversationId) {
         schedule(`calls:${payload.conversationId}`, () => {
-          void queryClient.invalidateQueries({ queryKey: ['conversation-calls', payload.conversationId], refetchType: 'all' });
+          void queryClient.invalidateQueries({ queryKey: ['conversation-calls', payload.conversationId], refetchType: 'active' });
         }, 600);
       }
       schedule('workspace-calls', () => {
-        void queryClient.invalidateQueries({ queryKey: ['workspace-calls'], refetchType: 'all' });
-        void queryClient.invalidateQueries({ queryKey: ['workspace-calls-summary'], refetchType: 'all' });
-        void queryClient.invalidateQueries({ queryKey: ['active-calls'], refetchType: 'all' });
+        void queryClient.invalidateQueries({ queryKey: ['workspace-calls'], refetchType: 'active' });
+        void queryClient.invalidateQueries({ queryKey: ['workspace-calls-summary'], refetchType: 'active' });
+        void queryClient.invalidateQueries({ queryKey: ['active-calls'], refetchType: 'active' });
       }, 800);
       invalidateInboxQueries(queryClient, 1500);
     };
@@ -222,16 +226,18 @@ export function useRealtimeSync(accessToken: string | null) {
       if (handledNotificationIds.has(payload.notificationId)) return;
       handledNotificationIds.add(payload.notificationId);
 
+      const preferences = preferencesRef.current;
+
       // Keep badge + list warm even while the notification sheet is closed.
       incrementNotificationUnreadCountInCache(queryClient);
       prependNotificationInCache(queryClient, payload);
-      void queryClient.invalidateQueries({ queryKey: [...notificationQueryKeys.all, 'list'], refetchType: 'all' });
-      void queryClient.invalidateQueries({ queryKey: notificationQueryKeys.unreadCount(), refetchType: 'all' });
+      void queryClient.invalidateQueries({ queryKey: [...notificationQueryKeys.all, 'list'], refetchType: 'active' });
+      void queryClient.invalidateQueries({ queryKey: notificationQueryKeys.unreadCount(), refetchType: 'active' });
 
       if (payload.type === 'INCOMING_CALL') {
         if (preferences.incomingCallAlertsEnabled) {
           writeIncomingCallPrompt(payload as Parameters<typeof writeIncomingCallPrompt>[0]);
-          void queryClient.invalidateQueries({ queryKey: ['active-calls'], refetchType: 'all' });
+          void queryClient.invalidateQueries({ queryKey: ['active-calls'], refetchType: 'active' });
           if (preferences.soundEnabled) void playNotificationSound(payload.type);
         }
         return;
@@ -287,18 +293,7 @@ export function useRealtimeSync(accessToken: string | null) {
       setConnected(false);
       setRealtimeConnectionStatus('disconnected');
     };
-  }, [
-    accessToken,
-    notificationPreferences.backgroundSoundEnabled,
-    notificationPreferences.browserNotificationsEnabled,
-    notificationPreferences.dailySummaryDigestEnabled,
-    notificationPreferences.incomingCallAlertsEnabled,
-    notificationPreferences.isLoaded,
-    notificationPreferences.mentionsAndAssignmentsOnly,
-    notificationPreferences.newConversationAlertsEnabled,
-    notificationPreferences.soundEnabled,
-    queryClient,
-  ]);
+  }, [accessToken, queryClient]);
 
   return { connected };
 }

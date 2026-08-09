@@ -158,6 +158,11 @@ export function InboxScreen() {
     tagTextTimer.current = setTimeout(() => setDebouncedTagText(value), 250);
   };
 
+  const realtimeStatus = useSyncExternalStore(subscribeRealtimeConnectionStatus, getRealtimeConnectionStatus);
+  // Realtime drives inbox updates; only poll as a fallback when the socket is down.
+  // Polling an infinite query refetches every loaded page, so keep this off while connected.
+  const shouldPollInbox = realtimeStatus !== 'connected';
+
   const conversations = useInfiniteQuery({
     queryKey: ['conversations', filters],
     queryFn: async ({ pageParam }) => {
@@ -167,23 +172,26 @@ export function InboxScreen() {
     enabled: sidebarTab === 'chats',
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.pageInfo?.hasMore ? (lastPage.pageInfo.nextCursor ?? undefined) : undefined,
-    staleTime: 10_000,
-    refetchInterval: 15_000,
+    staleTime: 30_000,
+    refetchInterval: shouldPollInbox ? 30_000 : false,
+    refetchOnWindowFocus: false,
   });
 
   const unreadCount = useQuery({
     queryKey: ['inbox-unread-count', advancedFilterParams],
     queryFn: () => fetchConversationUnreadCount(advancedFilterParams),
-    staleTime: 15_000,
-    refetchInterval: 15_000,
+    staleTime: 30_000,
+    refetchInterval: shouldPollInbox ? 30_000 : false,
+    refetchOnWindowFocus: false,
   });
 
   const closedCount = useQuery({
     queryKey: ['conversation-count', { ...filters, status: 'CLOSED' as const }],
     queryFn: () => fetchConversationCount({ ...filters, status: 'CLOSED' }),
     enabled: sidebarTab === 'chats' && tab === 'closed',
-    staleTime: 15_000,
-    refetchInterval: 15_000,
+    staleTime: 30_000,
+    refetchInterval: shouldPollInbox ? 30_000 : false,
+    refetchOnWindowFocus: false,
   });
 
   const openCallConversation = useCallback((session: ConversationCallSession) => {
@@ -200,8 +208,6 @@ export function InboxScreen() {
       channelType: session.conversation?.channel.channelType,
     });
   }, [navigation]);
-
-  const realtimeStatus = useSyncExternalStore(subscribeRealtimeConnectionStatus, getRealtimeConnectionStatus);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

@@ -3,14 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreHorizontal, Phone, Star, UserRound } from 'lucide-react-native';
 import Toast from 'react-native-toast-message';
 import { ContactDetailsPanel } from '../components/ContactDetailsPanel';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Animated, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { useIsFocused, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch, uploadFile } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
-import { setActiveConversationId } from '../api/realtime';
+import { getRealtimeConnectionStatus, setActiveConversationId, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { markRecentLocalMessageSend } from '../lib/inbox-realtime-suppression';
 import { setUnreadOverride, applyUnreadOverrides } from '../lib/unread-count-override';
 import { ConversationComposer } from '../components/ConversationComposer';
@@ -48,6 +48,8 @@ const apiUrl = (value: string | null) => {
 
 export function ConversationScreen() {
   const insets = useSafeAreaInsets(); const navigation = useNavigation(); const route = useRoute<RouteProp<InboxStackParamList, 'Conversation'>>(); const queryClient = useQueryClient();
+  const isFocused = useIsFocused();
+  const realtimeStatus = useSyncExternalStore(subscribeRealtimeConnectionStatus, getRealtimeConnectionStatus);
   const { session } = useAuth();
   const callController = useCallController();
   const listRef = useRef<FlatList>(null);
@@ -115,8 +117,15 @@ export function ConversationScreen() {
 
       return { items, nextCursor: page.pageInfo?.nextCursor ?? null, hasMore: page.pageInfo?.hasMore ?? false, conversation: page.conversation ?? null };
     },
-    staleTime: 5000,
-    refetchInterval: () => (pendingOptimisticRef.current.size > 0 ? false : 8000),
+    enabled: isFocused,
+    staleTime: 15_000,
+    // Realtime updates the open thread; poll only as fallback when socket is down.
+    // Unfocused stacked conversations must not keep polling.
+    refetchInterval: () => {
+      if (!isFocused || pendingOptimisticRef.current.size > 0) return false;
+      return realtimeStatus === 'connected' ? false : 20_000;
+    },
+    refetchOnWindowFocus: false,
   });
 
   const unreadCountOverridden = useRef(false);

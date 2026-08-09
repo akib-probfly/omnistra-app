@@ -131,8 +131,10 @@ export function NotificationBell({ onOpen }: { onOpen: () => void }) {
   const unreadQuery = useQuery({
     queryKey: notificationQueryKeys.unreadCount(),
     queryFn: fetchUnreadNotificationCount,
-    staleTime: 15_000,
-    refetchInterval: 15_000,
+    staleTime: 30_000,
+    // Badge is also patched/invalidated by realtime; keep a light fallback poll.
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: false,
   });
   const unreadCount = unreadQuery.data ?? 0;
   const blink = useRef(new Animated.Value(1)).current;

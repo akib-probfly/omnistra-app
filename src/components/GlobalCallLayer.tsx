@@ -170,8 +170,11 @@ export function GlobalCallLayer() {
     enabled: Boolean(session),
     refetchInterval: (query) => {
       const items = query.state.data?.items ?? [];
-      return items.some((item) => isLiveCallSession(item)) ? 5000 : 15000;
+      // Live calls need a short poll; idle inbox should not hammer /calls/active.
+      return items.some((item) => isLiveCallSession(item)) ? 5000 : 45_000;
     },
+    staleTime: 10_000,
+    refetchOnWindowFocus: false,
   });
 
   const [incomingCallPrompt, setIncomingCallPrompt] = useState<IncomingCallPrompt | null>(() => readIncomingCallPrompt());

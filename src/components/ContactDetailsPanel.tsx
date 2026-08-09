@@ -62,10 +62,31 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState(TAG_COLOR_OPTIONS[0]);
 
-  const conversationTagsQuery = useQuery({ queryKey: ['conversation-tags', conversation.id], queryFn: () => fetchConversationTags(conversation.id), staleTime: 30000 });
-  const workspaceTagsQuery = useQuery({ queryKey: ['workspace-tags', conversation.workspaceId], queryFn: () => fetchWorkspaceTags(conversation.workspaceId), enabled: Boolean(conversation.workspaceId), staleTime: 60000 });
-  const notesQuery = useQuery({ queryKey: ['conversation-notes', conversation.id], queryFn: () => fetchConversationNotes({ conversationId: conversation.id, limit: 50 }), staleTime: 15000 });
-  const attachmentsQuery = useQuery({ queryKey: ['conversation-attachments', conversation.id], queryFn: () => fetchConversationAttachments({ conversationId: conversation.id, limit: 50 }), staleTime: 15000 });
+  // Only fetch sidebar data when the panel is open (matches web: notes/files load on expand).
+  const conversationTagsQuery = useQuery({
+    queryKey: ['conversation-tags', conversation.id],
+    queryFn: () => fetchConversationTags(conversation.id),
+    enabled: visible,
+    staleTime: 30000,
+  });
+  const workspaceTagsQuery = useQuery({
+    queryKey: ['workspace-tags', conversation.workspaceId],
+    queryFn: () => fetchWorkspaceTags(conversation.workspaceId),
+    enabled: visible && Boolean(conversation.workspaceId),
+    staleTime: 60000,
+  });
+  const notesQuery = useQuery({
+    queryKey: ['conversation-notes', conversation.id],
+    queryFn: () => fetchConversationNotes({ conversationId: conversation.id, limit: 50 }),
+    enabled: visible,
+    staleTime: 15000,
+  });
+  const attachmentsQuery = useQuery({
+    queryKey: ['conversation-attachments', conversation.id],
+    queryFn: () => fetchConversationAttachments({ conversationId: conversation.id, limit: 50 }),
+    enabled: visible && filesOpen,
+    staleTime: 15000,
+  });
 
   const conversationTags = useMemo(() => (conversationTagsQuery.data?.items ?? []).filter((tag) => !tag.isArchived), [conversationTagsQuery.data?.items]);
   const conversationTagIds = useMemo(() => new Set(conversationTags.map((tag) => tag.id)), [conversationTags]);

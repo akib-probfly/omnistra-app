@@ -5,10 +5,11 @@ import { fetchLinkPreview, getPreviewableUrl, type LinkPreviewPayload } from '..
 
 type Props = {
   url: string;
+  /** Kept for call-site compat; preview card is always a white surface. */
   outgoing?: boolean;
 };
 
-export function LinkPreviewCard({ url, outgoing = false }: Props) {
+export function LinkPreviewCard({ url }: Props) {
   const [preview, setPreview] = useState<LinkPreviewPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
@@ -43,11 +44,11 @@ export function LinkPreviewCard({ url, outgoing = false }: Props) {
 
   if (loading) {
     return (
-      <View style={[styles.card, outgoing && styles.outgoingCard]}>
-        <View style={[styles.skeletonImage, outgoing && styles.outgoingSkeletonImage]} />
-        <View style={[styles.skeletonBody, outgoing && styles.outgoingContent]}>
-          <View style={[skeletonStyles.title, outgoing && skeletonStyles.outgoingTitle]} />
-          <View style={[skeletonStyles.subtitle, outgoing && skeletonStyles.outgoingSubtitle]} />
+      <View style={styles.card}>
+        <View style={styles.skeletonImage} />
+        <View style={styles.skeletonBody}>
+          <View style={skeletonStyles.title} />
+          <View style={skeletonStyles.subtitle} />
         </View>
       </View>
     );
@@ -66,11 +67,10 @@ export function LinkPreviewCard({ url, outgoing = false }: Props) {
   };
 
   const showImage = data.imageUrl && !imageError;
-
   const hostname = data.hostname.replace(/^www\./, '');
 
   return (
-    <View style={[styles.card, outgoing && styles.outgoingCard]}>
+    <View style={styles.card}>
       <Pressable
         onPress={() => Linking.openURL(data.url).catch(() => {})}
         style={styles.inner}
@@ -90,24 +90,24 @@ export function LinkPreviewCard({ url, outgoing = false }: Props) {
             ) : null}
           </View>
         )}
-        <View style={[styles.content, outgoing && styles.outgoingContent]}>
-          {data.siteName && !outgoing ? (
+        <View style={styles.content}>
+          {data.siteName ? (
             <Text style={styles.siteName} numberOfLines={1}>{data.siteName}</Text>
           ) : null}
-          <Text style={[styles.title, outgoing && styles.outgoingTitle]} numberOfLines={2}>
+          <Text style={styles.title} numberOfLines={2}>
             {data.title || hostname}
           </Text>
           {data.description ? (
-            <Text style={[styles.description, outgoing && styles.outgoingDescription]} numberOfLines={2}>{data.description}</Text>
+            <Text style={styles.description} numberOfLines={2}>{data.description}</Text>
           ) : null}
           <View style={styles.footer}>
             <View style={styles.footerLeft}>
-              <View style={[styles.themeDot, { backgroundColor: outgoing ? 'rgba(255,255,255,0.78)' : data.themeColor ?? '#64748b' }]} />
-              <Text style={[styles.hostname, outgoing && styles.outgoingHostname]} numberOfLines={1}>{hostname}</Text>
+              <View style={[styles.themeDot, { backgroundColor: data.themeColor ?? '#64748b' }]} />
+              <Text style={styles.hostname} numberOfLines={1}>{hostname}</Text>
             </View>
             <View style={styles.openLink}>
-              <Text style={[styles.openLinkText, outgoing && styles.outgoingOpenLinkText]}>Open link</Text>
-              <ExternalLink color={outgoing ? '#ffffff' : '#22c55e'} size={12} />
+              <Text style={styles.openLinkText}>Open link</Text>
+              <ExternalLink color="#22c55e" size={12} />
             </View>
           </View>
         </View>
@@ -126,11 +126,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginTop: 7,
     width: '90%',
-  },
-  outgoingCard: {
-    backgroundColor: '#315efb',
-    borderColor: 'transparent',
-    borderWidth: 0,
   },
   inner: {},
   image: {
@@ -153,11 +148,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   content: {
+    backgroundColor: '#ffffff',
     paddingHorizontal: 9,
     paddingVertical: 8,
-  },
-  outgoingContent: {
-    backgroundColor: '#315efb',
   },
   siteName: {
     color: '#64748b',
@@ -173,17 +166,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 16,
   },
-  outgoingTitle: {
-    color: '#ffffff',
-  },
   description: {
     color: '#64748b',
     fontSize: 10,
     marginTop: 3,
     lineHeight: 13,
-  },
-  outgoingDescription: {
-    color: 'rgba(255,255,255,0.82)',
   },
   footer: {
     flexDirection: 'row',
@@ -207,9 +194,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     flex: 1,
   },
-  outgoingHostname: {
-    color: 'rgba(255,255,255,0.82)',
-  },
   openLink: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -220,15 +204,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
   },
-  outgoingOpenLinkText: {
-    color: '#ffffff',
-  },
   skeletonImage: {
     height: 104,
     backgroundColor: '#f1f5f9',
-  },
-  outgoingSkeletonImage: {
-    backgroundColor: 'rgba(255,255,255,0.26)',
   },
   skeletonBody: {
     paddingHorizontal: 9,
@@ -244,16 +222,10 @@ const skeletonStyles = StyleSheet.create({
     backgroundColor: '#e2e8f0',
     width: '70%',
   },
-  outgoingTitle: {
-    backgroundColor: 'rgba(255,255,255,0.55)',
-  },
   subtitle: {
     height: 11,
     borderRadius: 4,
     backgroundColor: '#f1f5f9',
     width: '50%',
-  },
-  outgoingSubtitle: {
-    backgroundColor: 'rgba(255,255,255,0.35)',
   },
 });
