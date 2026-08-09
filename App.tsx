@@ -10,8 +10,18 @@ import { AuthProvider, useAuth } from './src/auth/AuthContext';
 import { useRealtimeSync } from './src/hooks/useRealtimeSync';
 import { CallControllerProvider } from './src/providers/CallControllerProvider';
 import { GlobalCallLayer } from './src/components/GlobalCallLayer';
+import { toastConfig } from './src/components/AppToast';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Realtime sync (useRealtimeSync) invalidates affected queries explicitly,
+      // so we don't need every query to be refetched on every mount/focus.
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+    },
+  },
+});
 
 function parseBillingReturnUrl(url: string) {
   try {
@@ -110,7 +120,7 @@ export default function App() {
                 <RealtimeBridge />
                 <AppNavigator />
                 <AuthenticatedOverlays />
-                <Toast />
+                <Toast config={toastConfig} />
               </NavigationContainer>
             </SafeAreaProvider>
           </GestureHandlerRootView>

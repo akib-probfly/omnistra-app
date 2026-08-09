@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ContactRound, Filter, Mail, Phone, Plus, Search, X } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -175,6 +175,10 @@ export function ContactsScreen() {
   });
 
   const items = useMemo(() => (contactsQuery.data?.pages ?? []).flatMap((page) => page.items), [contactsQuery.data]);
+  const renderContactRow = useCallback(
+    ({ item }: { item: CrmContactListItem }) => <ContactRow contact={item} navigation={navigation} />,
+    [navigation],
+  );
   const totalCount = contactsQuery.data?.pages?.[0]?.totalCount ?? items.length;
   const channelOptions = channelsQuery.data?.items ?? [];
   const whatsappAccountOptions = useMemo(() => {
@@ -384,15 +388,8 @@ export function ContactsScreen() {
             </View>
           )}
           ListFooterComponent={contactsQuery.isFetchingNextPage ? <ActivityIndicator color="#2563eb" style={{ marginVertical: 16 }} /> : null}
-          renderItem={({ item }) => (
-            <ContactRow
-              contact={item}
-              onPress={() => navigation.navigate('ContactDetails', {
-                contactId: item.id,
-                contactName: getContactTitle(item),
-              })}
-            />
-          )}
+          renderItem={renderContactRow}
+          extraData={navigation}
         />
       )}
 
@@ -637,11 +634,14 @@ export function ContactsScreen() {
   );
 }
 
-function ContactRow({ contact, onPress }: { contact: CrmContactListItem; onPress: () => void }) {
+const ContactRow = memo(function ContactRow({ contact, navigation }: { contact: CrmContactListItem; navigation: any }) {
   const title = getContactTitle(contact);
   const phone = formatPhoneNumberDisplay(contact.primaryPhone);
   const tags = (contact.tags ?? []).filter((tag) => !tag.isArchived).slice(0, 2);
   const hiddenTagCount = Math.max(0, (contact.tags ?? []).filter((tag) => !tag.isArchived).length - tags.length);
+  const onPress = useCallback(() => {
+    navigation.navigate('ContactDetails', { contactId: contact.id, contactName: title });
+  }, [navigation, contact.id, title]);
 
   return (
     <Pressable onPress={onPress} style={styles.card}>
@@ -689,7 +689,7 @@ function ContactRow({ contact, onPress }: { contact: CrmContactListItem; onPress
       <Text style={styles.activity}>{formatRelativeActivity(contact.lastActivityAt)}</Text>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: '#eef4fb', flex: 1 },

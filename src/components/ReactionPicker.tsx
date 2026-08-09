@@ -1,10 +1,23 @@
 // @ts-nocheck
 import { useEffect } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Copy, Reply as ReplyIcon } from 'lucide-react-native';
 
 export const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
-export function ReactionPicker({ visible, onPick, onClose, onReply }: { visible: boolean; onPick: (emoji: string) => void; onClose: () => void; onReply: () => void }) {
+export function ReactionPicker({
+  visible,
+  onPick,
+  onClose,
+  onReply,
+  onCopy,
+}: {
+  visible: boolean;
+  onPick: (emoji: string) => void;
+  onClose: () => void;
+  onReply: () => void;
+  onCopy?: () => void;
+}) {
   useEffect(() => {
     if (!visible) return;
   }, [visible]);
@@ -20,9 +33,18 @@ export function ReactionPicker({ visible, onPick, onClose, onReply }: { visible:
               </Pressable>
             ))}
           </View>
-          <Pressable style={styles.replyButton} onPress={() => { onClose(); onReply(); }}>
-            <Text style={styles.replyText}>↩ Reply</Text>
-          </Pressable>
+          <View style={styles.actionRow}>
+            <Pressable style={styles.actionButton} onPress={() => { onClose(); onReply(); }}>
+              <ReplyIcon color="#2563eb" size={20} />
+              <Text style={styles.actionText}>Reply</Text>
+            </Pressable>
+            {onCopy ? (
+              <Pressable style={styles.actionButton} onPress={() => { onClose(); onCopy(); }}>
+                <Copy color="#2563eb" size={20} />
+                <Text style={styles.actionText}>Copy</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       </Pressable>
     </Modal>
@@ -36,6 +58,7 @@ const styles = StyleSheet.create({
   emojis: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
   emojiButton: { alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 22, height: 44, justifyContent: 'center', width: 44 },
   emoji: { fontSize: 24 },
-  replyButton: { alignItems: 'center', borderColor: '#cfe0fa', borderRadius: 12, borderWidth: 1, marginTop: 18, paddingHorizontal: 20, paddingVertical: 9, width: '100%' },
-  replyText: { color: '#2563eb', fontSize: 14, fontWeight: '700' },
+  actionRow: { flexDirection: 'row', gap: 12, marginTop: 18, width: '100%' },
+  actionButton: { alignItems: 'center', borderColor: '#cfe0fa', borderRadius: 12, borderWidth: 1, flex: 1, flexDirection: 'row', gap: 6, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 9 },
+  actionText: { color: '#2563eb', fontSize: 13, fontWeight: '700' },
 });

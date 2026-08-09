@@ -8,7 +8,7 @@ import { ErrorState } from '../components/ErrorState';
 import { ChannelLogo, channelBrandColor } from '../components/ChannelLogo';
 import { AuthenticatedImage } from '../components/AuthenticatedImage';
 import { InboxCallsPane } from '../components/InboxCallsPane';
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { fetchConversations, fetchConversationCount, fetchConversationUnreadCount, fetchAssigneeOptions, type ConversationCallSession, type ConversationListItem } from '../api/inbox';
 import { fetchWorkspaceTags } from '../api/conversationDetails';
 import {
@@ -222,6 +222,12 @@ export function InboxScreen() {
 
   const items = useMemo(() => (conversations.data?.pages ?? []).flatMap((page) => page.items), [conversations.data]);
 
+  const keyExtractor = useCallback((item: ConversationListItem) => item.id, []);
+  const renderConversationRow = useCallback(
+    ({ item }: { item: ConversationListItem }) => <ConversationRow conversation={item} navigation={navigation} />,
+    [navigation],
+  );
+
   useEffect(() => () => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
     if (tagTextTimer.current) clearTimeout(tagTextTimer.current);
@@ -307,19 +313,9 @@ export function InboxScreen() {
             <FlatList
               style={styles.listFill}
               data={items}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <ConversationRow
-                  conversation={item}
-                  onPress={() => navigation.navigate('Conversation', {
-                    conversationId: item.id,
-                    contactName: item.contact.displayName ?? 'Unknown contact',
-                    workspaceId: item.workspaceId,
-                    channelId: item.channel?.channelId,
-                    channelType: item.channel?.channelType,
-                  })}
-                />
-              )}
+              keyExtractor={keyExtractor}
+              renderItem={renderConversationRow}
+              extraData={navigation}
               ListEmptyComponent={(
                 <View style={styles.empty}>
                   <Inbox color="#c3d0e2" size={44} />
@@ -686,7 +682,7 @@ function ConversationPreviewContent({
   return <Text style={styles.preview} numberOfLines={1}>{preview}</Text>;
 }
 
-function ConversationRow({ conversation, onPress }: { conversation: ConversationListItem; onPress: () => void }) {
+const ConversationRow = memo(function ConversationRow({ conversation, navigation }: { conversation: ConversationListItem; navigation: any }) {
   const presentation = getConversationLastInteractionPresentation(conversation);
   const direction = presentation?.direction ?? null;
   const previewTimestamp = presentation?.timestamp ?? conversation.lastMessageAt;
@@ -699,6 +695,15 @@ function ConversationRow({ conversation, onPress }: { conversation: Conversation
   useEffect(() => {
     setAvatarFailed(false);
   }, [avatarUrl]);
+  const onPress = useCallback(() => {
+    navigation.navigate('Conversation', {
+      conversationId: conversation.id,
+      contactName: conversation.contact.displayName ?? 'Unknown contact',
+      workspaceId: conversation.workspaceId,
+      channelId: conversation.channel?.channelId,
+      channelType: conversation.channel?.channelType,
+    });
+  }, [navigation, conversation]);
   return (
     <Pressable onPress={onPress} style={styles.rowPressable}>
       <View style={styles.row}>
@@ -741,7 +746,7 @@ function ConversationRow({ conversation, onPress }: { conversation: Conversation
       </View>
     </Pressable>
   );
-}
+});
 
 function formatTime(value: string | null) {
   if (!value) return '';

@@ -41,7 +41,7 @@ export async function uploadFile(path: string, uri: string, name: string, mimeTy
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await SecureStore.getItemAsync('access-token');
   latestAccessToken = token;
-  console.log(`[api] request ${init.method ?? 'GET'} ${path}`, { authenticated: Boolean(token) });
+  if (__DEV__) console.log(`[api] request ${init.method ?? 'GET'} ${path}`, { authenticated: Boolean(token) });
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
@@ -85,7 +85,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     } catch {
       if (raw && !raw.includes('\\n') && raw.length < 240) message = raw;
     }
-    console.error(`[api] ${init.method ?? 'GET'} ${path} -> ${response.status}`, message);
+    if (__DEV__) console.error(`[api] ${init.method ?? 'GET'} ${path} -> ${response.status}`, message);
     throw new Error(message);
   }
   const payload = await response.json() as T | { data?: T };

@@ -1,9 +1,10 @@
 // @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreHorizontal, Phone, Star, UserRound } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
 import { ContactDetailsPanel } from '../components/ContactDetailsPanel';
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Animated, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useIsFocused, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -402,14 +403,14 @@ export function ConversationScreen() {
 
   const imageUrls = useMemo(() => allMessages.flatMap((message) => (message.attachments ?? []).filter((attachment) => ['IMAGE', 'STICKER'].includes(attachment.mediaType.toUpperCase()) || attachment.mimeType?.startsWith('image/')).map((attachment) => { const src = apiUrl(attachment.previewUrl ?? attachment.thumbnailUrl ?? attachment.downloadUrl); return src ? { attachId: attachment.id, src, mediaType: attachment.mediaType } as MediaItem : null; }).filter((item): item is MediaItem => Boolean(item))), [allMessages]);
 
-  const openImage = (attachId: string) => {
+  const openImage = useCallback((attachId: string) => {
     setGallery(imageUrls);
     setGalleryIndex(Math.max(0, imageUrls.findIndex((media) => media.attachId === attachId)));
-  };
+  }, [imageUrls]);
 
-  const openVideo = (attachment: { downloadUrl: string; previewUrl?: string | null }) => {
+  const openVideo = useCallback((attachment: { downloadUrl: string; previewUrl?: string | null }) => {
     setVideoUrl(apiUrl(attachment.downloadUrl ?? attachment.previewUrl ?? null));
-  };
+  }, []);
 
   const channelType = header.conversation?.channel?.channelType ?? route.params.channelType;
   const channelId = header.conversation?.channel?.channelId ?? header.conversation?.channel?.id ?? route.params.channelId;
@@ -547,7 +548,7 @@ export function ConversationScreen() {
     if (contentOffset.y > contentSize.height - layoutMeasurement.height - 120) loadOlder();
   };
 
-  const renderMessage = ({ item }: { item: Message }) => <SwipeableMessage message={item} onReply={() => setReplyTo(item)} onReact={() => setReactTarget(item)} onImage={openImage} onVideo={openVideo} replyTarget={messageById.get(item.replyToMessageId ?? '') ?? null} reactions={reactionGroups[item.id]} onJumpToMessage={jumpToMessage} />;
+  const renderMessage = ({ item }: { item: Message }) => <SwipeableMessage message={item} setReplyTo={setReplyTo} setReactTarget={setReactTarget} onImage={openImage} onVideo={openVideo} replyTarget={messageById.get(item.replyToMessageId ?? '') ?? null} reactions={reactionGroups[item.id]} onJumpToMessage={jumpToMessage} />;
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -637,7 +638,18 @@ export function ConversationScreen() {
         canSendStandardMessage={messengerAvailability.canSendStandardMessage}
         canSendHumanAgentMessage={messengerAvailability.canSendHumanAgentMessage}
       />
-      <ReactionPicker visible={Boolean(reactTarget)} onClose={() => setReactTarget(null)} onPick={(emoji) => { if (reactTarget) reactMutation.mutate({ messageId: reactTarget.id, emoji }); setReactTarget(null); }} onReply={() => { if (reactTarget) setReplyTo(reactTarget); setReactTarget(null); }} />
+      <ReactionPicker
+        visible={Boolean(reactTarget)}
+        onClose={() => setReactTarget(null)}
+        onPick={(emoji) => { if (reactTarget) reactMutation.mutate({ messageId: reactTarget.id, emoji }); setReactTarget(null); }}
+        onReply={() => { if (reactTarget) setReplyTo(reactTarget); setReactTarget(null); }}
+        onCopy={reactTarget?.text ? () => {
+          const text = reactTarget.text ?? '';
+          setReactTarget(null);
+          void Clipboard.setStringAsync(text);
+          Toast.show({ type: 'copy', text1: 'Copied', position: 'bottom', visibilityTime: 1600 });
+        } : undefined}
+      />
       <MediaViewer images={gallery} index={galleryIndex} onClose={() => setGallery([])} onIndex={setGalleryIndex} />
       <VideoPlayerModal url={videoUrl} visible={Boolean(videoUrl)} onClose={() => setVideoUrl(null)} />
       <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
@@ -745,9 +757,11 @@ function ConversationSkeleton() {
   );
 }
 
-function SwipeableMessage({ message, onReply, onReact, onImage, onVideo, replyTarget, reactions, onJumpToMessage }: { message: Message; onReply: () => void; onReact: () => void; onImage: (attachId: string) => void; onVideo: (attachment: any) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }>; onJumpToMessage?: (messageId: string) => void }) {
+const SwipeableMessage = memo(function SwipeableMessage({ message, setReplyTo, setReactTarget, onImage, onVideo, replyTarget, reactions, onJumpToMessage }: { message: Message; setReplyTo: (message: Message) => void; setReactTarget: (message: Message) => void; onImage: (attachId: string) => void; onVideo: (attachment: any) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }>; onJumpToMessage?: (messageId: string) => void }) {
   const outgoing = message.direction === 'OUTBOUND';
   const swipeRef = useRef<Swipeable>(null);
+  const onReply = useCallback(() => setReplyTo(message), [setReplyTo, message]);
+  const onReact = useCallback(() => setReactTarget(message), [setReactTarget, message]);
   if (isInlineReactionMessage(message)) return null;
   const replyTargetId = message.replyToMessageId ?? replyTarget?.id ?? message.replyTo?.id ?? null;
   const replyPreview = message.replyTo || replyTarget ? {
@@ -762,7 +776,7 @@ function SwipeableMessage({ message, onReply, onReact, onImage, onVideo, replyTa
       </View>
     </Swipeable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: '#f8fbff', flex: 1 },
