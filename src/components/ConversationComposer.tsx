@@ -8,8 +8,14 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fetchQuickReplies, fetchWhatsappTemplates } from '../api/inbox';
+import {
+  COMPOSER_MAX_ATTACHMENT_COUNT,
+  getComposerAttachmentValidationError,
+  normalizeComposerMimeType,
+  resolveAttachmentSizeBytes,
+} from '../lib/composer-attachments';
 
-type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT' };
+type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT'; sizeBytes?: number | null };
 type Props = {
   value: string; onChange: (value: string) => void; onSend: () => void; sending?: boolean;
   attachments?: SendAttachment[]; onAttachments?: (list: SendAttachment[]) => void;
@@ -58,26 +64,120 @@ export function ConversationComposer({ value, onChange, onSend, sending, attachm
     if (!recording) return;
   }, [recording]);
 
-  async function addFiles(assets: Array<{ uri: string; fileName?: string | null; mimeType?: string | null; type?: string }>) {
-    const next = assets.map((asset) => {
-      const isVideo = asset.type === 'video';
-      const type = isVideo ? 'VIDEO' : 'IMAGE';
-      const mimeType = asset.mimeType ?? (isVideo ? 'video/mp4' : 'image/jpeg');
-      return { uri: asset.uri, name: asset.fileName ?? (isVideo ? 'video.mp4' : 'image.jpg'), mimeType, type } as SendAttachment;
-    });
-    onAttachments?.([...attachments, ...next]);
+  async function appendValidatedAttachments(
+    candidates: Array<{
+      uri: string;
+      name: string;
+      mimeType?: string | null;
+      type: SendAttachment['type'];
+      sizeBytes?: number | null;
+    }>,
+  ) {
+    const remaining = Math.max(0, COMPOSER_MAX_ATTACHMENT_COUNT - attachments.length);
+    if (remaining <= 0) {
+      Alert.alert('Attachment limit', `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once.`);
+      return;
+    }
+
+    const selected = candidates.slice(0, remaining);
+    const skippedForLimit = candidates.length - selected.length;
+    const accepted: SendAttachment[] = [];
+    const rejected: string[] = [];
+
+    for (const candidate of selected) {
+      const mimeType = normalizeComposerMimeType(
+        candidate.mimeType,
+        candidate.name,
+        candidate.type === 'IMAGE' ? 'image/jpeg' : candidate.type === 'VIDEO' ? 'video/mp4' : candidate.type === 'VOICE' || candidate.type === 'AUDIO' ? 'audio/mp4' : 'application/octet-stream',
+      );
+      const sizeBytes = await resolveAttachmentSizeBytes(candidate.uri, candidate.sizeBytes);
+      const error = await getComposerAttachmentValidationError({
+        mimeType,
+        sizeBytes,
+        channelType: channelType ?? 'WHATSAPP',
+      });
+      if (error) {
+        rejected.push(`${candidate.name}: ${error}`);
+        continue;
+      }
+      accepted.push({
+        uri: candidate.uri,
+        name: candidate.name,
+        mimeType,
+        type: candidate.type,
+        sizeBytes,
+      });
+    }
+
+    if (accepted.length) {
+      onAttachments?.([...attachments, ...accepted]);
+    }
+
+    if (skippedForLimit > 0 || rejected.length) {
+      const lines = [
+        skippedForLimit > 0
+          ? `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once. ${skippedForLimit} file${skippedForLimit === 1 ? '' : 's'} skipped.`
+          : null,
+        ...rejected.slice(0, 4),
+        rejected.length > 4 ? `…and ${rejected.length - 4} more.` : null,
+      ].filter(Boolean);
+      Alert.alert('Some files were skipped', lines.join('\n'));
+    }
   }
 
   async function chooseImage() {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images', 'videos'], quality: 0.85, selectionLimit: 0 });
-    if (!result.canceled && result.assets?.length) await addFiles(result.assets);
-  }
-  async function chooseDocument() {
-    const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, multiple: true });
-    if (!result.canceled) {
-      const next = result.assets.map((asset) => ({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType ?? 'application/octet-stream', type: 'DOCUMENT' }) as SendAttachment);
-      onAttachments?.([...attachments, ...next]);
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission required', 'Allow photo library access to attach images and videos.');
+      return;
     }
+    const remaining = Math.max(0, COMPOSER_MAX_ATTACHMENT_COUNT - attachments.length);
+    if (remaining <= 0) {
+      Alert.alert('Attachment limit', `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once.`);
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images', 'videos'],
+      quality: 0.85,
+      allowsMultipleSelection: true,
+      selectionLimit: remaining,
+      allowsEditing: false,
+    });
+    if (result.canceled || !result.assets?.length) return;
+    await appendValidatedAttachments(
+      result.assets.map((asset, index) => {
+        const isVideo = asset.type === 'video' || (asset.mimeType ?? '').startsWith('video/');
+        return {
+          uri: asset.uri,
+          name: asset.fileName ?? (isVideo ? `video-${index + 1}.mp4` : `image-${index + 1}.jpg`),
+          mimeType: asset.mimeType,
+          type: isVideo ? 'VIDEO' : 'IMAGE',
+          sizeBytes: asset.fileSize ?? null,
+        };
+      }),
+    );
+  }
+
+  async function chooseDocument() {
+    const remaining = Math.max(0, COMPOSER_MAX_ATTACHMENT_COUNT - attachments.length);
+    if (remaining <= 0) {
+      Alert.alert('Attachment limit', `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once.`);
+      return;
+    }
+    const result = await DocumentPicker.getDocumentAsync({
+      copyToCacheDirectory: true,
+      multiple: true,
+    });
+    if (result.canceled || !result.assets?.length) return;
+    await appendValidatedAttachments(
+      result.assets.map((asset) => ({
+        uri: asset.uri,
+        name: asset.name,
+        mimeType: asset.mimeType,
+        type: 'DOCUMENT',
+        sizeBytes: asset.size ?? null,
+      })),
+    );
   }
   function removeAttachment(uri: string) {
     onAttachments?.(attachments.filter((a) => a.uri !== uri));
@@ -108,7 +208,12 @@ export function ConversationComposer({ value, onChange, onSend, sending, attachm
     await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
     const uri = recorder.uri;
     if (send && uri) {
-      onAttachments?.([...attachments, { uri, name: 'voice-note.m4a', mimeType: 'audio/mp4', type: 'VOICE' }]);
+      await appendValidatedAttachments([{
+        uri,
+        name: 'voice-note.m4a',
+        mimeType: 'audio/mp4',
+        type: 'VOICE',
+      }]);
     }
   }
 
