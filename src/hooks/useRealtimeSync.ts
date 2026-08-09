@@ -11,7 +11,7 @@ import {
   type NotificationPreferences,
 } from '../api/notifications';
 import { shouldSuppressRealtimeMessageRefresh } from '../lib/inbox-realtime-suppression';
-import { playMessageNotificationSound } from '../lib/notificationSound';
+import { playNotificationSound } from '../lib/notificationSound';
 import { writeIncomingCallPrompt } from '../lib/incoming-call-prompt';
 import { useNotificationPreferences } from './useNotificationPreferences';
 
@@ -164,6 +164,11 @@ export function useRealtimeSync(accessToken: string | null) {
       const isRecentLocalMessageEcho = shouldSuppressRealtimeMessageRefresh(payload.conversationId, payload.messageId);
       if (isStatusOrMetaUpdate) {
         invalidateInboxQueries(queryClient, 1500);
+        if (payload.conversationId) {
+          schedule(`assignment-events:${payload.conversationId}`, () => {
+            void queryClient.invalidateQueries({ queryKey: ['assignment-events', payload.conversationId], refetchType: 'all' });
+          }, 800);
+        }
       }
       // Skip thread refetch for our own send echo — cache already has the confirmed bubble.
       if (isRecentLocalMessageEcho) return;
@@ -227,15 +232,17 @@ export function useRealtimeSync(accessToken: string | null) {
         if (preferences.incomingCallAlertsEnabled) {
           writeIncomingCallPrompt(payload as Parameters<typeof writeIncomingCallPrompt>[0]);
           void queryClient.invalidateQueries({ queryKey: ['active-calls'], refetchType: 'all' });
-          if (preferences.soundEnabled) void playMessageNotificationSound();
+          if (preferences.soundEnabled) void playNotificationSound(payload.type);
         }
         return;
       }
 
-      if (!shouldSurfaceNotification(payload, preferences)) return;
-      if (preferences.soundEnabled && (payload.type === 'NEW_MESSAGE' || payload.type === 'CONVERSATION_ASSIGNED')) {
-        void playMessageNotificationSound();
+      // Match web: sound follows soundEnabled for all notification types.
+      if (preferences.soundEnabled) {
+        void playNotificationSound(payload.type);
       }
+
+      if (!shouldSurfaceNotification(payload, preferences)) return;
     };
 
     const onConnect = () => {

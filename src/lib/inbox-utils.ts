@@ -1,4 +1,4 @@
-import type { ConversationCallSession } from '../api/inbox';
+import type { ConversationAssignmentEvent, ConversationAssignmentMember, ConversationCallSession } from '../api/inbox';
 
 const EMOJI_ONLY_MESSAGE_PATTERN = /^(?:\p{Extended_Pictographic}|\p{Emoji_Presentation}|\u200d|\ufe0f|\s)+$/u;
 
@@ -645,14 +645,117 @@ export function getCallHistoryToneStyles(tone: CallHistoryTone): { text: string;
 
 export type ConversationTimelineEntry =
   | { kind: 'message'; id: string; timestamp: number; message: MessageLike }
-  | { kind: 'call'; id: string; timestamp: number; session: ConversationCallSession };
+  | { kind: 'call'; id: string; timestamp: number; session: ConversationCallSession }
+  | { kind: 'assignment'; id: string; timestamp: number; event: ConversationAssignmentEvent };
+
+export type AssignmentEventPresentation = {
+  actorLabel: string;
+  actionLabel: string;
+  targetLabel: string | null;
+  body: string;
+};
+
+function getAssignmentMemberLabel(member: ConversationAssignmentMember | null, fallback = 'Someone') {
+  if (!member) return fallback;
+  if (member.userName?.trim()) return member.userName.trim();
+  if (member.userEmail?.trim()) return member.userEmail.trim();
+  return fallback;
+}
+
+function getAssignmentActorLabel(event: ConversationAssignmentEvent) {
+  if (event.actedBy) return getAssignmentMemberLabel(event.actedBy);
+  if (event.reason === 'DEFAULT_OWNER' || event.reason === 'ROUND_ROBIN') return 'System';
+  return getAssignmentMemberLabel(event.actedBy);
+}
+
+export function getAssignmentEventPresentation(event: ConversationAssignmentEvent): AssignmentEventPresentation {
+  const actorLabel = getAssignmentActorLabel(event);
+  const fromLabel = event.fromMember ? getAssignmentMemberLabel(event.fromMember, 'someone') : null;
+  const toLabel = event.toMember ? getAssignmentMemberLabel(event.toMember, 'someone') : null;
+
+  if (event.reason === 'SELF') {
+    if (event.toMember?.workspaceMemberId && event.actedBy?.workspaceMemberId === event.toMember.workspaceMemberId) {
+      return {
+        actorLabel,
+        actionLabel: 'assigned',
+        targetLabel: 'themselves',
+        body: `${actorLabel} assigned this conversation to themselves`,
+      };
+    }
+    return {
+      actorLabel,
+      actionLabel: 'assigned',
+      targetLabel: toLabel,
+      body: `${actorLabel} self-assigned this conversation`,
+    };
+  }
+
+  if (event.reason === 'UNASSIGNED' || (!event.toMember && event.fromMember)) {
+    return {
+      actorLabel,
+      actionLabel: 'unassigned this conversation',
+      targetLabel: null,
+      body: `${actorLabel} unassigned this conversation`,
+    };
+  }
+
+  if (event.reason === 'REASSIGNED' || (event.fromMember && event.toMember)) {
+    if (event.fromMember && event.toMember) {
+      return {
+        actorLabel,
+        actionLabel: 'reassigned',
+        targetLabel: toLabel,
+        body: `${actorLabel} reassigned the conversation from ${fromLabel} to ${toLabel}`,
+      };
+    }
+    if (event.toMember) {
+      return {
+        actorLabel,
+        actionLabel: 'assigned',
+        targetLabel: toLabel,
+        body: `${actorLabel} assigned ${toLabel} to this conversation`,
+      };
+    }
+  }
+
+  if (event.toMember) {
+    return {
+      actorLabel,
+      actionLabel: 'assigned',
+      targetLabel: toLabel,
+      body: `${actorLabel} assigned ${toLabel} to this conversation`,
+    };
+  }
+
+  if (event.fromMember) {
+    return {
+      actorLabel,
+      actionLabel: 'unassigned this conversation',
+      targetLabel: null,
+      body: `${actorLabel} unassigned this conversation`,
+    };
+  }
+
+  return {
+    actorLabel,
+    actionLabel: 'updated the assignment',
+    targetLabel: null,
+    body: actorLabel === 'System'
+      ? 'System updated the assignment for this conversation'
+      : 'Someone updated the assignment for this conversation',
+  };
+}
 
 export function getMessageListKey(message: MessageLike & { metadata?: any }): string {
   const clientKey = typeof message.metadata?.clientKey === 'string' ? message.metadata.clientKey : null;
   return clientKey || message.id;
 }
 
-export function buildConversationTimeline(messages: MessageLike[], callSessions: ConversationCallSession[]): ConversationTimelineEntry[] {
+export function buildConversationTimeline(
+  messages: MessageLike[],
+  callSessions: ConversationCallSession[],
+  assignmentEvents: ConversationAssignmentEvent[] = [],
+): ConversationTimelineEntry[] {
   const entries: ConversationTimelineEntry[] = [];
   for (const message of messages) {
     if (isInlineReactionMessage(message)) continue;
@@ -663,6 +766,10 @@ export function buildConversationTimeline(messages: MessageLike[], callSessions:
     if (session.status === 'PERMISSION_REQUESTED') continue;
     const timestamp = new Date(getCallSessionTimelineTimestamp(session)).getTime();
     entries.push({ kind: 'call', id: session.id, timestamp: Number.isNaN(timestamp) ? 0 : timestamp, session });
+  }
+  for (const event of assignmentEvents) {
+    const timestamp = new Date(event.createdAt).getTime();
+    entries.push({ kind: 'assignment', id: event.id, timestamp: Number.isNaN(timestamp) ? 0 : timestamp, event });
   }
   entries.sort((a, b) => (a.timestamp - b.timestamp) || a.id.localeCompare(b.id));
   return entries;

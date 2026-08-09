@@ -17,13 +17,15 @@ import { ConversationComposer } from '../components/ConversationComposer';
 import { MediaViewer } from '../components/MediaViewer';
 import { VideoPlayerModal } from '../components/VideoPlayer';
 import { MessageBubble } from '../components/MessageBubble';
+import { AssignmentHistoryItem } from '../components/AssignmentHistoryItem';
 import { ReactionPicker } from '../components/ReactionPicker';
-import { fetchAssigneeOptions, fetchConversationCallSessions, fetchMessagesPage, markConversationRead, markConversationUnread, sendReaction, sendTemplateMessage, updateConversationAssignment, updateConversationStar, updateConversationStatus, type ConversationCallSession } from '../api/inbox';
+import { fetchAssigneeOptions, fetchConversationAssignmentEvents, fetchConversationCallSessions, fetchMessagesPage, markConversationRead, markConversationUnread, sendReaction, sendTemplateMessage, updateConversationAssignment, updateConversationStar, updateConversationStatus, type ConversationCallSession } from '../api/inbox';
 import type { InboxStackParamList } from '../navigation/InboxStack';
 import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getConversationTitle, getConversationWindowLabel, getVoiceCallButtonState, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry } from '../lib/inbox-utils';
 import { CallHistoryItem } from '../components/CallHistoryItem';
 import { useCallController } from '../providers/CallControllerProvider';
 import { isWhatsappCallSupported } from '../lib/whatsapp-calling';
+import { playMessageSentSound } from '../lib/notificationSound';
 
 type Attachment = { id: string; messageId?: string | null; mediaType: string; mimeType: string; originalName: string | null; downloadUrl: string; previewUrl: string | null; thumbnailUrl: string | null; durationMs: number | null };
 type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBOUND'; senderType?: string | null; sender?: { userName?: string | null; userEmail?: string | null } | null; type: string; text: string | null; deliveryStatus?: string; failureReason?: string | null; campaignId?: string | null; campaignName?: string | null; replyToMessageId?: string | null; replyTo?: { sender?: { userName?: string | null } | null; text?: string | null } | null; sentAt?: string | null; createdAt?: string; metadata?: any; attachments?: Attachment[] };
@@ -251,6 +253,7 @@ export function ConversationScreen() {
       });
       // Soft-refresh inbox list only — avoid wiping the thread cache (that caused the blink).
       void queryClient.invalidateQueries({ queryKey: ['conversations'], refetchType: 'active' });
+      void playMessageSentSound();
     },
     onError: (error, _vars, context) => {
       if (context?.tempId) pendingOptimisticRef.current.delete(context.tempId);
@@ -284,6 +287,7 @@ export function ConversationScreen() {
       const assignee = assigneeWorkspaceMemberId ? { ...(conversation?.assignee ?? {}), workspaceMemberId: assigneeWorkspaceMemberId } : null;
       setHeader((c) => ({ ...c, conversation: { ...(c.conversation ?? {}), assignee } }));
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      void queryClient.invalidateQueries({ queryKey: ['assignment-events', route.params.conversationId], refetchType: 'all' });
     },
     onError: (error: Error) => Alert.alert('Could not update assignment', error.message),
   });
@@ -402,6 +406,12 @@ export function ConversationScreen() {
     staleTime: 30000,
   });
   const callSessions: ConversationCallSession[] = callsQuery.data?.items ?? [];
+  const assignmentHistoryQuery = useQuery({
+    queryKey: ['assignment-events', route.params.conversationId],
+    queryFn: () => fetchConversationAssignmentEvents({ conversationId: route.params.conversationId, limit: 100 }),
+    staleTime: 5 * 60 * 1000,
+  });
+  const assignmentEvents = assignmentHistoryQuery.data?.items ?? [];
   const activeCallSession = useMemo(
     () => callSessions.find((session) => isLiveCallSession(session)) ?? null,
     [callSessions],
@@ -436,7 +446,10 @@ export function ConversationScreen() {
     void queryClient.invalidateQueries({ queryKey: ['conversation-calls', route.params.conversationId] });
     void queryClient.invalidateQueries({ queryKey: ['active-calls'] });
   };
-  const timeline = useMemo<ConversationTimelineEntry[]>(() => buildConversationTimeline(allMessages, callSessions), [allMessages, callSessions]);
+  const timeline = useMemo<ConversationTimelineEntry[]>(
+    () => buildConversationTimeline(allMessages, callSessions, assignmentEvents),
+    [allMessages, callSessions, assignmentEvents],
+  );
   timelineRef.current = timeline;
   const displayEntries = useMemo(() => {
     const reversed = [...timeline].reverse();
@@ -526,7 +539,13 @@ export function ConversationScreen() {
               return (
                 <View style={highlighted ? styles.highlightRow : undefined}>
                   {showDivider ? <Text style={styles.dayDivider}>{formatTimelineDayLabel(new Date(entry.timestamp))}</Text> : null}
-                  {entry.kind === 'call' ? <CallHistoryItem session={entry.session} /> : renderMessage({ item: entry.message })}
+                  {entry.kind === 'call' ? (
+                    <CallHistoryItem session={entry.session} />
+                  ) : entry.kind === 'assignment' ? (
+                    <AssignmentHistoryItem event={entry.event} />
+                  ) : (
+                    renderMessage({ item: entry.message })
+                  )}
                 </View>
               );
             }}

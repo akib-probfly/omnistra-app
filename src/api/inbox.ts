@@ -193,6 +193,63 @@ export async function updateConversationAssignment(conversationId: string, assig
   });
 }
 
+export type ConversationAssignmentEventReason =
+  | 'MANUAL'
+  | 'SELF'
+  | 'UNASSIGNED'
+  | 'REASSIGNED'
+  | 'ROUND_ROBIN'
+  | 'DEFAULT_OWNER';
+
+export type ConversationAssignmentMember = {
+  workspaceMemberId: string;
+  userName: string | null;
+  userEmail: string | null;
+};
+
+export type ConversationAssignmentEvent = {
+  id: string;
+  workspaceId: string;
+  conversationId: string;
+  reason: ConversationAssignmentEventReason;
+  note: string | null;
+  fromWorkspaceMemberId: string | null;
+  fromMember: ConversationAssignmentMember | null;
+  toWorkspaceMemberId: string | null;
+  toMember: ConversationAssignmentMember | null;
+  actedByWorkspaceMemberId: string | null;
+  actedBy: ConversationAssignmentMember | null;
+  createdAt: string;
+};
+
+export type ConversationAssignmentEventsResponse = {
+  items: ConversationAssignmentEvent[];
+  pageInfo: { nextCursor: string | null; hasMore: boolean };
+};
+
+export async function fetchConversationAssignmentEvents(params: {
+  conversationId: string;
+  cursor?: string;
+  limit?: number;
+}): Promise<ConversationAssignmentEventsResponse> {
+  const limit = params.limit ?? 100;
+  const items: ConversationAssignmentEvent[] = [];
+  let cursor = params.cursor;
+  let pageInfo: ConversationAssignmentEventsResponse['pageInfo'] = { nextCursor: null, hasMore: false };
+
+  while (true) {
+    const response = await apiFetch<ConversationAssignmentEventsResponse>(
+      `/conversations/${params.conversationId}/assignment-events${buildQueryString({ cursor, limit })}`,
+    );
+    items.push(...(response.items ?? []));
+    pageInfo = response.pageInfo ?? pageInfo;
+    if (!pageInfo.hasMore || !pageInfo.nextCursor) break;
+    cursor = pageInfo.nextCursor;
+  }
+
+  return { items, pageInfo };
+}
+
 export type AssigneeFilterOption = {
   workspaceMemberId: string;
   userId: string;
