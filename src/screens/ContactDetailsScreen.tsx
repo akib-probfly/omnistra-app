@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Mail, MessageSquareText, Phone, Plus, Search, X } from 'lucide-react-native';
+import { AlertTriangle, ArrowLeft, Mail, MessageSquareText, Phone, Plus, Search, Trash2, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,9 +14,11 @@ import {
 } from 'react-native';
 import { CommonActions, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   addCrmContactNote,
+  deleteCrmContacts,
   fetchCrmContact,
   formatPhoneNumberDisplay,
   getContactTitle,
@@ -64,6 +67,8 @@ export function ContactDetailsScreen() {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [tagSearch, setTagSearch] = useState('');
   const [newTagColor, setNewTagColor] = useState(TAG_COLOR_OPTIONS[0]);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmValue, setDeleteConfirmValue] = useState('');
 
   const contactQuery = useQuery({
     queryKey: ['crm-contact', contactId],
@@ -168,6 +173,30 @@ export function ContactDetailsScreen() {
     },
     onError: (error: Error) => Alert.alert('Could not add note', error.message),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteCrmContacts({
+      workspaceId: contact?.workspaceId,
+      contactIds: [contactId],
+      expectedCount: 1,
+    }),
+    onSuccess: async () => {
+      setDeleteOpen(false);
+      setDeleteConfirmValue('');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['crm-contacts'] }),
+        queryClient.invalidateQueries({ queryKey: ['conversations'] }),
+        queryClient.invalidateQueries({ queryKey: ['inbox-unread-count'] }),
+        queryClient.invalidateQueries({ queryKey: ['conversation-count'] }),
+      ]);
+      queryClient.removeQueries({ queryKey: ['crm-contact', contactId] });
+      Toast.show({ type: 'success', text1: 'Contact deleted' });
+      navigation.goBack();
+    },
+    onError: (error: Error) => Alert.alert('Could not delete contact', error.message),
+  });
+
+  const canConfirmDelete = deleteConfirmValue.trim() === '1' && !deleteMutation.isPending;
 
   const openConversation = (conversationId: string) => {
     navigation.dispatch(
@@ -429,8 +458,88 @@ export function ContactDetailsScreen() {
               <Text style={styles.emptySection}>No notes yet.</Text>
             )}
           </View>
+
+          <View style={styles.dangerSection}>
+            <Text style={styles.sectionTitle}>Danger zone</Text>
+            <Text style={styles.dangerHint}>
+              Permanently delete this contact and their conversations, messages, attachments, tags, and stored files.
+            </Text>
+            <Pressable
+              style={styles.deleteButton}
+              onPress={() => {
+                setDeleteConfirmValue('');
+                setDeleteOpen(true);
+              }}
+            >
+              <Trash2 color="#fff" size={16} />
+              <Text style={styles.deleteButtonText}>Delete contact</Text>
+            </Pressable>
+          </View>
         </ScrollView>
       )}
+
+      <Modal visible={deleteOpen} transparent animationType="fade" onRequestClose={() => !deleteMutation.isPending && setDeleteOpen(false)}>
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalCard}>
+            <Pressable
+              style={styles.deleteModalClose}
+              onPress={() => {
+                if (deleteMutation.isPending) return;
+                setDeleteOpen(false);
+                setDeleteConfirmValue('');
+              }}
+              hitSlop={8}
+            >
+              <X color="#94a3b8" size={20} />
+            </Pressable>
+            <View style={styles.deleteModalIcon}>
+              <AlertTriangle color="#f43f5e" size={28} />
+            </View>
+            <Text style={styles.deleteModalTitle}>Confirm deletion</Text>
+            <Text style={styles.deleteModalBody}>
+              You are about to delete{' '}
+              <Text style={styles.deleteModalStrong}>1</Text>
+              {' '}contact. Type the number to confirm:
+            </Text>
+            <TextInput
+              value={deleteConfirmValue}
+              onChangeText={setDeleteConfirmValue}
+              placeholder='Type "1" to confirm'
+              placeholderTextColor="#94a3b8"
+              keyboardType="number-pad"
+              autoFocus
+              editable={!deleteMutation.isPending}
+              style={styles.deleteConfirmInput}
+              onSubmitEditing={() => {
+                if (canConfirmDelete) deleteMutation.mutate();
+              }}
+            />
+            <View style={styles.deleteModalActions}>
+              <Pressable
+                style={styles.deleteCancelButton}
+                disabled={deleteMutation.isPending}
+                onPress={() => {
+                  setDeleteOpen(false);
+                  setDeleteConfirmValue('');
+                }}
+              >
+                <Text style={styles.deleteCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.deleteConfirmButton, !canConfirmDelete && styles.saveDisabled]}
+                disabled={!canConfirmDelete}
+                onPress={() => deleteMutation.mutate()}
+              >
+                {deleteMutation.isPending ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.deleteButtonText}>Delete</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -489,4 +598,91 @@ const styles = StyleSheet.create({
   noteCard: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, marginTop: 10, padding: 12 },
   noteBody: { color: '#0f172a', fontSize: 13, lineHeight: 18 },
   noteMeta: { color: '#94a3b8', fontSize: 11, marginTop: 6 },
+  dangerSection: { backgroundColor: '#fff', borderColor: '#fecdd3', borderRadius: 18, borderWidth: 1, padding: 16 },
+  dangerHint: { color: '#64748b', fontSize: 13, lineHeight: 18, marginBottom: 4 },
+  deleteButton: {
+    alignItems: 'center',
+    backgroundColor: '#e11d48',
+    borderRadius: 12,
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingVertical: 12,
+  },
+  deleteButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  deleteModalOverlay: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(15,23,42,0.45)',
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  deleteModalCard: {
+    backgroundColor: '#fff',
+    borderRadius: 28,
+    maxWidth: 420,
+    paddingHorizontal: 22,
+    paddingVertical: 24,
+    width: '100%',
+  },
+  deleteModalClose: { position: 'absolute', right: 14, top: 14, zIndex: 2 },
+  deleteModalIcon: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    backgroundColor: '#ffe4e6',
+    borderRadius: 28,
+    height: 56,
+    justifyContent: 'center',
+    width: 56,
+  },
+  deleteModalTitle: {
+    color: '#0f172a',
+    fontSize: 22,
+    fontWeight: '800',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  deleteModalBody: {
+    color: '#64748b',
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  deleteModalStrong: { color: '#0f172a', fontWeight: '700' },
+  deleteConfirmInput: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fda4af',
+    borderRadius: 16,
+    borderWidth: 1,
+    color: '#0f172a',
+    fontSize: 15,
+    marginTop: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    textAlign: 'center',
+  },
+  deleteModalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 18,
+  },
+  deleteCancelButton: {
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+    borderRadius: 999,
+    borderWidth: 1,
+    flex: 1,
+    paddingVertical: 12,
+  },
+  deleteCancelText: { color: '#0f172a', fontSize: 14, fontWeight: '700' },
+  deleteConfirmButton: {
+    alignItems: 'center',
+    backgroundColor: '#e11d48',
+    borderRadius: 999,
+    flex: 1,
+    paddingVertical: 12,
+  },
 });

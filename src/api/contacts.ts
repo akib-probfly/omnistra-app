@@ -15,6 +15,7 @@ export type CrmContactTag = {
 
 export type CrmContactListItem = {
   id: string;
+  workspaceId?: string;
   displayName: string | null;
   avatarUrl: string | null;
   primaryPhone: string | null;
@@ -178,7 +179,12 @@ export async function deleteCrmContacts(input: {
   contactIds?: string[];
   all?: boolean;
   expectedCount?: number;
-}): Promise<{ deletedCount: number }> {
+}): Promise<{
+  deletedCount: number;
+  queuedCount?: number;
+  deletionQueued?: boolean;
+  storagePurgeTaskId?: string | null;
+}> {
   return apiFetch('/crm/contacts/delete', {
     method: 'POST',
     body: JSON.stringify(input),
