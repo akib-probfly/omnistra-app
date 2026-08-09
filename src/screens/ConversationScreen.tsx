@@ -21,7 +21,7 @@ import { AssignmentHistoryItem } from '../components/AssignmentHistoryItem';
 import { ReactionPicker } from '../components/ReactionPicker';
 import { fetchAssigneeOptions, fetchConversationAssignmentEvents, fetchConversationCallSessions, fetchMessagesPage, markConversationRead, markConversationUnread, sendReaction, sendTemplateMessage, updateConversationAssignment, updateConversationStar, updateConversationStatus, type ConversationCallSession } from '../api/inbox';
 import type { InboxStackParamList } from '../navigation/InboxStack';
-import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getConversationTitle, getConversationWindowLabel, getVoiceCallButtonState, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry } from '../lib/inbox-utils';
+import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getConversationTitle, getConversationWindowLabel, getMessengerMessagingAvailability, getVoiceCallButtonState, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
 import { CallHistoryItem } from '../components/CallHistoryItem';
 import { useCallController } from '../providers/CallControllerProvider';
 import { isWhatsappCallSupported } from '../lib/whatsapp-calling';
@@ -64,7 +64,9 @@ export function ConversationScreen() {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [header, setHeader] = useState({ isStarred: false, unreadCount: 0, status: 'OPEN' as string, conversation: null as any });
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [messengerMessagingMode, setMessengerMessagingMode] = useState<MessengerMessagingMode>('STANDARD');
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initializedMessengerModeConversationIdRef = useRef<string | null>(null);
   const hasMoreRef = useRef(false);
   const loadOlderRef = useRef<() => Promise<void>>(async () => {});
   const timelineRef = useRef<ConversationTimelineEntry[]>([]);
@@ -158,9 +160,16 @@ export function ConversationScreen() {
       }
       const text = draft.replace(/\u200B/g, '').trim() || undefined;
       const type = attachments.length ? (attachments[0].type === 'VOICE' ? 'VOICE' : attachments[0].type) : 'TEXT';
+      const channelTypeForSend = (header.conversation?.channel?.channelType ?? route.params.channelType ?? '').toUpperCase();
       const response = await apiFetch<any>(`/conversations/${route.params.conversationId}/messages`, {
         method: 'POST',
-        body: JSON.stringify({ type, text, attachmentIds, replyToMessageId: replyTo?.id }),
+        body: JSON.stringify({
+          type,
+          text,
+          attachmentIds,
+          replyToMessageId: replyTo?.id,
+          ...(channelTypeForSend === 'MESSENGER' ? { messengerMessagingMode } : {}),
+        }),
       });
       // API returns { message, messages, conversation } — not a bare message.
       const created: Message | null = response?.message
@@ -395,8 +404,48 @@ export function ConversationScreen() {
 
   const channelType = header.conversation?.channel?.channelType ?? route.params.channelType;
   const channelId = header.conversation?.channel?.channelId ?? header.conversation?.channel?.id ?? route.params.channelId;
-  const windowInfo = getConversationWindowLabel(header.conversation);
+  const isMessengerConversation = (channelType ?? '').toUpperCase() === 'MESSENGER';
+  const messengerAvailability = getMessengerMessagingAvailability(header.conversation);
+  const canSendSelectedMessengerMode = messengerMessagingMode === 'STANDARD'
+    ? messengerAvailability.canSendStandardMessage
+    : messengerAvailability.canSendHumanAgentMessage;
+  const canSendFreeform = isMessengerConversation
+    ? canSendSelectedMessengerMode
+    : header.conversation?.messaging?.canSendFreeformMessage;
+  const windowInfo = getConversationWindowLabel(header.conversation, messengerMessagingMode);
   const title = getConversationTitle(header.conversation, route.params.contactName);
+
+  useEffect(() => {
+    const conversationId = route.params.conversationId;
+    if (!isMessengerConversation || !header.conversation) {
+      initializedMessengerModeConversationIdRef.current = null;
+      if (!isMessengerConversation) setMessengerMessagingMode('STANDARD');
+      return;
+    }
+    if (initializedMessengerModeConversationIdRef.current === conversationId) return;
+    initializedMessengerModeConversationIdRef.current = conversationId;
+    const availability = getMessengerMessagingAvailability(header.conversation);
+    setMessengerMessagingMode(availability.canSendStandardMessage ? 'STANDARD' : 'HUMAN_AGENT');
+  }, [
+    header.conversation,
+    isMessengerConversation,
+    route.params.conversationId,
+    header.conversation?.messaging?.standardWindowExpiresAt,
+    header.conversation?.messaging?.humanAgentWindowExpiresAt,
+  ]);
+
+  useEffect(() => {
+    if (!isMessengerConversation || !header.conversation) return;
+    if (messengerMessagingMode === 'STANDARD' && !messengerAvailability.canSendStandardMessage && messengerAvailability.canSendHumanAgentMessage) {
+      setMessengerMessagingMode('HUMAN_AGENT');
+    }
+  }, [
+    isMessengerConversation,
+    messengerMessagingMode,
+    messengerAvailability.canSendStandardMessage,
+    messengerAvailability.canSendHumanAgentMessage,
+    header.conversation,
+  ]);
   const assigneeLabel = header.conversation?.assignee?.userName ?? header.conversation?.assignee?.userEmail ?? (header.conversation?.assignee ? 'Assigned agent' : 'Unassigned');
 
   const callsQuery = useQuery({
@@ -573,7 +622,11 @@ export function ConversationScreen() {
         replyPreview={replyTo ? { name: replyTo.direction === 'INBOUND' ? title : 'You', text: replyTo.text ?? 'Attachment' } : null}
         onCancelReply={() => setReplyTo(null)}
         onSend={() => { if (!send.isPending) send.mutate(); }}
-        canSendFreeform={header.conversation?.messaging?.canSendFreeformMessage}
+        canSendFreeform={canSendFreeform}
+        messengerMessagingMode={messengerMessagingMode}
+        onMessengerMessagingModeChange={setMessengerMessagingMode}
+        canSendStandardMessage={messengerAvailability.canSendStandardMessage}
+        canSendHumanAgentMessage={messengerAvailability.canSendHumanAgentMessage}
       />
       <ReactionPicker visible={Boolean(reactTarget)} onClose={() => setReactTarget(null)} onPick={(emoji) => { if (reactTarget) reactMutation.mutate({ messageId: reactTarget.id, emoji }); setReactTarget(null); }} onReply={() => { if (reactTarget) setReplyTo(reactTarget); setReactTarget(null); }} />
       <MediaViewer images={gallery} index={galleryIndex} onClose={() => setGallery([])} onIndex={setGalleryIndex} />

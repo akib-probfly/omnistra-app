@@ -252,13 +252,98 @@ export function isMissedCall(message: MessageLike): boolean {
   return /missed call/i.test(message.text ?? '');
 }
 
-export function getConversationWindowLabel(conversation: { messaging?: { windowExpiresAt?: string | null; standardWindowExpiresAt?: string | null; humanAgentWindowExpiresAt?: string | null } } | undefined, now = new Date()): { label: string; tone: 'open' | 'expired' | 'none' } {
+export type MessengerMessagingMode = 'STANDARD' | 'HUMAN_AGENT';
+
+function isFutureDate(value: string | null | undefined, now: number) {
+  if (!value) return false;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) && timestamp > now;
+}
+
+function formatWindowRemaining(expiresAt: string, now: number) {
+  const remainingMs = Date.parse(expiresAt) - now;
+  if (!Number.isFinite(remainingMs) || remainingMs <= 0) return null;
+  const totalMinutes = Math.max(1, Math.ceil(remainingMs / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours <= 0 ? `${minutes}m` : `${hours}h ${minutes}m`;
+}
+
+export function getMessengerMessagingAvailability(
+  conversation: {
+    messaging?: {
+      standardWindowExpiresAt?: string | null;
+      humanAgentWindowExpiresAt?: string | null;
+      canSendStandardMessage?: boolean;
+      canSendHumanAgentMessage?: boolean;
+    } | null;
+  } | undefined,
+  now = Date.now(),
+) {
+  const messaging = conversation?.messaging;
+  return {
+    canSendStandardMessage:
+      typeof messaging?.canSendStandardMessage === 'boolean'
+        ? messaging.canSendStandardMessage
+        : isFutureDate(messaging?.standardWindowExpiresAt, now),
+    canSendHumanAgentMessage:
+      typeof messaging?.canSendHumanAgentMessage === 'boolean'
+        ? messaging.canSendHumanAgentMessage
+        : isFutureDate(messaging?.humanAgentWindowExpiresAt, now),
+  };
+}
+
+export function getConversationWindowLabel(
+  conversation: {
+    channel?: { channelType?: string | null } | null;
+    messaging?: {
+      windowExpiresAt?: string | null;
+      standardWindowExpiresAt?: string | null;
+      humanAgentWindowExpiresAt?: string | null;
+      canSendStandardMessage?: boolean;
+      canSendHumanAgentMessage?: boolean;
+      windowState?: string | null;
+      policyType?: string | null;
+    } | null;
+  } | undefined,
+  messengerMessagingMode: MessengerMessagingMode = 'STANDARD',
+  now = new Date(),
+): { label: string; tone: 'open' | 'expired' | 'none' } {
+  const nowMs = now.getTime();
+  if ((conversation?.channel?.channelType ?? '').toUpperCase() === 'MESSENGER') {
+    const availability = getMessengerMessagingAvailability(conversation, nowMs);
+    if (!availability.canSendStandardMessage && !availability.canSendHumanAgentMessage) {
+      return { label: 'Messaging window expired', tone: 'expired' };
+    }
+    const isHumanAgent = messengerMessagingMode === 'HUMAN_AGENT';
+    const expiresAt = isHumanAgent
+      ? conversation?.messaging?.humanAgentWindowExpiresAt
+      : conversation?.messaging?.standardWindowExpiresAt;
+    const remaining = expiresAt ? formatWindowRemaining(expiresAt, nowMs) : null;
+    const selectedOpen = isHumanAgent
+      ? availability.canSendHumanAgentMessage
+      : availability.canSendStandardMessage;
+    return {
+      label: `${isHumanAgent ? 'Human Agent' : 'Standard'} window${remaining ? ` · ${remaining}` : ''}`,
+      tone: selectedOpen ? 'open' : 'expired',
+    };
+  }
+
+  if (conversation?.messaging?.policyType === 'UNRESTRICTED') {
+    return { label: 'Free-form replies available', tone: 'open' };
+  }
+
   const expiresAt = conversation?.messaging?.windowExpiresAt ?? conversation?.messaging?.standardWindowExpiresAt;
-  if (!expiresAt) return { label: 'Open', tone: 'none' };
+  if (!expiresAt) {
+    return {
+      label: conversation?.messaging?.windowState === 'EXPIRED' ? 'Window Expired' : 'Open',
+      tone: conversation?.messaging?.windowState === 'EXPIRED' ? 'expired' : 'none',
+    };
+  }
   const expires = new Date(expiresAt);
   if (Number.isNaN(expires.getTime())) return { label: 'Open', tone: 'none' };
   if (expires <= now) return { label: 'Window Expired', tone: 'expired' };
-  const diffMs = expires.getTime() - now.getTime();
+  const diffMs = expires.getTime() - nowMs;
   const hours = Math.floor(diffMs / 3600000);
   const minutes = Math.floor((diffMs % 3600000) / 60000);
   if (hours > 0) return { label: `${hours}h ${minutes}m left`, tone: 'open' };

@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { requestRecordingPermissionsAsync, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
-import { FileText, Mic, Pause, Paperclip, Play, Send, Smile, Trash2, X, Zap, PanelsTopLeft } from 'lucide-react-native';
+import { ChevronDown, Clock3, FileText, Mic, Pause, Paperclip, Play, Send, Smile, Trash2, X, Zap, PanelsTopLeft } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,6 +14,7 @@ import {
   normalizeComposerMimeType,
   resolveAttachmentSizeBytes,
 } from '../lib/composer-attachments';
+import type { MessengerMessagingMode } from '../lib/inbox-utils';
 
 type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT'; sizeBytes?: number | null };
 type Props = {
@@ -23,6 +24,10 @@ type Props = {
   workspaceId?: string; channelId?: string; channelType?: string; contactName?: string;
   onSendTemplate?: (params: { templateName: string; templateCategory?: string | null; languageCode?: string; text?: string }) => void;
   canSendFreeform?: boolean;
+  messengerMessagingMode?: MessengerMessagingMode;
+  onMessengerMessagingModeChange?: (mode: MessengerMessagingMode) => void;
+  canSendStandardMessage?: boolean;
+  canSendHumanAgentMessage?: boolean;
 };
 const emojis = ['😀', '😁', '😂', '🤣', '😊', '😍', '🥰', '😘', '👍', '👏', '🙏', '🔥', '❤️', '🎉', '✅', '😅', '😉', '😎', '🤔', '😭', '😮', '🙌', '💯', '✨'];
 
@@ -36,7 +41,26 @@ function renderTemplateSamples(body: string, variables?: Array<{ index?: number;
   return body.replace(/\{\{\s*(\d+)\s*\}\}/g, (match, index) => byIndex.get(Number(index)) ?? match);
 }
 
-export function ConversationComposer({ value, onChange, onSend, sending, attachments = [], onAttachments, replyPreview, onCancelReply, workspaceId, channelId, channelType, contactName, onSendTemplate, canSendFreeform = true }: Props) {
+export function ConversationComposer({
+  value,
+  onChange,
+  onSend,
+  sending,
+  attachments = [],
+  onAttachments,
+  replyPreview,
+  onCancelReply,
+  workspaceId,
+  channelId,
+  channelType,
+  contactName,
+  onSendTemplate,
+  canSendFreeform = true,
+  messengerMessagingMode = 'STANDARD',
+  onMessengerMessagingModeChange,
+  canSendStandardMessage = false,
+  canSendHumanAgentMessage = false,
+}: Props) {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [recording, setRecording] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -44,9 +68,12 @@ export function ConversationComposer({ value, onChange, onSend, sending, attachm
   const [quickQuery, setQuickQuery] = useState('');
   const [templateOpen, setTemplateOpen] = useState(false);
   const [templateQuery, setTemplateQuery] = useState('');
+  const [messengerModeOpen, setMessengerModeOpen] = useState(false);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder, 200);
 
+  const isWhatsAppChannel = (channelType ?? '').toUpperCase() === 'WHATSAPP';
+  const isMessengerChannel = (channelType ?? '').toUpperCase() === 'MESSENGER';
   const quickReplies = useQuery({
     queryKey: ['quick-replies', workspaceId, quickQuery],
     queryFn: () => fetchQuickReplies({ workspaceId, search: quickQuery || undefined, limit: 20 }),
@@ -54,8 +81,8 @@ export function ConversationComposer({ value, onChange, onSend, sending, attachm
   });
   const templates = useQuery({
     queryKey: ['whatsapp-templates', channelId],
-    queryFn: () => fetchWhatsappTemplates(channelId),
-    enabled: Boolean(channelId),
+    queryFn: () => fetchWhatsappTemplates(channelId!),
+    enabled: isWhatsAppChannel && Boolean(channelId),
     staleTime: 60000,
   });
   const approvedTemplates = (templates.data?.items ?? []).filter((template) => (template.status ?? '').toUpperCase() === 'APPROVED').filter((template) => template.name.toLowerCase().includes(templateQuery.toLowerCase()));
@@ -253,10 +280,29 @@ export function ConversationComposer({ value, onChange, onSend, sending, attachm
 
   const recordingSeconds = Math.floor(recorderState.durationMillis / 1000);
 
-  const isWhatsApp = channelType?.toUpperCase() === 'WHATSAPP';
-  const windowExpired = isWhatsApp && canSendFreeform === false;
+  const isWhatsApp = isWhatsAppChannel;
+  const whatsappWindowExpired = isWhatsApp && canSendFreeform === false;
+  const messengerWindowExpired = isMessengerChannel && !canSendStandardMessage && !canSendHumanAgentMessage;
+  const canComposeFreeform = canSendFreeform !== false;
 
-  if (windowExpired) {
+  if (messengerWindowExpired) {
+    return (
+      <View style={styles.blockedComposer}>
+        <LinearGradient colors={['#fff7ed', '#fff1f2']} style={styles.blockedGradient} />
+        <View style={styles.blockedContent}>
+          <Clock3 color="#dc2626" size={20} style={styles.blockedIcon} />
+          <View style={styles.blockedTextWrap}>
+            <Text style={styles.blockedTitle}>Messenger window expired</Text>
+            <Text style={styles.blockedSubtitle}>
+              The Messenger messaging window has expired. Free-form replies are unavailable after seven days.
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  if (whatsappWindowExpired) {
     return (
       <>
         <Modal visible={templateOpen} transparent animationType="fade" onRequestClose={() => setTemplateOpen(false)}>
@@ -410,19 +456,82 @@ export function ConversationComposer({ value, onChange, onSend, sending, attachm
             ))}
           </View>
         ) : null}
-        <TextInput multiline value={value} onChangeText={onChange} onKeyPress={handleKeyPress} placeholder="Write a message... use '/' for quick replies" placeholderTextColor="#a88971" style={styles.input} />
+        <TextInput
+          multiline
+          value={value}
+          onChangeText={onChange}
+          onKeyPress={handleKeyPress}
+          editable={canComposeFreeform}
+          placeholder={canComposeFreeform ? "Write a message... use '/' for quick replies" : 'Messaging window unavailable'}
+          placeholderTextColor="#a88971"
+          style={styles.input}
+        />
         <View style={styles.actions}>
-          <Pressable onPress={() => setEmojiOpen(true)}><Smile color="#64748b" size={20} /></Pressable>
-          <Pressable onPress={() => Alert.alert('Attachment', 'Choose an image or document', [{ text: 'Image', onPress: chooseImage }, { text: 'Document', onPress: chooseDocument }, { text: 'Cancel', style: 'cancel' }])}><Paperclip color="#64748b" size={20} /></Pressable>
-          <Pressable onPress={startRecording}><Mic color="#64748b" size={20} /></Pressable>
-          <Pressable onPress={() => setQuickOpen(true)}><Zap color="#64748b" size={20} /></Pressable>
-          {channelType?.toUpperCase() === 'WHATSAPP' && channelId ? <Pressable onPress={() => setTemplateOpen(true)}><PanelsTopLeft color="#16a34a" size={20} /></Pressable> : null}
+          {isMessengerChannel ? (
+            <Pressable style={styles.messengerModeChip} onPress={() => setMessengerModeOpen(true)}>
+              <Text style={styles.messengerModeChipText} numberOfLines={1}>
+                {messengerMessagingMode === 'STANDARD' ? 'Standard' : 'Human Agent'}
+              </Text>
+              <ChevronDown color="#475569" size={14} />
+            </Pressable>
+          ) : null}
+          <Pressable disabled={!canComposeFreeform} onPress={() => setEmojiOpen(true)} style={!canComposeFreeform ? styles.actionDisabled : undefined}>
+            <Smile color="#64748b" size={20} />
+          </Pressable>
+          <Pressable
+            disabled={!canComposeFreeform}
+            onPress={() => Alert.alert('Attachment', 'Choose an image or document', [{ text: 'Image', onPress: chooseImage }, { text: 'Document', onPress: chooseDocument }, { text: 'Cancel', style: 'cancel' }])}
+            style={!canComposeFreeform ? styles.actionDisabled : undefined}
+          >
+            <Paperclip color="#64748b" size={20} />
+          </Pressable>
+          <Pressable disabled={!canComposeFreeform} onPress={startRecording} style={!canComposeFreeform ? styles.actionDisabled : undefined}>
+            <Mic color="#64748b" size={20} />
+          </Pressable>
+          <Pressable disabled={!canComposeFreeform} onPress={() => setQuickOpen(true)} style={!canComposeFreeform ? styles.actionDisabled : undefined}>
+            <Zap color="#64748b" size={20} />
+          </Pressable>
+          {isWhatsAppChannel && channelId ? <Pressable onPress={() => setTemplateOpen(true)}><PanelsTopLeft color="#16a34a" size={20} /></Pressable> : null}
           <View style={styles.spacer} />
-          <Pressable onPress={onSend} disabled={sending || (!value.trim() && !attachments.length)} style={[styles.send, (value.trim() || attachments.length) && styles.sendActive, sending && styles.sendDisabled]}>
+          <Pressable
+            onPress={onSend}
+            disabled={sending || !canComposeFreeform || (!value.trim() && !attachments.length)}
+            style={[styles.send, canComposeFreeform && (value.trim() || attachments.length) && styles.sendActive, (sending || !canComposeFreeform) && styles.sendDisabled]}
+          >
             <Send color="#fff" size={18} />
           </Pressable>
         </View>
       </View>
+
+      <Modal visible={messengerModeOpen} transparent animationType="fade" onRequestClose={() => setMessengerModeOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setMessengerModeOpen(false)}>
+          <View style={styles.modeSheet}>
+            <Text style={styles.modeSheetTitle}>Messenger messaging mode</Text>
+            <Pressable
+              style={[styles.modeOption, messengerMessagingMode === 'STANDARD' && styles.modeOptionActive, !canSendStandardMessage && styles.modeOptionDisabled]}
+              disabled={!canSendStandardMessage}
+              onPress={() => {
+                onMessengerMessagingModeChange?.('STANDARD');
+                setMessengerModeOpen(false);
+              }}
+            >
+              <Text style={styles.modeOptionTitle}>Standard</Text>
+              <Text style={styles.modeOptionBody}>Normal reply within 24 hours</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.modeOption, messengerMessagingMode === 'HUMAN_AGENT' && styles.modeOptionActive, !canSendHumanAgentMessage && styles.modeOptionDisabled]}
+              disabled={!canSendHumanAgentMessage}
+              onPress={() => {
+                onMessengerMessagingModeChange?.('HUMAN_AGENT');
+                setMessengerModeOpen(false);
+              }}
+            >
+              <Text style={styles.modeOptionTitle}>Human Agent</Text>
+              <Text style={styles.modeOptionBody}>Manual, non-promotional support reply within 7 days</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </>
   );
 }
@@ -430,7 +539,41 @@ export function ConversationComposer({ value, onChange, onSend, sending, attachm
 const styles = StyleSheet.create({
   composer: { backgroundColor: '#fff9ef', borderColor: '#cfe0fa', borderRadius: 24, borderWidth: 1, margin: 12, padding: 12 },
   input: { color: '#334155', minHeight: 58, textAlignVertical: 'top' },
-  actions: { alignItems: 'center', flexDirection: 'row', gap: 18 },
+  actions: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+  actionDisabled: { opacity: 0.35 },
+  messengerModeChip: {
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderColor: '#dbe4f1',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 4,
+    maxWidth: 120,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  messengerModeChipText: { color: '#334155', fontSize: 12, fontWeight: '700' },
+  modeSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    gap: 8,
+    padding: 16,
+  },
+  modeSheetTitle: { color: '#0f172a', fontSize: 15, fontWeight: '800', marginBottom: 4 },
+  modeOption: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  modeOptionActive: { backgroundColor: '#eff6ff', borderColor: '#93c5fd' },
+  modeOptionDisabled: { opacity: 0.45 },
+  modeOptionTitle: { color: '#0f172a', fontSize: 14, fontWeight: '700' },
+  modeOptionBody: { color: '#64748b', fontSize: 12, marginTop: 3 },
   spacer: { flex: 1 },
   send: { alignItems: 'center', backgroundColor: '#b9dafa', borderRadius: 20, height: 40, justifyContent: 'center', width: 40 },
   sendActive: { backgroundColor: '#2563eb' },
