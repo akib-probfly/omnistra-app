@@ -77,6 +77,17 @@ export async function fetchWorkspaceTags(workspaceId?: string): Promise<{ items:
   return apiFetch(`/tags${raw ? `?${raw}` : ''}`);
 }
 
+export async function createWorkspaceTag(input: { text: string; color?: string; workspaceId?: string }): Promise<ConversationTag> {
+  return apiFetch('/tags', {
+    method: 'POST',
+    body: JSON.stringify({
+      text: input.text,
+      color: input.color,
+      workspaceId: input.workspaceId,
+    }),
+  });
+}
+
 export async function attachConversationTag(conversationId: string, tagId: string): Promise<any> {
   return apiFetch(`/conversations/${conversationId}/tags/${tagId}`, { method: 'PATCH' });
 }

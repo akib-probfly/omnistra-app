@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Mail, MessageSquareText, Phone } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { ArrowLeft, Mail, MessageSquareText, Phone, Plus, Search, X } from 'lucide-react-native';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -21,10 +21,13 @@ import {
   getContactTitle,
   updateCrmContactDetail,
 } from '../api/contacts';
+import { createWorkspaceTag, fetchWorkspaceTags } from '../api/conversationDetails';
 import { AuthenticatedImage } from '../components/AuthenticatedImage';
 import { ChannelLogo } from '../components/ChannelLogo';
 import { ErrorState } from '../components/ErrorState';
 import type { ContactsStackParamList } from '../navigation/ContactsStack';
+
+const TAG_COLOR_OPTIONS = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#64748b'];
 
 function getInitials(value: string) {
   return value
@@ -58,6 +61,9 @@ export function ContactDetailsScreen() {
   const [noteDraft, setNoteDraft] = useState('');
   const [emailDraft, setEmailDraft] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState<string | null>(null);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [tagSearch, setTagSearch] = useState('');
+  const [newTagColor, setNewTagColor] = useState(TAG_COLOR_OPTIONS[0]);
 
   const contactQuery = useQuery({
     queryKey: ['crm-contact', contactId],
@@ -65,10 +71,54 @@ export function ContactDetailsScreen() {
     staleTime: 20_000,
   });
 
+  const workspaceTagsQuery = useQuery({
+    queryKey: ['workspace-tags', 'contact-details'],
+    queryFn: () => fetchWorkspaceTags(),
+    staleTime: 60_000,
+  });
+
   const contact = contactQuery.data;
   const title = contact ? getContactTitle(contact) : contactName;
   const phone = formatPhoneNumberDisplay(contact?.primaryPhone);
-  const tags = useMemo(() => (contact?.tags ?? []).filter((tag) => !tag.isArchived), [contact?.tags]);
+  const contactTags = useMemo(() => (contact?.tags ?? []).filter((tag) => !tag.isArchived), [contact?.tags]);
+  const workspaceTags = useMemo(
+    () => (workspaceTagsQuery.data?.items ?? []).filter((tag) => !tag.isArchived),
+    [workspaceTagsQuery.data?.items],
+  );
+
+  useEffect(() => {
+    if (!contact) return;
+    setSelectedTagIds(contactTags.map((tag) => tag.id));
+  }, [contact?.id, contactTags]);
+
+  const selectedTags = useMemo(() => {
+    const byId = new Map<string, { id: string; text: string; color?: string | null }>();
+    for (const tag of workspaceTags) byId.set(tag.id, tag);
+    for (const tag of contactTags) byId.set(tag.id, tag);
+    return selectedTagIds.map((id) => byId.get(id)).filter((tag): tag is { id: string; text: string; color?: string | null } => Boolean(tag));
+  }, [selectedTagIds, workspaceTags, contactTags]);
+
+  const searchableTags = useMemo(() => {
+    const query = tagSearch.trim().toLowerCase();
+    const available = workspaceTags.filter((tag) => !selectedTagIds.includes(tag.id));
+    if (!query) return available.slice(0, 5);
+    return available
+      .filter((tag) => tag.text.toLowerCase().includes(query))
+      .slice(0, 5);
+  }, [workspaceTags, selectedTagIds, tagSearch]);
+
+  const canCreateTag = useMemo(() => {
+    const query = tagSearch.trim().toLowerCase();
+    if (!query) return false;
+    return !workspaceTags.some((tag) => tag.text.toLowerCase() === query);
+  }, [tagSearch, workspaceTags]);
+
+  const tagsDirty = useMemo(() => {
+    const current = contactTags.map((tag) => tag.id).sort().join('|');
+    const next = [...selectedTagIds].sort().join('|');
+    return current !== next;
+  }, [contactTags, selectedTagIds]);
+
   const conversations = useMemo(
     () => [...(contact?.conversations ?? [])].sort((left, right) => {
       const leftAt = Date.parse(left.lastMessageAt ?? left.createdAt);
@@ -83,7 +133,7 @@ export function ContactDetailsScreen() {
   );
 
   const updateMutation = useMutation({
-    mutationFn: (input: { displayName?: string | null; primaryEmail?: string | null }) => updateCrmContactDetail(contactId, input),
+    mutationFn: (input: { displayName?: string | null; primaryEmail?: string | null; tagIds?: string[] }) => updateCrmContactDetail(contactId, input),
     onSuccess: async () => {
       setEmailDraft(null);
       setNameDraft(null);
@@ -91,6 +141,23 @@ export function ContactDetailsScreen() {
       await queryClient.invalidateQueries({ queryKey: ['crm-contacts'] });
     },
     onError: (error: Error) => Alert.alert('Could not update contact', error.message),
+  });
+
+  const createTagMutation = useMutation({
+    mutationFn: async () => {
+      const created = await createWorkspaceTag({ text: tagSearch.trim(), color: newTagColor });
+      const nextIds = selectedTagIds.includes(created.id) ? selectedTagIds : [...selectedTagIds, created.id];
+      await updateCrmContactDetail(contactId, { tagIds: nextIds });
+      return { created, nextIds };
+    },
+    onSuccess: async ({ nextIds }) => {
+      setSelectedTagIds(nextIds);
+      setTagSearch('');
+      await queryClient.invalidateQueries({ queryKey: ['workspace-tags'] });
+      await queryClient.invalidateQueries({ queryKey: ['crm-contact', contactId] });
+      await queryClient.invalidateQueries({ queryKey: ['crm-contacts'] });
+    },
+    onError: (error: Error) => Alert.alert('Could not create tag', error.message),
   });
 
   const noteMutation = useMutation({
@@ -214,18 +281,108 @@ export function ContactDetailsScreen() {
             ) : null}
           </View>
 
-          {tags.length ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Tags</Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Tags</Text>
+            {selectedTags.length ? (
               <View style={styles.tagRow}>
-                {tags.map((tag) => (
-                  <View key={tag.id} style={[styles.tagChip, { backgroundColor: `${tag.color ?? '#64748b'}18`, borderColor: `${tag.color ?? '#64748b'}33` }]}>
-                    <Text style={[styles.tagChipText, { color: tag.color ?? '#64748b' }]}>{tag.text}</Text>
-                  </View>
-                ))}
+                {selectedTags.map((tag) => {
+                  const color = tag.color?.trim() || '#64748b';
+                  return (
+                    <Pressable
+                      key={tag.id}
+                      style={[styles.tagChip, { backgroundColor: `${color}18`, borderColor: `${color}33` }]}
+                      onPress={() => setSelectedTagIds((current) => current.filter((id) => id !== tag.id))}
+                    >
+                      <Text style={[styles.tagChipText, { color }]}>{tag.text}</Text>
+                      <X color={color} size={12} />
+                    </Pressable>
+                  );
+                })}
               </View>
+            ) : (
+              <Text style={styles.emptySection}>No tags yet. Search or create one below.</Text>
+            )}
+
+            <View style={styles.tagSearch}>
+              <Search color="#94a3b8" size={16} />
+              <TextInput
+                value={tagSearch}
+                onChangeText={setTagSearch}
+                placeholder="Search tags to add"
+                placeholderTextColor="#94a3b8"
+                style={styles.tagSearchInput}
+              />
+              {tagSearch ? (
+                <Pressable onPress={() => setTagSearch('')} hitSlop={8}>
+                  <X color="#94a3b8" size={16} />
+                </Pressable>
+              ) : null}
             </View>
-          ) : null}
+
+            <View style={styles.tagPickerList}>
+              {searchableTags.map((tag) => {
+                const color = tag.color?.trim() || '#64748b';
+                return (
+                  <Pressable
+                    key={tag.id}
+                    style={styles.tagOption}
+                    onPress={() => {
+                      setSelectedTagIds((current) => (current.includes(tag.id) ? current : [...current, tag.id]));
+                      setTagSearch('');
+                    }}
+                  >
+                    <View style={[styles.tagDot, { backgroundColor: color }]} />
+                    <Text style={styles.tagOptionText} numberOfLines={1}>{tag.text}</Text>
+                    <Plus color="#2563eb" size={14} />
+                  </Pressable>
+                );
+              })}
+              {!workspaceTagsQuery.isLoading && !searchableTags.length ? (
+                <Text style={styles.emptySection}>
+                  {tagSearch.trim() ? 'No workspace tags match your search.' : 'No more tags to add.'}
+                </Text>
+              ) : null}
+            </View>
+
+            {canCreateTag ? (
+              <View style={styles.createTagBox}>
+                <Text style={styles.createTagLabel}>Create “{tagSearch.trim()}”</Text>
+                <View style={styles.colorRow}>
+                  {TAG_COLOR_OPTIONS.map((color) => (
+                    <Pressable
+                      key={color}
+                      onPress={() => setNewTagColor(color)}
+                      style={[styles.colorSwatch, { backgroundColor: color }, newTagColor === color && styles.colorSwatchActive]}
+                    />
+                  ))}
+                </View>
+                <Pressable
+                  style={[styles.createTagButton, createTagMutation.isPending && styles.saveDisabled]}
+                  disabled={createTagMutation.isPending}
+                  onPress={() => createTagMutation.mutate()}
+                >
+                  {createTagMutation.isPending ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <Plus color="#fff" size={14} />
+                      <Text style={styles.saveButtonText}>Create & assign</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+            ) : null}
+
+            {tagsDirty ? (
+              <Pressable
+                style={[styles.saveButton, updateMutation.isPending && styles.saveDisabled]}
+                disabled={updateMutation.isPending}
+                onPress={() => updateMutation.mutate({ tagIds: selectedTagIds })}
+              >
+                {updateMutation.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save tags</Text>}
+              </Pressable>
+            ) : null}
+          </View>
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Conversations</Text>
@@ -306,9 +463,23 @@ const styles = StyleSheet.create({
   saveButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 12, marginTop: 12, paddingVertical: 12 },
   saveDisabled: { opacity: 0.55 },
   saveButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tagChip: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5 },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  tagChip: { alignItems: 'center', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 5, paddingHorizontal: 10, paddingVertical: 5 },
   tagChipText: { fontSize: 12, fontWeight: '600' },
+  tagSearch: { alignItems: 'center', backgroundColor: '#fffaf0', borderColor: '#cfe1ff', borderRadius: 14, borderWidth: 1, flexDirection: 'row', marginTop: 4, paddingHorizontal: 10 },
+  tagSearchInput: { color: '#0f172a', flex: 1, height: 42, marginLeft: 8 },
+  tagPickerList: { gap: 4, marginTop: 10 },
+  tagOption: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 10, paddingHorizontal: 10, paddingVertical: 10 },
+  tagOptionActive: { backgroundColor: '#dbeafe' },
+  tagOptionText: { color: '#334155', flex: 1, fontSize: 14, fontWeight: '500' },
+  tagOptionTextActive: { color: '#1d4ed8', fontWeight: '700' },
+  tagDot: { borderRadius: 5, height: 10, width: 10 },
+  createTagBox: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 14, borderWidth: 1, marginTop: 10, padding: 12 },
+  createTagLabel: { color: '#0f172a', fontSize: 13, fontWeight: '700' },
+  colorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  colorSwatch: { borderRadius: 12, height: 24, width: 24 },
+  colorSwatchActive: { borderColor: '#0f172a', borderWidth: 2 },
+  createTagButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 12, flexDirection: 'row', gap: 6, justifyContent: 'center', marginTop: 12, paddingVertical: 11 },
   conversationRow: { borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 10, marginBottom: 8, padding: 12 },
   conversationStatus: { color: '#2563eb', fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   conversationPreview: { color: '#334155', fontSize: 13, marginTop: 3 },
