@@ -97,7 +97,10 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
   const firstUrl = useMemo(() => findFirstUrlInText(message.text ?? ''), [message.text]);
   const showLinkPreview = !isTemplate && firstUrl && !imageAttachments.length && !videoAttachments.length;
 
+  const hasReactions = Boolean(reactions?.length);
+
   return (
+    <View style={[styles.wrap, outgoing && styles.wrapOutgoing, hasReactions && styles.wrapWithReactions]}>
     <Pressable onLongPress={onLongPress} delayLongPress={350}>
       <View style={[styles.bubble, showLinkPreview && styles.linkPreviewBubble, isTemplate ? (outgoing ? styles.outgoingTemplate : styles.incomingTemplate) : (outgoing ? styles.outgoing : styles.incoming)]}>
         {message.campaignId ? (
@@ -237,18 +240,19 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
         {failedReason ? (
           <Text style={styles.failedText}>Failed to send: {failedReason}</Text>
         ) : null}
-        {reactions && reactions.length ? (
-          <View style={styles.reactionRow}>
-            {reactions.map((reaction: any) => (
-              <View key={reaction.emoji} style={styles.reactionPill}>
-                <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
-                {reaction.count > 1 ? <Text style={[styles.reactionCount, outgoing && styles.reactionCountOutgoing]}>{reaction.count}</Text> : null}
-              </View>
-            ))}
-          </View>
-        ) : null}
       </View>
     </Pressable>
+    {hasReactions ? (
+      <View style={[styles.reactionRow, outgoing && styles.reactionRowOutgoing]}>
+        {reactions.map((reaction: any) => (
+          <View key={reaction.emoji} style={styles.reactionPill}>
+            <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
+            {reaction.count > 1 ? <Text style={styles.reactionCount}>{reaction.count}</Text> : null}
+          </View>
+        ))}
+      </View>
+    ) : null}
+    </View>
   );
 }
 
@@ -297,8 +301,11 @@ const styles = StyleSheet.create({
   systemText: { color: '#475569', fontSize: 12, fontWeight: '500' },
   systemTextMissed: { color: '#d97706' },
   systemTime: { color: '#94a3b8', fontSize: 11 },
-  bubble: { borderRadius: 18, maxWidth: '82%', padding: 13 },
-  linkPreviewBubble: { maxWidth: '82%', width: '82%' },
+  wrap: { alignSelf: 'flex-start', maxWidth: '82%' },
+  wrapOutgoing: { alignSelf: 'flex-end' },
+  wrapWithReactions: { marginBottom: 8 },
+  bubble: { borderRadius: 18, padding: 13 },
+  linkPreviewBubble: { width: '100%' },
   incoming: { backgroundColor: '#fff', borderColor: '#cfe0fa', borderWidth: 1 },
   outgoing: { backgroundColor: '#3264f6' },
   incomingTemplate: { backgroundColor: '#fff', borderColor: '#d7e6fb', borderWidth: 1, borderRadius: 16, padding: 6 },
@@ -358,9 +365,31 @@ const styles = StyleSheet.create({
   editedOutgoing: { borderColor: '#ffffff33', borderWidth: 1, color: '#dbeafe' },
   editedIncoming: { borderColor: '#dbe4f1', borderWidth: 1, color: '#64748b' },
   failedText: { color: '#fda4af', fontSize: 11, marginTop: 4 },
-  reactionRow: { flexDirection: 'row', gap: 5, position: 'absolute', bottom: 3, left: -8 },
-  reactionPill: { alignItems: 'center', flexDirection: 'row', gap: 2, paddingHorizontal: 3, paddingVertical: 0 },
-  reactionEmoji: { fontSize: 16 },
-  reactionCount: { color: '#64748b', fontSize: 12, fontWeight: '700' },
-  reactionCountOutgoing: { color: '#dbeafe' },
+  reactionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: -10,
+    paddingHorizontal: 2,
+    zIndex: 2,
+  },
+  reactionRowOutgoing: { justifyContent: 'flex-end' },
+  reactionPill: {
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderColor: '#e2e8f0',
+    borderRadius: 999,
+    borderWidth: 1,
+    elevation: 2,
+    flexDirection: 'row',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+  },
+  reactionEmoji: { fontSize: 14 },
+  reactionCount: { color: '#475569', fontSize: 11, fontWeight: '700' },
 });

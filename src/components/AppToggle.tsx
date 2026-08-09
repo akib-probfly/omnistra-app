@@ -72,12 +72,12 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
   },
   trackBlue: {
-    backgroundColor: '#dbeafe',
-    borderColor: '#bfdbfe',
+    backgroundColor: '#2563eb',
+    borderColor: '#1d4ed8',
   },
   trackAmber: {
-    backgroundColor: '#fef3c7',
-    borderColor: '#fde68a',
+    backgroundColor: '#f59e0b',
+    borderColor: '#d97706',
   },
   thumb: {
     backgroundColor: '#fff',
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     height: 20,
     position: 'absolute',
     shadowColor: '#0f172a',
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.12,
     shadowRadius: 2,
     top: 1,
     width: 20,
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     width: 36,
   },
   sidebarTrackOff: { backgroundColor: '#fff', borderColor: '#e2e8f0' },
-  sidebarTrackOn: { backgroundColor: '#dbeafe', borderColor: '#bfdbfe' },
+  sidebarTrackOn: { backgroundColor: '#2563eb', borderColor: '#1d4ed8' },
   sidebarThumb: {
     borderRadius: 999,
     borderWidth: 1,
@@ -111,6 +111,6 @@ const styles = StyleSheet.create({
     width: 18,
   },
   sidebarThumbOff: { backgroundColor: '#fffbeb', borderColor: '#e2e8f0', left: 2 },
-  sidebarThumbOn: { backgroundColor: '#2563eb', borderColor: '#2563eb', left: 15 },
+  sidebarThumbOn: { backgroundColor: '#fff', borderColor: '#fff', left: 15 },
   disabled: { opacity: 0.55 },
 });

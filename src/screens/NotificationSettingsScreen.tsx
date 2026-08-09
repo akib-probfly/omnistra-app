@@ -10,7 +10,7 @@ import {
   Speaker,
   Volume2,
 } from 'lucide-react-native';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -89,6 +89,8 @@ export function NotificationSettingsScreen() {
   });
 
   const preferences = preferencesQuery.data ?? DEFAULT_NOTIFICATION_PREFERENCES;
+  const [pushPending, setPushPending] = useState(false);
+  const controlsReady = preferencesQuery.isSuccess;
 
   const persistMutation = useMutation({
     mutationFn: (next: NotificationPreferences) => updateNotificationPreferences(workspaceId!, next),
@@ -114,29 +116,40 @@ export function NotificationSettingsScreen() {
 
   const save = useCallback((updater: (current: NotificationPreferences) => NotificationPreferences) => {
     if (!workspaceId || !preferencesQuery.isSuccess) return;
-    const next = updater(preferences);
+    const current = queryClient.getQueryData<NotificationPreferences>(
+      notificationQueryKeys.preferences(workspaceId),
+    ) ?? DEFAULT_NOTIFICATION_PREFERENCES;
+    const next = updater(current);
     queryClient.setQueryData(notificationQueryKeys.preferences(workspaceId), next);
-    void persistMutation.mutateAsync(next).catch(() => undefined);
-  }, [persistMutation, preferences, preferencesQuery.isSuccess, queryClient, workspaceId]);
+    persistMutation.mutate(next);
+  }, [persistMutation, preferencesQuery.isSuccess, queryClient, workspaceId]);
 
   const toggle = async (key: PreferenceKey, push = false) => {
-    const nextValue = !preferences[key];
+    if (!controlsReady) return;
+    const current = workspaceId
+      ? (queryClient.getQueryData<NotificationPreferences>(notificationQueryKeys.preferences(workspaceId))
+        ?? preferences)
+      : preferences;
+    const nextValue = !current[key];
     if (push && nextValue) {
-      const current = await Notifications.getPermissionsAsync();
-      let status = current.status;
-      if (status !== 'granted') {
-        const requested = await Notifications.requestPermissionsAsync();
-        status = requested.status;
-      }
-      if (status !== 'granted') {
-        Alert.alert('Permission required', 'Enable notifications for Omnistra in your device settings to receive push alerts.');
-        return;
+      setPushPending(true);
+      try {
+        const permission = await Notifications.getPermissionsAsync();
+        let status = permission.status;
+        if (status !== 'granted') {
+          const requested = await Notifications.requestPermissionsAsync();
+          status = requested.status;
+        }
+        if (status !== 'granted') {
+          Alert.alert('Permission required', 'Enable notifications for Omnistra in your device settings to receive push alerts.');
+          return;
+        }
+      } finally {
+        setPushPending(false);
       }
     }
-    save((current) => ({ ...current, [key]: nextValue }));
+    save((prefs) => ({ ...prefs, [key]: nextValue }));
   };
-
-  const busy = !preferencesQuery.isSuccess || persistMutation.isPending;
 
   return (
     <View style={styles.screen}>
@@ -186,7 +199,7 @@ export function NotificationSettingsScreen() {
                   </View>
                   <AppToggle
                     value={enabled}
-                    disabled={busy}
+                    disabled={!controlsReady || (Boolean(row.push) && pushPending)}
                     onValueChange={() => void toggle(row.key, row.push)}
                     accessibilityLabel={row.title}
                   />
@@ -215,8 +228,8 @@ export function NotificationSettingsScreen() {
               </View>
               <AppToggle
                 value={preferences.mentionsAndAssignmentsOnly}
-                disabled={busy}
-                onValueChange={() => toggle('mentionsAndAssignmentsOnly')}
+                disabled={!controlsReady}
+                onValueChange={() => void toggle('mentionsAndAssignmentsOnly')}
                 accessibilityLabel="Mentions and assignments only"
               />
             </View>
@@ -234,8 +247,8 @@ export function NotificationSettingsScreen() {
               </View>
               <AppToggle
                 value={preferences.backgroundSoundEnabled}
-                disabled={busy}
-                onValueChange={() => toggle('backgroundSoundEnabled')}
+                disabled={!controlsReady}
+                onValueChange={() => void toggle('backgroundSoundEnabled')}
                 accessibilityLabel="Background sound"
               />
             </View>
@@ -249,8 +262,8 @@ export function NotificationSettingsScreen() {
               </View>
               <AppToggle
                 value={preferences.dailySummaryDigestEnabled}
-                disabled={busy}
-                onValueChange={() => toggle('dailySummaryDigestEnabled')}
+                disabled={!controlsReady}
+                onValueChange={() => void toggle('dailySummaryDigestEnabled')}
                 accessibilityLabel="Daily summary digest"
               />
             </View>
