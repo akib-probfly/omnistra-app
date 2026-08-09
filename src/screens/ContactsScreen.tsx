@@ -43,6 +43,19 @@ type ChannelOption = {
   name?: string | null;
   type?: string;
   channelType?: string;
+  accounts?: Array<{
+    id: string;
+    isEnabled?: boolean;
+    displayPhoneNumber?: string | null;
+    externalAccountId?: string | null;
+  }>;
+};
+
+type WhatsappAccountOption = {
+  accountId: string;
+  channelName: string;
+  displayPhoneNumber: string | null;
+  channelType: string;
 };
 
 const FILTER_LAYERS: Array<{ id: FilterLayer; label: string }> = [
@@ -104,6 +117,10 @@ export function ContactsScreen() {
   const [addName, setAddName] = useState('');
   const [addPhone, setAddPhone] = useState('');
   const [addEmail, setAddEmail] = useState('');
+  const [addChannelAccountId, setAddChannelAccountId] = useState<string | null>(null);
+  const [addTags, setAddTags] = useState<string[]>([]);
+  const [addChannelSearch, setAddChannelSearch] = useState('');
+  const [addTagSearch, setAddTagSearch] = useState('');
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => {
@@ -160,6 +177,65 @@ export function ContactsScreen() {
   const items = useMemo(() => (contactsQuery.data?.pages ?? []).flatMap((page) => page.items), [contactsQuery.data]);
   const totalCount = contactsQuery.data?.pages?.[0]?.totalCount ?? items.length;
   const channelOptions = channelsQuery.data?.items ?? [];
+  const whatsappAccountOptions = useMemo(() => {
+    const options: WhatsappAccountOption[] = [];
+    for (const channel of channelOptions) {
+      const type = (channel.type ?? channel.channelType ?? '').toUpperCase();
+      if (type !== 'WHATSAPP') continue;
+      const account = channel.accounts?.find((item) => item.isEnabled) ?? channel.accounts?.[0];
+      if (!account?.id) continue;
+      options.push({
+        accountId: account.id,
+        channelName: channel.channelName ?? channel.name ?? 'WhatsApp',
+        displayPhoneNumber: account.displayPhoneNumber ?? account.externalAccountId ?? null,
+        channelType: type,
+      });
+    }
+    return options;
+  }, [channelOptions]);
+
+  const visibleAddChannels = useMemo(() => {
+    const query = addChannelSearch.trim().toLowerCase();
+    const filtered = !query
+      ? whatsappAccountOptions
+      : whatsappAccountOptions.filter((option) => (
+        `${option.channelName} ${option.displayPhoneNumber ?? ''}`.toLowerCase().includes(query)
+      ));
+    return filtered.slice(0, 5);
+  }, [whatsappAccountOptions, addChannelSearch]);
+
+  const existingTagTexts = useMemo(
+    () => (tagsQuery.data?.items ?? []).filter((tag) => !tag.isArchived).map((tag) => tag.text).sort((a, b) => a.localeCompare(b)),
+    [tagsQuery.data?.items],
+  );
+
+  const visibleAddTags = useMemo(() => {
+    const query = addTagSearch.trim().toLowerCase();
+    const available = existingTagTexts.filter((tag) => !addTags.includes(tag));
+    if (!query) return available.slice(0, 5);
+    return available.filter((tag) => tag.toLowerCase().includes(query)).slice(0, 5);
+  }, [existingTagTexts, addTags, addTagSearch]);
+
+  const canCreateAddTag = useMemo(() => {
+    const query = addTagSearch.trim();
+    if (!query) return false;
+    const normalized = query.toLowerCase();
+    return !existingTagTexts.some((tag) => tag.toLowerCase() === normalized) && !addTags.some((tag) => tag.toLowerCase() === normalized);
+  }, [addTagSearch, existingTagTexts, addTags]);
+
+  const resolvedAddChannelIds = useMemo(() => {
+    if (addChannelAccountId) return [addChannelAccountId];
+    return whatsappAccountOptions[0] ? [whatsappAccountOptions[0].accountId] : [];
+  }, [addChannelAccountId, whatsappAccountOptions]);
+
+  useEffect(() => {
+    if (!addOpen) return;
+    if (addChannelAccountId) return;
+    if (whatsappAccountOptions[0]) {
+      setAddChannelAccountId(whatsappAccountOptions[0].accountId);
+    }
+  }, [addOpen, addChannelAccountId, whatsappAccountOptions]);
+
   const assigneeOptions = useMemo(() => {
     const query = userSearch.trim().toLowerCase();
     const options = assigneesQuery.data ?? [];
@@ -183,18 +259,29 @@ export function ContactsScreen() {
     setTagSearch('');
   };
 
+  const resetAddForm = () => {
+    setAddName('');
+    setAddPhone('');
+    setAddEmail('');
+    setAddChannelAccountId(null);
+    setAddTags([]);
+    setAddChannelSearch('');
+    setAddTagSearch('');
+  };
+
   const createMutation = useMutation({
     mutationFn: () => createCrmContact({
       displayName: addName.trim(),
       primaryPhone: addPhone.trim(),
       phoneNumber: addPhone.trim(),
       primaryEmail: addEmail.trim() || null,
+      source: 'manual-create',
+      tags: addTags,
+      channels: resolvedAddChannelIds,
     }),
     onSuccess: async (contact) => {
       setAddOpen(false);
-      setAddName('');
-      setAddPhone('');
-      setAddEmail('');
+      resetAddForm();
       await queryClient.invalidateQueries({ queryKey: ['crm-contacts'] });
       navigation.navigate('ContactDetails', {
         contactId: contact.id,
@@ -439,18 +526,107 @@ export function ContactsScreen() {
               <Text style={styles.sheetTitle}>Add contact</Text>
               <Pressable onPress={() => setAddOpen(false)} hitSlop={8}><X color="#64748b" size={20} /></Pressable>
             </View>
-            <Text style={styles.fieldLabel}>Name *</Text>
-            <TextInput value={addName} onChangeText={setAddName} placeholder="Full name" placeholderTextColor="#94a3b8" style={styles.fieldInput} />
-            <Text style={styles.fieldLabel}>Phone *</Text>
-            <TextInput value={addPhone} onChangeText={setAddPhone} placeholder="+8801XXXXXXXXX" placeholderTextColor="#94a3b8" keyboardType="phone-pad" style={styles.fieldInput} />
-            <Text style={styles.fieldLabel}>Email</Text>
-            <TextInput value={addEmail} onChangeText={setAddEmail} placeholder="name@example.com" placeholderTextColor="#94a3b8" keyboardType="email-address" autoCapitalize="none" style={styles.fieldInput} />
+            <ScrollView keyboardShouldPersistTaps="handled" style={styles.addFormScroll}>
+              <Text style={styles.fieldLabel}>Name *</Text>
+              <TextInput value={addName} onChangeText={setAddName} placeholder="Full name" placeholderTextColor="#94a3b8" style={styles.fieldInput} />
+              <Text style={styles.fieldLabel}>Phone *</Text>
+              <TextInput value={addPhone} onChangeText={setAddPhone} placeholder="+8801XXXXXXXXX" placeholderTextColor="#94a3b8" keyboardType="phone-pad" style={styles.fieldInput} />
+              <Text style={styles.fieldLabel}>Email</Text>
+              <TextInput value={addEmail} onChangeText={setAddEmail} placeholder="name@example.com" placeholderTextColor="#94a3b8" keyboardType="email-address" autoCapitalize="none" style={styles.fieldInput} />
+
+              <Text style={styles.fieldLabel}>Channel</Text>
+              <View style={styles.inlineSearch}>
+                <Search color="#94a3b8" size={16} />
+                <TextInput
+                  value={addChannelSearch}
+                  onChangeText={setAddChannelSearch}
+                  placeholder="Search channels"
+                  placeholderTextColor="#94a3b8"
+                  style={styles.inlineSearchInput}
+                />
+              </View>
+              {visibleAddChannels.map((option) => {
+                const active = resolvedAddChannelIds[0] === option.accountId;
+                return (
+                  <Pressable
+                    key={option.accountId}
+                    style={[styles.optionRow, active && styles.optionRowActive]}
+                    onPress={() => setAddChannelAccountId(option.accountId)}
+                  >
+                    <ChannelLogo type={option.channelType} box={28} glyph={14} radius={8} />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={[styles.optionText, active && styles.optionTextActive]} numberOfLines={1}>{option.channelName}</Text>
+                      {option.displayPhoneNumber ? (
+                        <Text style={styles.optionSubtext} numberOfLines={1}>{option.displayPhoneNumber}</Text>
+                      ) : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
+              {!visibleAddChannels.length ? <Text style={styles.emptyHint}>No WhatsApp channels available.</Text> : null}
+
+              <Text style={styles.fieldLabel}>Tags</Text>
+              {addTags.length ? (
+                <View style={styles.addSelectedTags}>
+                  {addTags.map((tag) => (
+                    <Pressable
+                      key={tag}
+                      style={styles.addSelectedTag}
+                      onPress={() => setAddTags((current) => current.filter((item) => item !== tag))}
+                    >
+                      <Text style={styles.addSelectedTagText}>{tag}</Text>
+                      <X color="#1d4ed8" size={12} />
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+              <View style={styles.inlineSearch}>
+                <Search color="#94a3b8" size={16} />
+                <TextInput
+                  value={addTagSearch}
+                  onChangeText={setAddTagSearch}
+                  placeholder="Search tags"
+                  placeholderTextColor="#94a3b8"
+                  style={styles.inlineSearchInput}
+                />
+              </View>
+              {visibleAddTags.map((tag) => (
+                <Pressable
+                  key={tag}
+                  style={styles.optionRow}
+                  onPress={() => {
+                    setAddTags((current) => (current.includes(tag) ? current : [...current, tag]));
+                    setAddTagSearch('');
+                  }}
+                >
+                  <Text style={styles.optionText}>{tag}</Text>
+                  <Plus color="#2563eb" size={14} />
+                </Pressable>
+              ))}
+              {canCreateAddTag ? (
+                <Pressable
+                  style={styles.createTagRow}
+                  onPress={() => {
+                    const next = addTagSearch.trim();
+                    setAddTags((current) => (current.includes(next) ? current : [...current, next]));
+                    setAddTagSearch('');
+                  }}
+                >
+                  <Plus color="#2563eb" size={14} />
+                  <Text style={styles.createTagRowText}>Create “{addTagSearch.trim()}”</Text>
+                </Pressable>
+              ) : null}
+              {!visibleAddTags.length && !canCreateAddTag ? (
+                <Text style={styles.emptyHint}>{addTagSearch.trim() ? 'No tags match your search.' : 'No more tags to add.'}</Text>
+              ) : null}
+            </ScrollView>
+
             <Pressable
               style={[styles.applyButton, (!addName.trim() || !addPhone.trim() || createMutation.isPending) && styles.applyDisabled]}
               disabled={!addName.trim() || !addPhone.trim() || createMutation.isPending}
               onPress={() => createMutation.mutate()}
             >
-              {createMutation.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.applyText}>Save contact</Text>}
+              {createMutation.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.applyText}>Add contact</Text>}
             </Pressable>
           </View>
         </View>
@@ -589,4 +765,11 @@ const styles = StyleSheet.create({
   applyText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   fieldLabel: { color: '#334155', fontSize: 13, fontWeight: '600', marginBottom: 6, marginTop: 10 },
   fieldInput: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, color: '#0f172a', paddingHorizontal: 12, paddingVertical: 12 },
+  addFormScroll: { maxHeight: 420 },
+  optionSubtext: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
+  addSelectedTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  addSelectedTag: { alignItems: 'center', backgroundColor: '#dbeafe', borderRadius: 999, flexDirection: 'row', gap: 5, paddingHorizontal: 10, paddingVertical: 5 },
+  addSelectedTagText: { color: '#1d4ed8', fontSize: 12, fontWeight: '600' },
+  createTagRow: { alignItems: 'center', backgroundColor: '#eff6ff', borderRadius: 12, flexDirection: 'row', gap: 8, marginTop: 4, paddingHorizontal: 10, paddingVertical: 10 },
+  createTagRowText: { color: '#2563eb', fontSize: 13, fontWeight: '700' },
 });
