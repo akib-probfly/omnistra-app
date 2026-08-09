@@ -233,79 +233,78 @@ export function InboxScreen() {
     if (tagTextTimer.current) clearTimeout(tagTextTimer.current);
   }, []);
 
+  const realtimeLabel = realtimeStatus === 'connected' ? 'Live' : realtimeStatus === 'connecting' ? 'Connecting' : 'Offline';
+  const realtimeColor = realtimeStatus === 'connected' ? '#22c55e' : realtimeStatus === 'connecting' ? '#f59e0b' : '#ef4444';
+
   return (
     <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <View style={styles.headerCopy}>
-          <View style={styles.headerTitleLine}>
-            <Text style={styles.headerTitle}>Inbox</Text>
-            <View style={[styles.statusDot, { backgroundColor: realtimeStatus === 'connected' ? '#22c55e' : realtimeStatus === 'connecting' ? '#f59e0b' : '#ef4444' }]} />
-          </View>
-          <Text style={styles.headerSubtitle}>{realtimeStatus === 'connected' ? 'Live' : realtimeStatus === 'connecting' ? 'Connecting' : 'Offline'} · new messages update in real time</Text>
+      <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
+        <View style={styles.headerTitleLine}>
+          <Text style={styles.headerTitle}>Inbox</Text>
+          <View style={[styles.statusDot, { backgroundColor: realtimeColor }]} />
+          <Text style={styles.headerStatus}>{realtimeLabel}</Text>
         </View>
-      </View>
-
-      <View style={styles.sidebarTabs}>
-        <Pressable style={styles.sidebarTab} onPress={() => setSidebarTab('chats')}>
-          <MessageSquareText color={sidebarTab === 'chats' ? '#2563eb' : '#94a3b8'} size={16} />
-          <Text style={[styles.sidebarTabText, sidebarTab === 'chats' && styles.sidebarTabTextActive]}>Chats</Text>
-          <Text style={styles.sidebarTabCount}>{unreadCount.data ?? 0}</Text>
-          {sidebarTab === 'chats' ? <View style={styles.sidebarTabUnderline} /> : null}
-        </Pressable>
-        <Pressable style={styles.sidebarTab} onPress={() => setSidebarTab('calls')}>
-          <Phone color={sidebarTab === 'calls' ? '#2563eb' : '#94a3b8'} size={16} />
-          <Text style={[styles.sidebarTabText, sidebarTab === 'calls' && styles.sidebarTabTextActive]}>Calls</Text>
-          {sidebarTab === 'calls' ? <View style={styles.sidebarTabUnderline} /> : null}
-        </Pressable>
+        <View style={styles.sidebarTabs}>
+          <Pressable style={styles.sidebarTab} onPress={() => setSidebarTab('chats')}>
+            <MessageSquareText color={sidebarTab === 'chats' ? '#2563eb' : '#94a3b8'} size={15} />
+            <Text style={[styles.sidebarTabText, sidebarTab === 'chats' && styles.sidebarTabTextActive]}>Chats</Text>
+            <Text style={styles.sidebarTabCount}>{unreadCount.data ?? 0}</Text>
+            {sidebarTab === 'chats' ? <View style={styles.sidebarTabUnderline} /> : null}
+          </Pressable>
+          <Pressable style={styles.sidebarTab} onPress={() => setSidebarTab('calls')}>
+            <Phone color={sidebarTab === 'calls' ? '#2563eb' : '#94a3b8'} size={15} />
+            <Text style={[styles.sidebarTabText, sidebarTab === 'calls' && styles.sidebarTabTextActive]}>Calls</Text>
+            {sidebarTab === 'calls' ? <View style={styles.sidebarTabUnderline} /> : null}
+          </Pressable>
+        </View>
       </View>
 
       {sidebarTab === 'calls' ? (
         <InboxCallsPane onOpenConversation={openCallConversation} />
       ) : (
         <>
-          <View style={styles.search}>
-            <Search color="#8ba2c3" size={18} />
-            <TextInput value={search} onChangeText={onSearchChange} placeholder="Search conversations..." placeholderTextColor="#8ba2c3" style={styles.input} />
-            {debouncedSearch ? <Pressable onPress={() => { setSearch(''); setDebouncedSearch(''); }}><Text style={styles.clearSearch}>✕</Text></Pressable> : null}
-          </View>
-
-          <View style={styles.filters}>
-            {(['all', 'unread', 'closed'] as Tab[]).map((key) => {
-              const active = tab === key;
-              return (
-                <Pressable key={key} style={[styles.filterPill, active && styles.filterPillActive]} onPress={() => setTab(key)}>
-                  <Text style={[styles.filterText, active && styles.filterTextActive]}>{key === 'all' ? 'All' : key === 'unread' ? 'Unread' : 'Closed'}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {tab === 'closed' ? (
-            <View style={styles.closedBanner}>
-              <Text style={styles.closedBannerTitle}>
-                {closedCount.isLoading ? 'Loading closed conversation count...' : `${new Intl.NumberFormat().format(closedCount.data ?? 0)} closed conversations`}
-              </Text>
-              <Text style={styles.closedBannerBody}>Scroll the list to load more pages.</Text>
+          <View style={styles.searchRow}>
+            <View style={styles.search}>
+              <Search color="#8ba2c3" size={16} />
+              <TextInput value={search} onChangeText={onSearchChange} placeholder="Search..." placeholderTextColor="#8ba2c3" style={styles.input} />
+              {debouncedSearch ? <Pressable onPress={() => { setSearch(''); setDebouncedSearch(''); }}><Text style={styles.clearSearch}>✕</Text></Pressable> : null}
             </View>
-          ) : null}
+            <Pressable style={[styles.filterButton, hasAdvancedFilters && styles.filterButtonActive]} onPress={() => setFilterOpen(true)}>
+              <Filter color={hasAdvancedFilters ? '#2563eb' : '#64748b'} size={15} />
+              {hasAdvancedFilters ? <View style={styles.filterActiveDot} /> : null}
+            </Pressable>
+          </View>
 
-          <View style={styles.toolbar}>
+          <View style={styles.filtersRow}>
+            <View style={styles.filters}>
+              {(['all', 'unread', 'closed'] as Tab[]).map((key) => {
+                const active = tab === key;
+                return (
+                  <Pressable key={key} style={[styles.filterPill, active && styles.filterPillActive]} onPress={() => setTab(key)}>
+                    <Text style={[styles.filterText, active && styles.filterTextActive]}>{key === 'all' ? 'All' : key === 'unread' ? 'Unread' : 'Closed'}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
             <Pressable
-              style={styles.unrepliedToggle}
+              style={[styles.unrepliedToggle, unrepliedOnly && styles.unrepliedToggleActive]}
               onPress={() => setUnrepliedOnly((v) => !v)}
               accessibilityRole="switch"
               accessibilityState={{ checked: unrepliedOnly }}
               accessibilityLabel="Unreplied only"
             >
               <AppToggle value={unrepliedOnly} variant="sidebar" />
-              <Text style={styles.unrepliedLabel}>Unreplied only</Text>
-            </Pressable>
-            <Pressable style={[styles.filterButton, hasAdvancedFilters && styles.filterButtonActive]} onPress={() => setFilterOpen(true)}>
-              <Filter color={hasAdvancedFilters ? '#2563eb' : '#64748b'} size={15} />
-              <Text style={[styles.filterButtonText, hasAdvancedFilters && styles.filterButtonActiveText]}>Filter</Text>
-              {hasAdvancedFilters ? <View style={styles.filterActiveDot} /> : null}
+              <Text style={[styles.unrepliedLabel, unrepliedOnly && styles.unrepliedLabelActive]}>Unreplied</Text>
             </Pressable>
           </View>
+
+          {tab === 'closed' ? (
+            <View style={styles.closedBanner}>
+              <Text style={styles.closedBannerTitle}>
+                {closedCount.isLoading ? 'Loading closed count...' : `${new Intl.NumberFormat().format(closedCount.data ?? 0)} closed`}
+              </Text>
+            </View>
+          ) : null}
 
           {conversations.isLoading ? <ActivityIndicator color="#2563eb" style={styles.loader} />
           : conversations.isError ? <ErrorState message="Unable to load conversations." onRetry={() => conversations.refetch()} />
@@ -748,37 +747,45 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: '#fff', flex: 1 },
   list: { paddingBottom: 16 },
   listFill: { flex: 1, minHeight: 0 },
-  header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e8eef7', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 12, paddingHorizontal: 16 },
-  headerCopy: { flex: 1, minWidth: 0 },
-  headerTitleLine: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  headerTitle: { color: '#111827', fontSize: 24, fontWeight: '800' },
-  headerSubtitle: { color: '#8ba2c3', fontSize: 12, marginTop: 4 },
-  statusDot: { borderRadius: 5, height: 9, width: 9 },
-  sidebarTabs: { borderBottomColor: '#e2e8f0', borderBottomWidth: 1, flexDirection: 'row', gap: 20, paddingHorizontal: 16, paddingTop: 4 },
-  sidebarTab: { alignItems: 'center', flexDirection: 'row', gap: 6, paddingBottom: 10, paddingTop: 8, position: 'relative' },
-  sidebarTabText: { color: '#94a3b8', fontSize: 14, fontWeight: '600' },
+  header: {
+    alignItems: 'flex-end',
+    backgroundColor: '#fff',
+    borderBottomColor: '#e8eef7',
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingBottom: 0,
+    paddingHorizontal: 14,
+  },
+  headerTitleLine: { alignItems: 'center', flexDirection: 'row', gap: 6, paddingBottom: 10 },
+  headerTitle: { color: '#111827', fontSize: 18, fontWeight: '800' },
+  headerStatus: { color: '#8ba2c3', fontSize: 12, fontWeight: '600' },
+  statusDot: { borderRadius: 4, height: 8, width: 8 },
+  sidebarTabs: { flexDirection: 'row', gap: 14 },
+  sidebarTab: { alignItems: 'center', flexDirection: 'row', gap: 5, paddingBottom: 10, paddingTop: 2, position: 'relative' },
+  sidebarTabText: { color: '#94a3b8', fontSize: 13, fontWeight: '600' },
   sidebarTabTextActive: { color: '#2563eb' },
-  sidebarTabCount: { backgroundColor: '#f1f5f9', borderRadius: 999, color: '#64748b', fontSize: 11, fontWeight: '700', minWidth: 20, overflow: 'hidden', paddingHorizontal: 6, paddingVertical: 1, textAlign: 'center' },
+  sidebarTabCount: { backgroundColor: '#f1f5f9', borderRadius: 999, color: '#64748b', fontSize: 10, fontWeight: '700', minWidth: 18, overflow: 'hidden', paddingHorizontal: 5, paddingVertical: 1, textAlign: 'center' },
   sidebarTabUnderline: { backgroundColor: '#2563eb', borderRadius: 999, bottom: 0, height: 2, left: 0, position: 'absolute', right: 0 },
-  search: { alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 25, flexDirection: 'row', margin: 12, paddingHorizontal: 14 },
-  input: { color: '#17233a', flex: 1, height: 42, marginLeft: 8 },
+  searchRow: { alignItems: 'center', borderBottomColor: '#eef2f7', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 8, paddingBottom: 8, paddingHorizontal: 12, paddingTop: 8 },
+  search: { alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 18, flex: 1, flexDirection: 'row', minWidth: 0, paddingHorizontal: 12 },
+  input: { color: '#17233a', flex: 1, height: 36, marginLeft: 6, paddingVertical: 0 },
   clearSearch: { color: '#94a3b8', fontSize: 14, padding: 4 },
-  filters: { backgroundColor: '#f1f5f9', borderRadius: 22, flexDirection: 'row', marginHorizontal: 12, padding: 4 },
-  filterPill: { alignItems: 'center', borderRadius: 18, flex: 1, flexDirection: 'row', gap: 6, justifyContent: 'center', paddingVertical: 8 },
+  filtersRow: { alignItems: 'center', borderBottomColor: '#e2e8f0', borderBottomWidth: 1, flexDirection: 'row', gap: 8, paddingBottom: 8, paddingHorizontal: 12, paddingTop: 8 },
+  filters: { backgroundColor: '#f1f5f9', borderRadius: 18, flex: 1, flexDirection: 'row', minWidth: 0, padding: 3 },
+  filterPill: { alignItems: 'center', borderRadius: 15, flex: 1, justifyContent: 'center', paddingVertical: 6 },
   filterPillActive: { backgroundColor: '#fff', elevation: 1, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4 },
-  filterText: { color: '#64748b', fontSize: 13, fontWeight: '600' },
+  filterText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
   filterTextActive: { color: '#17233a', fontWeight: '700' },
   count: { backgroundColor: '#eef4ff', borderRadius: 10, color: '#2563eb', fontSize: 11, fontWeight: '700', minWidth: 20, overflow: 'hidden', paddingHorizontal: 6, paddingVertical: 2, textAlign: 'center' },
-  closedBanner: { backgroundColor: '#eff6ff', borderColor: '#dbeafe', borderRadius: 14, borderWidth: 1, marginHorizontal: 12, marginTop: 10, paddingHorizontal: 12, paddingVertical: 10 },
+  closedBanner: { backgroundColor: '#eff6ff', borderColor: '#dbeafe', borderRadius: 10, borderWidth: 1, marginHorizontal: 12, marginTop: 8, paddingHorizontal: 10, paddingVertical: 6 },
   closedBannerTitle: { color: '#0f172a', fontSize: 12, fontWeight: '700' },
-  closedBannerBody: { color: '#64748b', fontSize: 12, marginTop: 2 },
-  toolbar: { alignItems: 'center', borderBottomColor: '#e2e8f0', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', padding: 12 },
-  unrepliedToggle: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 10, minWidth: 0, paddingRight: 8 },
-  unrepliedLabel: { color: '#64748b', flexShrink: 1, fontSize: 13, fontWeight: '500' },
-  filterButton: { alignItems: 'center', borderColor: '#c8dcfc', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 5, paddingHorizontal: 12, paddingVertical: 7, position: 'relative' },
-  filterButtonText: { color: '#64748b', fontSize: 13, fontWeight: '600' },
+  unrepliedToggle: { alignItems: 'center', borderColor: '#e2e8f0', borderRadius: 16, borderWidth: 1, flexDirection: 'row', flexShrink: 0, gap: 6, paddingHorizontal: 8, paddingVertical: 5 },
+  unrepliedToggleActive: { backgroundColor: '#eff6ff', borderColor: '#93c5fd' },
+  unrepliedLabel: { color: '#64748b', fontSize: 11, fontWeight: '600' },
+  unrepliedLabelActive: { color: '#2563eb' },
+  filterButton: { alignItems: 'center', borderColor: '#c8dcfc', borderRadius: 18, borderWidth: 1, height: 36, justifyContent: 'center', position: 'relative', width: 36 },
   filterButtonActive: { borderColor: '#2563eb' },
-  filterButtonActiveText: { color: '#2563eb', fontWeight: '700' },
   filterActiveDot: { backgroundColor: '#2563eb', borderRadius: 4, height: 8, position: 'absolute', right: -2, top: -2, width: 8 },
   filterOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },
   filterSheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '85%', padding: 20 },
