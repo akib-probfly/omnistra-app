@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
 import { CheckCircle2, ChevronRight, CircleAlert, Pause, Search } from 'lucide-react-native';
 import { useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -45,6 +46,11 @@ export function ChannelsScreen() {
   const items = channels.data?.items ?? [];
   const summary = channels.data?.summary;
   const openDetails = (channel: Channel) => navigation.navigate('ChannelDetails', { channelId: channel.id, channelName: channel.channelName ?? channel.name ?? 'Channel' });
+  const metrics = [
+    { label: 'Connected', value: summary?.connectedCount ?? items.filter((item) => item.status === 'CONNECTED').length, colors: ['#047857', '#34d399'] as [string, string] },
+    { label: 'Active today', value: summary?.activeTodayCount ?? 0, colors: ['#1d4ed8', '#60a5fa'] as [string, string] },
+    { label: 'Issues', value: summary?.issuesCount ?? items.filter((item) => item.status && item.status !== 'CONNECTED').length, colors: ['#c2410c', '#fb923c'] as [string, string] },
+  ];
 
   return (
     <View style={styles.screen}>
@@ -55,10 +61,22 @@ export function ChannelsScreen() {
         </View>
         <NotificationBell onOpen={() => setNotificationsOpen(true)} />
       </View>
+
       <View style={styles.metrics}>
-        <Metric label="Connected" value={summary?.connectedCount ?? items.filter((item) => item.status === 'CONNECTED').length} />
-        <Metric label="Active today" value={summary?.activeTodayCount ?? 0} />
-        <Metric label="Issues" value={summary?.issuesCount ?? items.filter((item) => item.status && item.status !== 'CONNECTED').length} />
+        {metrics.map((metric) => (
+          <LinearGradient
+            key={metric.label}
+            colors={metric.colors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.metricCard}
+          >
+            <View style={[styles.orb, styles.orbA]} />
+            <View style={[styles.orb, styles.orbB]} />
+            <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{metric.value}</Text>
+            <Text style={styles.metricLabel}>{metric.label}</Text>
+          </LinearGradient>
+        ))}
       </View>
 
       <View style={styles.search}>
@@ -88,15 +106,6 @@ export function ChannelsScreen() {
       )}
 
       <NotificationCenter visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
-    </View>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <View style={styles.metric}>
-      <Text style={styles.metricValue}>{value}</Text>
-      <Text style={styles.metricLabel}>{label}</Text>
     </View>
   );
 }
@@ -140,9 +149,19 @@ const styles = StyleSheet.create({
   title: { color: '#0f172a', fontSize: 24, fontWeight: '800' },
   subtitle: { color: '#64748b', fontSize: 13, marginTop: 4 },
   metrics: { flexDirection: 'row', gap: 10, marginTop: 16, paddingHorizontal: 16 },
-  metric: { backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 14, flex: 1, padding: 12 },
-  metricValue: { color: '#0f172a', fontSize: 22, fontWeight: '800' },
-  metricLabel: { color: '#64748b', fontSize: 11, marginTop: 3 },
+  metricCard: {
+    borderRadius: 14,
+    flex: 1,
+    gap: 4,
+    minWidth: 0,
+    overflow: 'hidden',
+    padding: 12,
+  },
+  metricValue: { color: '#fff', fontSize: 22, fontWeight: '800' },
+  metricLabel: { color: 'rgba(255,255,255,0.88)', fontSize: 11, fontWeight: '600', marginTop: 3 },
+  orb: { backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: 999, position: 'absolute' },
+  orbA: { height: 72, right: -20, top: -24, width: 72 },
+  orbB: { bottom: -22, height: 56, left: -16, width: 56 },
   search: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 22, borderWidth: 1, flexDirection: 'row', margin: 16, marginBottom: 0, paddingHorizontal: 12 },
   searchInput: { color: '#17233a', flex: 1, height: 44, marginLeft: 8 },
   list: { gap: 10, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 },
