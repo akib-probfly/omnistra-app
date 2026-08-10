@@ -233,16 +233,11 @@ export function InboxScreen() {
     if (tagTextTimer.current) clearTimeout(tagTextTimer.current);
   }, []);
 
-  const realtimeLabel = realtimeStatus === 'connected' ? 'Live' : realtimeStatus === 'connecting' ? 'Connecting' : 'Offline';
-  const realtimeColor = realtimeStatus === 'connected' ? '#22c55e' : realtimeStatus === 'connecting' ? '#f59e0b' : '#ef4444';
-
   return (
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
         <View style={styles.headerTitleLine}>
           <Text style={styles.headerTitle}>Inbox</Text>
-          <View style={[styles.statusDot, { backgroundColor: realtimeColor }]} />
-          <Text style={styles.headerStatus}>{realtimeLabel}</Text>
         </View>
         <View style={styles.sidebarTabs}>
           <Pressable style={styles.sidebarTab} onPress={() => setSidebarTab('chats')}>
@@ -759,8 +754,6 @@ const styles = StyleSheet.create({
   },
   headerTitleLine: { alignItems: 'center', flexDirection: 'row', gap: 6, paddingBottom: 10 },
   headerTitle: { color: '#111827', fontSize: 18, fontWeight: '800' },
-  headerStatus: { color: '#8ba2c3', fontSize: 12, fontWeight: '600' },
-  statusDot: { borderRadius: 4, height: 8, width: 8 },
   sidebarTabs: { flexDirection: 'row', gap: 14 },
   sidebarTab: { alignItems: 'center', flexDirection: 'row', gap: 5, paddingBottom: 10, paddingTop: 2, position: 'relative' },
   sidebarTabText: { color: '#94a3b8', fontSize: 13, fontWeight: '600' },

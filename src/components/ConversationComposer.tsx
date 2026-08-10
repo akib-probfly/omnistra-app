@@ -5,9 +5,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { requestRecordingPermissionsAsync, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { ChevronDown, Clock3, FileText, Mic, Pause, Paperclip, Play, Send, Smile, Trash2, X, Zap, PanelsTopLeft } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, Keyboard, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import EmojiPicker, { type EmojiType } from 'rn-emoji-keyboard';
+import { EmojiKeyboard, type EmojiType } from 'rn-emoji-keyboard';
 import { fetchQuickReplies, fetchWhatsappTemplates } from '../api/inbox';
 import {
   COMPOSER_MAX_ATTACHMENT_COUNT,
@@ -380,33 +380,6 @@ export function ConversationComposer({
 
   return (
     <>
-      <EmojiPicker
-        open={emojiOpen}
-        onClose={() => setEmojiOpen(false)}
-        onEmojiSelected={(emoji: EmojiType) => {
-          const next = `${valueRef.current}${emoji.emoji}`;
-          valueRef.current = next;
-          onChange(next);
-        }}
-        allowMultipleSelections
-        enableSearchBar
-        enableRecentlyUsed
-        categoryPosition="bottom"
-        theme={{
-          backdrop: '#00000055',
-          knob: '#cbd5e1',
-          container: '#ffffff',
-          header: '#0f172a',
-          skinTonesContainer: '#f1f5f9',
-          category: {
-            icon: '#64748b',
-            iconActive: '#2563eb',
-            container: '#f8fafc',
-            containerActive: '#e2e8f0',
-          },
-        }}
-      />
-
       <Modal visible={quickOpen} transparent animationType="fade" onRequestClose={() => setQuickOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setQuickOpen(false)}>
           <View style={styles.pickerPanel}>
@@ -459,7 +432,7 @@ export function ConversationComposer({
         </Pressable>
       </Modal>
 
-      <View style={styles.composer}>
+      <View style={[styles.composer, emojiOpen && styles.composerWithEmoji]}>
         {replyPreview ? (
           <View style={styles.replyPreview}><View style={styles.replyAccent} /><View style={styles.replyCopy}><Text style={styles.replyName}>{replyPreview.name}</Text><Text numberOfLines={1} style={styles.replyText}>{replyPreview.text}</Text></View><Pressable onPress={onCancelReply}><Text style={styles.close}>×</Text></Pressable></View>
         ) : null}
@@ -480,6 +453,7 @@ export function ConversationComposer({
           value={value}
           onChangeText={onChange}
           onKeyPress={handleKeyPress}
+          onFocus={() => setEmojiOpen(false)}
           editable={canComposeFreeform}
           placeholder={canComposeFreeform ? "Write a message... use '/' for quick replies" : 'Messaging window unavailable'}
           placeholderTextColor="#a88971"
@@ -494,8 +468,19 @@ export function ConversationComposer({
               <ChevronDown color="#475569" size={14} />
             </Pressable>
           ) : null}
-          <Pressable disabled={!canComposeFreeform} onPress={() => setEmojiOpen(true)} style={!canComposeFreeform ? styles.actionDisabled : undefined}>
-            <Smile color="#64748b" size={20} />
+          <Pressable
+            disabled={!canComposeFreeform}
+            onPress={() => {
+              if (emojiOpen) {
+                setEmojiOpen(false);
+                return;
+              }
+              Keyboard.dismiss();
+              setEmojiOpen(true);
+            }}
+            style={!canComposeFreeform ? styles.actionDisabled : undefined}
+          >
+            <Smile color={emojiOpen ? '#2563eb' : '#64748b'} size={20} />
           </Pressable>
           <Pressable
             disabled={!canComposeFreeform}
@@ -507,10 +492,10 @@ export function ConversationComposer({
           <Pressable disabled={!canComposeFreeform} onPress={startRecording} style={!canComposeFreeform ? styles.actionDisabled : undefined}>
             <Mic color="#64748b" size={20} />
           </Pressable>
-          <Pressable disabled={!canComposeFreeform} onPress={() => setQuickOpen(true)} style={!canComposeFreeform ? styles.actionDisabled : undefined}>
+          <Pressable disabled={!canComposeFreeform} onPress={() => { setEmojiOpen(false); setQuickOpen(true); }} style={!canComposeFreeform ? styles.actionDisabled : undefined}>
             <Zap color="#64748b" size={20} />
           </Pressable>
-          {isWhatsAppChannel && channelId ? <Pressable onPress={() => setTemplateOpen(true)}><PanelsTopLeft color="#16a34a" size={20} /></Pressable> : null}
+          {isWhatsAppChannel && channelId ? <Pressable onPress={() => { setEmojiOpen(false); setTemplateOpen(true); }}><PanelsTopLeft color="#16a34a" size={20} /></Pressable> : null}
           <View style={styles.spacer} />
           <Pressable
             onPress={onSend}
@@ -521,6 +506,36 @@ export function ConversationComposer({
           </Pressable>
         </View>
       </View>
+
+      {emojiOpen ? (
+        <View style={styles.emojiPanel}>
+          <EmojiKeyboard
+            onEmojiSelected={(emoji: EmojiType) => {
+              const next = `${valueRef.current}${emoji.emoji}`;
+              valueRef.current = next;
+              onChange(next);
+            }}
+            allowMultipleSelections
+            enableSearchBar
+            enableRecentlyUsed
+            expandable={false}
+            disableSafeArea
+            defaultHeight={280}
+            categoryPosition="bottom"
+            theme={{
+              container: '#ffffff',
+              header: '#0f172a',
+              skinTonesContainer: '#f1f5f9',
+              category: {
+                icon: '#64748b',
+                iconActive: '#2563eb',
+                container: '#f8fafc',
+                containerActive: '#e2e8f0',
+              },
+            }}
+          />
+        </View>
+      ) : null}
 
       <Modal visible={messengerModeOpen} transparent animationType="fade" onRequestClose={() => setMessengerModeOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setMessengerModeOpen(false)}>
@@ -557,6 +572,14 @@ export function ConversationComposer({
 
 const styles = StyleSheet.create({
   composer: { backgroundColor: '#fff9ef', borderColor: '#cfe0fa', borderRadius: 24, borderWidth: 1, margin: 12, padding: 12 },
+  composerWithEmoji: { marginBottom: 0 },
+  emojiPanel: {
+    backgroundColor: '#fff',
+    borderTopColor: '#e2e8f0',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    height: 280,
+    overflow: 'hidden',
+  },
   input: {
     color: '#334155',
     maxHeight: 140,
