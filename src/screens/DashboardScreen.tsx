@@ -162,12 +162,12 @@ function deriveChannelStatuses(channels: DashboardChannelHealthItem[]) {
 
 function RangeSegment({ value, onChange }: { value: RangePreset; onChange: (next: RangePreset) => void }) {
   return (
-    <View style={styles.segment}>
+    <View style={styles.rangeChipRow}>
       {(['today', '7d', '30d'] as RangePreset[]).map((item) => {
         const active = value === item;
         return (
-          <Pressable key={item} style={[styles.segmentTab, active && styles.segmentActive]} onPress={() => onChange(item)}>
-            <Text style={[styles.segmentText, active && styles.segmentTextActive]} numberOfLines={1}>{RANGE_LABELS[item]}</Text>
+          <Pressable key={item} style={[styles.rangeChip, active && styles.rangeChipActive]} onPress={() => onChange(item)}>
+            <Text style={[styles.rangeChipText, active && styles.rangeChipTextActive]} numberOfLines={1}>{RANGE_LABELS[item]}</Text>
           </Pressable>
         );
       })}
@@ -732,7 +732,7 @@ export function DashboardScreen() {
           </View>
         ) : (
           <>
-            <CarouselSection title="At a glance" subtitle={rangeLabel}>
+            <CarouselSection title="At a glance">
               <HScroll>
                 {overview.map((item) => {
                   const Icon = item.Icon;
@@ -751,11 +751,10 @@ export function DashboardScreen() {
               </HScroll>
             </CarouselSection>
 
-            <MetricCarousel title="Key metrics" subtitle={rangeLabel} metrics={metrics} />
+            <MetricCarousel title="Key metrics" metrics={metrics} />
 
             <Section
               title="Conversation volume"
-              subtitle={rangeLabel}
               action={<TrendingUp color="#64748b" size={18} />}
             >
               <View style={styles.legend}>
@@ -765,7 +764,7 @@ export function DashboardScreen() {
               <VolumeChart trends={trends} width={contentWidth - 32} />
             </Section>
 
-            <Section title="Channel mix" subtitle={rangeLabel}>
+            <Section title="Channel mix">
               <ChannelMix mix={mix} />
             </Section>
             <TeamCommandCenter data={dashboard.data} />
@@ -816,18 +815,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 12,
   },
-  searchInput: { color: '#0f172a', flex: 1, fontSize: 15, height: 44, marginLeft: 8 },
-  clearSearch: { color: '#2563eb', fontSize: 13, fontWeight: '600', paddingHorizontal: 4 },
-  segment: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 14,
-    flexDirection: 'row',
-    padding: 4,
+  searchInput: {
+    color: '#0f172a',
+    flex: 1,
+    fontSize: 15,
+    height: 44,
+    marginLeft: 8,
   },
-  segmentTab: { alignItems: 'center', borderRadius: 11, flex: 1, justifyContent: 'center', paddingVertical: 9 },
-  segmentActive: { backgroundColor: '#2563eb' },
-  segmentText: { color: '#64748b', fontSize: 13, fontWeight: '700' },
-  segmentTextActive: { color: '#fff' },
+  clearSearch: {
+    color: '#2563eb',
+    fontSize: 13,
+    fontWeight: '600',
+    paddingHorizontal: 4,
+  },
+  rangeChipRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  rangeChip: {
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 999,
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  rangeChipActive: {
+    backgroundColor: '#2563eb',
+  },
+  rangeChipText: {
+    color: '#64748b',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  rangeChipTextActive: {
+    color: '#fff',
+  },
 
   section: {
     backgroundColor: '#fff',
@@ -1041,7 +1064,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 9,
   },
-  statusActive: { backgroundColor: '#0f172a', borderColor: '#0f172a' },
+  statusActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
   statusText: { color: '#64748b', fontSize: 12, fontWeight: '700' },
   statusTextActive: { color: '#fff' },
   statusCount: { backgroundColor: '#e2e8f0', borderRadius: 999, minWidth: 20, paddingHorizontal: 6, paddingVertical: 1 },
