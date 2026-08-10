@@ -28,6 +28,7 @@ import { createWorkspaceTag, fetchWorkspaceTags } from '../api/conversationDetai
 import { ChannelLogo } from '../components/ChannelLogo';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ErrorState } from '../components/ErrorState';
+import { FormSkeleton } from '../components/Skeleton';
 import type { ContactsStackParamList } from '../navigation/ContactsStack';
 
 const TAG_COLOR_OPTIONS = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#64748b'];
@@ -238,7 +239,7 @@ export function ContactDetailsScreen() {
       </View>
 
       {contactQuery.isLoading ? (
-        <ActivityIndicator color="#2563eb" style={styles.loader} />
+        <FormSkeleton fields={6} />
       ) : contactQuery.isError || !contact ? (
         <ErrorState
           message={contactQuery.error instanceof Error ? contactQuery.error.message : 'Unable to load contact.'}

@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { requestRecordingPermissionsAsync, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { ChevronDown, Clock3, FileText, Mic, Pause, Paperclip, Play, Send, Smile, Trash2, X, Zap, PanelsTopLeft } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, Keyboard, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Image, Keyboard, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EmojiKeyboard, type EmojiType } from 'rn-emoji-keyboard';
 import { fetchQuickReplies, fetchWhatsappTemplates } from '../api/inbox';
@@ -16,6 +16,7 @@ import {
   resolveAttachmentSizeBytes,
 } from '../lib/composer-attachments';
 import type { MessengerMessagingMode } from '../lib/inbox-utils';
+import { PanelSkeleton } from './Skeleton';
 
 type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT'; sizeBytes?: number | null };
 type Props = {
@@ -312,7 +313,7 @@ export function ConversationComposer({
             <View style={styles.pickerPanel}>
               <View style={styles.pickerHeader}><PanelsTopLeft color="#2563eb" size={16} /><Text style={styles.pickerTitle}>WhatsApp templates</Text><View style={styles.spacer} /><Pressable onPress={() => setTemplateOpen(false)} style={styles.closeBtn}><X color="#64748b" size={20} /></Pressable></View>
               <TextInput autoFocus placeholder="Search templates..." placeholderTextColor="#94a3b8" value={templateQuery} onChangeText={setTemplateQuery} style={styles.pickerSearch} />
-              {templates.isLoading ? <ActivityIndicator color="#2563eb" style={styles.pickerLoader} /> : templates.isError ? <Text style={styles.pickerError}>Could not load templates.</Text> : (
+              {templates.isLoading ? <PanelSkeleton rows={4} /> : templates.isError ? <Text style={styles.pickerError}>Could not load templates.</Text> : (
                 <FlatList
                   data={approvedTemplates}
                   keyExtractor={(item) => item.id}
@@ -385,7 +386,7 @@ export function ConversationComposer({
           <View style={styles.pickerPanel}>
              <View style={styles.pickerHeader}><Zap color="#2563eb" size={16} /><Text style={styles.pickerTitle}>Quick replies</Text><Text style={styles.pickerCount}>{quickReplies.data?.items?.length ?? 0}</Text><View style={styles.spacer} /><Pressable onPress={() => setQuickOpen(false)} style={styles.closeBtn}><X color="#64748b" size={20} /></Pressable></View>
             <TextInput autoFocus placeholder="Search by keyword, message" placeholderTextColor="#94a3b8" value={quickQuery} onChangeText={setQuickQuery} style={styles.pickerSearch} />
-            {quickReplies.isLoading ? <ActivityIndicator color="#2563eb" style={styles.pickerLoader} /> : quickReplies.isError ? <Text style={styles.pickerError}>Could not load quick replies.</Text> : (
+            {quickReplies.isLoading ? <PanelSkeleton rows={4} /> : quickReplies.isError ? <Text style={styles.pickerError}>Could not load quick replies.</Text> : (
               <FlatList
                 data={quickReplies.data?.items ?? []}
                 keyExtractor={(item) => item.id}
@@ -412,7 +413,7 @@ export function ConversationComposer({
           <View style={styles.pickerPanel}>
             <View style={styles.pickerHeader}><PanelsTopLeft color="#2563eb" size={16} /><Text style={styles.pickerTitle}>WhatsApp templates</Text><View style={styles.spacer} /><Pressable onPress={() => setTemplateOpen(false)} style={styles.closeBtn}><X color="#64748b" size={20} /></Pressable></View>
             <TextInput autoFocus placeholder="Search templates..." placeholderTextColor="#94a3b8" value={templateQuery} onChangeText={setTemplateQuery} style={styles.pickerSearch} />
-            {templates.isLoading ? <ActivityIndicator color="#2563eb" style={styles.pickerLoader} /> : templates.isError ? <Text style={styles.pickerError}>Could not load templates.</Text> : (
+            {templates.isLoading ? <PanelSkeleton rows={4} /> : templates.isError ? <Text style={styles.pickerError}>Could not load templates.</Text> : (
               <FlatList
                 data={approvedTemplates}
                 keyExtractor={(item) => item.id}

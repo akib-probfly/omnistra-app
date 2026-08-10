@@ -5,7 +5,7 @@ import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
 import { ContactDetailsPanel } from '../components/ContactDetailsPanel';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { Animated, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useIsFocused, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -17,6 +17,7 @@ import { markRecentLocalMessageSend } from '../lib/inbox-realtime-suppression';
 import { setUnreadOverride } from '../lib/unread-count-override';
 import { ConversationComposer } from '../components/ConversationComposer';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
+import { ConversationSkeleton } from '../components/Skeleton';
 import { InboxPatternBackground } from '../components/InboxPatternBackground';
 import { MediaViewer } from '../components/MediaViewer';
 import { VideoPlayerModal } from '../components/VideoPlayer';
@@ -887,42 +888,6 @@ async function sendTemplateMutation(conversationId: string, params: { templateNa
   }
 }
 
-function ConversationSkeleton() {
-  const pulse = useRef(new Animated.Value(0.4)).current;
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0.4, duration: 700, useNativeDriver: true }),
-      ])
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [pulse]);
-  const rows = [
-    { align: 'flex-end', width: '52%' },
-    { align: 'flex-start', width: '64%' },
-    { align: 'flex-start', width: '38%' },
-    { align: 'flex-end', width: '70%' },
-    { align: 'flex-start', width: '46%' },
-    { align: 'flex-end', width: '58%' },
-    { align: 'flex-start', width: '72%' },
-    { align: 'flex-end', width: '40%' },
-  ] as Array<{ align: 'flex-end' | 'flex-start'; width: string }>;
-  return (
-    <View style={styles.skeleton}>
-      <Animated.View style={[styles.skeletonInner, { opacity: pulse }]}>
-        <View style={styles.skeletonDay} />
-        {rows.map((row, index) => (
-          <View key={index} style={[styles.skeletonRow, { justifyContent: row.align }]}>
-            <View style={[styles.skeletonBubble, { width: row.width }]} />
-          </View>
-        ))}
-      </Animated.View>
-    </View>
-  );
-}
-
 const SwipeableMessage = memo(function SwipeableMessage({ message, setReplyTo, setReactTarget, onImage, onVideo, replyTarget, reactions, onJumpToMessage }: { message: Message; setReplyTo: (message: Message) => void; setReactTarget: (message: Message) => void; onImage: (attachId: string) => void; onVideo: (attachment: any) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }>; onJumpToMessage?: (messageId: string) => void }) {
   const outgoing = message.direction === 'OUTBOUND';
   const swipeRef = useRef<SwipeableMethods | null>(null);
@@ -993,11 +958,6 @@ const styles = StyleSheet.create({
   outgoingGroup: { alignItems: 'flex-end' },
   dayDivider: { alignSelf: 'center', backgroundColor: '#e8eef7', borderRadius: 999, color: '#526987', fontSize: 12, fontWeight: '600', marginVertical: 8, overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 6 },
   olderPill: { alignSelf: 'center', color: '#64748b', fontSize: 12, marginVertical: 6 },
-  skeleton: { backgroundColor: 'transparent', flex: 1, padding: 14 },
-  skeletonInner: { flex: 1 },
-  skeletonRow: { flexDirection: 'row', marginBottom: 12 },
-  skeletonBubble: { backgroundColor: '#e5ecf5', borderRadius: 14, height: 38 },
-  skeletonDay: { alignSelf: 'center', backgroundColor: '#e5ecf5', borderRadius: 999, height: 24, marginBottom: 14, marginTop: 4, width: 110 },
   fab: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 22, bottom: 16, elevation: 3, height: 44, justifyContent: 'center', position: 'absolute', right: 16, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 5, width: 44 },
   menuOverlay: { alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'center', padding: 24 },
   menuCard: { backgroundColor: '#fff', borderRadius: 16, maxWidth: 380, padding: 18, width: '100%' },

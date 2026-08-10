@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDownLeft, ArrowUpRight, Filter, Image as ImageIcon, Inbox, Mail, MessageSquareText, Mic, Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Search, Star, Video, X } from 'lucide-react-native';
-import { ActivityIndicator, Animated, Easing, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
+import { Animated, Easing, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { AppToggle } from '../components/AppToggle';
@@ -8,6 +8,7 @@ import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ErrorState } from '../components/ErrorState';
 import { ChannelLogo, channelBrandColor } from '../components/ChannelLogo';
 import { InboxCallsPane } from '../components/InboxCallsPane';
+import { ListSkeleton, PanelSkeleton } from '../components/Skeleton';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { fetchConversations, fetchConversationCount, fetchConversationUnreadCount, fetchAssigneeOptions, type ConversationCallSession, type ConversationListItem } from '../api/inbox';
 import { fetchWorkspaceTags } from '../api/conversationDetails';
@@ -301,7 +302,7 @@ export function InboxScreen() {
             </View>
           ) : null}
 
-          {conversations.isLoading ? <ActivityIndicator color="#2563eb" style={styles.loader} />
+          {conversations.isLoading ? <ListSkeleton rows={8} />
           : conversations.isError ? <ErrorState message="Unable to load conversations." onRetry={() => conversations.refetch()} />
           : (
             <FlatList
@@ -409,7 +410,7 @@ export function InboxScreen() {
                     />
                   </View>
                   <Text style={styles.selectedCount}>{selectedTagIds.length} selected</Text>
-                  {tagsQuery.isLoading ? <ActivityIndicator color="#2563eb" /> : (
+                  {tagsQuery.isLoading ? <PanelSkeleton rows={4} /> : (
                     <View style={styles.optionList}>
                       {visibleTagOptions.map((tag) => {
                         const active = selectedTagIds.includes(tag.id);
@@ -442,7 +443,7 @@ export function InboxScreen() {
                       style={styles.inlineSearchInput}
                     />
                   </View>
-                  {assigneesQuery.isLoading ? <ActivityIndicator color="#2563eb" /> : assigneesQuery.isError ? (
+                  {assigneesQuery.isLoading ? <PanelSkeleton rows={4} /> : assigneesQuery.isError ? (
                     <Text style={styles.emptyFilterHint}>Could not load assignee options.</Text>
                   ) : (
                     <View style={styles.optionList}>

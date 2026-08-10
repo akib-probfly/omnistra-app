@@ -36,6 +36,7 @@ import {
 } from '../api/workspaces';
 import { AppToggle } from '../components/AppToggle';
 import { ErrorState } from '../components/ErrorState';
+import { FormSkeleton, PanelSkeleton } from '../components/Skeleton';
 
 const MODE_CARDS: Array<{
   value: WorkspaceAssignmentMode;
@@ -363,7 +364,7 @@ function AssignmentPolicyForm({
               style={styles.searchInput}
             />
             {ownersQuery.isLoading ? (
-              <ActivityIndicator color="#2563eb" style={{ marginTop: 20 }} />
+              <PanelSkeleton rows={5} />
             ) : (
               <FlatList
                 data={owners}
@@ -419,7 +420,7 @@ export function AssignmentPolicySettingsScreen() {
   if (workspacesQuery.isLoading || policyQuery.isLoading) {
     return (
       <View style={styles.screen}>
-        <ActivityIndicator color="#2563eb" style={styles.loader} />
+        <FormSkeleton fields={6} />
       </View>
     );
   }

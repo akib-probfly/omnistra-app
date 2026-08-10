@@ -40,6 +40,7 @@ import {
 } from '../api/quickReplies';
 import { fetchMyWorkspaces } from '../api/workspaces';
 import { ErrorState } from '../components/ErrorState';
+import { FormSkeleton, ListSkeleton } from '../components/Skeleton';
 
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 const MAX_ATTACHMENTS = 100;
@@ -314,7 +315,7 @@ export function QuickRepliesSettingsScreen() {
       </View>
 
       {workspacesQuery.isLoading ? (
-        <ActivityIndicator color="#2563eb" style={styles.loader} />
+        <FormSkeleton fields={4} />
       ) : workspacesQuery.isError || !workspaceId ? (
         <ErrorState
           message={workspacesQuery.error instanceof Error ? workspacesQuery.error.message : 'Unable to load workspace.'}
@@ -334,7 +335,7 @@ export function QuickRepliesSettingsScreen() {
           </View>
 
           {listQuery.isLoading ? (
-            <ActivityIndicator color="#2563eb" style={styles.loader} />
+            <ListSkeleton rows={6} avatar={false} />
           ) : listQuery.isError ? (
             <ErrorState
               message={listQuery.error instanceof Error ? listQuery.error.message : 'Unable to load quick replies.'}

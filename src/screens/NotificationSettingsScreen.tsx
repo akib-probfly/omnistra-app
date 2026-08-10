@@ -12,7 +12,6 @@ import {
 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -32,6 +31,7 @@ import {
 import { fetchMyWorkspaces } from '../api/workspaces';
 import { AppToggle } from '../components/AppToggle';
 import { ErrorState } from '../components/ErrorState';
+import { FormSkeleton } from '../components/Skeleton';
 
 type PreferenceKey = keyof NotificationPreferences;
 
@@ -166,7 +166,7 @@ export function NotificationSettingsScreen() {
       </View>
 
       {workspacesQuery.isLoading || preferencesQuery.isLoading ? (
-        <ActivityIndicator color="#2563eb" style={styles.loader} />
+        <FormSkeleton fields={6} />
       ) : workspacesQuery.isError || !workspaceId ? (
         <ErrorState
           message={workspacesQuery.error instanceof Error ? workspacesQuery.error.message : 'Unable to load workspace.'}

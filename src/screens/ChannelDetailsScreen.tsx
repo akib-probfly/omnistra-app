@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, FileText, LoaderCircle, RefreshCw, RotateCcw } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -18,6 +18,7 @@ import {
 } from '../api/channels';
 import { ChannelLogo } from '../components/ChannelLogo';
 import { QuickAutomationTab } from '../components/QuickAutomationTab';
+import { FormSkeleton } from '../components/Skeleton';
 import { TroubleshootTab } from '../components/TroubleshootTab';
 import { WhatsappCallingTab } from '../components/WhatsappCallingTab';
 import { WhatsappTemplatesTab } from '../components/WhatsappTemplatesTab';
@@ -149,7 +150,12 @@ export function ChannelDetailsScreen() {
   };
 
   if (details.isLoading) {
-    return <View style={styles.screen}><ActivityIndicator color="#2563eb" size="large" style={{ marginTop: 80 }} /></View>;
+    return (
+      <View style={styles.screen}>
+        <HeaderBar insets={insets} onBack={() => navigation.goBack()} />
+        <FormSkeleton fields={6} />
+      </View>
+    );
   }
   if (details.isError || !channel) {
     return (

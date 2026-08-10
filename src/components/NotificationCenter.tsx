@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Bell, CheckCheck, MessageSquare, PhoneCall, Trash2, UserMinus, UserRoundCheck, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   deleteAllNotifications,
@@ -14,6 +14,7 @@ import {
   type NotificationListItem,
   type NotificationType,
 } from '../api/notifications';
+import { PanelSkeleton } from './Skeleton';
 
 function formatNotificationTime(isoDate: string) {
   const date = new Date(isoDate);
@@ -258,7 +259,7 @@ export function NotificationCenter({ visible, onClose }: { visible: boolean; onC
           </View>
 
           {isLoading ? (
-            <View style={styles.notificationLoading}><ActivityIndicator color="#2563eb" /></View>
+            <View style={styles.notificationLoading}><PanelSkeleton rows={5} /></View>
           ) : isError ? (
             <View style={styles.notificationEmpty}>
               <View style={styles.notificationEmptyIcon}><Bell color="#dc2626" size={22} /></View>
@@ -309,7 +310,7 @@ const styles = StyleSheet.create({
   notificationActionText: { color: '#475569', fontSize: 12, fontWeight: '600' },
 
   notificationList: { flex: 1, paddingHorizontal: 14, paddingTop: 6 },
-  notificationLoading: { alignItems: 'center', flex: 1, justifyContent: 'center' },
+  notificationLoading: { flex: 1, justifyContent: 'center', paddingHorizontal: 14, paddingTop: 8, width: '100%' },
   notificationEmpty: { alignItems: 'center', flex: 1, justifyContent: 'center', paddingHorizontal: 32 },
   notificationEmptyIcon: { alignItems: 'center', backgroundColor: '#dbeafe', borderRadius: 16, height: 52, justifyContent: 'center', width: 52 },
   notificationEmptyTitle: { color: '#0f172a', fontSize: 15, fontWeight: '700', marginTop: 12 },

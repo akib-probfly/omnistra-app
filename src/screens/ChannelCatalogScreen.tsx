@@ -6,6 +6,7 @@ import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, T
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchChannels, startMessengerConnect, startWhatsAppConnect } from '../api/channels';
+import { CardGridSkeleton } from '../components/Skeleton';
 
 const CATALOG = [
   { id: 'whatsapp', name: 'WhatsApp Business Platform (API)', description: 'Connect WhatsApp Business API to enable seamless conversations.', category: 'Business Messaging', badge: 'Popular', tone: '#25D366', available: true },
@@ -103,7 +104,7 @@ export function ChannelCatalogScreen() {
       </View>
 
       {errorText ? <View style={styles.banner}><Text style={styles.bannerText}>{errorText}</Text></View> : null}
-      {channels.isLoading ? <ActivityIndicator color="#2563eb" style={{ marginTop: 24 }} /> : null}
+      {channels.isLoading ? <CardGridSkeleton cards={3} /> : null}
 
       <ScrollView contentContainerStyle={styles.grid}>
         {filteredItems.map((item) => {

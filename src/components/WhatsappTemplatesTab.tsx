@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, FileText, LoaderCircle, Pencil, Plus, RefreshCw, Search, Trash2, Unlink } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   createWhatsappTemplate,
   deleteWhatsappTemplate,
@@ -16,6 +16,7 @@ import {
   type WhatsappTemplateStatus,
 } from '../api/whatsappTemplates';
 import { formatTemplateUpdatedAt, makeDraftTemplate, mapTemplateToForm } from '../lib/whatsapp-template-utils';
+import { ListSkeleton } from './Skeleton';
 import { WhatsappTemplateSheet, type TemplateSheetMode } from './WhatsappTemplateSheet';
 
 const STATUS_TONE: Record<string, { bg: string; fg: string }> = {
@@ -235,7 +236,7 @@ export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
       </View>
 
       {templates.isLoading ? (
-        <ActivityIndicator color="#2563eb" style={{ marginTop: 40 }} />
+        <ListSkeleton rows={6} avatar={false} />
       ) : templates.isError ? (
         <View style={styles.empty}>
           <Text style={styles.emptyTitle}>Could not load templates</Text>

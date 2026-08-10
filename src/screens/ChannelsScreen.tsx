@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { CheckCircle2, ChevronRight, CircleAlert, Pause, Search } from 'lucide-react-native';
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { apiFetch } from '../api/client';
 import { ChannelLogo } from '../components/ChannelLogo';
 import { ErrorState } from '../components/ErrorState';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
+import { ListSkeleton } from '../components/Skeleton';
 import type { ChannelsStackParamList } from '../navigation/ChannelsStack';
 
 type Channel = {
@@ -87,7 +88,7 @@ export function ChannelsScreen() {
       {channels.isError ? (
         <ErrorState message={channels.error instanceof Error ? channels.error.message : undefined} onRetry={() => channels.refetch()} />
       ) : channels.isLoading ? (
-        <ActivityIndicator color="#2563eb" style={styles.loader} />
+        <ListSkeleton rows={5} />
       ) : (
         <FlatList
           data={items}

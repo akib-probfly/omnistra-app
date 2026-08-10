@@ -23,6 +23,7 @@ import {
   type TimezoneOption,
 } from '../api/workspaces';
 import { ErrorState } from '../components/ErrorState';
+import { FormSkeleton, PanelSkeleton } from '../components/Skeleton';
 
 export function WorkspaceSettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -97,7 +98,7 @@ export function WorkspaceSettingsScreen() {
       </View>
 
       {workspacesQuery.isLoading ? (
-        <ActivityIndicator color="#2563eb" style={styles.loader} />
+        <FormSkeleton fields={4} />
       ) : workspacesQuery.isError || !workspace ? (
         <ErrorState
           message={workspacesQuery.error instanceof Error ? workspacesQuery.error.message : 'Unable to load workspace.'}
@@ -149,7 +150,7 @@ export function WorkspaceSettingsScreen() {
               style={styles.input}
             />
             {timezonesQuery.isLoading ? (
-              <ActivityIndicator color="#2563eb" style={{ marginTop: 20 }} />
+              <PanelSkeleton rows={5} />
             ) : (
               <FlatList
                 data={filteredTimezones}

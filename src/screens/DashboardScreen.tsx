@@ -13,13 +13,14 @@ import {
   Wifi,
 } from 'lucide-react-native';
 import { useMemo, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { fetchDashboard, type DashboardChannelHealthItem, type DashboardResponse, type DashboardTeamCommandCenterMember, type DashboardTrendPoint } from '../api/dashboard';
 import { channelBrandColor, ChannelLogo } from '../components/ChannelLogo';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
+import { DashboardSkeleton } from '../components/Skeleton';
 
 type RangePreset = 'today' | '7d' | '30d';
 type PresenceFilter = 'all' | 'online' | 'offline';
@@ -720,7 +721,7 @@ export function DashboardScreen() {
         </View>
 
         {dashboard.isLoading && !dashboard.data ? (
-          <ActivityIndicator color="#2563eb" style={styles.loader} />
+          <DashboardSkeleton />
         ) : dashboard.isError ? (
           <View style={styles.errorBox}>
             <Text style={styles.errorTitle}>Dashboard offline</Text>

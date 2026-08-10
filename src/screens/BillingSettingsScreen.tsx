@@ -2,7 +2,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ArrowLeft, CalendarDays, Check, CreditCard, Package, Receipt, Sparkles } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -35,6 +34,7 @@ import {
 } from '../api/billing';
 import { fetchMyWorkspaces } from '../api/workspaces';
 import { ErrorState } from '../components/ErrorState';
+import { CardGridSkeleton, FormSkeleton, PanelSkeleton } from '../components/Skeleton';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 
 type BillingTab = 'current' | 'packages' | 'invoices' | 'history';
@@ -253,7 +253,7 @@ export function BillingSettingsScreen() {
       </View>
 
       {workspacesQuery.isLoading ? (
-        <ActivityIndicator color="#2563eb" style={styles.loader} />
+        <FormSkeleton fields={5} />
       ) : workspacesQuery.isError || !workspaceId ? (
         <ErrorState
           message={workspacesQuery.error instanceof Error ? workspacesQuery.error.message : 'Unable to load workspace billing.'}
@@ -266,7 +266,7 @@ export function BillingSettingsScreen() {
         >
           {tab === 'current' ? (
             subscriptionQuery.isLoading || usageQuery.isLoading ? (
-              <ActivityIndicator color="#2563eb" style={styles.loader} />
+              <FormSkeleton fields={4} />
             ) : subscriptionQuery.isError ? (
               <ErrorState message="Unable to load current plan." onRetry={() => subscriptionQuery.refetch()} />
             ) : (
@@ -295,7 +295,7 @@ export function BillingSettingsScreen() {
 
           {tab === 'packages' ? (
             plansQuery.isLoading ? (
-              <ActivityIndicator color="#2563eb" style={styles.loader} />
+              <CardGridSkeleton cards={3} />
             ) : plansQuery.isError ? (
               <ErrorState message="Unable to load packages." onRetry={() => plansQuery.refetch()} />
             ) : (
@@ -362,7 +362,7 @@ export function BillingSettingsScreen() {
 
           {tab === 'invoices' ? (
             invoicesQuery.isLoading ? (
-              <ActivityIndicator color="#2563eb" style={styles.loader} />
+              <PanelSkeleton rows={5} />
             ) : invoicesQuery.isError ? (
               <ErrorState message="Unable to load invoices." onRetry={() => invoicesQuery.refetch()} />
             ) : (invoicesQuery.data?.items?.length ?? 0) === 0 ? (
@@ -380,7 +380,7 @@ export function BillingSettingsScreen() {
 
           {tab === 'history' ? (
             historyQuery.isLoading ? (
-              <ActivityIndicator color="#2563eb" style={styles.loader} />
+              <PanelSkeleton rows={5} />
             ) : historyQuery.isError ? (
               <ErrorState message="Unable to load subscription history." onRetry={() => historyQuery.refetch()} />
             ) : (historyQuery.data?.items?.length ?? 0) === 0 ? (

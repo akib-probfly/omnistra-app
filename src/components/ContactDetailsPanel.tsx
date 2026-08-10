@@ -10,6 +10,7 @@ import { apiUrl } from '../api/client';
 import { attachConversationTag, createConversationNote, createConversationTag, deleteConversationNote, detachConversationTag, fetchConversationAttachments, fetchConversationNotes, fetchConversationTags, fetchWorkspaceTags, updateConversationNote, updateCrmContact, type ConversationAttachment, type ConversationNote, type ConversationTag } from '../api/conversationDetails';
 import { AuthenticatedImage } from './AuthenticatedImage';
 import { ColorfulAvatar } from './ColorfulAvatar';
+import { PanelSkeleton } from './Skeleton';
 
 export function formatPhoneNumberDisplay(phone: string | null | undefined): string | null {
   if (!phone) return null;
@@ -287,7 +288,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
               </View>
               {notesOpen ? (
                 <View style={styles.notesBody}>
-                  {notesQuery.isLoading ? <ActivityIndicator color="#2563eb" size="small" /> : notes.length > 0 ? (
+                  {notesQuery.isLoading ? <PanelSkeleton rows={3} /> : notes.length > 0 ? (
                     notes.map((note) => (
                       <View key={note.id} style={styles.noteItem}>
                         {editingNoteId === note.id ? (
@@ -336,7 +337,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
                     <Pressable onPress={() => setAttachmentFilter('MEDIA')} style={[styles.filterTab, attachmentFilter === 'MEDIA' && styles.filterTabActive]}><Text style={[styles.filterTabText, attachmentFilter === 'MEDIA' && styles.filterTabTextActive]}>Media ({mediaAttachments.length})</Text></Pressable>
                     <Pressable onPress={() => setAttachmentFilter('DOCUMENTS')} style={[styles.filterTab, attachmentFilter === 'DOCUMENTS' && styles.filterTabActive]}><Text style={[styles.filterTabText, attachmentFilter === 'DOCUMENTS' && styles.filterTabTextActive]}>Documents ({documentAttachments.length})</Text></Pressable>
                   </View>
-                  {attachmentsQuery.isLoading ? <ActivityIndicator color="#2563eb" size="small" /> : attachmentFilter === 'MEDIA' ? (
+                  {attachmentsQuery.isLoading ? <PanelSkeleton rows={3} /> : attachmentFilter === 'MEDIA' ? (
                     mediaAttachments.length > 0 ? (
                       <View style={styles.mediaGrid}>
                         {mediaAttachments.map((attachment) => {

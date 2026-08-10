@@ -28,6 +28,7 @@ import {
 import { fetchAssigneeOptions } from '../api/inbox';
 import { fetchWorkspaceTags } from '../api/conversationDetails';
 import { AppToggle } from '../components/AppToggle';
+import { InlineSkeleton, ListSkeleton } from '../components/Skeleton';
 import { ChannelLogo } from '../components/ChannelLogo';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ErrorState } from '../components/ErrorState';
@@ -346,7 +347,7 @@ export function ContactsScreen() {
           onRetry={() => contactsQuery.refetch()}
         />
       ) : contactsQuery.isLoading ? (
-        <ActivityIndicator color="#2563eb" style={styles.loader} />
+        <ListSkeleton rows={8} />
       ) : (
         <FlatList
           data={items}
@@ -387,7 +388,7 @@ export function ContactsScreen() {
               )}
             </View>
           )}
-          ListFooterComponent={contactsQuery.isFetchingNextPage ? <ActivityIndicator color="#2563eb" style={{ marginVertical: 16 }} /> : null}
+          ListFooterComponent={contactsQuery.isFetchingNextPage ? <View style={{ alignItems: 'center', marginVertical: 16 }}><InlineSkeleton width={140} height={14} /></View> : null}
           renderItem={renderContactRow}
           extraData={navigation}
         />

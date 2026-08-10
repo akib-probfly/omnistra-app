@@ -31,6 +31,7 @@ import {
   type BillingInterval,
 } from '../api/billing';
 import { ErrorState } from '../components/ErrorState';
+import { FormSkeleton } from '../components/Skeleton';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 
 function isLiveSubscriptionStatus(status?: string | null) {
@@ -260,7 +261,7 @@ export function BillingPlanDetailsScreen() {
   if (plansQuery.isLoading || subscriptionQuery.isLoading) {
     return (
       <View style={[styles.screen, styles.centered]}>
-        <ActivityIndicator color="#2563eb" />
+        <FormSkeleton fields={5} />
       </View>
     );
   }
