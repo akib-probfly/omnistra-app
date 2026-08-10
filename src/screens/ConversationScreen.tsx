@@ -1,12 +1,13 @@
 // @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreHorizontal, Phone, Star, UserRound } from 'lucide-react-native';
+import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreHorizontal, Phone, Reply, Star, UserRound } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
 import { ContactDetailsPanel } from '../components/ContactDetailsPanel';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { Animated, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
+import { Animated, Alert, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList } from 'react-native-gesture-handler';
+import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useIsFocused, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch, uploadFile } from '../api/client';
@@ -919,9 +920,27 @@ function ConversationSkeleton() {
 
 const SwipeableMessage = memo(function SwipeableMessage({ message, setReplyTo, setReactTarget, onImage, onVideo, replyTarget, reactions, onJumpToMessage }: { message: Message; setReplyTo: (message: Message) => void; setReactTarget: (message: Message) => void; onImage: (attachId: string) => void; onVideo: (attachment: any) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }>; onJumpToMessage?: (messageId: string) => void }) {
   const outgoing = message.direction === 'OUTBOUND';
-  const swipeRef = useRef<Swipeable>(null);
+  const swipeRef = useRef<SwipeableMethods | null>(null);
+  const replyLockRef = useRef(false);
   const onReply = useCallback(() => setReplyTo(message), [setReplyTo, message]);
   const onReact = useCallback(() => setReactTarget(message), [setReactTarget, message]);
+  const renderLeftActions = useCallback(() => (
+    <View style={styles.replyAction}>
+      <View style={styles.replyIconCircle}>
+        <Reply color="#2563eb" size={20} strokeWidth={2.4} />
+      </View>
+    </View>
+  ), []);
+  const handleWillOpen = useCallback(() => {
+    if (replyLockRef.current) return;
+    replyLockRef.current = true;
+    // Snap closed immediately so the reply state update doesn't fight an open/close animation.
+    swipeRef.current?.reset();
+    onReply();
+    requestAnimationFrame(() => {
+      replyLockRef.current = false;
+    });
+  }, [onReply]);
   if (isInlineReactionMessage(message)) return null;
   const replyTargetId = message.replyToMessageId ?? replyTarget?.id ?? message.replyTo?.id ?? null;
   const replyPreview = message.replyTo || replyTarget ? {
@@ -930,11 +949,22 @@ const SwipeableMessage = memo(function SwipeableMessage({ message, setReplyTo, s
     imageUrl: replyTarget ? apiUrl(replyTarget.attachments?.find((a: any) => a.mediaType === 'IMAGE' || a.mimeType?.startsWith('image/'))?.previewUrl ?? replyTarget.attachments?.find((a: any) => a.mediaType === 'IMAGE' || a.mimeType?.startsWith('image/'))?.thumbnailUrl ?? null) : null,
   } : null;
   return (
-    <Swipeable ref={swipeRef} overshootRight={false} overshootLeft={false} friction={2} renderLeftActions={() => <View style={styles.replyAction}><Text style={styles.replyIcon}>↩</Text><Text style={styles.replyActionText}>Reply</Text></View>} onSwipeableOpen={() => { swipeRef.current?.close(); onReply(); }}>
+    <ReanimatedSwipeable
+      ref={swipeRef}
+      friction={1}
+      leftThreshold={28}
+      overshootLeft={false}
+      overshootRight={false}
+      // Prefer a clear rightward reply swipe; fail quickly so vertical scroll stays smooth.
+      activeOffsetX={[-9999, 18]}
+      failOffsetY={[-14, 14]}
+      renderLeftActions={renderLeftActions}
+      onSwipeableWillOpen={handleWillOpen}
+    >
       <View style={[styles.group, outgoing && styles.outgoingGroup]}>
         <MessageBubble message={message} outgoing={outgoing} attachments={message.attachments ?? []} replyPreview={replyPreview} reactions={reactions} onImage={onImage} onVideo={onVideo} onLongPress={onReact} onReplyPress={onJumpToMessage && replyTargetId ? () => onJumpToMessage(replyTargetId) : undefined} />
       </View>
-    </Swipeable>
+    </ReanimatedSwipeable>
   );
 });
 
@@ -975,7 +1005,13 @@ const styles = StyleSheet.create({
   menuAction: { alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 10, marginTop: 6, paddingVertical: 12 },
   menuActionText: { color: '#2563eb', fontSize: 14, fontWeight: '700' },
   menuCancel: { color: '#94a3b8', fontSize: 14, fontWeight: '600' },
-  replyAction: { alignItems: 'center', backgroundColor: '#e8f0ff', borderRadius: 16, justifyContent: 'center', marginVertical: 3, width: 72 },
-  replyIcon: { color: '#2563eb', fontSize: 22 },
-  replyActionText: { color: '#2563eb', fontSize: 11 },
+  replyAction: { alignItems: 'center', justifyContent: 'center', marginVertical: 3, width: 56 },
+  replyIconCircle: {
+    alignItems: 'center',
+    backgroundColor: '#e8f0ff',
+    borderRadius: 18,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
 });
