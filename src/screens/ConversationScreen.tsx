@@ -13,7 +13,7 @@ import { apiFetch, uploadFile } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { getRealtimeConnectionStatus, setActiveConversationId, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { markRecentLocalMessageSend } from '../lib/inbox-realtime-suppression';
-import { setUnreadOverride, applyUnreadOverrides } from '../lib/unread-count-override';
+import { setUnreadOverride } from '../lib/unread-count-override';
 import { ConversationComposer } from '../components/ConversationComposer';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { InboxPatternBackground } from '../components/InboxPatternBackground';
@@ -133,6 +133,16 @@ export function ConversationScreen() {
   });
 
   const unreadCountOverridden = useRef(false);
+  const suppressAutoMarkReadRef = useRef(false);
+  const lastAutoMarkedReadSignatureRef = useRef<string | null>(null);
+  const manualReadToggleRef = useRef(false);
+
+  useEffect(() => {
+    unreadCountOverridden.current = false;
+    suppressAutoMarkReadRef.current = false;
+    lastAutoMarkedReadSignatureRef.current = null;
+  }, [route.params.conversationId]);
+
   useEffect(() => {
     if (messages.data?.conversation) {
       setHeader((current) => ({
@@ -299,8 +309,76 @@ export function ConversationScreen() {
   });
 
   const starMutation = useMutation({ mutationFn: (isStarred: boolean) => updateConversationStar(route.params.conversationId, isStarred), onSuccess: (_, isStarred) => setHeader((c) => ({ ...c, isStarred })) });
-  const readMutation = useMutation({ mutationFn: () => markConversationRead(route.params.conversationId), onSuccess: () => { unreadCountOverridden.current = true; setUnreadOverride(route.params.conversationId, 0); setHeader((c) => ({ ...c, unreadCount: 0 })); setConversationUnreadInCache(queryClient, route.params.conversationId, 0); } });
-  const unreadMutation = useMutation({ mutationFn: () => markConversationUnread(route.params.conversationId), onSuccess: () => { unreadCountOverridden.current = true; setUnreadOverride(route.params.conversationId, 1); setHeader((c) => ({ ...c, unreadCount: 1 })); setConversationUnreadInCache(queryClient, route.params.conversationId, 1); } });
+  const readMutation = useMutation({
+    mutationFn: () => markConversationRead(route.params.conversationId),
+    onMutate: () => {
+      suppressAutoMarkReadRef.current = false;
+      const previousUnreadCount = header.unreadCount;
+      unreadCountOverridden.current = true;
+      setUnreadOverride(route.params.conversationId, 0);
+      setHeader((c) => ({ ...c, unreadCount: 0 }));
+      setConversationUnreadInCache(queryClient, route.params.conversationId, 0);
+      adjustInboxUnreadCount(queryClient, -previousUnreadCount);
+      return { previousUnreadCount };
+    },
+    onError: (error, _vars, context) => {
+      const previousUnreadCount = context?.previousUnreadCount ?? 0;
+      unreadCountOverridden.current = true;
+      setUnreadOverride(route.params.conversationId, previousUnreadCount);
+      setHeader((c) => ({ ...c, unreadCount: previousUnreadCount }));
+      setConversationUnreadInCache(queryClient, route.params.conversationId, previousUnreadCount);
+      adjustInboxUnreadCount(queryClient, previousUnreadCount);
+      lastAutoMarkedReadSignatureRef.current = null;
+      if (manualReadToggleRef.current) {
+        Alert.alert('Could not mark as read', error instanceof Error ? error.message : 'Please try again.');
+      }
+      manualReadToggleRef.current = false;
+    },
+    onSuccess: (updated) => {
+      const nextUnread = typeof updated?.unreadCount === 'number' ? updated.unreadCount : 0;
+      unreadCountOverridden.current = true;
+      setUnreadOverride(route.params.conversationId, nextUnread);
+      setHeader((c) => ({ ...c, unreadCount: nextUnread }));
+      setConversationUnreadInCache(queryClient, route.params.conversationId, nextUnread);
+      manualReadToggleRef.current = false;
+    },
+  });
+  const unreadMutation = useMutation({
+    mutationFn: () => markConversationUnread(route.params.conversationId),
+    onMutate: () => {
+      // Stay on the latest messages while viewing — don't auto-read again after a manual unread.
+      suppressAutoMarkReadRef.current = true;
+      lastAutoMarkedReadSignatureRef.current = null;
+      manualReadToggleRef.current = true;
+      const previousUnreadCount = header.unreadCount;
+      const nextUnreadCount = Math.max(1, previousUnreadCount);
+      unreadCountOverridden.current = true;
+      setUnreadOverride(route.params.conversationId, nextUnreadCount);
+      setHeader((c) => ({ ...c, unreadCount: nextUnreadCount }));
+      setConversationUnreadInCache(queryClient, route.params.conversationId, nextUnreadCount);
+      adjustInboxUnreadCount(queryClient, nextUnreadCount - previousUnreadCount);
+      return { previousUnreadCount };
+    },
+    onError: (error, _vars, context) => {
+      const previousUnreadCount = context?.previousUnreadCount ?? 0;
+      suppressAutoMarkReadRef.current = false;
+      unreadCountOverridden.current = true;
+      setUnreadOverride(route.params.conversationId, previousUnreadCount);
+      setHeader((c) => ({ ...c, unreadCount: previousUnreadCount }));
+      setConversationUnreadInCache(queryClient, route.params.conversationId, previousUnreadCount);
+      adjustInboxUnreadCount(queryClient, previousUnreadCount - Math.max(1, previousUnreadCount));
+      Alert.alert('Could not mark as unread', error instanceof Error ? error.message : 'Please try again.');
+      manualReadToggleRef.current = false;
+    },
+    onSuccess: (updated) => {
+      const nextUnread = typeof updated?.unreadCount === 'number' ? Math.max(1, updated.unreadCount) : 1;
+      unreadCountOverridden.current = true;
+      setUnreadOverride(route.params.conversationId, nextUnread);
+      setHeader((c) => ({ ...c, unreadCount: nextUnread }));
+      setConversationUnreadInCache(queryClient, route.params.conversationId, nextUnread);
+      manualReadToggleRef.current = false;
+    },
+  });
   const statusMutation = useMutation({ mutationFn: (status: string) => updateConversationStatus(route.params.conversationId, status as 'OPEN' | 'CLOSED'), onSuccess: (_, status) => setHeader((c) => ({ ...c, status })) });
   const assignmentMutation = useMutation({
     mutationFn: (assigneeWorkspaceMemberId: string | null) => updateConversationAssignment(route.params.conversationId, assigneeWorkspaceMemberId),
@@ -318,8 +396,17 @@ export function ConversationScreen() {
     if (!header.conversation || messages.isLoading || messages.isError) return;
     if (header.unreadCount <= 0 || readMutation.isPending) return;
     if (!atBottom) return;
-    readMutation.mutate();
-  }, [header.conversation, header.unreadCount, messages.isLoading, messages.isError, atBottom, readMutation.isPending]);
+    if (suppressAutoMarkReadRef.current) return;
+
+    const signature = `${route.params.conversationId}:${header.unreadCount}:${header.conversation.updatedAt ?? ''}`;
+    if (lastAutoMarkedReadSignatureRef.current === signature) return;
+    lastAutoMarkedReadSignatureRef.current = signature;
+    readMutation.mutate(undefined, {
+      onError: () => {
+        lastAutoMarkedReadSignatureRef.current = null;
+      },
+    });
+  }, [header.conversation, header.unreadCount, messages.isLoading, messages.isError, atBottom, readMutation.isPending, route.params.conversationId]);
 
   useEffect(() => {
     setActiveConversationId(route.params.conversationId);
@@ -582,7 +669,20 @@ export function ConversationScreen() {
           </Pressable>
         ) : null}
         <Pressable onPress={() => starMutation.mutate(!header.isStarred)} hitSlop={8}><Star color={header.isStarred ? '#f59e0b' : '#94a3b8'} fill={header.isStarred ? '#f59e0b' : 'none'} size={19} /></Pressable>
-        <Pressable onPress={() => { if (header.unreadCount > 0) readMutation.mutate(); else unreadMutation.mutate(); }} hitSlop={8}>{header.unreadCount > 0 ? <Mail color="#334155" size={19} /> : <MailOpen color="#334155" size={19} />}</Pressable>
+        <Pressable
+          onPress={() => {
+            if (readMutation.isPending || unreadMutation.isPending) return;
+            if (header.unreadCount > 0) {
+              manualReadToggleRef.current = true;
+              readMutation.mutate();
+            } else {
+              unreadMutation.mutate();
+            }
+          }}
+          hitSlop={8}
+        >
+          {header.unreadCount > 0 ? <Mail color="#334155" size={19} /> : <MailOpen color="#334155" size={19} />}
+        </Pressable>
         <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}><UserRound color="#334155" size={19} /></Pressable>
         <Pressable onPress={() => setDetailsOpen(true)} hitSlop={8}><MoreHorizontal color="#334155" size={19} /></Pressable>
       </View>
@@ -686,7 +786,19 @@ export function ConversationScreen() {
                 <Text style={styles.menuActionText}>Unassign</Text>
               </Pressable>
             ) : null}
-            <Pressable style={styles.menuAction} onPress={() => { setMenuOpen(false); if (header.unreadCount > 0) readMutation.mutate(); else unreadMutation.mutate(); }}>
+            <Pressable
+              style={styles.menuAction}
+              onPress={() => {
+                setMenuOpen(false);
+                if (readMutation.isPending || unreadMutation.isPending) return;
+                if (header.unreadCount > 0) {
+                  manualReadToggleRef.current = true;
+                  readMutation.mutate();
+                } else {
+                  unreadMutation.mutate();
+                }
+              }}
+            >
               <Text style={styles.menuActionText}>{header.unreadCount > 0 ? 'Mark as read' : 'Mark as unread'}</Text>
             </Pressable>
             <Pressable style={styles.menuAction} onPress={() => { setMenuOpen(false); statusMutation.mutate(header.status === 'CLOSED' ? 'OPEN' : 'CLOSED'); }}>
@@ -722,6 +834,41 @@ function setConversationUnreadInCache(queryClient: any, conversationId: string, 
     }
     return current;
   });
+
+  queryClient.setQueriesData<any>({ queryKey: ['messages', conversationId] }, (current: any) => {
+    if (!current) return current;
+    if (current.conversation) {
+      return { ...current, conversation: { ...current.conversation, unreadCount } };
+    }
+    if (Array.isArray(current?.pages)) {
+      return {
+        ...current,
+        pages: current.pages.map((page: any, index: number) =>
+          index === 0 && page?.conversation
+            ? { ...page, conversation: { ...page.conversation, unreadCount } }
+            : page,
+        ),
+      };
+    }
+    return current;
+  });
+}
+
+function adjustInboxUnreadCount(queryClient: any, delta: number) {
+  if (!delta) return;
+  queryClient.setQueriesData<number | { count?: number; unreadCount?: number; total?: number }>(
+    { queryKey: ['inbox-unread-count'] },
+    (current: any) => {
+      if (typeof current === 'number') return Math.max(0, current + delta);
+      if (!current || typeof current !== 'object') return current;
+      const base = current.count ?? current.unreadCount ?? current.total ?? 0;
+      const next = Math.max(0, base + delta);
+      if ('count' in current) return { ...current, count: next };
+      if ('unreadCount' in current) return { ...current, unreadCount: next };
+      if ('total' in current) return { ...current, total: next };
+      return next;
+    },
+  );
 }
 
 async function sendTemplateMutation(conversationId: string, params: { templateName: string; templateCategory?: string | null; languageCode?: string; text?: string }, queryClient: any, setDraft: (v: string) => void) {
