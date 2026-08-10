@@ -1,11 +1,12 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Clock3, Search } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { fetchWorkspaceCallSessionSummary, fetchWorkspaceCallSessions, type ConversationCallSession } from '../api/inbox';
 import { ErrorState } from './ErrorState';
 import { CallFeedItem } from './CallFeedItem';
+import { ListSkeleton } from './Skeleton';
 
 export type CallFeedFilter = 'all' | 'missed' | 'incoming' | 'outgoing';
 
@@ -126,7 +127,7 @@ export function InboxCallsPane({ onOpenConversation }: Props) {
         })}
       </View>
 
-      {sessionsQuery.isLoading ? <ActivityIndicator color="#2563eb" style={styles.loader} />
+      {sessionsQuery.isLoading ? <ListSkeleton rows={6} />
         : sessionsQuery.isError ? <ErrorState message="Unable to load calls." onRetry={() => sessionsQuery.refetch()} />
           : (
             <FlashList

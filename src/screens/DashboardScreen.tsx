@@ -1124,7 +1124,6 @@ const styles = StyleSheet.create({
   loadMore: { alignItems: 'center', paddingTop: 10, paddingBottom: 2 },
   loadMoreText: { color: '#2563eb', fontSize: 13, fontWeight: '700' },
 
-  loader: { marginTop: 64 },
   errorBox: {
     alignItems: 'center',
     backgroundColor: '#fff',

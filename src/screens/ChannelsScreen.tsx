@@ -178,5 +178,4 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 48 },
   emptyTitle: { color: '#0f172a', fontSize: 16, fontWeight: '700', marginTop: 14 },
   emptyText: { color: '#64748b', fontSize: 13, marginTop: 5, maxWidth: 240, textAlign: 'center' },
-  loader: { marginTop: 60 },
 });

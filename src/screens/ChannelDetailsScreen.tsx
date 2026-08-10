@@ -17,8 +17,8 @@ import {
   type ChannelDetails,
 } from '../api/channels';
 import { ChannelLogo } from '../components/ChannelLogo';
-import { QuickAutomationTab } from '../components/QuickAutomationTab';
 import { FormSkeleton } from '../components/Skeleton';
+import { QuickAutomationTab } from '../components/QuickAutomationTab';
 import { TroubleshootTab } from '../components/TroubleshootTab';
 import { WhatsappCallingTab } from '../components/WhatsappCallingTab';
 import { WhatsappTemplatesTab } from '../components/WhatsappTemplatesTab';
