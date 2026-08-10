@@ -649,7 +649,6 @@ const styles = StyleSheet.create({
   pickerCount: { backgroundColor: '#eef4ff', borderRadius: 10, color: '#2563eb', fontSize: 11, paddingHorizontal: 6, paddingVertical: 2 },
   pickerSearch: { backgroundColor: '#f5f5f5', borderRadius: 10, color: '#17233a', height: 42, marginTop: 12, paddingHorizontal: 12 },
   pickerList: { flexGrow: 0, marginTop: 6, maxHeight: 480 },
-  pickerLoader: { marginTop: 24 },
   pickerError: { color: '#64748b', fontSize: 13, paddingVertical: 18, textAlign: 'center' },
   pickerRow: { borderBottomColor: '#eef2f7', borderBottomWidth: 1, paddingVertical: 10 },
   pickerRowTitle: { color: '#17233a', fontSize: 14, fontWeight: '700' },
