@@ -1,5 +1,6 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { BarChart3, ContactRound, Inbox, Radio, Settings } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { ChannelsStack } from './ChannelsStack';
 import { ContactsStack } from './ContactsStack';
@@ -17,13 +18,20 @@ export type MainTabParamList = {
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export function MainTabs() {
+  const insets = useSafeAreaInsets();
+  const bottomPad = Math.max(insets.bottom, 8) + 4;
+
   return (
     <Tab.Navigator
       screenOptions={{
         tabBarActiveTintColor: '#2563eb',
         tabBarInactiveTintColor: '#94a3b8',
         headerShown: false,
-        tabBarStyle: { height: 58, paddingBottom: 6, paddingTop: 4 },
+        tabBarStyle: {
+          height: 54 + bottomPad,
+          paddingBottom: bottomPad,
+          paddingTop: 4,
+        },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}
     >
