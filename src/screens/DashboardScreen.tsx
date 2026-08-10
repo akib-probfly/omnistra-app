@@ -1,8 +1,20 @@
 // @ts-nocheck
 import { useQuery } from '@tanstack/react-query';
-import { RefreshCw, Search, TrendingUp, Wifi } from 'lucide-react-native';
+import {
+  Clock3,
+  Inbox,
+  MessageSquareText,
+  Percent,
+  RefreshCw,
+  Search,
+  TrendingUp,
+  UserCheck,
+  Users,
+  Wifi,
+} from 'lucide-react-native';
 import { useMemo, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { fetchDashboard, type DashboardChannelHealthItem, type DashboardResponse, type DashboardTeamCommandCenterMember, type DashboardTrendPoint } from '../api/dashboard';
@@ -14,6 +26,7 @@ type PresenceFilter = 'all' | 'online' | 'offline';
 
 const RANGE_LABELS: Record<RangePreset, string> = { today: 'Today', '7d': '7 Days', '30d': '30 Days' };
 const INITIAL_VISIBLE_CHANNELS = 6;
+const TONE_COLORS = { healthy: '#22c55e', degraded: '#f59e0b', warning: '#ef4444', offline: '#94a3b8' };
 
 function startOfDay(value: Date) {
   const next = new Date(value);
@@ -147,7 +160,20 @@ function deriveChannelStatuses(channels: DashboardChannelHealthItem[]) {
     });
 }
 
-const TONE_COLORS = { healthy: '#22c55e', degraded: '#f59e0b', warning: '#ef4444', offline: '#94a3b8' };
+function RangeSegment({ value, onChange }: { value: RangePreset; onChange: (next: RangePreset) => void }) {
+  return (
+    <View style={styles.segment}>
+      {(['today', '7d', '30d'] as RangePreset[]).map((item) => {
+        const active = value === item;
+        return (
+          <Pressable key={item} style={[styles.segmentTab, active && styles.segmentActive]} onPress={() => onChange(item)}>
+            <Text style={[styles.segmentText, active && styles.segmentTextActive]} numberOfLines={1}>{RANGE_LABELS[item]}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 
 function Section({ title, subtitle, action, children }: { title: string; subtitle?: string; action?: ReactNode; children: ReactNode }) {
   return (
@@ -160,21 +186,6 @@ function Section({ title, subtitle, action, children }: { title: string; subtitl
         {action}
       </View>
       {children}
-    </View>
-  );
-}
-
-function RangeSegment({ value, onChange }: { value: RangePreset; onChange: (next: RangePreset) => void }) {
-  return (
-    <View style={styles.segment}>
-      {(['today', '7d', '30d'] as RangePreset[]).map((item) => {
-        const active = value === item;
-        return (
-          <Pressable key={item} style={[styles.segmentTab, active && styles.segmentActive]} onPress={() => onChange(item)}>
-            <Text style={[styles.segmentText, active && styles.segmentTextActive]} numberOfLines={1}>{RANGE_LABELS[item]}</Text>
-          </Pressable>
-        );
-      })}
     </View>
   );
 }
@@ -226,6 +237,105 @@ function VolumeChart({ trends, width }: { trends: DashboardTrendPoint[]; width: 
   );
 }
 
+function CarouselSection({
+  title,
+  subtitle,
+  action,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <View style={styles.carouselSection}>
+      <View style={styles.carouselHeader}>
+        <View style={styles.carouselHeaderCopy}>
+          <Text style={styles.carouselTitle} numberOfLines={1}>{title}</Text>
+          {subtitle ? <Text style={styles.carouselSubtitle} numberOfLines={2}>{subtitle}</Text> : null}
+        </View>
+        {action}
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function HScroll({ children }: { children: ReactNode }) {
+  return (
+    <ScrollView
+      horizontal
+      nestedScrollEnabled
+      showsHorizontalScrollIndicator={false}
+      decelerationRate="normal"
+      contentContainerStyle={styles.carouselContent}
+    >
+      {children}
+    </ScrollView>
+  );
+}
+
+function UberCard({
+  width,
+  colors,
+  icon,
+  value,
+  badge,
+  footerBadge,
+  title,
+  subtitle,
+  onDark = true,
+  valueColor,
+}: {
+  width: number;
+  colors: [string, string];
+  icon: ReactNode;
+  value: string;
+  badge?: ReactNode;
+  footerBadge?: ReactNode;
+  title: string;
+  subtitle: string;
+  onDark?: boolean;
+  valueColor?: string;
+}) {
+  return (
+    <View style={[styles.uberCard, { width }]}>
+      <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.uberPoster}>
+        <View style={[styles.uberOrb, styles.uberOrbA]} />
+        <View style={[styles.uberOrb, styles.uberOrbB]} />
+
+        <View style={styles.uberHeader}>
+          <View style={onDark ? styles.posterIconChip : [styles.posterIconChipDark, styles.posterIconChipSoft]}>
+            {icon}
+          </View>
+          <View style={styles.uberHeaderRight}>
+            {badge ? <View style={onDark ? styles.uberBadgeDark : styles.uberBadgeLight}>{badge}</View> : null}
+            <Text
+              style={[onDark ? styles.posterHeroLight : styles.posterHeroDark, valueColor ? { color: valueColor } : null]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.5}
+            >
+              {value}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.uberFooter}>
+          <View style={styles.uberFooterCopy}>
+            <Text style={onDark ? styles.uberCardTitleLight : styles.uberCardTitle} numberOfLines={1}>{title}</Text>
+            <Text style={onDark ? styles.uberCardSubtitleLight : styles.uberCardSubtitle} numberOfLines={2}>{subtitle}</Text>
+          </View>
+          {footerBadge ? (
+            <View style={onDark ? styles.uberBadgeDark : styles.uberBadgeLight}>{footerBadge}</View>
+          ) : null}
+        </View>
+      </LinearGradient>
+    </View>
+  );
+}
+
 function ChannelMix({ mix }: { mix: DashboardResponse['channelMix'] }) {
   const segments = useMemo(() => {
     const total = (mix ?? []).reduce((sum, item) => sum + item.total, 0);
@@ -272,6 +382,8 @@ function ChannelMix({ mix }: { mix: DashboardResponse['channelMix'] }) {
 }
 
 function TeamCommandCenter({ data }: { data: DashboardResponse | undefined }) {
+  const { width: windowWidth } = useWindowDimensions();
+  const statWidth = Math.min(220, Math.max(188, windowWidth * 0.55));
   const [filter, setFilter] = useState<PresenceFilter>('all');
   const team = data?.teamCommandCenter;
   const enriched = useMemo(() => {
@@ -314,109 +426,103 @@ function TeamCommandCenter({ data }: { data: DashboardResponse | undefined }) {
     { key: 'offline' as PresenceFilter, label: 'Offline', count: team?.filters.offline ?? offlineCount },
   ];
   const list = filter === 'all' ? enriched : enriched.filter((row) => row.status === filter);
+  const teamStats = [
+    { label: 'Available now', value: `${availableNow}/${totalMembers}`, note: 'Agents ready to take conversations', colors: ['#047857', '#34d399'] as [string, string], Icon: UserCheck },
+    { label: 'Assigned load', value: formatNumber(totalAssigned), note: 'Conversations currently with agents', colors: ['#1d4ed8', '#60a5fa'] as [string, string], Icon: Inbox },
+    { label: 'Still open', value: formatNumber(totalOpen), note: 'Waiting on a reply from the team', colors: ['#c2410c', '#fb923c'] as [string, string], Icon: MessageSquareText },
+    { label: 'Avg response', value: avgResponseLabel, note: `${teamProgress}% team progress · ${formatNumber(totalReplied)} replied`, colors: ['#6d28d9', '#a78bfa'] as [string, string], Icon: Clock3 },
+  ];
 
   return (
-    <Section
-      title="Team Command Center"
-      subtitle={`${availableNow} of ${totalMembers} available`}
-      action={(
-        <View style={styles.livePill}>
-          <View style={styles.liveDot} />
-          <Text style={styles.livePillText}>Live</Text>
-        </View>
-      )}
-    >
-      <View style={styles.statusTabs}>
-        {filters.map((item) => {
-          const active = filter === item.key;
-          return (
-            <Pressable key={item.key} style={[styles.statusTab, active && styles.statusActive]} onPress={() => setFilter(item.key)}>
-              <Text style={[styles.statusText, active && styles.statusTextActive]} numberOfLines={1}>{item.label}</Text>
-              <View style={[styles.statusCount, active && styles.statusCountActive]}>
-                <Text style={[styles.statusCountText, active && styles.statusCountTextActive]}>{item.count}</Text>
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <View style={styles.teamStats}>
-        <View style={styles.metricRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Available</Text>
-            <Text style={[styles.statValue, styles.statGreen]} numberOfLines={1}>{availableNow}/{totalMembers}</Text>
+    <View>
+      <CarouselSection
+        title="Team Command Center"
+        subtitle={`${availableNow} of ${totalMembers} available`}
+        action={(
+          <View style={styles.livePill}>
+            <View style={styles.liveDot} />
+            <Text style={styles.livePillText}>Live</Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Assigned</Text>
-            <Text style={styles.statValue} numberOfLines={1}>{formatNumber(totalAssigned)}</Text>
-          </View>
-        </View>
-        <View style={styles.metricRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Open</Text>
-            <Text style={styles.statValue} numberOfLines={1}>{formatNumber(totalOpen)}</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>Avg response</Text>
-            <Text style={styles.statValue} numberOfLines={1}>{avgResponseLabel}</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.progressBlock}>
-        <View style={styles.progressHeader}>
-          <Text style={styles.progressLabel}>Team progress</Text>
-          <Text style={styles.progressValue}>{totalReplied}/{totalAssigned} · {teamProgress}%</Text>
-        </View>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${Math.min(Math.max(teamProgress, 0), 100)}%` }]} />
-        </View>
-      </View>
-
-      <View style={styles.memberList}>
-        {list.length === 0 ? (
-          <Text style={styles.emptyText}>No agents in this state.</Text>
-        ) : list.map((row) => (
-          <View style={[styles.memberCard, row.status === 'offline' && styles.memberOffline]} key={row.key}>
-            <View style={styles.memberTop}>
-              <View style={styles.memberAvatarWrap}>
-                <View style={styles.memberAvatar}><Text style={styles.memberInitials}>{row.initials}</Text></View>
-                <View style={[styles.presenceDot, { backgroundColor: row.status === 'online' ? '#22c55e' : '#94a3b8' }]} />
-              </View>
-              <View style={styles.memberIdentity}>
-                <Text style={styles.memberName} numberOfLines={1}>{row.name}</Text>
-                <Text style={styles.memberActivity} numberOfLines={1}>{row.activity}</Text>
-              </View>
-              <View style={[styles.presenceBadge, { backgroundColor: row.status === 'online' ? '#ecfdf5' : '#f1f5f9' }]}>
-                <Text style={[styles.presenceBadgeText, { color: row.status === 'online' ? '#059669' : '#64748b' }]}>
-                  {row.status === 'online' ? 'Online' : 'Offline'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.memberMetrics}>
-              <Text style={styles.memberMetric}><Text style={styles.memberMetricStrong}>{formatNumber(row.replied)}</Text> replied</Text>
-              <Text style={styles.memberMetricDot}>·</Text>
-              <Text style={styles.memberMetric}><Text style={styles.memberMetricBlue}>{formatNumber(row.open)}</Text> open</Text>
-              <Text style={styles.memberMetricDot}>·</Text>
-              <Text style={styles.memberMetric}><Text style={styles.memberMetricStrong}>{formatNumber(row.assigned)}</Text> assigned</Text>
-            </View>
-
-            <View style={styles.memberBottom}>
-              <View style={styles.memberProgressWrap}>
-                <View style={styles.memberProgressTrack}>
-                  <View style={[styles.memberProgressFill, { width: `${Math.min(Math.max(row.progress, 0), 100)}%`, backgroundColor: row.status === 'online' ? '#10b981' : '#94a3b8' }]} />
+        )}
+      >
+        <View style={styles.statusTabsRow}>
+          {filters.map((item) => {
+            const active = filter === item.key;
+            return (
+              <Pressable key={item.key} style={[styles.statusTabChip, active && styles.statusActive]} onPress={() => setFilter(item.key)}>
+                <Text style={[styles.statusText, active && styles.statusTextActive]} numberOfLines={1}>{item.label}</Text>
+                <View style={[styles.statusCount, active && styles.statusCountActive]}>
+                  <Text style={[styles.statusCountText, active && styles.statusCountTextActive]}>{item.count}</Text>
                 </View>
-                <Text style={styles.memberProgressPct}>{row.progress}%</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <HScroll>
+          {teamStats.map((stat) => {
+            const Icon = stat.Icon;
+            return (
+              <UberCard
+                key={stat.label}
+                width={statWidth}
+                colors={stat.colors}
+                icon={<Icon color="#fff" size={20} strokeWidth={2.2} />}
+                value={stat.value}
+                title={stat.label}
+                subtitle={stat.note}
+              />
+            );
+          })}
+        </HScroll>
+      </CarouselSection>
+
+      <Section title="Your agents" subtitle={filter === 'all' ? 'Sorted by assigned load' : `${filter} agents`}>
+        <View style={styles.memberList}>
+          {list.length === 0 ? (
+            <Text style={styles.emptyText}>No agents in this state.</Text>
+          ) : list.map((row) => (
+            <View style={[styles.memberCard, row.status === 'offline' && styles.memberOffline]} key={row.key}>
+              <View style={styles.memberTop}>
+                <View style={styles.memberAvatarWrap}>
+                  <View style={styles.memberAvatar}><Text style={styles.memberInitials}>{row.initials}</Text></View>
+                  <View style={[styles.presenceDot, { backgroundColor: row.status === 'online' ? '#22c55e' : '#94a3b8' }]} />
+                </View>
+                <View style={styles.memberIdentity}>
+                  <Text style={styles.memberName} numberOfLines={1}>{row.name}</Text>
+                  <Text style={styles.memberActivity} numberOfLines={1}>{row.activity}</Text>
+                </View>
+                <View style={[styles.presenceBadge, { backgroundColor: row.status === 'online' ? '#ecfdf5' : '#f1f5f9' }]}>
+                  <Text style={[styles.presenceBadgeText, { color: row.status === 'online' ? '#059669' : '#64748b' }]}>
+                    {row.status === 'online' ? 'Online' : 'Offline'}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.responseChip}>
-                <Text style={styles.responseChipText} numberOfLines={1}>{row.responseLabel}</Text>
+
+              <View style={styles.memberMetrics}>
+                <Text style={styles.memberMetric}><Text style={styles.memberMetricStrong}>{formatNumber(row.replied)}</Text> replied</Text>
+                <Text style={styles.memberMetricDot}>·</Text>
+                <Text style={styles.memberMetric}><Text style={styles.memberMetricBlue}>{formatNumber(row.open)}</Text> open</Text>
+                <Text style={styles.memberMetricDot}>·</Text>
+                <Text style={styles.memberMetric}><Text style={styles.memberMetricStrong}>{formatNumber(row.assigned)}</Text> assigned</Text>
+              </View>
+
+              <View style={styles.memberBottom}>
+                <View style={styles.memberProgressWrap}>
+                  <View style={styles.memberProgressTrack}>
+                    <View style={[styles.memberProgressFill, { width: `${Math.min(Math.max(row.progress, 0), 100)}%`, backgroundColor: row.status === 'online' ? '#10b981' : '#94a3b8' }]} />
+                  </View>
+                  <Text style={styles.memberProgressPct}>{row.progress}%</Text>
+                </View>
+                <View style={styles.responseChip}>
+                  <Text style={styles.responseChipText} numberOfLines={1}>{row.responseLabel}</Text>
+                </View>
               </View>
             </View>
-          </View>
-        ))}
-      </View>
-    </Section>
+          ))}
+        </View>
+      </Section>
+    </View>
   );
 }
 
@@ -464,31 +570,73 @@ function LiveChannelStatus({ data }: { data: DashboardResponse | undefined }) {
   );
 }
 
-function MetricCard({ label, value, note, color, delta }: { label: string; value: string; note: string; color: string; delta: { label: string | null; positive: boolean } | null }) {
+function MetricCard({
+  label,
+  value,
+  note,
+  color,
+  colors,
+  Icon,
+  delta,
+  width,
+}: {
+  label: string;
+  value: string;
+  note: string;
+  color: string;
+  colors: [string, string];
+  Icon: typeof MessageSquareText;
+  delta: { label: string | null; positive: boolean } | null;
+  width: number;
+}) {
   return (
-    <View style={styles.metric}>
-      <View style={styles.metricHeading}>
-        <View style={[styles.metricAccent, { backgroundColor: color }]} />
-        <Text style={styles.metricLabel} numberOfLines={2}>{label}</Text>
-      </View>
-      <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{value}</Text>
-      {delta?.label ? (
-        <Text style={[styles.metricDelta, delta.positive ? styles.deltaPositive : styles.deltaNegative]} numberOfLines={1}>
-          {delta.label} <Text style={styles.metricNoteInline}>{note}</Text>
+    <UberCard
+      width={width}
+      colors={colors}
+      onDark={false}
+      valueColor={color}
+      icon={<Icon color={color} size={20} strokeWidth={2.2} />}
+      footerBadge={delta?.label ? (
+        <Text style={[styles.uberDelta, delta.positive ? styles.deltaPositive : styles.deltaNegative]} numberOfLines={1}>
+          {delta.label}
         </Text>
-      ) : (
-        <Text style={styles.metricNote} numberOfLines={1}>{note}</Text>
-      )}
-    </View>
+      ) : undefined}
+      value={value}
+      title={label}
+      subtitle={note}
+    />
   );
 }
 
-function chunkPairs<T>(items: T[]): Array<[T, T | null]> {
-  const pairs: Array<[T, T | null]> = [];
-  for (let index = 0; index < items.length; index += 2) {
-    pairs.push([items[index], items[index + 1] ?? null]);
-  }
-  return pairs;
+function MetricCarousel({
+  title,
+  subtitle,
+  metrics,
+}: {
+  title: string;
+  subtitle?: string;
+  metrics: Array<{
+    label: string;
+    value: string;
+    note: string;
+    color: string;
+    colors: [string, string];
+    Icon: typeof MessageSquareText;
+    delta: { label: string | null; positive: boolean } | null;
+  }>;
+}) {
+  const { width: windowWidth } = useWindowDimensions();
+  const cardWidth = Math.min(248, Math.max(210, windowWidth * 0.62));
+
+  return (
+    <CarouselSection title={title} subtitle={subtitle}>
+      <HScroll>
+        {metrics.map((metric) => (
+          <MetricCard key={metric.label} {...metric} width={cardWidth} />
+        ))}
+      </HScroll>
+    </CarouselSection>
+  );
 }
 
 export function DashboardScreen() {
@@ -516,22 +664,23 @@ export function DashboardScreen() {
     const respCmp = compareValues(snapshot.response.previous, snapshot.response.current, false);
     const rateCmp = compareValues(snapshot.rate.previous, snapshot.rate.current, true);
     return [
-      { label: 'Conversations', value: formatNumber(summary?.totalConversations), note: 'vs prior period', color: '#78c043', delta: totalCmp },
-      { label: 'Unique contacts', value: formatNumber(summary?.uniqueContactsCreated), note: 'in range', color: '#ef613d', delta: null },
-      { label: 'Unassigned', value: formatNumber(summary?.unassignedConversations), note: 'needs owner', color: '#15a8e8', delta: null },
-      { label: 'Assigned', value: formatNumber(summary?.assignedConversations), note: 'with agents', color: '#42b95a', delta: null },
-      { label: 'First response', value: formatDuration(summary?.avgFirstResponseMinutes ?? null), note: 'vs prior period', color: '#f05b52', delta: respCmp },
-      { label: 'Resolution rate', value: `${(summary?.resolutionRate ?? 0).toFixed(1)}%`, note: 'vs prior period', color: '#42a854', delta: rateCmp },
+      { label: 'Conversations', value: formatNumber(summary?.totalConversations), note: 'vs prior period', color: '#3f6212', colors: ['#ecfccb', '#a3e635'] as [string, string], Icon: MessageSquareText, delta: totalCmp },
+      { label: 'Unique contacts', value: formatNumber(summary?.uniqueContactsCreated), note: 'in range', color: '#9a3412', colors: ['#ffedd5', '#fb923c'] as [string, string], Icon: Users, delta: null },
+      { label: 'Unassigned', value: formatNumber(summary?.unassignedConversations), note: 'needs owner', color: '#075985', colors: ['#e0f2fe', '#38bdf8'] as [string, string], Icon: Inbox, delta: null },
+      { label: 'Assigned', value: formatNumber(summary?.assignedConversations), note: 'with agents', color: '#166534', colors: ['#dcfce7', '#4ade80'] as [string, string], Icon: UserCheck, delta: null },
+      { label: 'First response', value: formatDuration(summary?.avgFirstResponseMinutes ?? null), note: 'vs prior period', color: '#991b1b', colors: ['#fee2e2', '#f87171'] as [string, string], Icon: Clock3, delta: respCmp },
+      { label: 'Resolution rate', value: `${(summary?.resolutionRate ?? 0).toFixed(1)}%`, note: 'vs prior period', color: '#065f46', colors: ['#d1fae5', '#34d399'] as [string, string], Icon: Percent, delta: rateCmp },
     ];
   }, [summary, snapshot]);
 
   const overview = [
-    { label: 'Conversations', value: formatNumber(summary?.totalConversations) },
-    { label: 'Channels', value: formatNumber(channelsCount) },
-    { label: 'Team', value: formatNumber(teamMembers) },
+    { label: 'Conversations', value: formatNumber(summary?.totalConversations), note: 'Total in selected range', colors: ['#1d4ed8', '#60a5fa'] as [string, string], Icon: MessageSquareText },
+    { label: 'Channels', value: formatNumber(channelsCount), note: 'Connected in workspace', colors: ['#0f766e', '#2dd4bf'] as [string, string], Icon: Wifi },
+    { label: 'Team', value: formatNumber(teamMembers), note: 'Agents in command center', colors: ['#7c3aed', '#c4b5fd'] as [string, string], Icon: Users },
   ];
 
   const applySearch = () => setSearch(searchInput.trim());
+  const glanceWidth = Math.min(220, Math.max(188, windowWidth * 0.55));
 
   return (
     <View style={styles.screen}>
@@ -568,14 +717,6 @@ export function DashboardScreen() {
             ) : null}
           </View>
           <RangeSegment value={preset} onChange={setPreset} />
-          <View style={styles.overviewRow}>
-            {overview.map((item) => (
-              <View style={styles.overviewChip} key={item.label}>
-                <Text style={styles.overviewValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{item.value}</Text>
-                <Text style={styles.overviewLabel} numberOfLines={1}>{item.label}</Text>
-              </View>
-            ))}
-          </View>
         </View>
 
         {dashboard.isLoading && !dashboard.data ? (
@@ -591,16 +732,26 @@ export function DashboardScreen() {
           </View>
         ) : (
           <>
-            <Section title="Key metrics" subtitle={rangeLabel}>
-              <View style={styles.metricGrid}>
-                {chunkPairs(metrics).map(([left, right]) => (
-                  <View style={styles.metricRow} key={left.label}>
-                    <MetricCard {...left} />
-                    {right ? <MetricCard {...right} /> : <View style={styles.metricSpacer} />}
-                  </View>
-                ))}
-              </View>
-            </Section>
+            <CarouselSection title="At a glance" subtitle={rangeLabel}>
+              <HScroll>
+                {overview.map((item) => {
+                  const Icon = item.Icon;
+                  return (
+                    <UberCard
+                      key={item.label}
+                      width={glanceWidth}
+                      colors={item.colors}
+                      icon={<Icon color="#fff" size={20} strokeWidth={2.2} />}
+                      value={item.value}
+                      title={item.label}
+                      subtitle={item.note}
+                    />
+                  );
+                })}
+              </HScroll>
+            </CarouselSection>
+
+            <MetricCarousel title="Key metrics" subtitle={rangeLabel} metrics={metrics} />
 
             <Section
               title="Conversation volume"
@@ -617,7 +768,6 @@ export function DashboardScreen() {
             <Section title="Channel mix" subtitle={rangeLabel}>
               <ChannelMix mix={mix} />
             </Section>
-
             <TeamCommandCenter data={dashboard.data} />
             <LiveChannelStatus data={dashboard.data} />
 
@@ -678,19 +828,6 @@ const styles = StyleSheet.create({
   segmentActive: { backgroundColor: '#2563eb' },
   segmentText: { color: '#64748b', fontSize: 13, fontWeight: '700' },
   segmentTextActive: { color: '#fff' },
-  overviewRow: { flexDirection: 'row', gap: 8 },
-  overviewChip: {
-    backgroundColor: '#f8fafc',
-    borderColor: '#e8eef7',
-    borderRadius: 14,
-    borderWidth: 1,
-    flex: 1,
-    minWidth: 0,
-    paddingHorizontal: 10,
-    paddingVertical: 12,
-  },
-  overviewValue: { color: '#0f172a', fontSize: 20, fontWeight: '800', letterSpacing: -0.3 },
-  overviewLabel: { color: '#64748b', fontSize: 11, fontWeight: '600', marginTop: 4 },
 
   section: {
     backgroundColor: '#fff',
@@ -706,25 +843,165 @@ const styles = StyleSheet.create({
   sectionTitle: { color: '#0f172a', fontSize: 17, fontWeight: '800', letterSpacing: -0.2 },
   sectionSubtitle: { color: '#64748b', fontSize: 12, lineHeight: 16, marginTop: 3 },
 
-  metricGrid: { gap: 10 },
-  metricRow: { flexDirection: 'row', gap: 10 },
-  metric: {
-    backgroundColor: '#f8fafc',
-    borderColor: '#e8eef7',
-    borderRadius: 16,
-    borderWidth: 1,
+  carouselSection: {
+    marginTop: 22,
+  },
+  carouselHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 14,
+    paddingHorizontal: 16,
+  },
+  carouselHeaderCopy: {
     flex: 1,
     minWidth: 0,
-    padding: 12,
   },
-  metricSpacer: { flex: 1, minWidth: 0 },
-  metricHeading: { alignItems: 'flex-start', flexDirection: 'row', gap: 8, minHeight: 34 },
-  metricAccent: { borderRadius: 3, height: 14, marginTop: 2, width: 4 },
-  metricLabel: { color: '#64748b', flex: 1, fontSize: 12, fontWeight: '600', lineHeight: 16 },
-  metricValue: { color: '#0f172a', fontSize: 24, fontWeight: '800', letterSpacing: -0.4, marginTop: 8 },
-  metricNote: { color: '#94a3b8', fontSize: 11, marginTop: 6 },
-  metricNoteInline: { color: '#94a3b8', fontWeight: '500' },
-  metricDelta: { fontSize: 11, fontWeight: '700', marginTop: 6 },
+  carouselTitle: {
+    color: '#0f172a',
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+  },
+  carouselSubtitle: {
+    color: '#64748b',
+    fontSize: 13,
+    marginTop: 3,
+  },
+  carouselContent: {
+    gap: 14,
+    paddingHorizontal: 16,
+    paddingRight: 32,
+  },
+  carouselEmpty: {
+    marginHorizontal: 16,
+    paddingVertical: 20,
+  },
+  uberCard: {
+    borderRadius: 22,
+    overflow: 'hidden',
+  },
+  uberPoster: {
+    borderRadius: 22,
+    height: 168,
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  uberHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  uberHeaderRight: {
+    alignItems: 'flex-end',
+    flex: 1,
+    gap: 6,
+    minWidth: 0,
+  },
+  uberFooter: {
+    alignItems: 'flex-end',
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  uberFooterCopy: {
+    flex: 1,
+    gap: 3,
+    minWidth: 0,
+  },
+  uberOrb: {
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderRadius: 999,
+    position: 'absolute',
+  },
+  uberOrbA: {
+    height: 130,
+    right: -36,
+    top: -44,
+    width: 130,
+  },
+  uberOrbB: {
+    bottom: -42,
+    height: 110,
+    left: -34,
+    width: 110,
+  },
+  posterIconChip: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderRadius: 14,
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
+  },
+  posterIconChipDark: {
+    alignItems: 'center',
+    borderRadius: 14,
+    height: 40,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: 40,
+  },
+  posterIconChipSoft: {
+    backgroundColor: 'rgba(255,255,255,0.7)',
+  },
+  uberBadgeDark: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  uberBadgeLight: {
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  posterHeroLight: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.8,
+    lineHeight: 32,
+    textAlign: 'right',
+  },
+  posterHeroDark: {
+    color: '#0f172a',
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.8,
+    lineHeight: 32,
+    textAlign: 'right',
+  },
+  uberCardTitle: {
+    color: '#0f172a',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  uberCardTitleLight: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  uberCardSubtitle: {
+    color: '#64748b',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  uberCardSubtitleLight: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  uberDelta: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
   deltaPositive: { color: '#059669' },
   deltaNegative: { color: '#dc2626' },
 
@@ -747,49 +1024,32 @@ const styles = StyleSheet.create({
   livePill: { alignItems: 'center', backgroundColor: '#ecfdf5', borderRadius: 999, flexDirection: 'row', gap: 5, paddingHorizontal: 9, paddingVertical: 5 },
   liveDot: { backgroundColor: '#22c55e', borderRadius: 4, height: 7, width: 7 },
   livePillText: { color: '#059669', fontSize: 11, fontWeight: '700' },
-  statusTabs: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  statusTab: {
+  statusTabsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+    paddingHorizontal: 16,
+  },
+  statusTabChip: {
     alignItems: 'center',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#fff',
+    borderColor: '#e2e8f0',
     borderRadius: 12,
-    flex: 1,
+    borderWidth: 1,
     flexDirection: 'row',
     gap: 6,
-    justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
     paddingVertical: 9,
   },
-  statusActive: { backgroundColor: '#2563eb' },
+  statusActive: { backgroundColor: '#0f172a', borderColor: '#0f172a' },
   statusText: { color: '#64748b', fontSize: 12, fontWeight: '700' },
   statusTextActive: { color: '#fff' },
   statusCount: { backgroundColor: '#e2e8f0', borderRadius: 999, minWidth: 20, paddingHorizontal: 6, paddingVertical: 1 },
-  statusCountActive: { backgroundColor: 'rgba(255,255,255,0.22)' },
+  statusCountActive: { backgroundColor: 'rgba(255,255,255,0.18)' },
   statusCountText: { color: '#475569', fontSize: 11, fontWeight: '700', textAlign: 'center' },
   statusCountTextActive: { color: '#fff' },
 
-  teamStats: { gap: 8 },
-  statCard: {
-    backgroundColor: '#f8fafc',
-    borderColor: '#e8eef7',
-    borderRadius: 14,
-    borderWidth: 1,
-    flex: 1,
-    minWidth: 0,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  statLabel: { color: '#64748b', fontSize: 11, fontWeight: '600' },
-  statValue: { color: '#0f172a', fontSize: 18, fontWeight: '800', marginTop: 4 },
-  statGreen: { color: '#059669' },
-
-  progressBlock: { marginTop: 14 },
-  progressHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  progressLabel: { color: '#64748b', fontSize: 12, fontWeight: '600' },
-  progressValue: { color: '#059669', fontSize: 12, fontWeight: '700' },
-  progressTrack: { backgroundColor: '#e2e8f0', borderRadius: 999, height: 7, marginTop: 8, overflow: 'hidden' },
-  progressFill: { backgroundColor: '#10b981', borderRadius: 999, height: '100%' },
-
-  memberList: { gap: 10, marginTop: 14 },
+  memberList: { gap: 10 },
   memberCard: {
     backgroundColor: '#f8fafc',
     borderColor: '#e8eef7',
