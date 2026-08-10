@@ -1,4 +1,5 @@
 import { setAudioModeAsync } from 'expo-audio';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   ChevronDown,
   Headphones,
@@ -12,13 +13,14 @@ import {
   Volume1,
   Volume2,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ConversationCallConversation, ConversationCallSession, ConversationCallSignalSession } from '../api/inbox';
 import { getCallSessionStatusLabel, isCallSessionTerminal } from '../lib/inbox-utils';
 import type { CallConnectionState } from '../hooks/useWhatsappCallController';
 import { RTCView } from '../native/webrtc';
+import { ColorfulAvatar } from './ColorfulAvatar';
 
 type Props = {
   conversation: ConversationCallConversation;
@@ -90,6 +92,29 @@ function useCallDurationSeconds(session: ConversationCallSession | null, isConne
   return elapsed;
 }
 
+function usePulse(active: boolean) {
+  const pulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!active) {
+      pulse.setValue(0);
+      return;
+    }
+    const animation = Animated.loop(
+      Animated.timing(pulse, {
+        toValue: 1,
+        duration: 1800,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [active, pulse]);
+
+  return pulse;
+}
+
 async function applySpeakerMode(loud: boolean) {
   await setAudioModeAsync({
     allowsRecording: true,
@@ -98,6 +123,127 @@ async function applySpeakerMode(loud: boolean) {
     interruptionMode: 'doNotMix',
     shouldRouteThroughEarpiece: !loud,
   });
+}
+
+function IncomingCallScreen({
+  label,
+  avatarUrl,
+  channelName,
+  statusLabel,
+  waitingForSignal,
+  errorMessage,
+  isBusy,
+  canAnswer,
+  onAnswerCall,
+  onDeclineCall,
+  topInset,
+  bottomInset,
+}: {
+  label: string;
+  avatarUrl?: string | null;
+  channelName?: string | null;
+  statusLabel: string;
+  waitingForSignal: boolean;
+  errorMessage: string | null;
+  isBusy: boolean;
+  canAnswer: boolean;
+  onAnswerCall: () => void;
+  onDeclineCall: () => void;
+  topInset: number;
+  bottomInset: number;
+}) {
+  const pulse = usePulse(true);
+  const ringStyle = (delay: number) => ({
+    opacity: pulse.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.45 - delay * 0.12, 0],
+    }),
+    transform: [{
+      scale: pulse.interpolate({
+        inputRange: [0, 1],
+        outputRange: [1 + delay * 0.08, 1.55 + delay * 0.2],
+      }),
+    }],
+  });
+
+  return (
+    <Modal visible transparent animationType="fade">
+      <LinearGradient
+        colors={['#0f2744', '#0b1220', '#07101c']}
+        locations={[0, 0.45, 1]}
+        style={[styles.incomingRoot, { paddingTop: topInset + 18, paddingBottom: bottomInset + 28 }]}
+      >
+        <View style={styles.incomingGlow} />
+        <View style={styles.incomingTopRow}>
+          <View style={styles.incomingChip}>
+            <View style={styles.incomingChipDotAmber} />
+            <Text style={styles.incomingChipText} numberOfLines={1}>
+              {channelName || 'WhatsApp'}
+            </Text>
+          </View>
+          <View style={styles.incomingChip}>
+            <View style={styles.incomingChipDotGreen} />
+            <Text style={styles.incomingChipText}>Incoming call</Text>
+          </View>
+        </View>
+
+        <View style={styles.incomingBody}>
+          <View style={styles.incomingAvatarStage}>
+            <Animated.View style={[styles.incomingPulseRing, ringStyle(0)]} />
+            <Animated.View style={[styles.incomingPulseRing, ringStyle(0.35)]} />
+            <View style={styles.incomingAvatarShell}>
+              <ColorfulAvatar name={label} size={112} url={avatarUrl} />
+            </View>
+            <View style={styles.incomingBadge}>
+              <PhoneIncoming color="#052e16" size={14} strokeWidth={2.6} />
+            </View>
+          </View>
+
+          <Text style={styles.incomingEyebrow}>WhatsApp call</Text>
+          <Text style={styles.incomingName}>{label}</Text>
+          <Text style={styles.incomingSubtitle}>is calling you</Text>
+
+          <View style={styles.incomingStatusPill}>
+            <View style={styles.incomingStatusDot} />
+            <Text style={styles.incomingStatusText}>{waitingForSignal ? 'Waiting for signal…' : statusLabel}</Text>
+          </View>
+
+          {errorMessage ? (
+            <View style={styles.incomingErrorBox}>
+              <Text style={styles.incomingErrorText}>{errorMessage}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.incomingActions}>
+          <View style={styles.incomingActionCol}>
+            <Pressable
+              style={[styles.incomingRoundButton, styles.declineButton, isBusy && styles.buttonDisabled]}
+              onPress={onDeclineCall}
+              disabled={isBusy}
+              accessibilityRole="button"
+              accessibilityLabel="Decline call"
+            >
+              {isBusy ? <ActivityIndicator color="#fff" /> : <PhoneOff color="#fff" size={28} />}
+            </Pressable>
+            <Text style={styles.incomingActionLabel}>Decline</Text>
+          </View>
+          <View style={styles.incomingActionCol}>
+            <Pressable
+              style={[styles.incomingRoundButton, styles.answerButton, (!canAnswer || isBusy) && styles.buttonDisabled]}
+              onPress={onAnswerCall}
+              disabled={!canAnswer || isBusy}
+              accessibilityRole="button"
+              accessibilityLabel="Answer call"
+            >
+              {isBusy ? <ActivityIndicator color="#fff" /> : <Phone color="#fff" size={28} />}
+            </Pressable>
+            <Text style={styles.incomingActionLabel}>Answer</Text>
+          </View>
+        </View>
+      </LinearGradient>
+    </Modal>
+  );
 }
 
 export function CallPanel({
@@ -178,31 +324,20 @@ export function CallPanel({
 
   if (isIncomingCall) {
     return (
-      <Modal visible transparent animationType="fade">
-        <View style={[styles.incomingOverlay, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
-          <View style={styles.incomingCard}>
-            <View style={styles.avatar}><Text style={styles.avatarText}>{getInitials(label)}</Text></View>
-            <Text style={styles.incomingTitle}>Incoming WhatsApp call</Text>
-            <Text style={styles.incomingName}>{label}</Text>
-            <Text style={styles.incomingHint}>{statusLabel}</Text>
-            {!activeCallSignal ? <Text style={styles.signalHint}>Waiting for call signal...</Text> : null}
-            {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
-            <View style={styles.incomingActions}>
-              <Pressable style={[styles.roundButton, styles.declineButton]} onPress={onDeclineCall} disabled={isBusy}>
-                <PhoneOff color="#fff" size={24} />
-              </Pressable>
-              <Pressable
-                style={[styles.roundButton, styles.answerButton, (!activeCallSignal || isBusy) && styles.buttonDisabled]}
-                onPress={onAnswerCall}
-                disabled={!activeCallSignal || isBusy}
-              >
-                {isBusy ? <ActivityIndicator color="#fff" /> : <Phone color="#fff" size={24} />}
-              </Pressable>
-            </View>
-            <Text style={styles.incomingLabels}>Decline · Answer</Text>
-          </View>
-        </View>
-      </Modal>
+      <IncomingCallScreen
+        label={label}
+        avatarUrl={conversation.contact.avatarUrl}
+        channelName={conversation.channel.channelName || conversation.channel.displayPhoneNumber}
+        statusLabel={statusLabel}
+        waitingForSignal={!activeCallSignal}
+        errorMessage={errorMessage}
+        isBusy={isBusy}
+        canAnswer={Boolean(activeCallSignal)}
+        onAnswerCall={onAnswerCall}
+        onDeclineCall={onDeclineCall}
+        topInset={insets.top}
+        bottomInset={insets.bottom}
+      />
     );
   }
 
@@ -309,21 +444,189 @@ export function CallPanel({
 }
 
 const styles = StyleSheet.create({
-  incomingOverlay: { backgroundColor: 'rgba(15,23,42,0.72)', flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
-  incomingCard: { alignItems: 'center', backgroundColor: '#fff', borderRadius: 28, paddingHorizontal: 24, paddingVertical: 32 },
-  avatar: { alignItems: 'center', backgroundColor: '#dbeafe', borderRadius: 40, height: 80, justifyContent: 'center', width: 80 },
-  avatarText: { color: '#1d4ed8', fontSize: 28, fontWeight: '800' },
-  incomingTitle: { color: '#64748b', fontSize: 13, fontWeight: '600', marginTop: 18 },
-  incomingName: { color: '#0f172a', fontSize: 22, fontWeight: '800', marginTop: 6, textAlign: 'center' },
-  incomingHint: { color: '#2563eb', fontSize: 14, fontWeight: '600', marginTop: 8 },
-  signalHint: { color: '#94a3b8', fontSize: 12, marginTop: 8 },
-  error: { color: '#e11d48', fontSize: 12, marginTop: 8, textAlign: 'center' },
-  incomingActions: { flexDirection: 'row', gap: 28, marginTop: 28 },
-  roundButton: { alignItems: 'center', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 },
+  incomingRoot: {
+    flex: 1,
+    overflow: 'hidden',
+    paddingHorizontal: 24,
+  },
+  incomingGlow: {
+    backgroundColor: 'rgba(56,189,248,0.18)',
+    borderRadius: 160,
+    height: 220,
+    position: 'absolute',
+    right: -60,
+    top: -40,
+    width: 220,
+  },
+  incomingTopRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  incomingChip: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    maxWidth: '48%',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  incomingChipDotAmber: {
+    backgroundColor: '#fbbf24',
+    borderRadius: 4,
+    height: 8,
+    shadowColor: '#fbbf24',
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+    width: 8,
+  },
+  incomingChipDotGreen: {
+    backgroundColor: '#34d399',
+    borderRadius: 4,
+    height: 8,
+    shadowColor: '#34d399',
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+    width: 8,
+  },
+  incomingChipText: {
+    color: 'rgba(255,255,255,0.82)',
+    flexShrink: 1,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  incomingBody: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
+  incomingAvatarStage: {
+    alignItems: 'center',
+    height: 168,
+    justifyContent: 'center',
+    marginBottom: 8,
+    width: 168,
+  },
+  incomingPulseRing: {
+    borderColor: 'rgba(56,189,248,0.35)',
+    borderRadius: 999,
+    borderWidth: 2,
+    height: 128,
+    position: 'absolute',
+    width: 128,
+  },
+  incomingAvatarShell: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.14)',
+    borderRadius: 64,
+    borderWidth: 1,
+    padding: 6,
+  },
+  incomingBadge: {
+    alignItems: 'center',
+    backgroundColor: '#34d399',
+    borderRadius: 14,
+    height: 28,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: 18,
+    top: 22,
+    width: 28,
+  },
+  incomingEyebrow: {
+    color: 'rgba(255,255,255,0.42)',
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 2.2,
+    marginTop: 22,
+    textTransform: 'uppercase',
+  },
+  incomingName: {
+    color: '#fff',
+    fontSize: 30,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+    marginTop: 10,
+    textAlign: 'center',
+  },
+  incomingSubtitle: {
+    color: 'rgba(255,255,255,0.68)',
+    fontSize: 16,
+    marginTop: 6,
+  },
+  incomingStatusPill: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  incomingStatusDot: {
+    backgroundColor: '#38bdf8',
+    borderRadius: 4,
+    height: 8,
+    width: 8,
+  },
+  incomingStatusText: {
+    color: 'rgba(255,255,255,0.84)',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  incomingErrorBox: {
+    backgroundColor: 'rgba(244,63,94,0.12)',
+    borderColor: 'rgba(251,113,133,0.28)',
+    borderRadius: 16,
+    borderWidth: 1,
+    marginTop: 16,
+    maxWidth: 320,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  incomingErrorText: {
+    color: '#fecdd3',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  incomingActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    paddingTop: 8,
+  },
+  incomingActionCol: {
+    alignItems: 'center',
+    gap: 12,
+    width: 120,
+  },
+  incomingRoundButton: {
+    alignItems: 'center',
+    borderRadius: 40,
+    elevation: 6,
+    height: 76,
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
+    width: 76,
+  },
   declineButton: { backgroundColor: '#e11d48' },
-  answerButton: { backgroundColor: '#16a34a' },
+  answerButton: { backgroundColor: '#10b981' },
   buttonDisabled: { opacity: 0.45 },
-  incomingLabels: { color: '#94a3b8', fontSize: 12, marginTop: 14 },
+  incomingActionLabel: {
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  error: { color: '#e11d48', fontSize: 12, marginTop: 8, textAlign: 'center' },
   dock: {
     alignItems: 'center',
     backgroundColor: '#fff',
