@@ -1,8 +1,10 @@
 // @ts-nocheck
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, FlatList, Image, Modal, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, FlatList, Image, Modal, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { downloadMedia, getCachedMediaUri } from './AuthenticatedImage';
+import * as MediaLibrary from 'expo-media-library';
+import { Download } from 'lucide-react-native';
+import { downloadMedia, getCachedMediaUri, prepareLocalImageForLibrary } from './AuthenticatedImage';
 
 export type MediaGalleryItem = { attachId: string; src: string; mediaType: string };
 
@@ -113,8 +115,10 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
   const insets = useSafeAreaInsets();
   const { width: winW, height: winH } = useWindowDimensions();
   const listRef = useRef<FlatList<MediaGalleryItem>>(null);
+  const [saving, setSaving] = useState(false);
   const visible = images.length > 0 && index >= 0 && index < images.length;
   const stageHeight = winH - insets.top - insets.bottom;
+  const current = visible ? images[index] : null;
 
   useEffect(() => {
     if (!visible || !listRef.current) return;
@@ -124,6 +128,26 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
       // index outside rendered window; the pager handles it on next layout
     }
   }, [index, visible]);
+
+  const saveCurrentImage = async () => {
+    if (!current?.src || saving) return;
+    setSaving(true);
+    try {
+      const localUri = await prepareLocalImageForLibrary(current.src);
+      const permission = await MediaLibrary.requestPermissionsAsync(true);
+      if (permission.status !== 'granted') {
+        Alert.alert('Permission required', 'Allow photo library access to save images.');
+        return;
+      }
+      await MediaLibrary.saveToLibraryAsync(localUri);
+      Alert.alert('Saved', 'Image saved to your photos.');
+    } catch (error) {
+      console.error('[media] save failed', current.src, error);
+      Alert.alert('Download failed', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (!visible) return null;
 
@@ -138,7 +162,16 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
         <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
           <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn}><Text style={styles.closeText}>✕</Text></Pressable>
           <Text style={styles.counter}>{index + 1} of {images.length}</Text>
-          <View style={styles.topSpacer} />
+          <Pressable
+            onPress={saveCurrentImage}
+            hitSlop={12}
+            disabled={saving}
+            style={[styles.closeBtn, saving && styles.actionDisabled]}
+            accessibilityRole="button"
+            accessibilityLabel="Download image"
+          >
+            {saving ? <ActivityIndicator color="#fff" size="small" /> : <Download color="#fff" size={18} />}
+          </Pressable>
         </View>
         <View style={styles.centerFill}>
           <FlatList
@@ -180,5 +213,5 @@ const styles = StyleSheet.create({
   closeBtn: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: 20, height: 36, justifyContent: 'center', width: 36 },
   closeText: { color: '#fff', fontSize: 18, lineHeight: 20 },
   counter: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  topSpacer: { width: 36 },
+  actionDisabled: { opacity: 0.6 },
 });

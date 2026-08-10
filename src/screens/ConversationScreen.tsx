@@ -492,7 +492,12 @@ export function ConversationScreen() {
     if (messages.data?.nextCursor && !olderCursor) setOlderCursor(messages.data.nextCursor);
   }, [messages.data, olderCursor]);
 
-  const imageUrls = useMemo(() => allMessages.flatMap((message) => (message.attachments ?? []).filter((attachment) => ['IMAGE', 'STICKER'].includes(attachment.mediaType.toUpperCase()) || attachment.mimeType?.startsWith('image/')).map((attachment) => { const src = apiUrl(attachment.previewUrl ?? attachment.thumbnailUrl ?? attachment.downloadUrl); return src ? { attachId: attachment.id, src, mediaType: attachment.mediaType } as MediaItem : null; }).filter((item): item is MediaItem => Boolean(item))), [allMessages]);
+  const imageUrls = useMemo(() => allMessages.flatMap((message) => (message.attachments ?? []).filter((attachment) => ['IMAGE', 'STICKER'].includes(attachment.mediaType.toUpperCase()) || attachment.mimeType?.startsWith('image/')).map((attachment) => {
+    const raw = attachment.downloadUrl || attachment.previewUrl || attachment.thumbnailUrl;
+    const preferred = typeof raw === 'string' ? raw.replace(/\/preview\/?(?:\?.*)?$/i, '/download') : raw;
+    const src = apiUrl(preferred);
+    return src ? { attachId: attachment.id, src, mediaType: attachment.mediaType } as MediaItem : null;
+  }).filter((item): item is MediaItem => Boolean(item))), [allMessages]);
 
   const openImage = useCallback((attachId: string) => {
     setGallery(imageUrls);

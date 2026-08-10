@@ -50,6 +50,14 @@
           "cameraPermission": "Allow osaas-mobile to access your camera to send photos and videos."
         }
       ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow osaas-mobile to access your photos.",
+          "savePhotosPermission": "Allow osaas-mobile to save images to your photo library.",
+          "granularPermissions": ["photo", "video"]
+        }
+      ],
       "expo-video",
       "@config-plugins/react-native-webrtc",
       [

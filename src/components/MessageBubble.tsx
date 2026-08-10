@@ -192,7 +192,14 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
             ))}
           </View>
         ) : imageAttachments.length === 1 ? (
-          <AuthenticatedImage url={previewUrl(imageAttachments[0])} style={styles.image} onPress={() => onImage?.(imageAttachments[0].id)} />
+          <AuthenticatedImage
+            url={previewUrl(imageAttachments[0])}
+            style={styles.image}
+            onPress={() => onImage?.(imageAttachments[0].id)}
+            fitContent
+            maxWidth={250}
+            maxHeight={340}
+          />
         ) : null}
         {videoAttachments.map((attachment: any) => (
           <VideoThumb
@@ -374,7 +381,7 @@ const styles = StyleSheet.create({
   templateButtons: { borderTopColor: '#e5e7eb', borderTopWidth: 1, gap: 6, paddingHorizontal: 12, paddingVertical: 10 },
   templateButton: { alignItems: 'center', borderColor: '#d7e6fb', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 6, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 10 },
   templateButtonText: { color: '#2563eb', fontSize: 13, fontWeight: '700' },
-  image: { borderRadius: 18, height: 190, width: 250 },
+  image: { borderRadius: 18, backgroundColor: '#e8eef7' },
   imageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 3, borderRadius: 18, overflow: 'hidden', width: 250 },
   gridImage: { width: 123, height: 123 },
   voiceWrap: { gap: 6, maxWidth: 260 },
