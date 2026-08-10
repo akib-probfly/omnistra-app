@@ -81,6 +81,20 @@ export function ConversationScreen() {
   const isAtBottomRef = useRef(true);
 
   const pendingOptimisticRef = useRef<Map<string, Message>>(new Map());
+  const awaitingDeliveryRef = useRef(false);
+  const deliveryPollUntilRef = useRef(0);
+
+  const updateAwaitingDelivery = (items: Message[]) => {
+    const cutoff = Date.now() - 90_000;
+    awaitingDeliveryRef.current = items.some((message) => {
+      if (message.direction !== 'OUTBOUND') return false;
+      const status = message.deliveryStatus ?? '';
+      if (status !== 'SENDING' && status !== 'QUEUED' && status !== 'SENT') return false;
+      const ts = new Date(message.sentAt ?? message.createdAt ?? 0).getTime();
+      return Number.isFinite(ts) && ts >= cutoff;
+    });
+    if (!awaitingDeliveryRef.current) deliveryPollUntilRef.current = 0;
+  };
 
   const messages = useQuery({
     queryKey: ['messages', route.params.conversationId],
@@ -121,14 +135,17 @@ export function ConversationScreen() {
         }
       });
 
+      updateAwaitingDelivery(items);
+
       return { items, nextCursor: page.pageInfo?.nextCursor ?? null, hasMore: page.pageInfo?.hasMore ?? false, conversation: page.conversation ?? null };
     },
     enabled: isFocused,
-    staleTime: 15_000,
-    // Realtime updates the open thread; poll only as fallback when socket is down.
-    // Unfocused stacked conversations must not keep polling.
+    staleTime: 0,
+    // Realtime updates the open thread; briefly poll after send for delivery receipts, or when socket is down.
     refetchInterval: () => {
-      if (!isFocused || pendingOptimisticRef.current.size > 0) return false;
+      if (!isFocused) return false;
+      if (pendingOptimisticRef.current.size > 0) return 2500;
+      if (awaitingDeliveryRef.current && Date.now() < deliveryPollUntilRef.current) return 2500;
       return realtimeStatus === 'connected' ? false : 20_000;
     },
     refetchOnWindowFocus: false,
@@ -143,6 +160,8 @@ export function ConversationScreen() {
     unreadCountOverridden.current = false;
     suppressAutoMarkReadRef.current = false;
     lastAutoMarkedReadSignatureRef.current = null;
+    awaitingDeliveryRef.current = false;
+    deliveryPollUntilRef.current = 0;
   }, [route.params.conversationId]);
 
   useEffect(() => {
@@ -156,6 +175,10 @@ export function ConversationScreen() {
       }));
     }
   }, [messages.data?.conversation]);
+
+  useEffect(() => {
+    updateAwaitingDelivery(messages.data?.items ?? []);
+  }, [messages.data?.items]);
 
   const allMessages = useMemo(() => {
     const seen = new Set<string>();
@@ -245,6 +268,8 @@ export function ConversationScreen() {
     },
     onSuccess: (created, _vars, context) => {
       markRecentLocalMessageSend(route.params.conversationId, created.id);
+      awaitingDeliveryRef.current = true;
+      deliveryPollUntilRef.current = Date.now() + 45_000;
       const clientKey = context?.clientKey ?? context?.tempId;
       const confirmed: Message = {
         ...created,
@@ -702,6 +727,7 @@ export function ConversationScreen() {
                 ref={listRef}
                 style={styles.list}
                 data={displayEntries}
+                extraData={allMessages.map((message) => `${message.id}:${message.deliveryStatus ?? ''}`).join('|')}
                 inverted
                 keyExtractor={(entry) => `${entry.entry.kind}:${entry.entry.id}`}
                 contentContainerStyle={styles.listContent}

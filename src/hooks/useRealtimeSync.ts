@@ -21,7 +21,16 @@ const REALTIME_MESSAGE_CREATED_EVENT = 'message.created';
 const REALTIME_CALL_SESSION_UPDATED_EVENT = 'call.session.updated';
 const REALTIME_NOTIFICATION_CREATED_EVENT = 'notification.created';
 
-type ConversationUpdatedEvent = { workspaceId: string; conversationId: string; messageId: string | null; createdConversation: boolean; createdMessage: boolean; occurredAt: string };
+type ConversationUpdatedEvent = {
+  workspaceId: string;
+  conversationId: string;
+  messageId: string | null;
+  createdConversation: boolean;
+  createdMessage: boolean;
+  messageDeliveryStatus?: 'QUEUED' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED';
+  messageFailureReason?: string | null;
+  occurredAt: string;
+};
 type MessageCreatedEvent = { workspaceId: string; conversationId: string; messageId: string; createdAt: string };
 type CallSessionUpdatedEvent = { workspaceId: string; conversationId: string; callSessionId: string; status: string };
 type NotificationCreatedEvent = NotificationCreatedRealtimeEvent;
@@ -37,6 +46,43 @@ function schedule(key: string, invalidate: () => void, delay: number) {
     pendingInvalidations.delete(key);
     invalidate();
   }, delay));
+}
+
+function patchConversationMessageStatus(
+  queryClient: ReturnType<typeof useQueryClient>,
+  payload: ConversationUpdatedEvent,
+) {
+  if (!payload.messageId || !payload.messageDeliveryStatus) return;
+
+  const deliveryStatus = payload.messageDeliveryStatus;
+  queryClient.setQueriesData<any>({ queryKey: ['messages', payload.conversationId] }, (current: any) => {
+    if (!current || !Array.isArray(current.items)) return current;
+    let changed = false;
+    const items = current.items.map((message: any) => {
+      if (message.id !== payload.messageId && message.metadata?.serverId !== payload.messageId) {
+        return message;
+      }
+      changed = true;
+      return {
+        ...message,
+        deliveryStatus,
+        failureReason: payload.messageFailureReason ?? message.failureReason ?? null,
+      };
+    });
+    return changed ? { ...current, items } : current;
+  });
+}
+
+function refreshConversationMessages(
+  queryClient: ReturnType<typeof useQueryClient>,
+  conversationId: string,
+  delay: number,
+) {
+  schedule(`messages:${conversationId}`, () => {
+    // Force an active refetch — invalidate alone can no-op against a warm staleTime cache
+    // when the open thread was just patched by the local send response.
+    void queryClient.refetchQueries({ queryKey: ['messages', conversationId], type: 'active' });
+  }, delay);
 }
 
 function invalidateInboxQueries(queryClient: ReturnType<typeof useQueryClient>, delay: number) {
@@ -164,9 +210,16 @@ export function useRealtimeSync(accessToken: string | null) {
     const socket = createRealtimeSocket(() => latestAccessToken ?? accessToken);
 
     const handleConversationUpdated = (payload: ConversationUpdatedEvent) => {
-      const isStatusOrMetaUpdate = !payload.createdMessage && !payload.messageId;
+      // Match web: metadata-only updates have no messageId; status updates have messageId + createdMessage=false.
+      const shouldRefreshConversationMetadata = !payload.createdMessage && !payload.messageId;
+      const isMessageStatusUpdate = !payload.createdMessage && Boolean(payload.messageId);
       const isRecentLocalMessageEcho = shouldSuppressRealtimeMessageRefresh(payload.conversationId, payload.messageId);
-      if (isStatusOrMetaUpdate) {
+
+      // Instant tick update when the backend includes delivery status (Delivered/Read/Failed).
+      // Also apply for local send echoes that carry QUEUED→SENT/FAILED progression.
+      patchConversationMessageStatus(queryClient, payload);
+
+      if (shouldRefreshConversationMetadata) {
         invalidateInboxQueries(queryClient, 1500);
         if (payload.conversationId) {
           schedule(`assignment-events:${payload.conversationId}`, () => {
@@ -174,12 +227,20 @@ export function useRealtimeSync(accessToken: string | null) {
           }, 800);
         }
       }
-      // Skip thread refetch for our own send echo — cache already has the confirmed bubble.
-      if (isRecentLocalMessageEcho) return;
-      if (payload.conversationId) {
-        schedule(`messages:${payload.conversationId}`, () => {
-          void queryClient.invalidateQueries({ queryKey: ['messages', payload.conversationId], refetchType: 'active' });
-        }, isStatusOrMetaUpdate ? 1000 : 600);
+
+      // Skip only the paired creation echo when it does not carry a status — send onSuccess
+      // already confirmed the bubble. Later DELIVERED/READ (createdMessage=false) must refresh.
+      if (isRecentLocalMessageEcho && payload.createdMessage && !payload.messageDeliveryStatus) {
+        return;
+      }
+
+      // Creation events without status are owned by message.created; refresh for status/meta.
+      if (payload.conversationId && (!payload.createdMessage || payload.messageDeliveryStatus)) {
+        refreshConversationMessages(
+          queryClient,
+          payload.conversationId,
+          isMessageStatusUpdate || Boolean(payload.messageDeliveryStatus) ? 400 : 600,
+        );
       }
     };
 
@@ -201,9 +262,7 @@ export function useRealtimeSync(accessToken: string | null) {
 
       invalidateInboxQueries(queryClient, 1200);
       if (payload.conversationId) {
-        schedule(`messages:${payload.conversationId}`, () => {
-          void queryClient.invalidateQueries({ queryKey: ['messages', payload.conversationId], refetchType: 'active' });
-        }, 600);
+        refreshConversationMessages(queryClient, payload.conversationId, 600);
       }
     };
 
