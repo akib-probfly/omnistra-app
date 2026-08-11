@@ -537,6 +537,7 @@ export function ConversationScreen() {
   const { pattern: inboxPattern } = useInboxAppearance();
   const channelType = header.conversation?.channel?.channelType ?? route.params.channelType;
   const channelId = header.conversation?.channel?.channelId ?? header.conversation?.channel?.id ?? route.params.channelId;
+  const isWhatsAppConversation = (channelType ?? '').toUpperCase() === 'WHATSAPP';
   const isMessengerConversation = (channelType ?? '').toUpperCase() === 'MESSENGER';
   const messengerAvailability = getMessengerMessagingAvailability(header.conversation);
   const canSendSelectedMessengerMode = messengerMessagingMode === 'STANDARD'
@@ -584,7 +585,7 @@ export function ConversationScreen() {
   const callsQuery = useQuery({
     queryKey: ['conversation-calls', route.params.conversationId],
     queryFn: () => fetchConversationCallSessions({ conversationId: route.params.conversationId, limit: 10 }),
-    enabled: channelType === 'WHATSAPP',
+    enabled: isWhatsAppConversation,
     staleTime: 30000,
   });
   const callSessions: ConversationCallSession[] = callsQuery.data?.items ?? [];
@@ -594,22 +595,27 @@ export function ConversationScreen() {
     staleTime: 5 * 60 * 1000,
   });
   const assignmentEvents = assignmentHistoryQuery.data?.items ?? [];
+  // Match web: only RINGING/CONNECTED count as an active call for the start-call button.
+  // PERMISSION_REQUESTED is handled separately via latestCallSession (granted → enable).
   const activeCallSession = useMemo(
-    () => callSessions.find((session) => isLiveCallSession(session)) ?? null,
+    () => callSessions.find(
+      (session) => isLiveCallSession(session) && (session.status === 'RINGING' || session.status === 'CONNECTED'),
+    ) ?? null,
     [callSessions],
   );
   const latestCallSession = callSessions[0] ?? null;
+  // Match web agent behavior: do not gate the call button on channel-details calling
+  // settings. Web only loads those for workspace admin/manager; agents see the button
+  // enabled and the backend enforces calling capability on start.
   const voiceCallButton = getVoiceCallButtonState({
-    isWhatsAppConversation: channelType === 'WHATSAPP',
+    isWhatsAppConversation,
     canManageCalls: Boolean(session),
-    isCallSessionsLoading: callsQuery.isLoading,
+    isCallSessionsLoading: callsQuery.isLoading && !callsQuery.data,
     isCallControllerBusy: callController.isBusy,
     activeCallSession,
     latestCallSession,
-    businessCallingDisabledReason: header.conversation?.channel?.callDisabledReason ?? header.conversation?.capabilities?.callDisabledReason ?? null,
-    businessCallingStatus: header.conversation?.channel?.callBusinessCallingSetting?.status
-      ?? header.conversation?.callBusinessCallingSetting?.status
-      ?? null,
+    businessCallingDisabledReason: null,
+    businessCallingStatus: null,
   });
   const startVoiceCall = async () => {
     if (!voiceCallButton.canStartVoiceCall) {
@@ -691,14 +697,13 @@ export function ConversationScreen() {
           <Text style={[styles.window, windowInfo.tone === 'expired' && styles.windowExpired]}>{windowInfo.label}</Text>
           <Text style={styles.assignee} numberOfLines={1}>{assigneeLabel}</Text>
         </View>
-        {channelType === 'WHATSAPP' ? (
+        {isWhatsAppConversation ? (
           <Pressable
             onPress={startVoiceCall}
             hitSlop={8}
-            disabled={!voiceCallButton.canStartVoiceCall || callController.isBusy}
             style={!voiceCallButton.canStartVoiceCall || callController.isBusy ? { opacity: 0.35 } : undefined}
           >
-            <Phone color={voiceCallButton.canStartVoiceCall ? '#2563eb' : '#94a3b8'} size={19} />
+            <Phone color={voiceCallButton.canStartVoiceCall && !callController.isBusy ? '#2563eb' : '#94a3b8'} size={19} />
           </Pressable>
         ) : null}
         <Pressable onPress={() => starMutation.mutate(!header.isStarred)} hitSlop={8}><Star color={header.isStarred ? '#f59e0b' : '#94a3b8'} fill={header.isStarred ? '#f59e0b' : 'none'} size={19} /></Pressable>

@@ -550,10 +550,15 @@ export function getVoiceCallButtonState(input: {
     return { canStartVoiceCall: false, tooltipMessage: 'A voice call is already active in this conversation.' };
   }
   if (input.latestCallSession?.status === 'PERMISSION_REQUESTED') {
-    if (input.latestCallSession.permissionStatus === 'GRANTED') {
+    const permissionStatus = input.latestCallSession.permissionStatus;
+    if (permissionStatus === 'GRANTED') {
       return { canStartVoiceCall: true, tooltipMessage: 'Permission granted. Start a voice call.' };
     }
-    return { canStartVoiceCall: false, tooltipMessage: 'Permission message sent. Waiting for customer confirmation.' };
+    // DENIED / EXPIRED / NONE: allow starting again so a new permission request can be sent.
+    // Only block while actively waiting on the customer.
+    if (permissionStatus === 'REQUESTED') {
+      return { canStartVoiceCall: false, tooltipMessage: 'Permission message sent. Waiting for customer confirmation.' };
+    }
   }
   return { canStartVoiceCall: true, tooltipMessage: 'Start a voice call' };
 }
