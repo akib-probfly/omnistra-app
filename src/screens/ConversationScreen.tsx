@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreHorizontal, Phone, Reply, Star, UserRound } from 'lucide-react-native';
+import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreVertical, Phone, Reply, Star, UserRound } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
 import { ContactDetailsPanel } from '../components/ContactDetailsPanel';
@@ -722,7 +722,7 @@ export function ConversationScreen() {
           {header.unreadCount > 0 ? <Mail color="#334155" size={19} /> : <MailOpen color="#334155" size={19} />}
         </Pressable>
         <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}><UserRound color="#334155" size={19} /></Pressable>
-        <Pressable onPress={() => setDetailsOpen(true)} hitSlop={8}><MoreHorizontal color="#334155" size={19} /></Pressable>
+        <Pressable onPress={() => setDetailsOpen(true)} hitSlop={8}><MoreVertical color="#334155" size={19} /></Pressable>
       </View>
       <View style={styles.body}>
         <InboxPatternBackground pattern={inboxPattern} />
