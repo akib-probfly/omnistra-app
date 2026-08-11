@@ -671,7 +671,8 @@ export function ConversationScreen() {
     if (contentOffset.y > contentSize.height - layoutMeasurement.height - 120) loadOlder();
   };
 
-  const renderMessage = ({ item }: { item: Message }) => <SwipeableMessage message={item} setReplyTo={setReplyTo} setReactTarget={setReactTarget} onImage={openImage} onVideo={openVideo} replyTarget={messageById.get(item.replyToMessageId ?? '') ?? null} reactions={reactionGroups[item.id]} onJumpToMessage={jumpToMessage} />;
+  const channelName = header.conversation?.channel?.channelName ?? null;
+  const renderMessage = ({ item }: { item: Message }) => <SwipeableMessage message={item} channelName={channelName} setReplyTo={setReplyTo} setReactTarget={setReactTarget} onImage={openImage} onVideo={openVideo} replyTarget={messageById.get(item.replyToMessageId ?? '') ?? null} reactions={reactionGroups[item.id]} onJumpToMessage={jumpToMessage} />;
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -914,7 +915,7 @@ async function sendTemplateMutation(conversationId: string, params: { templateNa
   }
 }
 
-const SwipeableMessage = memo(function SwipeableMessage({ message, setReplyTo, setReactTarget, onImage, onVideo, replyTarget, reactions, onJumpToMessage }: { message: Message; setReplyTo: (message: Message) => void; setReactTarget: (message: Message) => void; onImage: (attachId: string) => void; onVideo: (attachment: any) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }>; onJumpToMessage?: (messageId: string) => void }) {
+const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, setReplyTo, setReactTarget, onImage, onVideo, replyTarget, reactions, onJumpToMessage }: { message: Message; channelName?: string | null; setReplyTo: (message: Message) => void; setReactTarget: (message: Message) => void; onImage: (attachId: string) => void; onVideo: (attachment: any) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }>; onJumpToMessage?: (messageId: string) => void }) {
   const outgoing = message.direction === 'OUTBOUND';
   const swipeRef = useRef<SwipeableMethods | null>(null);
   const replyLockRef = useRef(false);
@@ -958,7 +959,7 @@ const SwipeableMessage = memo(function SwipeableMessage({ message, setReplyTo, s
       onSwipeableWillOpen={handleWillOpen}
     >
       <View style={[styles.group, outgoing && styles.outgoingGroup]}>
-        <MessageBubble message={message} outgoing={outgoing} attachments={message.attachments ?? []} replyPreview={replyPreview} reactions={reactions} onImage={onImage} onVideo={onVideo} onLongPress={onReact} onReplyPress={onJumpToMessage && replyTargetId ? () => onJumpToMessage(replyTargetId) : undefined} />
+        <MessageBubble message={message} outgoing={outgoing} attachments={message.attachments ?? []} replyPreview={replyPreview} reactions={reactions} channelName={channelName} onImage={onImage} onVideo={onVideo} onLongPress={onReact} onReplyPress={onJumpToMessage && replyTargetId ? () => onJumpToMessage(replyTargetId) : undefined} />
       </View>
     </ReanimatedSwipeable>
   );

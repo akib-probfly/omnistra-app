@@ -16,8 +16,10 @@ import {
   getSystemMessageLabel,
   isMissedCall,
   formatMessageTime,
+  getMessageReferralPreview,
 } from '../lib/inbox-utils';
 import { LinkPreviewCard } from './LinkPreviewCard';
+import { MessageReferralPreviewCard } from './MessageReferralPreviewCard';
 import { findFirstUrlInText } from '../lib/link-preview';
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -28,7 +30,7 @@ function openLink(href?: string) {
   Linking.openURL(href).catch(() => {});
 }
 
-export function MessageBubble({ message, outgoing, attachments, replyPreview, reactions, onImage, onVideo, onLongPress, onReplyPress }: any) {
+export function MessageBubble({ message, outgoing, attachments, replyPreview, reactions, onImage, onVideo, onLongPress, onReplyPress, channelName }: any) {
   const isSystem = message.senderType === 'SYSTEM' && !message.campaignId;
   if (isSystem) {
     const missed = isMissedCall(message);
@@ -52,6 +54,10 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
   const videoAttachments = (attachments ?? []).filter((a: any) => a.mediaType === 'VIDEO' || (a.mimeType ?? '').startsWith('video/'));
   const documentAttachments = (attachments ?? []).filter((a: any) => !imageAttachments.includes(a) && !voiceAttachments.includes(a) && !videoAttachments.includes(a));
 
+  const referralPreview = useMemo(
+    () => getMessageReferralPreview(message, channelName),
+    [message, channelName],
+  );
   const templateDisplay = isTemplateLikeMessage(message) ? getTemplateMessageDisplay(message) : null;
   const body = (message.text ?? '').trim();
   const showBody = templateDisplay ? false : body.length > 0;
@@ -95,7 +101,7 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
 
   const isTemplate = templateDisplay !== null;
   const firstUrl = useMemo(() => findFirstUrlInText(message.text ?? ''), [message.text]);
-  const showLinkPreview = !isTemplate && firstUrl && !imageAttachments.length && !videoAttachments.length;
+  const showLinkPreview = !isTemplate && !referralPreview && firstUrl && !imageAttachments.length && !videoAttachments.length;
 
   const hasReactions = Boolean(reactions?.length);
   const reactionItems = hasReactions ? reactions : [];
@@ -106,13 +112,18 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
         <View style={[
           styles.bubble,
           outgoing ? styles.bubbleOutgoing : styles.bubbleIncoming,
-          showLinkPreview && styles.linkPreviewBubble,
+          (showLinkPreview || referralPreview) && styles.linkPreviewBubble,
           isTemplate ? (outgoing ? styles.outgoingTemplate : styles.incomingTemplate) : (outgoing ? styles.outgoing : styles.incoming),
         ]}>
         {message.campaignId ? (
           <View style={styles.broadcastRow}>
             <Megaphone color={outgoing ? '#cfe0ff' : '#2563eb'} size={12} />
             <Text style={[styles.broadcastText, outgoing && styles.outgoingMuted]}>{message.campaignName || 'Broadcast'}</Text>
+          </View>
+        ) : null}
+        {referralPreview ? (
+          <View style={[styles.referralWrap, showBody && styles.referralWrapWithBody]}>
+            <MessageReferralPreviewCard referral={referralPreview} />
           </View>
         ) : null}
         {replyPreview ? (
@@ -352,6 +363,8 @@ const styles = StyleSheet.create({
   readMoreRow: { alignItems: 'center', flexDirection: 'row', gap: 3, marginTop: 4 },
   broadcastRow: { alignItems: 'center', flexDirection: 'row', gap: 4, marginBottom: 4 },
   broadcastText: { color: '#2563eb', fontSize: 11, fontWeight: '700' },
+  referralWrap: { width: '100%' },
+  referralWrapWithBody: { marginBottom: 10 },
   outgoingMuted: { color: '#dbeafe' },
   quoted: { backgroundColor: '#ffffff22', borderColor: '#ffffff55', borderRadius: 12, borderWidth: 1, marginBottom: 8, paddingHorizontal: 10, paddingVertical: 7, width: '100%' },
   quotedPressed: { opacity: 0.6 },

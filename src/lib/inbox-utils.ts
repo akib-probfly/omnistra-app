@@ -831,6 +831,125 @@ export function getAssignmentEventPresentation(event: ConversationAssignmentEven
   };
 }
 
+function readMetadataRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object') return null;
+  return value as Record<string, unknown>;
+}
+
+function readTrimmedString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+const HTML_NAMED_ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+};
+
+function decodeHtmlEntities(value: string): string {
+  let decoded = value;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const next = decoded.replace(
+      /&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]+);/gi,
+      (match, entity: string) => {
+        const normalized = `${entity}`.toLowerCase();
+        if (normalized.startsWith('#x')) {
+          const codePoint = Number.parseInt(normalized.slice(2), 16);
+          return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : match;
+        }
+        if (normalized.startsWith('#')) {
+          const codePoint = Number.parseInt(normalized.slice(1), 10);
+          return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : match;
+        }
+        return HTML_NAMED_ENTITIES[normalized] ?? match;
+      },
+    );
+    if (next === decoded) break;
+    decoded = next;
+  }
+  return decoded;
+}
+
+function resolveReferralPreviewLabel(
+  metadata: Record<string, unknown>,
+  referral: Record<string, unknown> | null,
+): string | null {
+  const explicitLabel = readTrimmedString(referral?.previewLabel);
+  if (explicitLabel) return explicitLabel;
+
+  const metadataSource = readTrimmedString(metadata.source);
+  const referralSource = readTrimmedString(referral?.sourceType)?.toUpperCase();
+
+  if (
+    metadataSource === 'whatsapp_ctwa_referral'
+    || metadataSource === 'messenger_ad_referral'
+    || referralSource === 'ADS'
+  ) {
+    return 'Ad click';
+  }
+
+  return metadataSource === 'messenger_referral' ? 'Referral' : null;
+}
+
+function buildFacebookPostUrl(postId: string | null): string | null {
+  if (!postId || !/^\d+_\d+$/.test(postId)) return null;
+  const [pageId, storyId] = postId.split('_');
+  return `https://www.facebook.com/${pageId}/posts/${storyId}`;
+}
+
+export type MessageReferralPreview = {
+  previewLabel: string;
+  body: string | null;
+  headline: string | null;
+  pageName: string | null;
+  imageUrl: string | null;
+  mediaUrl: string | null;
+  thumbnailUrl: string | null;
+  mediaType: string | null;
+  sourceUrl: string | null;
+  welcomeMessageText: string | null;
+};
+
+/** Mirrors osaas-frontend `getMessageReferralPreview` for CTWA / Messenger ad referrals. */
+export function getMessageReferralPreview(
+  message: { metadata?: unknown },
+  fallbackPageName?: string | null,
+): MessageReferralPreview | null {
+  const metadata = readMetadataRecord(message.metadata);
+  if (!metadata) return null;
+
+  const referral = readMetadataRecord(metadata.referral);
+  if (!referral) return null;
+
+  const previewLabel = resolveReferralPreviewLabel(metadata, referral);
+  if (!previewLabel) return null;
+
+  const postId = readTrimmedString(referral.postId);
+  const emptyToNull = (value: string | null) => (value && value.length > 0 ? value : null);
+
+  return {
+    previewLabel: decodeHtmlEntities(previewLabel),
+    body: emptyToNull(decodeHtmlEntities(readTrimmedString(referral.body) ?? '')),
+    headline: emptyToNull(decodeHtmlEntities(readTrimmedString(referral.headline) ?? '')),
+    pageName: emptyToNull(
+      decodeHtmlEntities(readTrimmedString(referral.pageName) ?? fallbackPageName ?? ''),
+    ),
+    imageUrl: readTrimmedString(referral.imageUrl),
+    mediaUrl: readTrimmedString(referral.mediaUrl) ?? readTrimmedString(referral.videoUrl),
+    thumbnailUrl: readTrimmedString(referral.thumbnailUrl),
+    mediaType: readTrimmedString(referral.mediaType),
+    sourceUrl: readTrimmedString(referral.sourceUrl) ?? buildFacebookPostUrl(postId),
+    welcomeMessageText: emptyToNull(
+      decodeHtmlEntities(readTrimmedString(referral.welcomeMessageText) ?? ''),
+    ),
+  };
+}
+
 export function getMessageListKey(message: MessageLike & { metadata?: any }): string {
   const clientKey = typeof message.metadata?.clientKey === 'string' ? message.metadata.clientKey : null;
   return clientKey || message.id;
