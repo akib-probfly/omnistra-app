@@ -290,7 +290,8 @@ export async function fetchQuickReplies(params: { workspaceId?: string; search?:
 }
 
 export async function fetchWhatsappTemplates(channelId: string) {
-  return apiFetch<{ items: WhatsappTemplate[] }>(`/channels/${channelId}/whatsapp/templates`);
+  const { fetchWhatsappTemplates: fetchMappedWhatsappTemplates } = await import('./whatsappTemplates');
+  return fetchMappedWhatsappTemplates(channelId);
 }
 
 export async function sendReaction(conversationId: string, messageId: string, emoji: string, reactionAction: ReactionAction) {

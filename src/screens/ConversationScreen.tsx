@@ -777,7 +777,7 @@ export function ConversationScreen() {
         <ConversationComposer
           value={draft} onChange={setDraft} sending={send.isPending}
           attachments={attachments} onAttachments={setAttachments}
-          workspaceId={route.params.workspaceId}
+          workspaceId={route.params.workspaceId ?? header.conversation?.workspaceId}
           channelId={channelId} channelType={channelType} contactName={title}
           onSendTemplate={(params) => sendTemplateMutation(route.params.conversationId, params, queryClient, setDraft)}
           replyPreview={replyTo ? { name: replyTo.direction === 'INBOUND' ? title : 'You', text: replyTo.text ?? 'Attachment' } : null}
@@ -910,9 +910,16 @@ function adjustInboxUnreadCount(queryClient: any, delta: number) {
   );
 }
 
-async function sendTemplateMutation(conversationId: string, params: { templateName: string; templateCategory?: string | null; languageCode?: string; text?: string }, queryClient: any, setDraft: (v: string) => void) {
+async function sendTemplateMutation(conversationId: string, params: { templateName: string; templateCategory?: string | null; languageCode?: string; text?: string; templateComponents?: unknown[] }, queryClient: any, setDraft: (v: string) => void) {
   try {
-    await sendTemplateMessage({ conversationId, templateName: params.templateName, templateCategory: params.templateCategory ?? null, languageCode: params.languageCode, text: params.text });
+    await sendTemplateMessage({
+      conversationId,
+      templateName: params.templateName,
+      templateCategory: params.templateCategory ?? null,
+      languageCode: params.languageCode,
+      text: params.text,
+      templateComponents: params.templateComponents,
+    });
     queryClient.invalidateQueries({ queryKey: ['messages', conversationId], refetchType: 'active' });
     setDraft('');
   } catch (error) {

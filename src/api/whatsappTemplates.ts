@@ -1,4 +1,5 @@
 import { apiFetch } from './client';
+import { mapRemoteTemplate } from '../lib/whatsapp-template-utils';
 
 export type WhatsappTemplateCategory = 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
 export type WhatsappTemplateStatus =
@@ -165,8 +166,16 @@ export function buildUpdateTemplatePayload(template: WhatsappTemplateFormValues)
   };
 }
 
-export function fetchWhatsappTemplates(channelId: string) {
-  return apiFetch<WhatsappTemplatesListResponse>(`/channels/${channelId}/whatsapp/templates`);
+export async function fetchWhatsappTemplates(channelId: string) {
+  const response = await apiFetch<{
+    items: Array<Record<string, unknown>>;
+    pageInfo?: { nextCursor: string | null; hasMore: boolean };
+  }>(`/channels/${channelId}/whatsapp/templates`);
+
+  return {
+    items: (response.items ?? []).map((item) => mapRemoteTemplate(item as never)),
+    pageInfo: response.pageInfo ?? { nextCursor: null, hasMore: false },
+  } satisfies WhatsappTemplatesListResponse;
 }
 
 export function syncWhatsappTemplates(channelId: string) {

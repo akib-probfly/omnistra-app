@@ -8,7 +8,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, FlatList, Image, Keyboard, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EmojiKeyboard, type EmojiType } from 'rn-emoji-keyboard';
-import { fetchQuickReplies, fetchWhatsappTemplates } from '../api/inbox';
+import { fetchQuickReplies } from '../api/inbox';
+import { fetchWhatsappTemplates } from '../api/whatsappTemplates';
 import {
   COMPOSER_MAX_ATTACHMENT_COUNT,
   getComposerAttachmentValidationError,
@@ -17,6 +18,7 @@ import {
 } from '../lib/composer-attachments';
 import type { MessengerMessagingMode } from '../lib/inbox-utils';
 import { PanelSkeleton } from './Skeleton';
+import { WhatsappTemplateSendModal, type TemplateSendPayload } from './WhatsappTemplateSendModal';
 
 type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT'; sizeBytes?: number | null };
 type Props = {
@@ -24,7 +26,7 @@ type Props = {
   attachments?: SendAttachment[]; onAttachments?: (list: SendAttachment[]) => void;
   replyPreview?: { name: string; text: string } | null; onCancelReply?: () => void;
   workspaceId?: string; channelId?: string; channelType?: string; contactName?: string;
-  onSendTemplate?: (params: { templateName: string; templateCategory?: string | null; languageCode?: string; text?: string }) => void;
+  onSendTemplate?: (params: TemplateSendPayload) => void;
   canSendFreeform?: boolean;
   messengerMessagingMode?: MessengerMessagingMode;
   onMessengerMessagingModeChange?: (mode: MessengerMessagingMode) => void;
@@ -34,12 +36,6 @@ type Props = {
 
 function renderQuickReplyBody(body: string, context: Record<string, string>): string {
   return body.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (match, key) => context[key] ?? context[key.toLowerCase()] ?? match);
-}
-
-function renderTemplateSamples(body: string, variables?: Array<{ index?: number; sampleValue?: string | null }>): string {
-  if (!variables?.length) return body;
-  const byIndex = new Map(variables.filter((v) => v.index != null).map((v) => [v.index, v.sampleValue ?? '']));
-  return body.replace(/\{\{\s*(\d+)\s*\}\}/g, (match, index) => byIndex.get(Number(index)) ?? match);
 }
 
 export function ConversationComposer({
@@ -269,8 +265,9 @@ export function ConversationComposer({
     onChange(next);
     setQuickOpen(false);
   }
-  function sendTemplate(template: any) {
-    onSendTemplate?.({ templateName: template.name, templateCategory: template.category ?? null, languageCode: template.language ?? 'en_US', text: renderTemplateSamples(template.body ?? '', template.variables) });
+
+  function handleSendTemplate(payload: TemplateSendPayload) {
+    onSendTemplate?.(payload);
     setTemplateOpen(false);
   }
 
@@ -308,30 +305,17 @@ export function ConversationComposer({
   if (whatsappWindowExpired) {
     return (
       <>
-        <Modal visible={templateOpen} transparent animationType="fade" onRequestClose={() => setTemplateOpen(false)}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setTemplateOpen(false)}>
-            <View style={styles.pickerPanel}>
-              <View style={styles.pickerHeader}><PanelsTopLeft color="#2563eb" size={16} /><Text style={styles.pickerTitle}>WhatsApp templates</Text><View style={styles.spacer} /><Pressable onPress={() => setTemplateOpen(false)} style={styles.closeBtn}><X color="#64748b" size={20} /></Pressable></View>
-              <TextInput autoFocus placeholder="Search templates..." placeholderTextColor="#94a3b8" value={templateQuery} onChangeText={setTemplateQuery} style={styles.pickerSearch} />
-              {templates.isLoading ? <PanelSkeleton rows={4} /> : templates.isError ? <Text style={styles.pickerError}>Could not load templates.</Text> : (
-                <FlatList
-                  data={approvedTemplates}
-                  keyExtractor={(item) => item.id}
-                  style={styles.pickerList}
-                  keyboardShouldPersistTaps="handled"
-                  ListEmptyComponent={<Text style={styles.pickerError}>No approved templates found</Text>}
-                  renderItem={({ item }) => (
-                    <Pressable style={styles.pickerRow} onPress={() => sendTemplate(item)}>
-                      <View style={styles.templateNameRow}><Text style={styles.pickerRowTitle}>{item.name}</Text>{item.category ? <Text style={styles.templateCategory}>{String(item.category).toLowerCase()}</Text> : null}</View>
-                      {item.body ? <Text numberOfLines={2} style={styles.pickerRowBody}>{renderTemplateSamples(item.body, item.variables)}</Text> : null}
-                    </Pressable>
-                  )}
-                />
-              )}
-              <Text style={styles.pickerHint}>Send an approved template to the customer</Text>
-            </View>
-          </Pressable>
-        </Modal>
+        <WhatsappTemplateSendModal
+          visible={templateOpen}
+          templates={approvedTemplates}
+          loading={templates.isLoading}
+          error={templates.isError}
+          query={templateQuery}
+          onQueryChange={setTemplateQuery}
+          workspaceId={workspaceId}
+          onClose={() => setTemplateOpen(false)}
+          onSend={handleSendTemplate}
+        />
 
         <View style={styles.blockedComposer}>
           <LinearGradient
@@ -408,30 +392,17 @@ export function ConversationComposer({
         </Pressable>
       </Modal>
 
-      <Modal visible={templateOpen} transparent animationType="fade" onRequestClose={() => setTemplateOpen(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setTemplateOpen(false)}>
-          <View style={styles.pickerPanel}>
-            <View style={styles.pickerHeader}><PanelsTopLeft color="#2563eb" size={16} /><Text style={styles.pickerTitle}>WhatsApp templates</Text><View style={styles.spacer} /><Pressable onPress={() => setTemplateOpen(false)} style={styles.closeBtn}><X color="#64748b" size={20} /></Pressable></View>
-            <TextInput autoFocus placeholder="Search templates..." placeholderTextColor="#94a3b8" value={templateQuery} onChangeText={setTemplateQuery} style={styles.pickerSearch} />
-            {templates.isLoading ? <PanelSkeleton rows={4} /> : templates.isError ? <Text style={styles.pickerError}>Could not load templates.</Text> : (
-              <FlatList
-                data={approvedTemplates}
-                keyExtractor={(item) => item.id}
-                style={styles.pickerList}
-                keyboardShouldPersistTaps="handled"
-                ListEmptyComponent={<Text style={styles.pickerError}>No approved templates found</Text>}
-                renderItem={({ item }) => (
-                  <Pressable style={styles.pickerRow} onPress={() => sendTemplate(item)}>
-                    <View style={styles.templateNameRow}><Text style={styles.pickerRowTitle}>{item.name}</Text>{item.category ? <Text style={styles.templateCategory}>{String(item.category).toLowerCase()}</Text> : null}</View>
-                    {item.body ? <Text numberOfLines={2} style={styles.pickerRowBody}>{renderTemplateSamples(item.body, item.variables)}</Text> : null}
-                  </Pressable>
-                )}
-              />
-            )}
-            <Text style={styles.pickerHint}>Send an approved template to the customer</Text>
-          </View>
-        </Pressable>
-      </Modal>
+      <WhatsappTemplateSendModal
+        visible={templateOpen}
+        templates={approvedTemplates}
+        loading={templates.isLoading}
+        error={templates.isError}
+        query={templateQuery}
+        onQueryChange={setTemplateQuery}
+        workspaceId={workspaceId}
+        onClose={() => setTemplateOpen(false)}
+        onSend={handleSendTemplate}
+      />
 
       <View style={[styles.composer, emojiOpen && styles.composerWithEmoji]}>
         {replyPreview ? (

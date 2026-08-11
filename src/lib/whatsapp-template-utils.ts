@@ -195,6 +195,147 @@ export function renderTemplateTextWithSamples(value: string, variables: Whatsapp
   return value.replace(VARIABLE_TOKEN, (_, token) => variableMap.get(Number(token)) ?? `{{${token}}}`);
 }
 
+function normalizeButtonsJson(buttonsJson: unknown): WhatsappTemplateButton[] {
+  if (!Array.isArray(buttonsJson)) return [];
+
+  return buttonsJson.flatMap((item, index) => {
+    if (!item || typeof item !== 'object') return [];
+    const record = item as Record<string, unknown>;
+    const rawButtons = Array.isArray(record.buttons) ? record.buttons : [record];
+
+    return rawButtons.flatMap((button, buttonIndex) => {
+      if (!button || typeof button !== 'object') return [];
+      const source = button as Record<string, unknown>;
+      return [{
+        id: `remote-${index}-${buttonIndex}`,
+        type:
+          source.type === 'COPY_OFFER_CODE'
+            ? 'COPY_CODE'
+            : source.type === 'PHONE_NUMBER'
+              || source.type === 'URL'
+              || source.type === 'OTP'
+              || source.type === 'CALL_TO_WHATSAPP'
+              || source.type === 'COPY_CODE'
+              ? (source.type as WhatsappTemplateButtonType)
+              : 'QUICK_REPLY',
+        label: typeof source.text === 'string' ? source.text : 'Button',
+        url: typeof source.url === 'string' ? source.url : undefined,
+        phoneNumber: typeof source.phone_number === 'string' ? source.phone_number : undefined,
+        offerCode:
+          typeof source.offer_code === 'string'
+            ? source.offer_code
+            : typeof source.example === 'string'
+              ? source.example
+              : undefined,
+      } satisfies WhatsappTemplateButton];
+    });
+  });
+}
+
+/** Maps raw API template rows (bodyText/sampleVariablesJson) into the UI shape used by web. */
+export function mapRemoteTemplate(template: {
+  id: string;
+  metaTemplateId?: string | null;
+  name: string;
+  category: string;
+  language: string;
+  status: string;
+  headerType?: string | null;
+  headerText?: string | null;
+  bodyText?: string | null;
+  body?: string | null;
+  footerText?: string | null;
+  footer?: string | null;
+  buttonsJson?: unknown;
+  buttons?: WhatsappTemplateButton[] | null;
+  sampleVariablesJson?: unknown;
+  variables?: WhatsappTemplateVariable[] | null;
+  header?: WhatsappTemplate['header'] | null;
+  rejectionReason?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}): WhatsappTemplate {
+  const bodyText = template.bodyText ?? template.body ?? '';
+  const footerText = template.footerText ?? template.footer ?? '';
+  const headerTypeRaw = template.header?.type
+    ?? (template.headerType && template.headerType !== 'LOCATION' ? template.headerType.toUpperCase() : 'NONE');
+  const headerType = (
+    ['NONE', 'TEXT', 'IMAGE', 'VIDEO', 'DOCUMENT'].includes(String(headerTypeRaw))
+      ? headerTypeRaw
+      : 'NONE'
+  ) as WhatsappTemplateHeaderType;
+  const headerContent = template.header?.content ?? template.headerText ?? '';
+  const buttons = Array.isArray(template.buttons) && template.buttons.length > 0
+    ? template.buttons
+    : normalizeButtonsJson(template.buttonsJson);
+
+  const sampleVariables = Array.isArray(template.sampleVariablesJson)
+    ? (template.sampleVariablesJson as Array<Record<string, unknown>>)
+    : Array.isArray(template.variables)
+      ? template.variables
+      : [];
+
+  const variables = extractTemplateVariableDefinitions({
+    headerType,
+    headerContent,
+    body: bodyText,
+    buttons,
+    existingVariables: sampleVariables.map((item, index) => {
+      const record = item as Record<string, unknown>;
+      const rawIndex = record.index;
+      return {
+        index:
+          typeof rawIndex === 'number'
+            ? rawIndex
+            : typeof rawIndex === 'string'
+              ? Number(rawIndex)
+              : index + 1,
+        label: typeof record.label === 'string' ? record.label : '',
+        sampleValue: typeof record.sampleValue === 'string' ? record.sampleValue : '',
+        section:
+          record.section === 'HEADER' || record.section === 'BUTTON' ? record.section : 'BODY',
+      } satisfies WhatsappTemplateVariable;
+    }),
+  });
+
+  return {
+    id: template.id,
+    name: template.name,
+    category: (['MARKETING', 'UTILITY', 'AUTHENTICATION'].includes(template.category)
+      ? template.category
+      : 'UTILITY') as WhatsappTemplate['category'],
+    language: template.language,
+    status: (typeof template.status === 'string' && template.status.trim()
+      ? template.status
+      : 'PENDING') as WhatsappTemplate['status'],
+    marketingTemplateType: 'DEFAULT',
+    authCodeDeliveryMethod: 'COPY_CODE',
+    authIncludeSecurityRecommendation: /do not share this code/i.test(bodyText),
+    authIncludeExpirationNotice:
+      /expires in|valid for|expiration|expire/i.test(bodyText)
+      || /expires in|valid for|expiration|expire/i.test(footerText),
+    authCodeExpirationMinutes:
+      typeof bodyText.match(/(\d+)\s*minutes?/i)?.[1] === 'string'
+        ? Number(bodyText.match(/(\d+)\s*minutes?/i)?.[1])
+        : undefined,
+    header: {
+      enabled: headerType !== 'NONE',
+      type: headerType,
+      content: headerContent,
+    },
+    body: bodyText,
+    footer: footerText,
+    buttons,
+    variables,
+    version: 1,
+    metaId: template.metaTemplateId ?? null,
+    rejectionReason: template.rejectionReason ?? null,
+    createdAt: template.createdAt ?? new Date().toISOString(),
+    updatedAt: template.updatedAt ?? new Date().toISOString(),
+    source: 'remote',
+  };
+}
+
 export function insertBodyVariable(body: string, variables: WhatsappTemplateVariable[]) {
   const nextIndex = (variables.reduce((max, variable) => Math.max(max, variable.index), 0) || 0) + 1;
   const nextBody = `${body}${body && !body.endsWith(' ') && !body.endsWith('\n') ? ' ' : ''}{{${nextIndex}}}`;
