@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { requestRecordingPermissionsAsync, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { ChevronDown, Clock3, FileText, Mic, Pause, Paperclip, Play, Send, Smile, Trash2, X, Zap, PanelsTopLeft } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, FlatList, Image, Keyboard, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Image, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EmojiKeyboard, type EmojiType } from 'rn-emoji-keyboard';
 import { fetchQuickReplies } from '../api/inbox';
@@ -409,15 +409,37 @@ export function ConversationComposer({
           <View style={styles.replyPreview}><View style={styles.replyAccent} /><View style={styles.replyCopy}><Text style={styles.replyName}>{replyPreview.name}</Text><Text numberOfLines={1} style={styles.replyText}>{replyPreview.text}</Text></View><Pressable onPress={onCancelReply}><Text style={styles.close}>×</Text></Pressable></View>
         ) : null}
         {attachments.length ? (
-          <View style={styles.attachmentRow}>
-            {attachments.map((attachment) => (
-              <View key={attachment.uri} style={styles.attachment}>
-                {attachment.type === 'IMAGE' || attachment.type === 'VIDEO' ? <Image source={{ uri: attachment.uri }} style={styles.attachmentThumb} /> : attachment.type === 'VOICE' ? <Mic color="#2563eb" size={18} /> : <FileText color="#2563eb" size={18} />}
-                <Text numberOfLines={1} style={styles.attachmentName}>{attachment.name}</Text>
-                <Pressable onPress={() => removeAttachment(attachment.uri)}><Text style={styles.close}>×</Text></Pressable>
-              </View>
-            ))}
-          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.attachmentScroll}
+            contentContainerStyle={styles.attachmentRow}
+          >
+            {attachments.map((attachment) => {
+              const isMedia = attachment.type === 'IMAGE' || attachment.type === 'VIDEO';
+              return (
+                <View key={attachment.uri} style={isMedia ? styles.attachmentMedia : styles.attachment}>
+                  {isMedia ? (
+                    <Image source={{ uri: attachment.uri }} style={styles.attachmentThumb} />
+                  ) : attachment.type === 'VOICE' ? (
+                    <Mic color="#2563eb" size={18} />
+                  ) : (
+                    <>
+                      <FileText color="#2563eb" size={18} />
+                      <Text numberOfLines={1} style={styles.attachmentName}>{attachment.name}</Text>
+                    </>
+                  )}
+                  <Pressable
+                    onPress={() => removeAttachment(attachment.uri)}
+                    style={isMedia ? styles.attachmentRemove : undefined}
+                    hitSlop={6}
+                  >
+                    <Text style={[styles.close, isMedia && styles.attachmentRemoveText]}>×</Text>
+                  </Pressable>
+                </View>
+              );
+            })}
+          </ScrollView>
         ) : null}
         <TextInput
           multiline
@@ -598,10 +620,30 @@ const styles = StyleSheet.create({
   send: { alignItems: 'center', backgroundColor: '#b9dafa', borderRadius: 20, height: 40, justifyContent: 'center', width: 40 },
   sendActive: { backgroundColor: '#2563eb' },
   sendDisabled: { opacity: 0.7 },
-  attachmentRow: { gap: 6, marginBottom: 8 },
-  attachment: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 16, flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8 },
-  attachmentThumb: { borderRadius: 6, height: 26, marginRight: 8, width: 26 },
-  attachmentName: { color: '#334155', flex: 1 },
+  attachmentScroll: { marginBottom: 8, maxHeight: 88 },
+  attachmentRow: { alignItems: 'center', flexDirection: 'row', gap: 8, paddingVertical: 2 },
+  attachment: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 16, flexDirection: 'row', maxWidth: 220, paddingHorizontal: 12, paddingVertical: 8 },
+  attachmentMedia: {
+    backgroundColor: '#e8eef7',
+    borderRadius: 14,
+    height: 72,
+    overflow: 'hidden',
+    width: 72,
+  },
+  attachmentThumb: { height: '100%', width: '100%' },
+  attachmentName: { color: '#334155', flexShrink: 1, fontSize: 13, marginLeft: 8, maxWidth: 140 },
+  attachmentRemove: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(15,23,42,0.62)',
+    borderRadius: 10,
+    height: 20,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: 4,
+    top: 4,
+    width: 20,
+  },
+  attachmentRemoveText: { color: '#fff', fontSize: 14, lineHeight: 16, marginLeft: 0 },
   close: { color: '#64748b', fontSize: 22, marginLeft: 10 },
   recording: { alignItems: 'center', backgroundColor: '#fff5f5', borderColor: '#fecaca', borderRadius: 24, borderWidth: 1, flexDirection: 'row', gap: 12, margin: 12, padding: 12 },
   delete: { alignItems: 'center', backgroundColor: '#fee2e2', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
