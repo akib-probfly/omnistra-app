@@ -134,6 +134,9 @@ function IncomingCallScreen({
   errorMessage,
   isBusy,
   canAnswer,
+  expanded,
+  onExpand,
+  onMinimize,
   onAnswerCall,
   onDeclineCall,
   topInset,
@@ -147,6 +150,9 @@ function IncomingCallScreen({
   errorMessage: string | null;
   isBusy: boolean;
   canAnswer: boolean;
+  expanded: boolean;
+  onExpand: () => void;
+  onMinimize: () => void;
   onAnswerCall: () => void;
   onDeclineCall: () => void;
   topInset: number;
@@ -166,83 +172,135 @@ function IncomingCallScreen({
     }],
   });
 
+  const statusText = waitingForSignal ? 'Waiting for signal…' : statusLabel;
+
   return (
-    <Modal visible transparent animationType="fade">
-      <LinearGradient
-        colors={['#0f2744', '#0b1220', '#07101c']}
-        locations={[0, 0.45, 1]}
-        style={[styles.incomingRoot, { paddingTop: topInset + 18, paddingBottom: bottomInset + 28 }]}
+    <>
+      <View style={[styles.dock, { bottom: Math.max(bottomInset, 12) }]}>
+        <Pressable style={styles.dockMain} onPress={onExpand}>
+          <View style={styles.dockAvatar}>
+            <Text style={styles.dockAvatarText}>{getInitials(label)}</Text>
+          </View>
+          <View style={styles.dockCopy}>
+            <Text style={styles.dockName} numberOfLines={1}>{label}</Text>
+            <View style={styles.dockStatusRow}>
+              <PhoneIncoming color="#2563eb" size={14} />
+              <Text style={styles.dockStatus} numberOfLines={1}>
+                {statusText}
+              </Text>
+            </View>
+            {errorMessage ? <Text style={styles.error} numberOfLines={2}>{errorMessage}</Text> : null}
+          </View>
+        </Pressable>
+        <Pressable
+          style={[styles.dockAction, styles.endAction, isBusy && styles.buttonDisabled]}
+          onPress={onDeclineCall}
+          disabled={isBusy}
+          accessibilityRole="button"
+          accessibilityLabel="Decline call"
+        >
+          {isBusy ? <ActivityIndicator color="#fff" /> : <PhoneOff color="#fff" size={18} />}
+        </Pressable>
+        <Pressable
+          style={[styles.dockAction, styles.answerDockAction, (!canAnswer || isBusy) && styles.buttonDisabled]}
+          onPress={onAnswerCall}
+          disabled={!canAnswer || isBusy}
+          accessibilityRole="button"
+          accessibilityLabel="Answer call"
+        >
+          {isBusy ? <ActivityIndicator color="#fff" /> : <Phone color="#fff" size={18} />}
+        </Pressable>
+      </View>
+
+      <Modal
+        visible={expanded}
+        transparent
+        animationType="fade"
+        onRequestClose={onMinimize}
       >
-        <View style={styles.incomingGlow} />
-        <View style={styles.incomingTopRow}>
-          <View style={styles.incomingChip}>
-            <View style={styles.incomingChipDotAmber} />
-            <Text style={styles.incomingChipText} numberOfLines={1}>
-              {channelName || 'WhatsApp'}
-            </Text>
-          </View>
-          <View style={styles.incomingChip}>
-            <View style={styles.incomingChipDotGreen} />
-            <Text style={styles.incomingChipText}>Incoming call</Text>
-          </View>
-        </View>
-
-        <View style={styles.incomingBody}>
-          <View style={styles.incomingAvatarStage}>
-            <Animated.View style={[styles.incomingPulseRing, ringStyle(0)]} />
-            <Animated.View style={[styles.incomingPulseRing, ringStyle(0.35)]} />
-            <View style={styles.incomingAvatarShell}>
-              <ColorfulAvatar name={label} size={112} url={avatarUrl} />
-            </View>
-            <View style={styles.incomingBadge}>
-              <PhoneIncoming color="#052e16" size={14} strokeWidth={2.6} />
-            </View>
-          </View>
-
-          <Text style={styles.incomingEyebrow}>WhatsApp call</Text>
-          <Text style={styles.incomingName}>{label}</Text>
-          <Text style={styles.incomingSubtitle}>is calling you</Text>
-
-          <View style={styles.incomingStatusPill}>
-            <View style={styles.incomingStatusDot} />
-            <Text style={styles.incomingStatusText}>{waitingForSignal ? 'Waiting for signal…' : statusLabel}</Text>
-          </View>
-
-          {errorMessage ? (
-            <View style={styles.incomingErrorBox}>
-              <Text style={styles.incomingErrorText}>{errorMessage}</Text>
-            </View>
-          ) : null}
-        </View>
-
-        <View style={styles.incomingActions}>
-          <View style={styles.incomingActionCol}>
-            <Pressable
-              style={[styles.incomingRoundButton, styles.declineButton, isBusy && styles.buttonDisabled]}
-              onPress={onDeclineCall}
-              disabled={isBusy}
-              accessibilityRole="button"
-              accessibilityLabel="Decline call"
-            >
-              {isBusy ? <ActivityIndicator color="#fff" /> : <PhoneOff color="#fff" size={28} />}
+        <LinearGradient
+          colors={['#0f2744', '#0b1220', '#07101c']}
+          locations={[0, 0.45, 1]}
+          style={[styles.incomingRoot, { paddingTop: topInset + 12, paddingBottom: bottomInset + 28 }]}
+        >
+          <View style={styles.incomingGlow} />
+          <View style={styles.incomingHeader}>
+            <Pressable style={styles.minimizeButton} onPress={onMinimize} hitSlop={12}>
+              <ChevronDown color="#fff" size={22} />
+              <Text style={styles.minimizeLabel}>Minimize</Text>
             </Pressable>
-            <Text style={styles.incomingActionLabel}>Decline</Text>
+            <View style={styles.incomingChip}>
+              <View style={styles.incomingChipDotGreen} />
+              <Text style={styles.incomingChipText}>Incoming call</Text>
+            </View>
           </View>
-          <View style={styles.incomingActionCol}>
-            <Pressable
-              style={[styles.incomingRoundButton, styles.answerButton, (!canAnswer || isBusy) && styles.buttonDisabled]}
-              onPress={onAnswerCall}
-              disabled={!canAnswer || isBusy}
-              accessibilityRole="button"
-              accessibilityLabel="Answer call"
-            >
-              {isBusy ? <ActivityIndicator color="#fff" /> : <Phone color="#fff" size={28} />}
-            </Pressable>
-            <Text style={styles.incomingActionLabel}>Answer</Text>
+
+          <View style={styles.incomingTopRow}>
+            <View style={styles.incomingChip}>
+              <View style={styles.incomingChipDotAmber} />
+              <Text style={styles.incomingChipText} numberOfLines={1}>
+                {channelName || 'WhatsApp'}
+              </Text>
+            </View>
           </View>
-        </View>
-      </LinearGradient>
-    </Modal>
+
+          <View style={styles.incomingBody}>
+            <View style={styles.incomingAvatarStage}>
+              <Animated.View style={[styles.incomingPulseRing, ringStyle(0)]} />
+              <Animated.View style={[styles.incomingPulseRing, ringStyle(0.35)]} />
+              <View style={styles.incomingAvatarShell}>
+                <ColorfulAvatar name={label} size={112} url={avatarUrl} />
+              </View>
+              <View style={styles.incomingBadge}>
+                <PhoneIncoming color="#052e16" size={14} strokeWidth={2.6} />
+              </View>
+            </View>
+
+            <Text style={styles.incomingEyebrow}>WhatsApp call</Text>
+            <Text style={styles.incomingName}>{label}</Text>
+            <Text style={styles.incomingSubtitle}>is calling you</Text>
+
+            <View style={styles.incomingStatusPill}>
+              <View style={styles.incomingStatusDot} />
+              <Text style={styles.incomingStatusText}>{statusText}</Text>
+            </View>
+
+            {errorMessage ? (
+              <View style={styles.incomingErrorBox}>
+                <Text style={styles.incomingErrorText}>{errorMessage}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          <View style={styles.incomingActions}>
+            <View style={styles.incomingActionCol}>
+              <Pressable
+                style={[styles.incomingRoundButton, styles.declineButton, isBusy && styles.buttonDisabled]}
+                onPress={onDeclineCall}
+                disabled={isBusy}
+                accessibilityRole="button"
+                accessibilityLabel="Decline call"
+              >
+                {isBusy ? <ActivityIndicator color="#fff" /> : <PhoneOff color="#fff" size={28} />}
+              </Pressable>
+              <Text style={styles.incomingActionLabel}>Decline</Text>
+            </View>
+            <View style={styles.incomingActionCol}>
+              <Pressable
+                style={[styles.incomingRoundButton, styles.answerButton, (!canAnswer || isBusy) && styles.buttonDisabled]}
+                onPress={onAnswerCall}
+                disabled={!canAnswer || isBusy}
+                accessibilityRole="button"
+                accessibilityLabel="Answer call"
+              >
+                {isBusy ? <ActivityIndicator color="#fff" /> : <Phone color="#fff" size={28} />}
+              </Pressable>
+              <Text style={styles.incomingActionLabel}>Answer</Text>
+            </View>
+          </View>
+        </LinearGradient>
+      </Modal>
+    </>
   );
 }
 
@@ -262,6 +320,7 @@ export function CallPanel({
 }: Props) {
   const insets = useSafeAreaInsets();
   const [expanded, setExpanded] = useState(false);
+  const [incomingExpanded, setIncomingExpanded] = useState(true);
   const [speakerOn, setSpeakerOn] = useState(true);
   const [speakerError, setSpeakerError] = useState<string | null>(null);
 
@@ -296,6 +355,12 @@ export function CallPanel({
       : activeCallSession?.direction === 'INBOUND'
         ? PhoneIncoming
         : PhoneOutgoing;
+
+  useEffect(() => {
+    if (isIncomingCall) {
+      setIncomingExpanded(true);
+    }
+  }, [isIncomingCall, activeCallSession?.id]);
 
   useEffect(() => {
     if (!isOngoing) {
@@ -333,6 +398,9 @@ export function CallPanel({
         errorMessage={errorMessage}
         isBusy={isBusy}
         canAnswer={Boolean(activeCallSignal)}
+        expanded={incomingExpanded}
+        onExpand={() => setIncomingExpanded(true)}
+        onMinimize={() => setIncomingExpanded(false)}
         onAnswerCall={onAnswerCall}
         onDeclineCall={onDeclineCall}
         topInset={insets.top}
@@ -458,11 +526,17 @@ const styles = StyleSheet.create({
     top: -40,
     width: 220,
   },
+  incomingHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
   incomingTopRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
   },
   incomingChip: {
     alignItems: 'center',
@@ -620,6 +694,7 @@ const styles = StyleSheet.create({
   },
   declineButton: { backgroundColor: '#e11d48' },
   answerButton: { backgroundColor: '#10b981' },
+  answerDockAction: { backgroundColor: '#10b981' },
   buttonDisabled: { opacity: 0.45 },
   incomingActionLabel: {
     color: 'rgba(255,255,255,0.82)',
