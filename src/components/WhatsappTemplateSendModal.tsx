@@ -264,7 +264,6 @@ export function WhatsappTemplateSendModal({
               <View style={styles.header}>
                 <PanelsTopLeft color="#2563eb" size={16} />
                 <Text style={styles.title}>WhatsApp templates</Text>
-                <View style={styles.spacer} />
                 <Pressable onPress={handleClose} style={styles.iconBtn} hitSlop={8}>
                   <X color="#64748b" size={20} />
                 </Pressable>
