@@ -93,7 +93,7 @@ export function QuickRepliesSettingsScreen() {
   const items = listQuery.data?.items ?? [];
   const unsupportedVars = useMemo(() => getUnsupportedQuickReplyVariables(form.body), [form.body]);
   const previewText = useMemo(() => renderQuickReplyPreview(form.body), [form.body]);
-  const savingDisabled = uploading;
+  const savingDisabled = uploading || !form.title.trim() || !form.body.trim();
 
   const invalidate = async () => {
     await Promise.all([

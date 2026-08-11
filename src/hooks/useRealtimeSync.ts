@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
+import type { Socket } from 'socket.io-client';
 import { createRealtimeSocket, setRealtimeConnectionStatus, getActiveConversationId } from '../api/realtime';
 import { latestAccessToken } from '../api/client';
 import {
@@ -11,6 +13,7 @@ import {
   type NotificationPreferences,
 } from '../api/notifications';
 import { shouldSuppressRealtimeMessageRefresh } from '../lib/inbox-realtime-suppression';
+import { refreshConversationMessagesPage } from '../lib/inbox-message-cache';
 import { playNotificationSound } from '../lib/notificationSound';
 import { writeIncomingCallPrompt } from '../lib/incoming-call-prompt';
 import { useNotificationPreferences } from './useNotificationPreferences';
@@ -79,15 +82,12 @@ function refreshConversationMessages(
   delay: number,
 ) {
   schedule(`messages:${conversationId}`, () => {
-    // Force an active refetch — invalidate alone can no-op against a warm staleTime cache
-    // when the open thread was just patched by the local send response.
-    void queryClient.refetchQueries({ queryKey: ['messages', conversationId], type: 'active' });
+    void refreshConversationMessagesPage(queryClient, conversationId);
   }, delay);
 }
 
 function invalidateInboxQueries(queryClient: ReturnType<typeof useQueryClient>, delay: number) {
   // Stable key so rapid realtime events debounce instead of stacking.
-  // Only refetch observers that are currently mounted (not every cached filter/page).
   schedule('inbox', () => {
     void queryClient.invalidateQueries({ queryKey: ['conversations'], refetchType: 'active' });
     void queryClient.invalidateQueries({ queryKey: ['conversation-count'], refetchType: 'active' });
@@ -187,6 +187,7 @@ export function useRealtimeSync(accessToken: string | null) {
   const [connected, setConnected] = useState(false);
   const notificationPreferences = useNotificationPreferences();
   const preferencesRef = useRef<NotificationPreferences>(DEFAULT_NOTIFICATION_PREFERENCES);
+  const socketRef = useRef<Socket | null>(null);
 
   preferencesRef.current = notificationPreferences.isLoaded
     ? {
@@ -207,9 +208,20 @@ export function useRealtimeSync(accessToken: string | null) {
       return;
     }
 
+    setRealtimeConnectionStatus('connecting');
     const socket = createRealtimeSocket(() => latestAccessToken ?? accessToken);
+    socketRef.current = socket;
 
     const handleConversationUpdated = (payload: ConversationUpdatedEvent) => {
+      if (__DEV__) {
+        console.log('[realtime] conversation.updated', {
+          conversationId: payload.conversationId,
+          createdMessage: payload.createdMessage,
+          messageId: payload.messageId,
+          status: payload.messageDeliveryStatus,
+        });
+      }
+
       // Match web: metadata-only updates have no messageId; status updates have messageId + createdMessage=false.
       const shouldRefreshConversationMetadata = !payload.createdMessage && !payload.messageId;
       const isMessageStatusUpdate = !payload.createdMessage && Boolean(payload.messageId);
@@ -220,11 +232,11 @@ export function useRealtimeSync(accessToken: string | null) {
       patchConversationMessageStatus(queryClient, payload);
 
       if (shouldRefreshConversationMetadata) {
-        invalidateInboxQueries(queryClient, 1500);
+        invalidateInboxQueries(queryClient, 400);
         if (payload.conversationId) {
           schedule(`assignment-events:${payload.conversationId}`, () => {
             void queryClient.invalidateQueries({ queryKey: ['assignment-events', payload.conversationId], refetchType: 'active' });
-          }, 800);
+          }, 400);
         }
       }
 
@@ -234,17 +246,29 @@ export function useRealtimeSync(accessToken: string | null) {
         return;
       }
 
-      // Creation events without status are owned by message.created; refresh for status/meta.
-      if (payload.conversationId && (!payload.createdMessage || payload.messageDeliveryStatus)) {
+      // Refresh for inbound creations too — don't solely rely on message.created
+      // (mobile sockets can drop or reorder one of the two paired events).
+      if (
+        payload.conversationId
+        && (payload.createdMessage || payload.messageDeliveryStatus || isMessageStatusUpdate)
+      ) {
+        invalidateInboxQueries(queryClient, payload.createdMessage ? 250 : 400);
         refreshConversationMessages(
           queryClient,
           payload.conversationId,
-          isMessageStatusUpdate || Boolean(payload.messageDeliveryStatus) ? 400 : 600,
+          isMessageStatusUpdate || Boolean(payload.messageDeliveryStatus) ? 200 : 300,
         );
       }
     };
 
     const handleMessageCreated = (payload: MessageCreatedEvent) => {
+      if (__DEV__) {
+        console.log('[realtime] message.created', {
+          conversationId: payload.conversationId,
+          messageId: payload.messageId,
+        });
+      }
+
       const isRecentLocalMessageEcho = shouldSuppressRealtimeMessageRefresh(payload.conversationId, payload.messageId);
       const isConversationCurrentlyViewed = getActiveConversationId() === payload.conversationId;
 
@@ -256,13 +280,13 @@ export function useRealtimeSync(accessToken: string | null) {
 
       // Local send already patched the thread cache — skip refetch to avoid optimistic blink.
       if (isRecentLocalMessageEcho) {
-        invalidateInboxQueries(queryClient, 1200);
+        invalidateInboxQueries(queryClient, 400);
         return;
       }
 
-      invalidateInboxQueries(queryClient, 1200);
+      invalidateInboxQueries(queryClient, 250);
       if (payload.conversationId) {
-        refreshConversationMessages(queryClient, payload.conversationId, 600);
+        refreshConversationMessages(queryClient, payload.conversationId, 150);
       }
     };
 
@@ -270,14 +294,14 @@ export function useRealtimeSync(accessToken: string | null) {
       if (payload.conversationId) {
         schedule(`calls:${payload.conversationId}`, () => {
           void queryClient.invalidateQueries({ queryKey: ['conversation-calls', payload.conversationId], refetchType: 'active' });
-        }, 600);
+        }, 400);
       }
       schedule('workspace-calls', () => {
         void queryClient.invalidateQueries({ queryKey: ['workspace-calls'], refetchType: 'active' });
         void queryClient.invalidateQueries({ queryKey: ['workspace-calls-summary'], refetchType: 'active' });
         void queryClient.invalidateQueries({ queryKey: ['active-calls'], refetchType: 'active' });
-      }, 800);
-      invalidateInboxQueries(queryClient, 1500);
+      }, 500);
+      invalidateInboxQueries(queryClient, 500);
     };
 
     const handleNotificationCreated = (payload: NotificationCreatedEvent) => {
@@ -310,10 +334,15 @@ export function useRealtimeSync(accessToken: string | null) {
       if (!shouldSurfaceNotification(payload, preferences)) return;
     };
 
-    const onConnect = () => {
-      console.log('[realtime] connected');
+    const markReady = () => {
+      console.log('[realtime] ready');
       setConnected(true);
       setRealtimeConnectionStatus('connected');
+    };
+    const onTransportConnect = () => {
+      // Transport is up, but workspace rooms are only joined after auth — wait for realtime.ready.
+      console.log('[realtime] transport connected; waiting for ready');
+      setRealtimeConnectionStatus('connecting');
     };
     const onDisconnect = (reason: string) => {
       console.log('[realtime] disconnected', reason);
@@ -322,31 +351,60 @@ export function useRealtimeSync(accessToken: string | null) {
     };
     const onConnectError = (error: Error) => {
       console.warn('[realtime] connect_error', error.message);
+      setConnected(false);
       setRealtimeConnectionStatus('connecting');
     };
-    const onReconnectAttempt = () => setRealtimeConnectionStatus('connecting');
+    const onReconnectAttempt = () => {
+      setConnected(false);
+      setRealtimeConnectionStatus('connecting');
+    };
 
-    socket.on('connect', onConnect);
+    const refreshOnForeground = () => {
+      const activeConversationId = getActiveConversationId();
+      invalidateInboxQueries(queryClient, 0);
+      if (activeConversationId) {
+        refreshConversationMessages(queryClient, activeConversationId, 0);
+      }
+    };
+
+    const onAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState !== 'active') return;
+      const current = socketRef.current;
+      if (!current) return;
+      if (!current.connected) {
+        console.log('[realtime] app foreground — reconnecting socket');
+        setRealtimeConnectionStatus('connecting');
+        current.connect();
+      }
+      // Always resync after background — mobile sockets can go zombie without a disconnect event.
+      refreshOnForeground();
+    };
+
+    socket.on('connect', onTransportConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('connect_error', onConnectError);
     socket.io.on('reconnect_attempt', onReconnectAttempt);
-    socket.on(REALTIME_READY_EVENT, onConnect);
+    socket.on(REALTIME_READY_EVENT, markReady);
     socket.on(REALTIME_CONVERSATION_UPDATED_EVENT, handleConversationUpdated);
     socket.on(REALTIME_MESSAGE_CREATED_EVENT, handleMessageCreated);
     socket.on(REALTIME_CALL_SESSION_UPDATED_EVENT, handleCallSessionUpdated);
     socket.on(REALTIME_NOTIFICATION_CREATED_EVENT, handleNotificationCreated);
 
+    const appStateSub = AppState.addEventListener('change', onAppStateChange);
+
     return () => {
-      socket.off('connect', onConnect);
+      appStateSub.remove();
+      socket.off('connect', onTransportConnect);
       socket.off('disconnect', onDisconnect);
       socket.off('connect_error', onConnectError);
       socket.io.off('reconnect_attempt', onReconnectAttempt);
-      socket.off(REALTIME_READY_EVENT, onConnect);
+      socket.off(REALTIME_READY_EVENT, markReady);
       socket.off(REALTIME_CONVERSATION_UPDATED_EVENT, handleConversationUpdated);
       socket.off(REALTIME_MESSAGE_CREATED_EVENT, handleMessageCreated);
       socket.off(REALTIME_CALL_SESSION_UPDATED_EVENT, handleCallSessionUpdated);
       socket.off(REALTIME_NOTIFICATION_CREATED_EVENT, handleNotificationCreated);
       socket.disconnect();
+      if (socketRef.current === socket) socketRef.current = null;
       pendingInvalidations.forEach((timeout) => clearTimeout(timeout));
       pendingInvalidations.clear();
       setConnected(false);

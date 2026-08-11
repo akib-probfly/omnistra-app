@@ -160,9 +160,9 @@ export function InboxScreen() {
   };
 
   const realtimeStatus = useSyncExternalStore(subscribeRealtimeConnectionStatus, getRealtimeConnectionStatus);
-  // Realtime drives inbox updates; only poll as a fallback when the socket is down.
-  // Polling an infinite query refetches every loaded page, so keep this off while connected.
-  const shouldPollInbox = realtimeStatus !== 'connected';
+  // Realtime should drive updates; keep a slow poll even when "connected" because mobile
+  // sockets can go zombie (no disconnect event) and then stop delivering events.
+  const inboxPollMs = realtimeStatus === 'connected' ? 60_000 : 20_000;
 
   const conversations = useInfiniteQuery({
     queryKey: ['conversations', filters],
@@ -173,16 +173,16 @@ export function InboxScreen() {
     enabled: sidebarTab === 'chats',
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.pageInfo?.hasMore ? (lastPage.pageInfo.nextCursor ?? undefined) : undefined,
-    staleTime: 30_000,
-    refetchInterval: shouldPollInbox ? 30_000 : false,
+    staleTime: 15_000,
+    refetchInterval: inboxPollMs,
     refetchOnWindowFocus: false,
   });
 
   const unreadCount = useQuery({
     queryKey: ['inbox-unread-count', advancedFilterParams],
     queryFn: () => fetchConversationUnreadCount(advancedFilterParams),
-    staleTime: 30_000,
-    refetchInterval: shouldPollInbox ? 30_000 : false,
+    staleTime: 15_000,
+    refetchInterval: inboxPollMs,
     refetchOnWindowFocus: false,
   });
 
@@ -190,8 +190,8 @@ export function InboxScreen() {
     queryKey: ['conversation-count', { ...filters, status: 'CLOSED' as const }],
     queryFn: () => fetchConversationCount({ ...filters, status: 'CLOSED' }),
     enabled: sidebarTab === 'chats' && tab === 'closed',
-    staleTime: 30_000,
-    refetchInterval: shouldPollInbox ? 30_000 : false,
+    staleTime: 15_000,
+    refetchInterval: inboxPollMs,
     refetchOnWindowFocus: false,
   });
 
@@ -222,6 +222,14 @@ export function InboxScreen() {
   }, [queryClient]);
 
   const items = useMemo(() => (conversations.data?.pages ?? []).flatMap((page) => page.items), [conversations.data]);
+  const listExtraData = useMemo(
+    () => items.map((item) => {
+      const at = item.lastInteraction?.at ?? item.lastMessageAt ?? '';
+      const previewId = item.lastInteraction?.kind === 'MESSAGE' ? item.lastInteraction.message.id : '';
+      return `${item.id}:${item.unreadCount}:${at}:${previewId}`;
+    }).join('|'),
+    [items],
+  );
 
   const keyExtractor = useCallback((item: ConversationListItem) => item.id, []);
   const renderConversationRow = useCallback(
@@ -310,7 +318,7 @@ export function InboxScreen() {
               data={items}
               keyExtractor={keyExtractor}
               renderItem={renderConversationRow}
-              extraData={navigation}
+              extraData={listExtraData}
               ListEmptyComponent={(
                 <View style={styles.empty}>
                   <Inbox color="#c3d0e2" size={44} />

@@ -141,12 +141,13 @@ export function ConversationScreen() {
     },
     enabled: isFocused,
     staleTime: 0,
-    // Realtime updates the open thread; briefly poll after send for delivery receipts, or when socket is down.
+    // Realtime updates the open thread; keep a slow poll as a safety net for zombie sockets.
+    // Briefly poll faster after send for delivery receipts.
     refetchInterval: () => {
       if (!isFocused) return false;
       if (pendingOptimisticRef.current.size > 0) return 2500;
       if (awaitingDeliveryRef.current && Date.now() < deliveryPollUntilRef.current) return 2500;
-      return realtimeStatus === 'connected' ? false : 20_000;
+      return realtimeStatus === 'connected' ? 45_000 : 15_000;
     },
     refetchOnWindowFocus: false,
   });
@@ -162,6 +163,8 @@ export function ConversationScreen() {
     lastAutoMarkedReadSignatureRef.current = null;
     awaitingDeliveryRef.current = false;
     deliveryPollUntilRef.current = 0;
+    setOlderMessages([]);
+    setOlderCursor(null);
   }, [route.params.conversationId]);
 
   useEffect(() => {
