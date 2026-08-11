@@ -11,6 +11,7 @@ import { useRealtimeSync } from './src/hooks/useRealtimeSync';
 import { CallControllerProvider } from './src/providers/CallControllerProvider';
 import { GlobalCallLayer } from './src/components/GlobalCallLayer';
 import { toastConfig } from './src/components/AppToast';
+import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -108,22 +109,35 @@ function AuthenticatedOverlays() {
   return <GlobalCallLayer />;
 }
 
+function ThemedStatusBar() {
+  const { isDark, colors } = useTheme();
+  return (
+    <StatusBar
+      style={isDark ? 'light' : 'dark'}
+      backgroundColor={colors.background}
+      translucent={false}
+    />
+  );
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <CallControllerProvider>
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <SafeAreaProvider>
-              <NavigationContainer linking={linking as never}>
-                <StatusBar style="dark" backgroundColor="#ffffff" translucent={false} />
-                <RealtimeBridge />
-                <AppNavigator />
-                <AuthenticatedOverlays />
-                <Toast config={toastConfig} />
-              </NavigationContainer>
-            </SafeAreaProvider>
-          </GestureHandlerRootView>
+          <ThemeProvider>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <SafeAreaProvider>
+                <NavigationContainer linking={linking as never}>
+                  <ThemedStatusBar />
+                  <RealtimeBridge />
+                  <AppNavigator />
+                  <AuthenticatedOverlays />
+                  <Toast config={toastConfig} />
+                </NavigationContainer>
+              </SafeAreaProvider>
+            </GestureHandlerRootView>
+          </ThemeProvider>
         </CallControllerProvider>
       </AuthProvider>
     </QueryClientProvider>

@@ -34,6 +34,7 @@ import {
   renderTemplateTextWithValues,
 } from '../lib/whatsapp-template-send';
 import { PanelSkeleton } from './Skeleton';
+import { useTheme } from '../theme/ThemeContext';
 
 export type TemplateSendPayload = {
   templateName: string;
@@ -74,6 +75,7 @@ export function WhatsappTemplateSendModal({
   onClose,
   onSend,
 }: Props) {
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<WhatsappTemplate | null>(null);
@@ -258,23 +260,23 @@ export function WhatsappTemplateSendModal({
         style={styles.backdrop}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={[styles.panel, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={[styles.panel, { paddingBottom: Math.max(insets.bottom, 12), backgroundColor: colors.surface }]}>
           {selectedTemplateId == null || !activeTemplate ? (
             <View style={styles.panelBody}>
               <View style={styles.header}>
-                <PanelsTopLeft color="#2563eb" size={16} />
+                <PanelsTopLeft color={colors.primary} size={16} />
                 <Text style={styles.title}>WhatsApp templates</Text>
                 <Pressable onPress={handleClose} style={styles.iconBtn} hitSlop={8}>
-                  <X color="#64748b" size={20} />
+                  <X color={colors.textSecondary} size={20} />
                 </Pressable>
               </View>
               <TextInput
                 autoFocus
                 placeholder="Search templates..."
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={colors.textMuted}
                 value={query}
                 onChangeText={onQueryChange}
-                style={styles.search}
+                style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]}
               />
               {loading ? (
                 <PanelSkeleton rows={4} />
@@ -288,7 +290,7 @@ export function WhatsappTemplateSendModal({
                   keyboardShouldPersistTaps="handled"
                   ListEmptyComponent={<Text style={styles.errorText}>No approved templates found</Text>}
                   renderItem={({ item }) => (
-                    <Pressable style={styles.row} onPress={() => handleSelectTemplate(item)}>
+                    <Pressable style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} onPress={() => handleSelectTemplate(item)}>
                       <View style={styles.nameRow}>
                         <Text style={styles.rowTitle} numberOfLines={1}>{item.name}</Text>
                         {item.category ? (
@@ -323,13 +325,13 @@ export function WhatsappTemplateSendModal({
                   style={styles.iconBtn}
                   hitSlop={8}
                 >
-                  <ArrowLeft color="#334155" size={20} />
+                  <ArrowLeft color={colors.textSecondary} size={20} />
                 </Pressable>
                 <Text style={styles.title} numberOfLines={1}>
                   Template: {activeTemplate.name}
                 </Text>
                 <Pressable onPress={handleClose} style={styles.iconBtn} hitSlop={8}>
-                  <X color="#64748b" size={20} />
+                  <X color={colors.textSecondary} size={20} />
                 </Pressable>
               </View>
 
@@ -344,16 +346,16 @@ export function WhatsappTemplateSendModal({
                     {orderedVariables.map((variable) => (
                       <View key={`var-${variable.index}`} style={styles.field}>
                         <Text style={styles.fieldLabel}>{`{{${variable.index}}}`}</Text>
-                        <TextInput
-                          value={values[variable.index as number] ?? ''}
-                          onChangeText={(text) => setValues((current) => ({
-                            ...current,
-                            [variable.index as number]: text,
-                          }))}
-                          placeholder={variable.sampleValue || `Value for {{${variable.index}}}`}
-                          placeholderTextColor="#94a3b8"
-                          style={styles.input}
-                        />
+                <TextInput
+                  value={values[variable.index as number] ?? ''}
+                  onChangeText={(text) => setValues((current) => ({
+                    ...current,
+                    [variable.index as number]: text,
+                  }))}
+                  placeholder={variable.sampleValue || `Value for {{${variable.index}}}`}
+                  placeholderTextColor={colors.textMuted}
+                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]}
+                />
                       </View>
                     ))}
                     {buttonVariables.map(({ buttonIndex, buttonLabel, variable }) => (
@@ -368,8 +370,8 @@ export function WhatsappTemplateSendModal({
                             [variable.index as number]: text,
                           }))}
                           placeholder={variable.sampleValue || `Value for {{${variable.index}}}`}
-                          placeholderTextColor="#94a3b8"
-                          style={styles.input}
+                          placeholderTextColor={colors.textMuted}
+                          style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]}
                         />
                       </View>
                     ))}
@@ -380,14 +382,14 @@ export function WhatsappTemplateSendModal({
                   <View style={styles.section}>
                     <Text style={styles.sectionLabel}>Header media</Text>
                     <Pressable
-                      style={styles.uploadBtn}
+                      style={[styles.uploadBtn, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}
                       onPress={() => void uploadHeaderMedia()}
                       disabled={uploadingMedia || !workspaceId}
                     >
                       {uploadingMedia ? (
-                        <ActivityIndicator color="#2563eb" />
+                        <ActivityIndicator color={colors.primary} />
                       ) : (
-                        <Upload color="#2563eb" size={16} />
+                        <Upload color={colors.primary} size={16} />
                       )}
                       <Text style={styles.uploadBtnText}>
                         {headerMedia ? 'Replace media' : 'Upload media'}
@@ -423,7 +425,7 @@ export function WhatsappTemplateSendModal({
 
                 <View style={styles.section}>
                   <Text style={styles.previewHeading}>Preview</Text>
-                  <View style={styles.previewCard}>
+                  <View style={[styles.previewCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
                     <Text style={styles.previewTitle}>
                       {activeTemplate.name.replace(/_/g, ' ')}
                     </Text>
@@ -450,13 +452,13 @@ export function WhatsappTemplateSendModal({
                 </View>
               </ScrollView>
 
-              <Pressable
-                style={[styles.sendBtn, !canSendTemplate && styles.sendBtnDisabled]}
+                <Pressable
+                  style={[styles.sendBtn, { backgroundColor: colors.primary }, !canSendTemplate && styles.sendBtnDisabled]}
                 onPress={handleSend}
                 disabled={!canSendTemplate}
               >
-                <Send color="#fff" size={16} />
-                <Text style={styles.sendBtnText}>Send template</Text>
+                <Send color={colors.surface} size={16} />
+                <Text style={[styles.sendBtnText, { color: colors.surface }]}>Send template</Text>
               </Pressable>
               {!canSendTemplate ? (
                 <Text style={styles.sendHint}>

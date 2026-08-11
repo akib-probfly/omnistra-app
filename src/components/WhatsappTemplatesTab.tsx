@@ -18,6 +18,7 @@ import {
 import { formatTemplateUpdatedAt, makeDraftTemplate, mapTemplateToForm } from '../lib/whatsapp-template-utils';
 import { ListSkeleton } from './Skeleton';
 import { WhatsappTemplateSheet, type TemplateSheetMode } from './WhatsappTemplateSheet';
+import { useTheme } from '../theme/ThemeContext';
 
 const STATUS_TONE: Record<string, { bg: string; fg: string }> = {
   APPROVED: { bg: '#e8fbf3', fg: '#047857' },
@@ -51,6 +52,7 @@ type SheetState =
   | null;
 
 export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
+  const { colors } = useTheme();
   const queryClient = useQueryClient();
   const templates = useQuery({
     queryKey: ['whatsapp-templates', channelId],
@@ -152,47 +154,47 @@ export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
   const filtersActive = search.trim().length > 0 || statusFilter !== 'ALL' || categoryFilter !== 'ALL';
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={styles.controls}>
         <View style={styles.toolbar}>
-          <Pressable style={[styles.syncButton, sync.isPending && styles.buttonDisabled]} onPress={() => sync.mutate()} disabled={sync.isPending}>
-            {sync.isPending ? <LoaderCircle color="#315efb" size={15} /> : <RefreshCw color="#315efb" size={15} />}
+          <Pressable style={[styles.syncButton, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, sync.isPending && styles.buttonDisabled]} onPress={() => sync.mutate()} disabled={sync.isPending}>
+            {sync.isPending ? <LoaderCircle color={colors.primary} size={15} /> : <RefreshCw color={colors.primary} size={15} />}
             <Text style={styles.syncText}>Sync</Text>
           </Pressable>
-          <Pressable style={styles.newButton} onPress={() => setSheet({ mode: 'create', form: makeDraftTemplate() })}>
-            <Plus color="#fff" size={16} />
+          <Pressable style={[styles.newButton, { backgroundColor: colors.primary }]} onPress={() => setSheet({ mode: 'create', form: makeDraftTemplate() })}>
+            <Plus color={colors.surface} size={16} />
             <Text style={styles.newButtonText}>New template</Text>
           </Pressable>
         </View>
 
-        <View style={styles.search}>
-          <Search color="#94a3b8" size={16} />
+        <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+          <Search color={colors.textMuted} size={16} />
           <TextInput
             value={search}
             onChangeText={setSearch}
             placeholder="Search templates…"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.textMuted}
             style={styles.searchInput}
           />
           {search ? (
             <Pressable onPress={() => setSearch('')} hitSlop={8}>
-              <Text style={styles.clearSearch}>Clear</Text>
+              <Text style={[styles.clearSearch, { color: colors.primary }]}>Clear</Text>
             </Pressable>
           ) : null}
         </View>
 
         <View style={styles.filterBlock}>
-          <Text style={styles.filterLabel}>Status</Text>
-          <View style={styles.statusSegment}>
+          <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Status</Text>
+          <View style={[styles.statusSegment, { backgroundColor: colors.surfaceSecondary }]}>
             {STATUS_FILTERS.map((filter) => {
               const active = statusFilter === filter.id;
               return (
                 <Pressable
                   key={filter.id}
-                  style={[styles.statusOption, active && styles.statusOptionActive]}
+                  style={[styles.statusOption, active && { backgroundColor: colors.primary }]}
                   onPress={() => setStatusFilter(filter.id)}
                 >
-                  <Text style={[styles.statusOptionText, active && styles.statusOptionTextActive]} numberOfLines={1}>
+                   <Text style={[styles.statusOptionText, active && { color: colors.surface }]} numberOfLines={1}>
                     {filter.label}
                   </Text>
                 </Pressable>
@@ -202,17 +204,17 @@ export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
         </View>
 
         <View style={styles.filterBlock}>
-          <Text style={styles.filterLabel}>Category</Text>
+          <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Category</Text>
           <View style={styles.categoryWrap}>
             {CATEGORY_FILTERS.map((filter) => {
               const active = categoryFilter === filter.id;
               return (
                 <Pressable
                   key={filter.id}
-                  style={[styles.categoryChip, active && styles.categoryChipActive]}
+                   style={[styles.categoryChip, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, active && { backgroundColor: colors.primary, borderColor: colors.primary }]}
                   onPress={() => setCategoryFilter(filter.id)}
                 >
-                  <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]} numberOfLines={1}>
+                   <Text style={[styles.categoryChipText, active && { color: colors.surface }]} numberOfLines={1}>
                     {filter.label}
                   </Text>
                 </Pressable>
@@ -230,7 +232,7 @@ export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
               setCategoryFilter('ALL');
             }}
           >
-            <Text style={styles.resetFiltersText}>Reset filters</Text>
+            <Text style={[styles.resetFiltersText, { color: colors.error }]}>Reset filters</Text>
           </Pressable>
         ) : null}
       </View>
@@ -239,14 +241,14 @@ export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
         <ListSkeleton rows={6} avatar={false} />
       ) : templates.isError ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>Could not load templates</Text>
-          <Text style={styles.emptyText}>{templates.error instanceof Error ? templates.error.message : 'Please try again.'}</Text>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>Could not load templates</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{templates.error instanceof Error ? templates.error.message : 'Please try again.'}</Text>
         </View>
       ) : items.length === 0 ? (
         <View style={styles.empty}>
-          <FileText color="#94a3b8" size={30} />
-          <Text style={styles.emptyTitle}>No templates found</Text>
-          <Text style={styles.emptyText}>
+          <FileText color={colors.textMuted} size={30} />
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>No templates found</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
             {search || statusFilter !== 'ALL' || categoryFilter !== 'ALL'
               ? 'Try adjusting filters or search.'
               : 'Create a template or sync with Meta to pull existing ones.'}
@@ -257,41 +259,41 @@ export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
           {items.map((template) => {
             const tone = STATUS_TONE[template.status] ?? STATUS_TONE.DRAFT;
             return (
-              <View key={template.id} style={styles.card}>
-                <View style={styles.cardHead}>
+               <View key={template.id} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+                <View style={[styles.cardHead, { borderBottomColor: colors.separator }]}>
                   <View style={styles.cardTitleWrap}>
                     <Text style={styles.cardName} numberOfLines={1}>{template.name}</Text>
                     <View style={[styles.badge, { backgroundColor: tone.bg }]}>
                       <Text style={[styles.badgeText, { color: tone.fg }]}>{template.status}</Text>
                     </View>
                   </View>
-                  <Text style={styles.cardMeta}>
+                  <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>
                     {template.category} · {template.language} · Updated {formatTemplateUpdatedAt(template.updatedAt)}
                   </Text>
                 </View>
-                <Text style={styles.cardBody} numberOfLines={2}>{template.body || 'No body content'}</Text>
-                {template.rejectionReason ? <Text style={styles.rejection} numberOfLines={2}>Rejected: {template.rejectionReason}</Text> : null}
+                <Text style={[styles.cardBody, { color: colors.textSecondary }]} numberOfLines={2}>{template.body || 'No body content'}</Text>
+                {template.rejectionReason ? <Text style={[styles.rejection, { color: colors.error }]} numberOfLines={2}>Rejected: {template.rejectionReason}</Text> : null}
                 <View style={styles.cardActions}>
                   <Pressable style={styles.actionButton} onPress={() => setSheet({ mode: 'view', template })}>
-                    <Eye color="#2563eb" size={14} />
-                    <Text style={styles.actionText}>View</Text>
+                    <Eye color={colors.primary} size={14} />
+                    <Text style={[styles.actionText, { color: colors.primary }]}>View</Text>
                   </Pressable>
                   <Pressable
                     style={styles.actionButton}
                     onPress={() => setSheet({ mode: 'edit', template, form: mapTemplateToForm(template) })}
                   >
-                    <Pencil color="#2563eb" size={14} />
-                    <Text style={styles.actionText}>Edit</Text>
+                    <Pencil color={colors.primary} size={14} />
+                    <Text style={[styles.actionText, { color: colors.primary }]}>Edit</Text>
                   </Pressable>
                   {template.source === 'remote' ? (
                     <Pressable style={styles.actionButton} onPress={() => confirmUnlink(template)}>
-                      <Unlink color="#dc2626" size={14} />
-                      <Text style={[styles.actionText, { color: '#dc2626' }]}>Unlink</Text>
+                      <Unlink color={colors.error} size={14} />
+                      <Text style={[styles.actionText, { color: colors.error }]}>Unlink</Text>
                     </Pressable>
                   ) : (
                     <Pressable style={styles.actionButton} onPress={() => confirmDelete(template)}>
-                      <Trash2 color="#dc2626" size={14} />
-                      <Text style={[styles.actionText, { color: '#dc2626' }]}>Delete</Text>
+                      <Trash2 color={colors.error} size={14} />
+                      <Text style={[styles.actionText, { color: colors.error }]}>Delete</Text>
                     </Pressable>
                   )}
                 </View>

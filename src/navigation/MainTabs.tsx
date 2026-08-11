@@ -6,6 +6,7 @@ import { ChannelsStack } from './ChannelsStack';
 import { ContactsStack } from './ContactsStack';
 import { InboxStack } from './InboxStack';
 import { SettingsStack } from './SettingsStack';
+import { useTheme } from '../theme/ThemeContext';
 
 export type MainTabParamList = {
   Dashboard: undefined;
@@ -19,18 +20,21 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export function MainTabs() {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const bottomPad = Math.max(insets.bottom, 8) + 4;
 
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: '#2563eb',
-        tabBarInactiveTintColor: '#94a3b8',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
         headerShown: false,
         tabBarStyle: {
           height: 54 + bottomPad,
           paddingBottom: bottomPad,
           paddingTop: 4,
+          backgroundColor: colors.surface,
+          borderTopColor: colors.cardBorder,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}

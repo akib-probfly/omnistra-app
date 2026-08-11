@@ -15,6 +15,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../theme/ThemeContext';
 import {
   calculateProration,
   changePlan,
@@ -48,6 +49,7 @@ async function openCheckout(url: string) {
 export function BillingPlanDetailsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList>>();
+  const { colors } = useTheme();
   const route = useRoute<RouteProp<SettingsStackParamList, 'BillingPlanDetails'>>();
   const queryClient = useQueryClient();
   const { planKey, workspaceId, cycle: initialCycle } = route.params;
@@ -260,7 +262,7 @@ export function BillingPlanDetailsScreen() {
 
   if (plansQuery.isLoading || subscriptionQuery.isLoading) {
     return (
-      <View style={[styles.screen, styles.centered]}>
+      <View style={[styles.screen, { backgroundColor: colors.background }, styles.centered]}>
         <FormSkeleton fields={5} />
       </View>
     );
@@ -268,12 +270,12 @@ export function BillingPlanDetailsScreen() {
 
   if (plansQuery.isError || !plan) {
     return (
-      <View style={styles.screen}>
-        <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.screen, { backgroundColor: colors.background }]}>
+        <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
           <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.backButton}>
-            <ArrowLeft color="#0f172a" size={22} />
+            <ArrowLeft color={colors.text} size={22} />
           </Pressable>
-          <Text style={styles.headerTitle}>Plan details</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Plan details</Text>
         </View>
         <ErrorState
           message={plansQuery.error instanceof Error ? plansQuery.error.message : 'Unable to load this package.'}
@@ -284,30 +286,30 @@ export function BillingPlanDetailsScreen() {
   }
 
   return (
-    <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.backButton}>
-          <ArrowLeft color="#0f172a" size={22} />
+          <ArrowLeft color={colors.text} size={22} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={styles.headerTitle}>{plan.name}</Text>
-          <Text style={styles.headerSubtitle}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>{plan.name}</Text>
+          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
             {upgradeMode ? 'Upgrade' : isDowngrade ? 'Downgrade' : plan.badge ?? 'Subscription'}
           </Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}>
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
           <Text style={styles.eyebrow}>{upgradeMode ? 'Upgrade' : plan.badge ?? 'Subscription'}</Text>
-          <Text style={styles.planTitle}>{plan.name}</Text>
-          <Text style={styles.description}>{plan.description}</Text>
+          <Text style={[styles.planTitle, { color: colors.text }]}>{plan.name}</Text>
+          <Text style={[styles.description, { color: colors.textSecondary }]}>{plan.description}</Text>
 
-          <View style={styles.priceBox}>
-            <Text style={styles.priceLabel}>{effectiveCycle === 'monthly' ? 'Monthly' : 'Yearly'}</Text>
-            <Text style={styles.priceValue}>
+          <View style={[styles.priceBox, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.priceLabel, { color: colors.textSecondary }]}>{effectiveCycle === 'monthly' ? 'Monthly' : 'Yearly'}</Text>
+            <Text style={[styles.priceValue, { color: colors.text }]}>
               {effectivePrice}
-              <Text style={styles.priceSuffix}>{effectiveCycle === 'monthly' ? ' /mo' : ' /yr'}</Text>
+              <Text style={[styles.priceSuffix, { color: colors.textSecondary }]}>{effectiveCycle === 'monthly' ? ' /mo' : ' /yr'}</Text>
             </Text>
           </View>
 
@@ -319,7 +321,7 @@ export function BillingPlanDetailsScreen() {
               </Text>
             </View>
           ) : (
-            <View style={styles.cycleToggle}>
+            <View style={[styles.cycleToggle, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
               {(['monthly', 'yearly'] as const).map((cycle) => {
                 const active = billingCycle === cycle;
                 const unavailable = Boolean(plan.intervals) && !getPlanInterval(plan, cycle);
@@ -328,9 +330,9 @@ export function BillingPlanDetailsScreen() {
                     key={cycle}
                     disabled={unavailable}
                     onPress={() => setBillingCycle(cycle)}
-                    style={[styles.cycleOption, active && styles.cycleOptionActive, unavailable && styles.cycleOptionDisabled]}
+                    style={[styles.cycleOption, active && { backgroundColor: colors.primary }, unavailable && styles.cycleOptionDisabled]}
                   >
-                    <Text style={[styles.cycleOptionText, active && styles.cycleOptionTextActive]}>
+                    <Text style={[styles.cycleOptionText, { color: colors.textSecondary }, active && styles.cycleOptionTextActive]}>
                       {cycle === 'monthly' ? 'Pay monthly' : 'Pay yearly'}
                     </Text>
                   </Pressable>
@@ -340,24 +342,24 @@ export function BillingPlanDetailsScreen() {
           )}
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Included features</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Included features</Text>
           {features.map((feature, index) => (
             <View key={`${feature.key || feature.label}-${index}`} style={styles.featureRow}>
               <View style={styles.featureIcon}>
-                <BadgeCheck color="#2563eb" size={14} />
+                <BadgeCheck color={colors.primary} size={14} />
               </View>
-              <Text style={styles.featureText}>{formatFeatureLabel(feature, billingCycle)}</Text>
+              <Text style={[styles.featureText, { color: colors.textSecondary }]}>{formatFeatureLabel(feature, billingCycle)}</Text>
             </View>
           ))}
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
           <Text style={styles.eyebrow}>Summary</Text>
-          <Text style={styles.summaryTitle}>
+          <Text style={[styles.summaryTitle, { color: colors.text }]}>
             {upgradeMode ? `Upgrade to ${plan.name}` : isDowngrade ? `Downgrade to ${plan.name}` : `Start ${plan.name}`}
           </Text>
-          <Text style={styles.description}>
+          <Text style={[styles.description, { color: colors.textSecondary }]}>
             {hasScheduledDowngrade
               ? `You already have a scheduled downgrade to ${pendingPlanName}. Package changes are locked until that plan becomes active.`
               : upgradeMode
@@ -369,29 +371,30 @@ export function BillingPlanDetailsScreen() {
 
           {upgradeMode && proration ? (
             <View style={styles.prorationBox}>
-              <SummaryLine label="Current plan" value={`${currentPlan?.name ?? 'Current'} ${effectiveCycle}`} />
-              <SummaryLine label="New plan price" value={`${effectivePrice}${effectiveCycle === 'monthly' ? '/mo' : '/yr'}`} />
-              <SummaryLine label="Remaining credit" value={`-${formatCents(proration.creditCents)}`} valueTone="credit" />
+              <SummaryLine label="Current plan" value={`${currentPlan?.name ?? 'Current'} ${effectiveCycle}`} colors={colors} />
+              <SummaryLine label="New plan price" value={`${effectivePrice}${effectiveCycle === 'monthly' ? '/mo' : '/yr'}`} colors={colors} />
+              <SummaryLine label="Remaining credit" value={`-${formatCents(proration.creditCents)}`} valueTone="credit" colors={colors} />
               <View style={styles.prorationDivider} />
-              <SummaryLine label="Amount due now" value={formatCents(proration.netAmountCents)} valueTone="emphasis" />
+              <SummaryLine label="Amount due now" value={formatCents(proration.netAmountCents)} valueTone="emphasis" colors={colors} />
             </View>
           ) : (
-            <View style={styles.summaryBox}>
-              <SummaryLine label="Cycle" value={billingCycle === 'monthly' ? 'Monthly' : 'Yearly'} />
-              <SummaryLine label="Price" value={price} />
+            <View style={[styles.summaryBox, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+              <SummaryLine label="Cycle" value={billingCycle === 'monthly' ? 'Monthly' : 'Yearly'} colors={colors} />
+              <SummaryLine label="Price" value={price} colors={colors} />
             </View>
           )}
 
           {upgradeMode && prorationQuery.isLoading ? (
             <View style={styles.prorationLoading}>
-              <LoaderCircle color="#2563eb" size={16} />
-              <Text style={styles.prorationLoadingText}>Calculating proration...</Text>
+              <LoaderCircle color={colors.primary} size={16} />
+              <Text style={[styles.prorationLoadingText, { color: colors.textSecondary }]}>Calculating proration...</Text>
             </View>
           ) : null}
 
           <Pressable
             style={[
               styles.ctaButton,
+              { backgroundColor: colors.primary },
               (busy || hasScheduledDowngrade || effectiveIntervalUnavailable || selectedIntervalUnavailable || (isCurrentPlan && !isCurrentTrialPlan)) && styles.ctaDisabled,
             ]}
             disabled={busy || hasScheduledDowngrade || effectiveIntervalUnavailable || selectedIntervalUnavailable || (isCurrentPlan && !isCurrentTrialPlan)}
@@ -401,8 +404,8 @@ export function BillingPlanDetailsScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.nextCard}>
-          <Text style={styles.sectionTitle}>What happens next</Text>
+        <View style={[styles.nextCard, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>What happens next</Text>
           {(upgradeMode
             ? [
                 'We calculate the prorated amount based on your remaining subscription value.',
@@ -421,7 +424,7 @@ export function BillingPlanDetailsScreen() {
                   'Payment is verified on the server and the subscription is written to the workspace.',
                 ]
           ).map((step, index) => (
-            <Text key={step} style={styles.nextStep}>{index + 1}. {step}</Text>
+            <Text key={step} style={[styles.nextStep, { color: colors.textSecondary }]}>{index + 1}. {step}</Text>
           ))}
         </View>
       </ScrollView>
@@ -433,17 +436,20 @@ function SummaryLine({
   label,
   value,
   valueTone,
+  colors,
 }: {
   label: string;
   value: string;
   valueTone?: 'credit' | 'emphasis';
+  colors: { textSecondary: string; text: string };
 }) {
   return (
     <View style={styles.summaryLine}>
-      <Text style={styles.summaryLabel}>{label}</Text>
+      <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{label}</Text>
       <Text
         style={[
           styles.summaryValue,
+          { color: colors.text },
           valueTone === 'credit' && styles.summaryCredit,
           valueTone === 'emphasis' && styles.summaryEmphasis,
         ]}
@@ -455,12 +461,10 @@ function SummaryLine({
 }
 
 const styles = StyleSheet.create({
-  screen: { backgroundColor: '#f8fafc', flex: 1 },
+  screen: { flex: 1 },
   centered: { alignItems: 'center', justifyContent: 'center' },
   header: {
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderBottomColor: '#e8eef7',
     borderBottomWidth: 1,
     flexDirection: 'row',
     gap: 10,
@@ -469,12 +473,10 @@ const styles = StyleSheet.create({
   },
   backButton: { alignItems: 'center', height: 36, justifyContent: 'center', width: 36 },
   headerCopy: { flex: 1, minWidth: 0 },
-  headerTitle: { color: '#0f172a', fontSize: 18, fontWeight: '800' },
-  headerSubtitle: { color: '#64748b', fontSize: 12, marginTop: 2 },
+  headerTitle: { fontSize: 18, fontWeight: '800' },
+  headerSubtitle: { fontSize: 12, marginTop: 2 },
   content: { gap: 12, padding: 16 },
   card: {
-    backgroundColor: '#fff',
-    borderColor: '#d7e4ff',
     borderRadius: 24,
     borderWidth: 1,
     padding: 18,
@@ -486,19 +488,17 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
-  planTitle: { color: '#0f172a', fontSize: 28, fontWeight: '800', letterSpacing: -0.6, marginTop: 8 },
-  description: { color: '#64748b', fontSize: 13, lineHeight: 20, marginTop: 8 },
+  planTitle: { fontSize: 28, fontWeight: '800', letterSpacing: -0.6, marginTop: 8 },
+  description: { fontSize: 13, lineHeight: 20, marginTop: 8 },
   priceBox: {
-    backgroundColor: '#f8fbff',
-    borderColor: '#d7e4ff',
     borderRadius: 18,
     borderWidth: 1,
     marginTop: 16,
     padding: 14,
   },
-  priceLabel: { color: '#64748b', fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
-  priceValue: { color: '#0f172a', fontSize: 28, fontWeight: '800', marginTop: 4 },
-  priceSuffix: { color: '#64748b', fontSize: 14, fontWeight: '600' },
+  priceLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
+  priceValue: { fontSize: 28, fontWeight: '800', marginTop: 4 },
+  priceSuffix: { fontSize: 14, fontWeight: '600' },
   upgradeBanner: {
     backgroundColor: '#ecfdf5',
     borderColor: '#a7f3d0',
@@ -510,8 +510,6 @@ const styles = StyleSheet.create({
   upgradeTitle: { color: '#047857', fontSize: 13, fontWeight: '800' },
   upgradeBody: { color: '#065f46', fontSize: 12, lineHeight: 18, marginTop: 4 },
   cycleToggle: {
-    backgroundColor: '#fff',
-    borderColor: '#d7e4ff',
     borderRadius: 999,
     borderWidth: 1,
     flexDirection: 'row',
@@ -520,11 +518,10 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   cycleOption: { borderRadius: 999, flex: 1, paddingVertical: 10 },
-  cycleOptionActive: { backgroundColor: '#2563eb' },
   cycleOptionDisabled: { opacity: 0.4 },
-  cycleOptionText: { color: '#64748b', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  cycleOptionText: { fontSize: 13, fontWeight: '700', textAlign: 'center' },
   cycleOptionTextActive: { color: '#fff' },
-  sectionTitle: { color: '#0f172a', fontSize: 16, fontWeight: '800', marginBottom: 10 },
+  sectionTitle: { fontSize: 16, fontWeight: '800', marginBottom: 10 },
   featureRow: { alignItems: 'flex-start', flexDirection: 'row', gap: 10, marginBottom: 10 },
   featureIcon: {
     alignItems: 'center',
@@ -535,11 +532,9 @@ const styles = StyleSheet.create({
     marginTop: 1,
     width: 22,
   },
-  featureText: { color: '#334155', flex: 1, fontSize: 13, fontWeight: '600', lineHeight: 19 },
-  summaryTitle: { color: '#0f172a', fontSize: 22, fontWeight: '800', letterSpacing: -0.4, marginTop: 6 },
+  featureText: { flex: 1, fontSize: 13, fontWeight: '600', lineHeight: 19 },
+  summaryTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4, marginTop: 6 },
   summaryBox: {
-    backgroundColor: '#f8fafc',
-    borderColor: '#e2e8f0',
     borderRadius: 16,
     borderWidth: 1,
     marginTop: 14,
@@ -555,15 +550,14 @@ const styles = StyleSheet.create({
   },
   prorationDivider: { backgroundColor: '#a7f3d0', height: 1, marginVertical: 10 },
   summaryLine: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  summaryLabel: { color: '#64748b', fontSize: 13 },
-  summaryValue: { color: '#0f172a', fontSize: 13, fontWeight: '700' },
+  summaryLabel: { fontSize: 13 },
+  summaryValue: { fontSize: 13, fontWeight: '700' },
   summaryCredit: { color: '#047857' },
   summaryEmphasis: { color: '#047857', fontSize: 18 },
   prorationLoading: { alignItems: 'center', flexDirection: 'row', gap: 8, marginTop: 12 },
-  prorationLoadingText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
+  prorationLoadingText: { fontSize: 12, fontWeight: '600' },
   ctaButton: {
     alignItems: 'center',
-    backgroundColor: '#2563eb',
     borderRadius: 999,
     marginTop: 16,
     paddingVertical: 13,
@@ -571,12 +565,10 @@ const styles = StyleSheet.create({
   ctaDisabled: { opacity: 0.5 },
   ctaText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   nextCard: {
-    backgroundColor: '#f8fbff',
-    borderColor: '#d7e4ff',
     borderRadius: 24,
     borderStyle: 'dashed',
     borderWidth: 1,
     padding: 18,
   },
-  nextStep: { color: '#475569', fontSize: 13, lineHeight: 20, marginTop: 8 },
+  nextStep: { fontSize: 13, lineHeight: 20, marginTop: 8 },
 });

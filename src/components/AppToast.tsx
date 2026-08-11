@@ -1,67 +1,71 @@
 import { Check } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
 import { BaseToast, ErrorToast, type ToastConfig } from 'react-native-toast-message';
+import { useTheme } from '../theme/ThemeContext';
 
-export const toastConfig: ToastConfig = {
-  success: (props) => (
+function SuccessToast(props: any) {
+  const { colors } = useTheme();
+  return (
     <BaseToast
       {...props}
-      style={styles.success}
+      style={[styles.toast, { borderLeftColor: '#22c55e', backgroundColor: colors.surface }]}
       contentContainerStyle={styles.content}
-      text1Style={styles.text1}
-      text2Style={styles.text2}
+      text1Style={[styles.text1, { color: colors.text }]}
+      text2Style={[styles.text2, { color: colors.textSecondary }]}
       text2NumberOfLines={2}
     />
-  ),
-  error: (props) => (
+  );
+}
+
+function ErrorToastWrapper(props: any) {
+  const { colors } = useTheme();
+  return (
     <ErrorToast
       {...props}
-      style={styles.error}
+      style={[styles.toast, { borderLeftColor: colors.error, backgroundColor: colors.surface }]}
       contentContainerStyle={styles.content}
-      text1Style={styles.text1}
-      text2Style={styles.text2}
+      text1Style={[styles.text1, { color: colors.text }]}
+      text2Style={[styles.text2, { color: colors.textSecondary }]}
       text2NumberOfLines={2}
     />
-  ),
-  info: (props) => (
+  );
+}
+
+function InfoToast(props: any) {
+  const { colors } = useTheme();
+  return (
     <BaseToast
       {...props}
-      style={styles.info}
+      style={[styles.toast, { borderLeftColor: colors.primary, backgroundColor: colors.surface }]}
       contentContainerStyle={styles.content}
-      text1Style={styles.text1}
-      text2Style={styles.text2}
+      text1Style={[styles.text1, { color: colors.text }]}
+      text2Style={[styles.text2, { color: colors.textSecondary }]}
       text2NumberOfLines={2}
     />
-  ),
-  copy: ({ text1 }) => (
-    <View style={styles.copyPill}>
+  );
+}
+
+function CopyToast({ text1 }: { text1?: string }) {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.copyPill, { backgroundColor: colors.text, shadowColor: colors.text }]}>
       <View style={styles.copyIcon}>
-        <Check color="#fff" size={14} strokeWidth={3} />
+        <Check color={colors.surface} size={14} strokeWidth={3} />
       </View>
-      <Text style={styles.copyText}>{text1 ?? 'Copied'}</Text>
+      <Text style={[styles.copyText, { color: colors.background }]}>{text1 ?? 'Copied'}</Text>
     </View>
-  ),
+  );
+}
+
+export const toastConfig: ToastConfig = {
+  success: (props) => <SuccessToast {...props} />,
+  error: (props) => <ErrorToastWrapper {...props} />,
+  info: (props) => <InfoToast {...props} />,
+  copy: ({ text1 }) => <CopyToast text1={text1} />,
 };
 
 const styles = StyleSheet.create({
-  success: {
-    borderLeftColor: '#22c55e',
-    borderLeftWidth: 4,
-    borderRadius: 12,
-    height: 'auto',
-    minHeight: 56,
-    width: '92%',
-  },
-  error: {
-    borderLeftColor: '#ef4444',
-    borderLeftWidth: 4,
-    borderRadius: 12,
-    height: 'auto',
-    minHeight: 56,
-    width: '92%',
-  },
-  info: {
-    borderLeftColor: '#2563eb',
+  toast: {
     borderLeftWidth: 4,
     borderRadius: 12,
     height: 'auto',
@@ -73,12 +77,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   text1: {
-    color: '#0f172a',
     fontSize: 14,
     fontWeight: '700',
   },
   text2: {
-    color: '#64748b',
     fontSize: 12,
     fontWeight: '500',
     marginTop: 2,
@@ -86,14 +88,12 @@ const styles = StyleSheet.create({
   copyPill: {
     alignItems: 'center',
     alignSelf: 'center',
-    backgroundColor: '#1e293b',
     borderRadius: 999,
     elevation: 6,
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 10,
@@ -107,7 +107,6 @@ const styles = StyleSheet.create({
     width: 22,
   },
   copyText: {
-    color: '#f8fafc',
     fontSize: 14,
     fontWeight: '600',
   },

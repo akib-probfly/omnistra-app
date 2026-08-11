@@ -21,6 +21,7 @@ import { getCallSessionStatusLabel, isCallSessionTerminal } from '../lib/inbox-u
 import type { CallConnectionState } from '../hooks/useWhatsappCallController';
 import { RTCView } from '../native/webrtc';
 import { ColorfulAvatar } from './ColorfulAvatar';
+import { useTheme } from '../theme/ThemeContext';
 
 type Props = {
   conversation: ConversationCallConversation;
@@ -158,6 +159,7 @@ function IncomingCallScreen({
   topInset: number;
   bottomInset: number;
 }) {
+  const { colors } = useTheme();
   const pulse = usePulse(true);
   const ringStyle = (delay: number) => ({
     opacity: pulse.interpolate({
@@ -176,7 +178,7 @@ function IncomingCallScreen({
 
   return (
     <>
-      <View style={[styles.dock, { bottom: Math.max(bottomInset, 12) }]}>
+      <View style={[styles.dock, { bottom: Math.max(bottomInset, 12), backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
         <Pressable style={styles.dockMain} onPress={onExpand}>
           <View style={styles.dockAvatar}>
             <Text style={styles.dockAvatarText}>{getInitials(label)}</Text>
@@ -184,7 +186,7 @@ function IncomingCallScreen({
           <View style={styles.dockCopy}>
             <Text style={styles.dockName} numberOfLines={1}>{label}</Text>
             <View style={styles.dockStatusRow}>
-              <PhoneIncoming color="#2563eb" size={14} />
+              <PhoneIncoming color={colors.primary} size={14} />
               <Text style={styles.dockStatus} numberOfLines={1}>
                 {statusText}
               </Text>
@@ -318,6 +320,7 @@ export function CallPanel({
   onEndCall,
   onToggleMute,
 }: Props) {
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [expanded, setExpanded] = useState(false);
   const [incomingExpanded, setIncomingExpanded] = useState(true);

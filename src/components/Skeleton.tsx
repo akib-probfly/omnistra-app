@@ -1,5 +1,6 @@
 ﻿import { useEffect, useRef, type ReactNode } from 'react';
 import { Animated, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useTheme } from '../theme/ThemeContext';
 
 type BoneProps = {
   width?: number | `${number}%`;
@@ -30,10 +31,11 @@ export function SkeletonPulse({ children, style }: { children: ReactNode; style?
 }
 
 export function ListSkeleton({ rows = 6, avatar = true }: { rows?: number; avatar?: boolean }) {
+  const { colors } = useTheme();
   return (
     <SkeletonPulse style={styles.list}>
       {Array.from({ length: rows }).map((_, index) => (
-        <View key={index} style={styles.listRow}>
+        <View key={index} style={[styles.listRow, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
           {avatar ? <SkeletonBone width={44} height={44} radius={14} /> : null}
           <View style={styles.listCopy}>
             <SkeletonBone width={`${58 + (index % 3) * 8}%` as `${number}%`} height={14} />
@@ -47,10 +49,11 @@ export function ListSkeleton({ rows = 6, avatar = true }: { rows?: number; avata
 }
 
 export function CardGridSkeleton({ cards = 3 }: { cards?: number }) {
+  const { colors } = useTheme();
   return (
     <SkeletonPulse style={styles.cardGrid}>
       {Array.from({ length: cards }).map((_, index) => (
-        <View key={index} style={styles.card}>
+        <View key={index} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
           <SkeletonBone width={40} height={40} radius={12} />
           <SkeletonBone width="70%" height={22} style={styles.gapLg} />
           <SkeletonBone width="50%" height={12} style={styles.gap} />
@@ -61,9 +64,10 @@ export function CardGridSkeleton({ cards = 3 }: { cards?: number }) {
 }
 
 export function DashboardSkeleton() {
+  const { colors } = useTheme();
   return (
     <SkeletonPulse style={styles.dashboard}>
-      <View style={styles.dashControls}>
+      <View style={[styles.dashControls, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
         <SkeletonBone height={44} radius={14} />
         <View style={styles.dashChips}>
           <SkeletonBone width="31%" height={40} radius={999} />
@@ -81,7 +85,7 @@ export function DashboardSkeleton() {
         <SkeletonBone width={220} height={168} radius={22} />
         <SkeletonBone width={220} height={168} radius={22} />
       </View>
-      <View style={styles.panel}>
+      <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
         <SkeletonBone width="40%" height={16} />
         <SkeletonBone height={140} radius={14} style={styles.gapLg} />
       </View>
@@ -104,10 +108,11 @@ export function FormSkeleton({ fields = 5 }: { fields?: number }) {
 }
 
 export function PanelSkeleton({ rows = 4 }: { rows?: number }) {
+  const { colors } = useTheme();
   return (
     <SkeletonPulse style={styles.panelList}>
       {Array.from({ length: rows }).map((_, index) => (
-        <View key={index} style={styles.panelRow}>
+        <View key={index} style={[styles.panelRow, { backgroundColor: colors.background }]}>
           <SkeletonBone width={`${62 + (index % 3) * 8}%` as `${number}%`} height={12} />
           <SkeletonBone width={`${40 + (index % 2) * 12}%` as `${number}%`} height={10} style={styles.gap} />
         </View>
@@ -156,8 +161,6 @@ const styles = StyleSheet.create({
 
   list: { gap: 12, paddingHorizontal: 16, paddingTop: 16 },
   listRow: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: 'row',
@@ -168,8 +171,6 @@ const styles = StyleSheet.create({
 
   cardGrid: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 16 },
   card: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
     borderRadius: 16,
     borderWidth: 1,
     flex: 1,
@@ -179,8 +180,6 @@ const styles = StyleSheet.create({
 
   dashboard: { paddingTop: 8 },
   dashControls: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
     borderRadius: 20,
     borderWidth: 1,
     gap: 12,
@@ -191,8 +190,6 @@ const styles = StyleSheet.create({
   sectionTitle: { marginBottom: 12, marginHorizontal: 16, marginTop: 20 },
   dashCarousel: { flexDirection: 'row', gap: 12, paddingHorizontal: 16 },
   panel: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
     borderRadius: 20,
     borderWidth: 1,
     marginHorizontal: 16,
@@ -205,7 +202,6 @@ const styles = StyleSheet.create({
 
   panelList: { gap: 12, paddingVertical: 8 },
   panelRow: {
-    backgroundColor: '#f8fafc',
     borderRadius: 12,
     padding: 12,
   },

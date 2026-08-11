@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../theme/ThemeContext';
 import {
   fetchWorkspaceAssignmentPolicy,
   updateWorkspaceAssignmentPolicy,
@@ -76,6 +77,7 @@ function ModeCard({
   selected,
   disabled,
   onSelect,
+  colors,
 }: {
   title: string;
   description: string;
@@ -83,22 +85,23 @@ function ModeCard({
   selected: boolean;
   disabled?: boolean;
   onSelect: () => void;
+  colors: { text: string; textSecondary: string; primary: string; surface: string; cardBorder: string };
 }) {
   return (
     <Pressable
-      style={[styles.modeCard, selected && styles.modeCardSelected, disabled && styles.disabled]}
+      style={[styles.modeCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, selected && { borderColor: colors.primary }, disabled && styles.disabled]}
       disabled={disabled}
       onPress={onSelect}
     >
-      <View style={[styles.modeIcon, selected && styles.modeIconSelected]}>
-        <Icon color={selected ? '#fff' : '#64748b'} size={18} />
+      <View style={[styles.modeIcon, selected && { backgroundColor: colors.primary }]}>
+        <Icon color={selected ? '#fff' : colors.textSecondary} size={18} />
       </View>
       <View style={styles.modeCopy}>
         <View style={styles.modeTitleRow}>
-          <Text style={styles.modeTitle}>{title}</Text>
-          {selected ? <Check color="#2563eb" size={16} /> : null}
+          <Text style={[styles.modeTitle, { color: colors.text }]}>{title}</Text>
+          {selected ? <Check color={colors.primary} size={16} /> : null}
         </View>
-        <Text style={styles.modeBody}>{description}</Text>
+        <Text style={[styles.modeBody, { color: colors.textSecondary }]}>{description}</Text>
       </View>
     </Pressable>
   );
@@ -118,6 +121,7 @@ function AssignmentPolicyForm({
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
+  const { colors } = useTheme();
   const [enabled, setEnabled] = useState(policy?.enabled ?? true);
   const [mode, setMode] = useState<WorkspaceAssignmentMode>(policy?.mode ?? 'DEFAULT_OWNER');
   const [defaultOwnerUserId, setDefaultOwnerUserId] = useState<string | null>(policy?.defaultOwnerUserId ?? null);
@@ -189,14 +193,14 @@ function AssignmentPolicyForm({
   const disabled = !canUpdate || saveMutation.isPending;
 
   return (
-    <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.backButton}>
-          <ArrowLeft color="#0f172a" size={22} />
+          <ArrowLeft color={colors.text} size={22} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={styles.headerTitle}>Assignment Policy</Text>
-          <Text style={styles.headerSubtitle}>How new conversations are assigned in {workspaceName}</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Assignment Policy</Text>
+          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>How new conversations are assigned in {workspaceName}</Text>
         </View>
       </View>
 
@@ -208,22 +212,22 @@ function AssignmentPolicyForm({
           </View>
         ) : null}
 
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
           <View style={styles.rowBetween}>
             <View style={styles.flexCopy}>
               <View style={styles.titleLine}>
-                <Text style={styles.cardTitle}>Auto-assign conversations</Text>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>Auto-assign conversations</Text>
                 <Text style={[styles.badge, enabled ? styles.badgeOn : styles.badgeOff]}>{enabled ? 'On' : 'Off'}</Text>
               </View>
-              <Text style={styles.cardBody}>Route new threads automatically using your selected mode below.</Text>
+              <Text style={[styles.cardBody, { color: colors.textSecondary }]}>Route new threads automatically using your selected mode below.</Text>
             </View>
             <AppToggle value={enabled} onValueChange={setEnabled} disabled={disabled} accessibilityLabel="Auto-assign conversations" />
           </View>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Assignment mode</Text>
-          <Text style={styles.cardBody}>How the system selects an agent.</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Assignment mode</Text>
+          <Text style={[styles.cardBody, { color: colors.textSecondary }]}>How the system selects an agent.</Text>
           <View style={styles.modeList}>
             {MODE_CARDS.map((option) => (
               <ModeCard
@@ -234,24 +238,25 @@ function AssignmentPolicyForm({
                 selected={mode === option.value}
                 disabled={disabled}
                 onSelect={() => setMode(option.value)}
+                colors={colors}
               />
             ))}
           </View>
 
           {mode === 'DEFAULT_OWNER' ? (
-            <View style={styles.nestedCard}>
-              <Text style={styles.cardTitle}>Default owner</Text>
-              <Text style={styles.cardBody}>Choose the owner who receives all new conversations in this mode.</Text>
+            <View style={[styles.nestedCard, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+              <Text style={[styles.cardTitle, { color: colors.text }]}>Default owner</Text>
+              <Text style={[styles.cardBody, { color: colors.textSecondary }]}>Choose the owner who receives all new conversations in this mode.</Text>
               <Pressable
-                style={[styles.ownerButton, disabled && styles.disabled]}
+                style={[styles.ownerButton, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, disabled && styles.disabled]}
                 disabled={disabled}
                 onPress={() => setOwnerPickerOpen(true)}
               >
-                <Text style={styles.ownerButtonText} numberOfLines={1}>{selectedOwnerLabel}</Text>
+                <Text style={[styles.ownerButtonText, { color: colors.text }]} numberOfLines={1}>{selectedOwnerLabel}</Text>
               </Pressable>
             </View>
           ) : (
-            <Text style={styles.helperText}>
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>
               {mode === 'ROUND_ROBIN'
                 ? 'Share new conversations evenly across eligible agents.'
                 : 'New conversations stay open for manual assignment.'}
@@ -259,22 +264,22 @@ function AssignmentPolicyForm({
           )}
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Constraints</Text>
-          <Text style={styles.cardBody}>Keep routing safe and balanced.</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Constraints</Text>
+          <Text style={[styles.cardBody, { color: colors.textSecondary }]}>Keep routing safe and balanced.</Text>
 
-          <View style={[styles.constraintRow, styles.rowBorder]}>
+          <View style={[styles.constraintRow, styles.rowBorder, { borderBottomColor: colors.separator }]}>
             <View style={styles.flexCopy}>
-              <Text style={styles.rowTitle}>Only assign to online agents</Text>
-              <Text style={styles.cardBody}>Skip agents who are currently offline.</Text>
+              <Text style={[styles.rowTitle, { color: colors.text }]}>Only assign to online agents</Text>
+              <Text style={[styles.cardBody, { color: colors.textSecondary }]}>Skip agents who are currently offline.</Text>
             </View>
             <AppToggle value={onlyOnlineAgents} onValueChange={setOnlyOnlineAgents} disabled={disabled} accessibilityLabel="Only assign to online agents" />
           </View>
 
-          <View style={[styles.constraintRow, styles.rowBorder]}>
+          <View style={[styles.constraintRow, styles.rowBorder, { borderBottomColor: colors.separator }]}>
             <View style={styles.flexCopy}>
-              <Text style={styles.rowTitle}>Max open conversations per agent</Text>
-              <Text style={styles.cardBody}>Leave empty for no limit.</Text>
+              <Text style={[styles.rowTitle, { color: colors.text }]}>Max open conversations per agent</Text>
+              <Text style={[styles.cardBody, { color: colors.textSecondary }]}>Leave empty for no limit.</Text>
             </View>
             <TextInput
               value={maxConversationsPerAgent}
@@ -282,8 +287,8 @@ function AssignmentPolicyForm({
               editable={!disabled}
               keyboardType="number-pad"
               placeholder="Unlimited"
-              placeholderTextColor="#94a3b8"
-              style={styles.numberInput}
+              placeholderTextColor={colors.textMuted}
+              style={[styles.numberInput, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]}
             />
           </View>
 
@@ -292,17 +297,17 @@ function AssignmentPolicyForm({
               <AlertCircle color="#d97706" size={16} />
             </View>
             <View style={styles.flexCopy}>
-              <Text style={styles.rowTitle}>Fallback behavior</Text>
-              <Text style={styles.cardBody}>
+              <Text style={[styles.rowTitle, { color: colors.text }]}>Fallback behavior</Text>
+              <Text style={[styles.cardBody, { color: colors.textSecondary }]}>
                 If no agent is eligible, the conversation stays unassigned rather than forcing a bad match.
               </Text>
             </View>
           </View>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Call routing</Text>
-          <Text style={styles.cardBody}>Control how incoming WhatsApp calls are routed and who can receive them.</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Call routing</Text>
+          <Text style={[styles.cardBody, { color: colors.textSecondary }]}>Control how incoming WhatsApp calls are routed and who can receive them.</Text>
           <View style={styles.modeList}>
             {CALL_CARDS.map((option) => (
               <ModeCard
@@ -313,15 +318,16 @@ function AssignmentPolicyForm({
                 selected={whatsappCallRoutingMode === option.value}
                 disabled={disabled}
                 onSelect={() => setWhatsappCallRoutingMode(option.value)}
+                colors={colors}
               />
             ))}
           </View>
 
-          <View style={styles.nestedCard}>
+          <View style={[styles.nestedCard, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
             <View style={styles.rowBetween}>
               <View style={styles.flexCopy}>
-                <Text style={styles.rowTitle}>Send calls only to assigned member</Text>
-                <Text style={styles.cardBody}>
+                <Text style={[styles.rowTitle, { color: colors.text }]}>Send calls only to assigned member</Text>
+                <Text style={[styles.cardBody, { color: colors.textSecondary }]}>
                   When enabled, assigned conversation calls skip broadcast and round robin, then ring only the assignee.
                 </Text>
               </View>
@@ -336,7 +342,7 @@ function AssignmentPolicyForm({
         </View>
 
         <Pressable
-          style={[styles.saveButton, disabled && styles.disabled]}
+          style={[styles.saveButton, { backgroundColor: colors.primary }, disabled && styles.disabled]}
           disabled={disabled}
           onPress={() => saveMutation.mutate()}
         >
@@ -354,14 +360,14 @@ function AssignmentPolicyForm({
       <Modal visible={ownerPickerOpen} transparent animationType="slide" onRequestClose={() => setOwnerPickerOpen(false)}>
         <View style={styles.sheetOverlay}>
           <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setOwnerPickerOpen(false)} />
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-            <Text style={styles.sheetTitle}>Select default owner</Text>
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: colors.surface }]}>
+            <Text style={[styles.sheetTitle, { color: colors.text }]}>Select default owner</Text>
             <TextInput
               value={ownerSearch}
               onChangeText={setOwnerSearch}
               placeholder="Search workspace members"
-              placeholderTextColor="#94a3b8"
-              style={styles.searchInput}
+              placeholderTextColor={colors.textMuted}
+              style={[styles.searchInput, { backgroundColor: colors.background, borderColor: colors.cardBorder, color: colors.text }]}
             />
             {ownersQuery.isLoading ? (
               <PanelSkeleton rows={5} />
@@ -375,7 +381,7 @@ function AssignmentPolicyForm({
                   const selected = item.userId === defaultOwnerUserId;
                   return (
                     <Pressable
-                      style={[styles.ownerRow, selected && styles.ownerRowSelected]}
+                      style={[styles.ownerRow, selected && { backgroundColor: colors.surfaceSecondary }]}
                       onPress={() => {
                         setDefaultOwnerUserId(item.userId);
                         setOwnerPickerOpen(false);
@@ -383,14 +389,14 @@ function AssignmentPolicyForm({
                       }}
                     >
                       <View style={styles.flexCopy}>
-                        <Text style={styles.ownerName}>{item.name?.trim() || item.email}</Text>
-                        {item.name?.trim() ? <Text style={styles.ownerEmail}>{item.email}</Text> : null}
+                        <Text style={[styles.ownerName, { color: colors.text }]}>{item.name?.trim() || item.email}</Text>
+                        {item.name?.trim() ? <Text style={[styles.ownerEmail, { color: colors.textSecondary }]}>{item.email}</Text> : null}
                       </View>
-                      {selected ? <Check color="#2563eb" size={18} /> : null}
+                      {selected ? <Check color={colors.primary} size={18} /> : null}
                     </Pressable>
                   );
                 }}
-                ListEmptyComponent={<Text style={styles.emptyOwners}>No active members match your search.</Text>}
+                ListEmptyComponent={<Text style={[styles.emptyOwners, { color: colors.textMuted }]}>No active members match your search.</Text>}
               />
             )}
           </View>
@@ -459,19 +465,19 @@ export function AssignmentPolicySettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { backgroundColor: '#f8fafc', flex: 1 },
-  header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e8eef7', borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingBottom: 12, paddingHorizontal: 14 },
+  screen: { flex: 1 },
+  header: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingBottom: 12, paddingHorizontal: 14 },
   backButton: { alignItems: 'center', height: 36, justifyContent: 'center', width: 36 },
   headerCopy: { flex: 1, minWidth: 0 },
-  headerTitle: { color: '#0f172a', fontSize: 18, fontWeight: '800' },
-  headerSubtitle: { color: '#64748b', fontSize: 12, marginTop: 2 },
+  headerTitle: { fontSize: 18, fontWeight: '800' },
+  headerSubtitle: { fontSize: 12, marginTop: 2 },
   loader: { marginTop: 80 },
   content: { gap: 12, padding: 16 },
   infoBanner: { alignItems: 'flex-start', backgroundColor: '#fff7ed', borderColor: '#fed7aa', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 8, padding: 12 },
   infoBannerText: { color: '#c2410c', flex: 1, fontSize: 13, lineHeight: 18 },
-  card: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, padding: 16 },
-  cardTitle: { color: '#0f172a', fontSize: 15, fontWeight: '800' },
-  cardBody: { color: '#64748b', fontSize: 12, lineHeight: 18, marginTop: 4 },
+  card: { borderRadius: 18, borderWidth: 1, padding: 16 },
+  cardTitle: { fontSize: 15, fontWeight: '800' },
+  cardBody: { fontSize: 12, lineHeight: 18, marginTop: 4 },
   rowBetween: { alignItems: 'flex-start', flexDirection: 'row', gap: 12 },
   flexCopy: { flex: 1, minWidth: 0 },
   titleLine: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -479,34 +485,32 @@ const styles = StyleSheet.create({
   badgeOn: { backgroundColor: '#ecfdf5', color: '#047857' },
   badgeOff: { backgroundColor: '#f1f5f9', color: '#64748b' },
   modeList: { gap: 10, marginTop: 14 },
-  modeCard: { alignItems: 'center', backgroundColor: '#fffaf0', borderColor: '#d6e6ff', borderRadius: 16, borderWidth: 1, flexDirection: 'row', gap: 12, padding: 12 },
-  modeCardSelected: { backgroundColor: '#f3f7ff', borderColor: '#2563eb' },
+  modeCard: { alignItems: 'center', borderRadius: 16, borderWidth: 1, flexDirection: 'row', gap: 12, padding: 12 },
+  modeCardSelected: { backgroundColor: '#f3f7ff' },
   modeIcon: { alignItems: 'center', backgroundColor: '#edf4ff', borderRadius: 14, height: 40, justifyContent: 'center', width: 40 },
-  modeIconSelected: { backgroundColor: '#2563eb' },
   modeCopy: { flex: 1, minWidth: 0 },
   modeTitleRow: { alignItems: 'center', flexDirection: 'row', gap: 6 },
-  modeTitle: { color: '#0f172a', fontSize: 14, fontWeight: '700' },
-  modeBody: { color: '#64748b', fontSize: 12, marginTop: 2 },
-  nestedCard: { backgroundColor: '#f8fbff', borderColor: '#d6e6ff', borderRadius: 16, borderWidth: 1, marginTop: 14, padding: 12 },
-  ownerButton: { backgroundColor: '#fff', borderColor: '#d6e6ff', borderRadius: 12, borderWidth: 1, marginTop: 10, paddingHorizontal: 12, paddingVertical: 12 },
-  ownerButtonText: { color: '#0f172a', fontSize: 14, fontWeight: '600' },
-  helperText: { color: '#64748b', fontSize: 12, lineHeight: 18, marginTop: 12 },
+  modeTitle: { fontSize: 14, fontWeight: '700' },
+  modeBody: { fontSize: 12, marginTop: 2 },
+  nestedCard: { borderRadius: 16, borderWidth: 1, marginTop: 14, padding: 12 },
+  ownerButton: { borderRadius: 12, borderWidth: 1, marginTop: 10, paddingHorizontal: 12, paddingVertical: 12 },
+  ownerButtonText: { fontSize: 14, fontWeight: '600' },
+  helperText: { fontSize: 12, lineHeight: 18, marginTop: 12 },
   constraintRow: { alignItems: 'center', flexDirection: 'row', gap: 12, paddingVertical: 14 },
-  rowBorder: { borderBottomColor: '#eef2f7', borderBottomWidth: 1 },
-  rowTitle: { color: '#0f172a', fontSize: 14, fontWeight: '700' },
-  numberInput: { backgroundColor: '#fffaf0', borderColor: '#d6e6ff', borderRadius: 12, borderWidth: 1, color: '#0f172a', minWidth: 100, paddingHorizontal: 12, paddingVertical: 10, textAlign: 'center' },
+  rowBorder: { borderBottomWidth: 1 },
+  rowTitle: { fontSize: 14, fontWeight: '700' },
+  numberInput: { borderRadius: 12, borderWidth: 1, minWidth: 100, paddingHorizontal: 12, paddingVertical: 10, textAlign: 'center' },
   fallbackRow: { flexDirection: 'row', gap: 12, paddingTop: 14 },
   fallbackIcon: { alignItems: 'center', backgroundColor: '#fffbeb', borderRadius: 999, height: 32, justifyContent: 'center', width: 32 },
-  saveButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 14, flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 4, paddingVertical: 14 },
+  saveButton: { alignItems: 'center', borderRadius: 14, flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 4, paddingVertical: 14 },
   saveText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   disabled: { opacity: 0.55 },
   sheetOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },
-  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
-  sheetTitle: { color: '#0f172a', fontSize: 18, fontWeight: '800', marginBottom: 12 },
-  searchInput: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, color: '#0f172a', paddingHorizontal: 12, paddingVertical: 12 },
+  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
+  sheetTitle: { fontSize: 18, fontWeight: '800', marginBottom: 12 },
+  searchInput: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 12 },
   ownerRow: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 10, paddingHorizontal: 10, paddingVertical: 12 },
-  ownerRowSelected: { backgroundColor: '#dbeafe' },
-  ownerName: { color: '#0f172a', fontSize: 14, fontWeight: '700' },
-  ownerEmail: { color: '#64748b', fontSize: 12, marginTop: 2 },
-  emptyOwners: { color: '#94a3b8', fontSize: 13, paddingVertical: 16, textAlign: 'center' },
+  ownerName: { fontSize: 14, fontWeight: '700' },
+  ownerEmail: { fontSize: 12, marginTop: 2 },
+  emptyOwners: { fontSize: 13, paddingVertical: 16, textAlign: 'center' },
 });

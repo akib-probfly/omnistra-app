@@ -19,6 +19,7 @@ import {
 import type { MessengerMessagingMode } from '../lib/inbox-utils';
 import { PanelSkeleton } from './Skeleton';
 import { WhatsappTemplateSendModal, type TemplateSendPayload } from './WhatsappTemplateSendModal';
+import { useTheme } from '../theme/ThemeContext';
 
 type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT'; sizeBytes?: number | null };
 type Props = {
@@ -58,6 +59,7 @@ export function ConversationComposer({
   canSendStandardMessage = false,
   canSendHumanAgentMessage = false,
 }: Props) {
+  const { colors } = useTheme();
   const [emojiOpen, setEmojiOpen] = useState(false);
   const valueRef = useRef(value);
   valueRef.current = value;
@@ -287,12 +289,12 @@ export function ConversationComposer({
 
   if (messengerWindowExpired) {
     return (
-      <View style={styles.blockedComposer}>
-        <LinearGradient colors={['#fff7ed', '#fff1f2']} style={styles.blockedGradient} />
-        <View style={styles.blockedContent}>
-          <Clock3 color="#dc2626" size={20} style={styles.blockedIcon} />
+        <View style={styles.blockedComposer}>
+          <LinearGradient colors={['#fff7ed', '#fff1f2']} style={styles.blockedGradient} />
+          <View style={styles.blockedContent}>
+            <Clock3 color={colors.error} size={20} style={styles.blockedIcon} />
           <View style={styles.blockedTextWrap}>
-            <Text style={styles.blockedTitle}>Messenger window expired</Text>
+            <Text style={[styles.blockedTitle, { color: colors.error }]}>Messenger window expired</Text>
             <Text style={styles.blockedSubtitle}>
               The Messenger messaging window has expired. Free-form replies are unavailable after seven days.
             </Text>
@@ -323,7 +325,7 @@ export function ConversationComposer({
             style={styles.blockedGradient}
           />
           <View style={styles.blockedContent}>
-            <PanelsTopLeft color="#dc2626" size={20} style={styles.blockedIcon} />
+            <PanelsTopLeft color={colors.error} size={20} style={styles.blockedIcon} />
             <View style={styles.blockedTextWrap}>
               <Text style={styles.blockedTitle}>WhatsApp window expired</Text>
               <Text style={styles.blockedSubtitle}>The WhatsApp customer window has expired. Send an approved template message to continue.</Text>
@@ -334,7 +336,7 @@ export function ConversationComposer({
                   colors={['#6366f1', '#8b5cf6']}
                   style={styles.blockedTemplateGradient}
                 >
-                  <PanelsTopLeft color="#fff" size={16} />
+                  <PanelsTopLeft color={colors.surface} size={16} />
                   <Text style={styles.blockedTemplateBtnText}>Send Template</Text>
                 </LinearGradient>
               </Pressable>
@@ -347,8 +349,8 @@ export function ConversationComposer({
 
   if (recording) {
     return (
-      <View style={styles.recording}>
-        <Pressable onPress={() => stopRecording(false)} style={styles.delete}><Trash2 color="#fff" size={17} /></Pressable>
+        <View style={styles.recording}>
+        <Pressable onPress={() => stopRecording(false)} style={styles.delete}><Trash2 color={colors.surface} size={17} /></Pressable>
         <Text style={[styles.recordTime, paused && styles.recordTimePaused]}>{paused ? '⏸ Paused' : `● ${`0:${String(recordingSeconds).padStart(2, '0')}`}`}</Text>
         <View style={styles.recordingLevels}>
           {[0.4, 0.8, 0.5, 1, 0.6, 0.9, 0.45, 0.75, 0.55, 1, 0.7, 0.4].map((height, index) => (
@@ -356,9 +358,9 @@ export function ConversationComposer({
           ))}
         </View>
         <Pressable onPress={togglePause} style={[styles.pauseBtn, paused && styles.pauseBtnActive]}>
-          {paused ? <Play color="#fff" size={16} /> : <Pause color="#4338ca" size={16} />}
+          {paused ? <Play color={colors.surface} size={16} /> : <Pause color="#4338ca" size={16} />}
         </Pressable>
-        <Pressable onPress={() => stopRecording(true)} style={styles.sendRecording}><Send color="#fff" size={18} /></Pressable>
+        <Pressable onPress={() => stopRecording(true)} style={styles.sendRecording}><Send color={colors.surface} size={18} /></Pressable>
       </View>
     );
   }
@@ -367,9 +369,9 @@ export function ConversationComposer({
     <>
       <Modal visible={quickOpen} transparent animationType="fade" onRequestClose={() => setQuickOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setQuickOpen(false)}>
-          <View style={styles.pickerPanel}>
-             <View style={styles.pickerHeader}><Zap color="#2563eb" size={16} /><Text style={styles.pickerTitle}>Quick replies</Text><Text style={styles.pickerCount}>{quickReplies.data?.items?.length ?? 0}</Text><View style={styles.spacer} /><Pressable onPress={() => setQuickOpen(false)} style={styles.closeBtn}><X color="#64748b" size={20} /></Pressable></View>
-            <TextInput autoFocus placeholder="Search by keyword, message" placeholderTextColor="#94a3b8" value={quickQuery} onChangeText={setQuickQuery} style={styles.pickerSearch} />
+          <View style={[styles.pickerPanel, { backgroundColor: colors.surface }]}>
+             <View style={styles.pickerHeader}><Zap color={colors.primary} size={16} /><Text style={styles.pickerTitle}>Quick replies</Text><Text style={styles.pickerCount}>{quickReplies.data?.items?.length ?? 0}</Text><View style={styles.spacer} />                <Pressable onPress={() => setQuickOpen(false)} style={[styles.closeBtn, { backgroundColor: colors.surfaceSecondary }]}><X color={colors.textSecondary} size={20} /></Pressable></View>
+             <TextInput autoFocus placeholder="Search by keyword, message" placeholderTextColor={colors.textMuted} value={quickQuery} onChangeText={setQuickQuery} style={styles.pickerSearch} />
             {quickReplies.isLoading ? <PanelSkeleton rows={4} /> : quickReplies.isError ? <Text style={styles.pickerError}>Could not load quick replies.</Text> : (
               <FlatList
                 data={quickReplies.data?.items ?? []}
@@ -404,9 +406,9 @@ export function ConversationComposer({
         onSend={handleSendTemplate}
       />
 
-      <View style={[styles.composer, emojiOpen && styles.composerWithEmoji]}>
+      <View style={[styles.composer, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, emojiOpen && styles.composerWithEmoji]}>
         {replyPreview ? (
-          <View style={styles.replyPreview}><View style={styles.replyAccent} /><View style={styles.replyCopy}><Text style={styles.replyName}>{replyPreview.name}</Text><Text numberOfLines={1} style={styles.replyText}>{replyPreview.text}</Text></View><Pressable onPress={onCancelReply}><Text style={styles.close}>×</Text></Pressable></View>
+           <View style={[styles.replyPreview, { backgroundColor: colors.surfaceSecondary, borderLeftColor: colors.primary }]}><View style={styles.replyAccent} /><View style={styles.replyCopy}><Text style={styles.replyName}>{replyPreview.name}</Text><Text numberOfLines={1} style={styles.replyText}>{replyPreview.text}</Text></View><Pressable onPress={onCancelReply}><Text style={styles.close}>×</Text></Pressable></View>
         ) : null}
         {attachments.length ? (
           <ScrollView
@@ -418,14 +420,14 @@ export function ConversationComposer({
             {attachments.map((attachment) => {
               const isMedia = attachment.type === 'IMAGE' || attachment.type === 'VIDEO';
               return (
-                <View key={attachment.uri} style={isMedia ? styles.attachmentMedia : styles.attachment}>
+                <View key={attachment.uri} style={[isMedia ? styles.attachmentMedia : styles.attachment, isMedia ? { backgroundColor: colors.surfaceSecondary } : { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
                   {isMedia ? (
                     <Image source={{ uri: attachment.uri }} style={styles.attachmentThumb} />
                   ) : attachment.type === 'VOICE' ? (
-                    <Mic color="#2563eb" size={18} />
+                    <Mic color={colors.primary} size={18} />
                   ) : (
                     <>
-                      <FileText color="#2563eb" size={18} />
+                      <FileText color={colors.primary} size={18} />
                       <Text numberOfLines={1} style={styles.attachmentName}>{attachment.name}</Text>
                     </>
                   )}
@@ -450,16 +452,16 @@ export function ConversationComposer({
           onFocus={() => setEmojiOpen(false)}
           editable={canComposeFreeform}
           placeholder={canComposeFreeform ? "Write a message... use '/' for quick replies" : 'Messaging window unavailable'}
-          placeholderTextColor="#a88971"
-          style={styles.input}
+          placeholderTextColor={colors.textMuted}
+          style={[styles.input, { color: colors.textSecondary }]}
         />
         <View style={styles.actions}>
           {isMessengerChannel ? (
-            <Pressable style={styles.messengerModeChip} onPress={() => setMessengerModeOpen(true)}>
+             <Pressable style={[styles.messengerModeChip, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} onPress={() => setMessengerModeOpen(true)}>
               <Text style={styles.messengerModeChipText} numberOfLines={1}>
                 {messengerMessagingMode === 'STANDARD' ? 'Standard' : 'Human'}
               </Text>
-              <ChevronDown color="#475569" size={14} />
+               <ChevronDown color={colors.textSecondary} size={14} />
             </Pressable>
           ) : null}
           <Pressable
@@ -474,20 +476,20 @@ export function ConversationComposer({
             }}
             style={!canComposeFreeform ? styles.actionDisabled : undefined}
           >
-            <Smile color={emojiOpen ? '#2563eb' : '#64748b'} size={20} />
+            <Smile color={emojiOpen ? colors.primary : colors.textSecondary} size={20} />
           </Pressable>
           <Pressable
             disabled={!canComposeFreeform}
             onPress={() => Alert.alert('Attachment', 'Choose an image or document', [{ text: 'Image', onPress: chooseImage }, { text: 'Document', onPress: chooseDocument }, { text: 'Cancel', style: 'cancel' }])}
             style={!canComposeFreeform ? styles.actionDisabled : undefined}
           >
-            <Paperclip color="#64748b" size={20} />
+            <Paperclip color={colors.textSecondary} size={20} />
           </Pressable>
           <Pressable disabled={!canComposeFreeform} onPress={startRecording} style={!canComposeFreeform ? styles.actionDisabled : undefined}>
-            <Mic color="#64748b" size={20} />
+            <Mic color={colors.textSecondary} size={20} />
           </Pressable>
           <Pressable disabled={!canComposeFreeform} onPress={() => { setEmojiOpen(false); setQuickOpen(true); }} style={!canComposeFreeform ? styles.actionDisabled : undefined}>
-            <Zap color="#64748b" size={20} />
+            <Zap color={colors.textSecondary} size={20} />
           </Pressable>
           {isWhatsAppChannel && channelId ? <Pressable onPress={() => { setEmojiOpen(false); setTemplateOpen(true); }}><PanelsTopLeft color="#16a34a" size={20} /></Pressable> : null}
           <View style={styles.spacer} />
@@ -496,7 +498,7 @@ export function ConversationComposer({
             disabled={sending || !canComposeFreeform || (!value.trim() && !attachments.length)}
             style={[styles.send, canComposeFreeform && (value.trim() || attachments.length) && styles.sendActive, (sending || !canComposeFreeform) && styles.sendDisabled]}
           >
-            <Send color="#fff" size={18} />
+            <Send color={colors.surface} size={18} />
           </Pressable>
         </View>
       </View>
@@ -517,14 +519,14 @@ export function ConversationComposer({
             defaultHeight={280}
             categoryPosition="bottom"
             theme={{
-              container: '#ffffff',
-              header: '#0f172a',
-              skinTonesContainer: '#f1f5f9',
+              container: colors.surface,
+              header: colors.text,
+              skinTonesContainer: colors.surfaceSecondary,
               category: {
-                icon: '#64748b',
-                iconActive: '#2563eb',
-                container: '#f8fafc',
-                containerActive: '#e2e8f0',
+                icon: colors.textSecondary,
+                iconActive: colors.primary,
+                container: colors.background,
+                containerActive: colors.cardBorder,
               },
             }}
           />
@@ -533,10 +535,10 @@ export function ConversationComposer({
 
       <Modal visible={messengerModeOpen} transparent animationType="fade" onRequestClose={() => setMessengerModeOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setMessengerModeOpen(false)}>
-          <View style={styles.modeSheet}>
+          <View style={[styles.modeSheet, { backgroundColor: colors.surface }]}>
             <Text style={styles.modeSheetTitle}>Messenger messaging mode</Text>
             <Pressable
-              style={[styles.modeOption, messengerMessagingMode === 'STANDARD' && styles.modeOptionActive, !canSendStandardMessage && styles.modeOptionDisabled]}
+              style={[styles.modeOption, { backgroundColor: colors.background, borderColor: colors.cardBorder }, messengerMessagingMode === 'STANDARD' && styles.modeOptionActive, !canSendStandardMessage && styles.modeOptionDisabled]}
               disabled={!canSendStandardMessage}
               onPress={() => {
                 onMessengerMessagingModeChange?.('STANDARD');
@@ -547,7 +549,7 @@ export function ConversationComposer({
               <Text style={styles.modeOptionBody}>Normal reply within 24 hours</Text>
             </Pressable>
             <Pressable
-              style={[styles.modeOption, messengerMessagingMode === 'HUMAN_AGENT' && styles.modeOptionActive, !canSendHumanAgentMessage && styles.modeOptionDisabled]}
+              style={[styles.modeOption, { backgroundColor: colors.background, borderColor: colors.cardBorder }, messengerMessagingMode === 'HUMAN_AGENT' && styles.modeOptionActive, !canSendHumanAgentMessage && styles.modeOptionDisabled]}
               disabled={!canSendHumanAgentMessage}
               onPress={() => {
                 onMessengerMessagingModeChange?.('HUMAN_AGENT');

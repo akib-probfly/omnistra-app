@@ -26,6 +26,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../theme/ThemeContext';
 import {
   createQuickReply,
   deleteQuickReply,
@@ -68,6 +69,7 @@ export function QuickRepliesSettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
+  const { colors } = useTheme();
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search.trim());
   const [editorOpen, setEditorOpen] = useState(false);
@@ -300,16 +302,16 @@ export function QuickRepliesSettingsScreen() {
   };
 
   return (
-    <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.backButton}>
-          <ArrowLeft color="#0f172a" size={22} />
+          <ArrowLeft color={colors.text} size={22} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={styles.headerTitle}>Quick Replies</Text>
-          <Text style={styles.headerSubtitle}>Saved snippets for faster replies</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Quick Replies</Text>
+          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Saved snippets for faster replies</Text>
         </View>
-        <Pressable style={styles.addButton} onPress={openCreate}>
+        <Pressable style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={openCreate}>
           <Plus color="#fff" size={18} />
         </Pressable>
       </View>
@@ -323,14 +325,14 @@ export function QuickRepliesSettingsScreen() {
         />
       ) : (
         <>
-          <View style={styles.searchWrap}>
-            <Search color="#94a3b8" size={16} />
+          <View style={[styles.searchWrap, { backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
+            <Search color={colors.textMuted} size={16} />
             <TextInput
               value={search}
               onChangeText={setSearch}
               placeholder="Search by name or message"
-              placeholderTextColor="#94a3b8"
-              style={styles.searchInput}
+              placeholderTextColor={colors.textMuted}
+              style={[styles.searchInput, { color: colors.text }]}
             />
           </View>
 
@@ -347,30 +349,30 @@ export function QuickRepliesSettingsScreen() {
               keyExtractor={(item) => item.id}
               contentContainerStyle={[styles.listContent, { paddingBottom: Math.max(insets.bottom, 24) }]}
               ListEmptyComponent={(
-                <View style={styles.emptyCard}>
-                  <MessageSquareText color="#94a3b8" size={28} />
-                  <Text style={styles.emptyTitle}>No quick replies yet</Text>
-                  <Text style={styles.emptyBody}>Create a snippet to reuse across conversations.</Text>
-                  <Pressable style={styles.primaryButton} onPress={openCreate}>
+                <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+                  <MessageSquareText color={colors.textMuted} size={28} />
+                  <Text style={[styles.emptyTitle, { color: colors.text }]}>No quick replies yet</Text>
+                  <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>Create a snippet to reuse across conversations.</Text>
+                  <Pressable style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={openCreate}>
                     <Plus color="#fff" size={16} />
                     <Text style={styles.primaryButtonText}>Add quick reply</Text>
                   </Pressable>
                 </View>
               )}
               renderItem={({ item }) => (
-                <View style={styles.itemCard}>
+                <View style={[styles.itemCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
                   <View style={styles.itemIcon}>
-                    <MessageSquareText color="#2563eb" size={18} />
+                    <MessageSquareText color={colors.primary} size={18} />
                   </View>
                   <View style={styles.itemCopy}>
-                    <Text style={styles.itemTitle} numberOfLines={1}>{item.title}</Text>
-                    <Text style={styles.itemBody} numberOfLines={2}>{item.body}</Text>
+                    <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{item.title}</Text>
+                    <Text style={[styles.itemBody, { color: colors.textSecondary }]} numberOfLines={2}>{item.body}</Text>
                     {(item.attachments?.length ?? 0) > 0 ? (
-                      <Text style={styles.itemMeta}>{item.attachments.length} attachment{item.attachments.length === 1 ? '' : 's'}</Text>
+                      <Text style={[styles.itemMeta, { color: colors.textMuted }]}>{item.attachments.length} attachment{item.attachments.length === 1 ? '' : 's'}</Text>
                     ) : null}
                   </View>
                   <Pressable style={styles.iconButton} onPress={() => openEdit(item)} hitSlop={8}>
-                    <PencilLine color="#2563eb" size={18} />
+                    <PencilLine color={colors.primary} size={18} />
                   </Pressable>
                   <Pressable style={styles.iconButton} onPress={() => confirmDelete(item)} hitSlop={8}>
                     <Trash2 color="#e11d48" size={18} />
@@ -385,11 +387,11 @@ export function QuickRepliesSettingsScreen() {
       <Modal visible={editorOpen} transparent animationType="slide" onRequestClose={closeEditor}>
         <View style={styles.sheetOverlay}>
           <Pressable style={StyleSheet.absoluteFillObject} onPress={closeEditor} />
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: colors.surface }]}>
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>{editing ? 'Edit quick reply' : 'Create quick reply'}</Text>
+              <Text style={[styles.sheetTitle, { color: colors.text }]}>{editing ? 'Edit quick reply' : 'Create quick reply'}</Text>
               <Pressable onPress={closeEditor} hitSlop={8}>
-                <X color="#64748b" size={20} />
+                <X color={colors.textSecondary} size={20} />
               </Pressable>
             </View>
 
@@ -398,28 +400,28 @@ export function QuickRepliesSettingsScreen() {
               style={styles.sheetScroll}
               contentContainerStyle={styles.sheetContent}
             >
-              <Text style={styles.label}>Name</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>Name</Text>
               <TextInput
                 value={form.title}
                 onChangeText={(title) => setForm((current) => ({ ...current, title }))}
                 placeholder="Greeting"
-                placeholderTextColor="#94a3b8"
-                style={styles.input}
+                placeholderTextColor={colors.textMuted}
+                style={[styles.input, { backgroundColor: colors.background, borderColor: colors.cardBorder, color: colors.text }]}
               />
 
               <View style={styles.labelRow}>
-                <Text style={styles.labelInline}>Message</Text>
+                <Text style={[styles.labelInline, { color: colors.textSecondary }]}>Message</Text>
                 <Pressable style={styles.variableChip} onPress={insertNameVariable}>
-                  <Plus color="#2563eb" size={12} />
-                  <Text style={styles.variableChipText}>{'{{name}}'}</Text>
+                  <Plus color={colors.primary} size={12} />
+                  <Text style={[styles.variableChipText, { color: colors.primary }]}>{'{{name}}'}</Text>
                 </Pressable>
               </View>
               <TextInput
                 value={form.body}
                 onChangeText={(body) => setForm((current) => ({ ...current, body }))}
                 placeholder="Hi {{name}}, thanks for reaching out..."
-                placeholderTextColor="#94a3b8"
-                style={[styles.input, styles.textArea]}
+                placeholderTextColor={colors.textMuted}
+                style={[styles.input, styles.textArea, { backgroundColor: colors.background, borderColor: colors.cardBorder, color: colors.text }]}
                 multiline
                 textAlignVertical="top"
               />
@@ -427,21 +429,21 @@ export function QuickRepliesSettingsScreen() {
                 <Text style={styles.errorText}>Unsupported: {unsupportedVars.join(', ')}. Only {'{{name}}'} is supported.</Text>
               ) : null}
 
-              <Text style={styles.label}>Attachments</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>Attachments</Text>
               <View style={styles.attachActions}>
                 <Pressable style={styles.secondaryButton} onPress={() => void pickAttachments('image')} disabled={uploading}>
-                  <Paperclip color="#2563eb" size={16} />
-                  <Text style={styles.secondaryButtonText}>Photos</Text>
+                  <Paperclip color={colors.primary} size={16} />
+                  <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Photos</Text>
                 </Pressable>
                 <Pressable style={styles.secondaryButton} onPress={() => void pickAttachments('document')} disabled={uploading}>
-                  <Paperclip color="#2563eb" size={16} />
-                  <Text style={styles.secondaryButtonText}>Files</Text>
+                  <Paperclip color={colors.primary} size={16} />
+                  <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Files</Text>
                 </Pressable>
               </View>
-              {uploading ? <ActivityIndicator color="#2563eb" style={{ marginTop: 10 }} /> : null}
+              {uploading ? <ActivityIndicator color={colors.primary} style={{ marginTop: 10 }} /> : null}
               {form.attachments.map((attachment) => (
-                <View key={attachment.id} style={styles.attachmentRow}>
-                  <Text style={styles.attachmentName} numberOfLines={1}>
+                <View key={attachment.id} style={[styles.attachmentRow, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+                  <Text style={[styles.attachmentName, { color: colors.textSecondary }]} numberOfLines={1}>
                     {attachment.originalName || attachment.id}
                   </Text>
                   <Pressable onPress={() => removeAttachment(attachment.id)} hitSlop={8}>
@@ -450,14 +452,14 @@ export function QuickRepliesSettingsScreen() {
                 </View>
               ))}
 
-              <Text style={styles.label}>Preview</Text>
-              <View style={styles.previewCard}>
-                <Text style={styles.previewText}>{previewText || 'Your message preview will appear here.'}</Text>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>Preview</Text>
+              <View style={[styles.previewCard, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+                <Text style={[styles.previewText, { color: colors.text }]}>{previewText || 'Your message preview will appear here.'}</Text>
               </View>
             </ScrollView>
 
             <Pressable
-              style={[styles.primaryButton, (savingDisabled || createMutation.isPending || updateMutation.isPending) && styles.disabled]}
+              style={[styles.primaryButton, { backgroundColor: colors.primary }, (savingDisabled || createMutation.isPending || updateMutation.isPending) && styles.disabled]}
               disabled={savingDisabled || createMutation.isPending || updateMutation.isPending}
               onPress={() => void handleSave()}
             >
@@ -475,49 +477,49 @@ export function QuickRepliesSettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { backgroundColor: '#f8fafc', flex: 1 },
-  header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e8eef7', borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingBottom: 12, paddingHorizontal: 14 },
+  screen: { flex: 1 },
+  header: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingBottom: 12, paddingHorizontal: 14 },
   backButton: { alignItems: 'center', height: 36, justifyContent: 'center', width: 36 },
   headerCopy: { flex: 1, minWidth: 0 },
-  headerTitle: { color: '#0f172a', fontSize: 18, fontWeight: '800' },
-  headerSubtitle: { color: '#64748b', fontSize: 12, marginTop: 2 },
-  addButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
+  headerTitle: { fontSize: 18, fontWeight: '800' },
+  headerSubtitle: { fontSize: 12, marginTop: 2 },
+  addButton: { alignItems: 'center', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   loader: { marginTop: 60 },
-  searchWrap: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e8eef7', borderBottomWidth: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10 },
-  searchInput: { color: '#0f172a', flex: 1, fontSize: 14, paddingVertical: 8 },
+  searchWrap: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10 },
+  searchInput: { flex: 1, fontSize: 14, paddingVertical: 8 },
   listContent: { gap: 10, padding: 16 },
-  emptyCard: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, padding: 28 },
-  emptyTitle: { color: '#0f172a', fontSize: 16, fontWeight: '800', marginTop: 12 },
-  emptyBody: { color: '#64748b', fontSize: 13, marginBottom: 16, marginTop: 4, textAlign: 'center' },
-  itemCard: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 16, borderWidth: 1, flexDirection: 'row', gap: 10, padding: 12 },
+  emptyCard: { alignItems: 'center', borderRadius: 18, borderWidth: 1, padding: 28 },
+  emptyTitle: { fontSize: 16, fontWeight: '800', marginTop: 12 },
+  emptyBody: { fontSize: 13, marginBottom: 16, marginTop: 4, textAlign: 'center' },
+  itemCard: { alignItems: 'center', borderRadius: 16, borderWidth: 1, flexDirection: 'row', gap: 10, padding: 12 },
   itemIcon: { alignItems: 'center', backgroundColor: '#eff6ff', borderRadius: 12, height: 40, justifyContent: 'center', width: 40 },
   itemCopy: { flex: 1, minWidth: 0 },
-  itemTitle: { color: '#0f172a', fontSize: 15, fontWeight: '700' },
-  itemBody: { color: '#64748b', fontSize: 12, marginTop: 2 },
-  itemMeta: { color: '#94a3b8', fontSize: 11, marginTop: 4 },
+  itemTitle: { fontSize: 15, fontWeight: '700' },
+  itemBody: { fontSize: 12, marginTop: 2 },
+  itemMeta: { fontSize: 11, marginTop: 4 },
   iconButton: { alignItems: 'center', height: 34, justifyContent: 'center', width: 34 },
-  primaryButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 14, flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 12, paddingVertical: 14 },
+  primaryButton: { alignItems: 'center', borderRadius: 14, flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 12, paddingVertical: 14 },
   primaryButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   disabled: { opacity: 0.55 },
   sheetOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },
-  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '85%', padding: 20 },
+  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '85%', padding: 20 },
   sheetHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  sheetTitle: { color: '#0f172a', fontSize: 18, fontWeight: '800' },
+  sheetTitle: { fontSize: 18, fontWeight: '800' },
   sheetScroll: { maxHeight: 420 },
   sheetContent: { paddingBottom: 8 },
-  label: { color: '#64748b', fontSize: 12, fontWeight: '700', marginBottom: 6, marginTop: 12 },
-  labelInline: { color: '#64748b', fontSize: 12, fontWeight: '700' },
+  label: { fontSize: 12, fontWeight: '700', marginBottom: 6, marginTop: 12 },
+  labelInline: { fontSize: 12, fontWeight: '700' },
   labelRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6, marginTop: 12 },
-  input: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, color: '#0f172a', paddingHorizontal: 12, paddingVertical: 12 },
+  input: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 12 },
   textArea: { minHeight: 110 },
   variableChip: { alignItems: 'center', backgroundColor: '#eff6ff', borderRadius: 999, flexDirection: 'row', gap: 4, paddingHorizontal: 10, paddingVertical: 6 },
-  variableChipText: { color: '#2563eb', fontSize: 12, fontWeight: '700' },
+  variableChipText: { fontSize: 12, fontWeight: '700' },
   errorText: { color: '#e11d48', fontSize: 12, marginTop: 6 },
   attachActions: { flexDirection: 'row', gap: 10 },
   secondaryButton: { alignItems: 'center', backgroundColor: '#eff6ff', borderRadius: 12, flexDirection: 'row', gap: 6, paddingHorizontal: 12, paddingVertical: 10 },
-  secondaryButtonText: { color: '#2563eb', fontSize: 13, fontWeight: '700' },
-  attachmentRow: { alignItems: 'center', backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, paddingHorizontal: 12, paddingVertical: 10 },
-  attachmentName: { color: '#334155', flex: 1, fontSize: 13, marginRight: 8 },
-  previewCard: { backgroundColor: '#f8fafc', borderColor: '#d8e6fb', borderRadius: 14, borderWidth: 1, marginBottom: 4, padding: 14 },
-  previewText: { color: '#0f172a', fontSize: 14, lineHeight: 20 },
+  secondaryButtonText: { fontSize: 13, fontWeight: '700' },
+  attachmentRow: { alignItems: 'center', borderRadius: 12, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, paddingHorizontal: 12, paddingVertical: 10 },
+  attachmentName: { flex: 1, fontSize: 13, marginRight: 8 },
+  previewCard: { borderRadius: 14, borderWidth: 1, marginBottom: 4, padding: 14 },
+  previewText: { fontSize: 14, lineHeight: 20 },
 });
