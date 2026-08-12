@@ -27,7 +27,7 @@ type TileSize = { width: number; height: number };
  * so the pattern is not stretched/zoomed on Android or iOS.
  */
 export function InboxPatternBackground({ pattern, style }: Props) {
-  const { isDark } = useTheme();
+  const { colors, isDark } = useTheme();
   const resolved = getInboxPattern(pattern);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
 
@@ -72,7 +72,7 @@ export function InboxPatternBackground({ pattern, style }: Props) {
     return (
       <LinearGradient
         pointerEvents="none"
-        colors={resolved.previewColors as [string, string, ...string[]]}
+        colors={isDark ? [colors.background, colors.surfaceSecondary] as [string, string, ...string[]] : resolved.previewColors as [string, string, ...string[]]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         onLayout={onLayout}
@@ -85,7 +85,7 @@ export function InboxPatternBackground({ pattern, style }: Props) {
     <View
       pointerEvents="none"
       onLayout={onLayout}
-      style={[StyleSheet.absoluteFillObject, { backgroundColor: resolved.threadColor, overflow: 'hidden' }, style]}
+      style={[StyleSheet.absoluteFillObject, { backgroundColor: isDark ? colors.background : resolved.threadColor, overflow: 'hidden' }, style]}
     >
       <View style={styles.tiles}>
         {tiles.map((tile) => (
@@ -103,7 +103,7 @@ export function InboxPatternBackground({ pattern, style }: Props) {
         ))}
       </View>
       {/* Soften the pattern like frontend's white/72 overlay */}
-      <View style={[styles.fade, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.4)' : 'rgba(255, 255, 255, 0.22)' }]} />
+      <View style={[styles.fade, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.78)' : 'rgba(255, 255, 255, 0.22)' }]} />
     </View>
   );
 }
