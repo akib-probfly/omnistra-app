@@ -61,10 +61,24 @@ export function applyUnreadOverrideToPage(items: ConversationListItem[]) {
 
     const unreadOverride = unreadOverrides.get(item.id);
     if (unreadOverride !== undefined) {
-      if (item.unreadCount >= unreadOverride) {
-        unreadOverrides.delete(item.id);
+      const serverUnread = item.unreadCount ?? 0;
+      if (unreadOverride === 0) {
+        // Mark-read: keep 0 until the server also reports 0 (backend can lag).
+        if (serverUnread === 0) {
+          unreadOverrides.delete(item.id);
+        } else {
+          next = { ...next, unreadCount: 0 };
+        }
+      } else if (unreadOverride > serverUnread) {
+        // Optimistic bump: keep override until server catches up.
+        if (serverUnread >= unreadOverride) {
+          unreadOverrides.delete(item.id);
+        } else {
+          next = { ...next, unreadCount: unreadOverride };
+        }
       } else {
-        next = { ...next, unreadCount: unreadOverride };
+        // Server is ahead (extra unread arrived) or mark-unread caught up.
+        unreadOverrides.delete(item.id);
       }
     }
 

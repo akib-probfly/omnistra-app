@@ -22,6 +22,7 @@ import {
   isVoiceNotePreview,
 } from '../lib/conversation-last-interaction';
 import { applyUnreadOverrideToPage } from '../lib/unread-count-override';
+import { optimisticMarkConversationReadInCache } from '../lib/inbox-unread-cache';
 import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -224,7 +225,10 @@ export function InboxScreen() {
     }
   }, [queryClient]);
 
-  const items = useMemo(() => (conversations.data?.pages ?? []).flatMap((page) => page.items), [conversations.data]);
+  const items = useMemo(
+    () => applyUnreadOverrideToPage((conversations.data?.pages ?? []).flatMap((page) => page.items)),
+    [conversations.data],
+  );
   const unreadConversationCountFromList = useMemo(
     () => items.reduce((count, item) => count + (item.unreadCount > 0 ? 1 : 0), 0),
     [items],
@@ -695,6 +699,7 @@ function ConversationPreviewContent({
 
 const ConversationRow = memo(function ConversationRow({ conversation, navigation }: { conversation: ConversationListItem; navigation: any }) {
   const { colors } = useTheme();
+  const queryClient = useQueryClient();
   const presentation = getConversationLastInteractionPresentation(conversation);
   const direction = presentation?.direction ?? null;
   const previewTimestamp = presentation?.timestamp ?? conversation.lastMessageAt;
@@ -703,6 +708,9 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
   const showWindowDot = isWhatsAppCustomerWindow && conversation.messaging?.windowState !== 'NOT_APPLICABLE';
   const windowExpired = conversation.messaging?.windowState === 'EXPIRED';
   const onPress = useCallback(() => {
+    if (conversation.unreadCount > 0) {
+      optimisticMarkConversationReadInCache(queryClient, conversation.id, conversation.unreadCount);
+    }
     navigation.navigate('Conversation', {
       conversationId: conversation.id,
       contactName: conversation.contact.displayName ?? 'Unknown contact',
@@ -710,7 +718,7 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
       channelId: conversation.channel?.channelId,
       channelType: conversation.channel?.channelType,
     });
-  }, [navigation, conversation]);
+  }, [navigation, conversation, queryClient]);
   return (
     <Pressable onPress={onPress} style={[styles.rowPressable, { backgroundColor: colors.surface }]}>
       <View style={[styles.row, { backgroundColor: colors.surface, borderBottomColor: colors.separator }]}>

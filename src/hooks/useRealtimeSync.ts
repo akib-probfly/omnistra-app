@@ -16,7 +16,6 @@ import { shouldSuppressRealtimeMessageRefresh } from '../lib/inbox-realtime-supp
 import { refreshConversationMessagesPage } from '../lib/inbox-message-cache';
 import {
   clearPreviewOverride,
-  clearUnreadOverride,
   setPreviewOverride,
   setUnreadOverride,
 } from '../lib/unread-count-override';
@@ -421,8 +420,8 @@ export function useRealtimeSync(accessToken: string | null) {
         incrementConversationUnreadCountInCache(queryClient, payload.conversationId, nextUnreadCount);
         if (currentUnreadCount <= 0) incrementInboxUnreadCountInCache(queryClient);
       } else if (isConversationCurrentlyViewed) {
-        // Viewing the thread — don't keep a stale "marked read" override around.
-        clearUnreadOverride(payload.conversationId);
+        // Viewing the thread — keep unread at 0 while server read state catches up.
+        setUnreadOverride(payload.conversationId, 0);
         clearPreviewOverride(payload.conversationId);
       }
 

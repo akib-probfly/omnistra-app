@@ -15,6 +15,10 @@ import { useAuth } from '../auth/AuthContext';
 import { getRealtimeConnectionStatus, setActiveConversationId, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { markRecentLocalMessageSend } from '../lib/inbox-realtime-suppression';
 import { setUnreadOverride } from '../lib/unread-count-override';
+import {
+  adjustInboxUnreadConversationCount,
+  setConversationUnreadInCache,
+} from '../lib/inbox-unread-cache';
 import { ConversationComposer } from '../components/ConversationComposer';
 import type { ComposerSendPayload } from '../components/ConversationComposer';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
@@ -877,59 +881,6 @@ export function ConversationScreen() {
       ) : null}
     </KeyboardAvoidingView>
   );
-}
-
-function setConversationUnreadInCache(queryClient: any, conversationId: string, unreadCount: number) {
-  queryClient.setQueriesData<any>({ queryKey: ['conversations'] }, (current: any) => {
-    if (!current) return current;
-    if (Array.isArray(current?.pages)) {
-      return { ...current, pages: current.pages.map((page: any) => ({ ...page, items: (page.items ?? []).map((item: any) => item.id === conversationId ? { ...item, unreadCount } : item) })) };
-    }
-    if (Array.isArray(current?.items)) {
-      return { ...current, items: current.items.map((item: any) => item.id === conversationId ? { ...item, unreadCount } : item) };
-    }
-    return current;
-  });
-
-  queryClient.setQueriesData<any>({ queryKey: ['messages', conversationId] }, (current: any) => {
-    if (!current) return current;
-    if (current.conversation) {
-      return { ...current, conversation: { ...current.conversation, unreadCount } };
-    }
-    if (Array.isArray(current?.pages)) {
-      return {
-        ...current,
-        pages: current.pages.map((page: any, index: number) =>
-          index === 0 && page?.conversation
-            ? { ...page, conversation: { ...page.conversation, unreadCount } }
-            : page,
-        ),
-      };
-    }
-    return current;
-  });
-}
-
-function adjustInboxUnreadCount(queryClient: any, delta: number) {
-  if (!delta) return;
-  queryClient.setQueriesData<number | { count?: number; unreadCount?: number; total?: number }>(
-    { queryKey: ['inbox-unread-count'] },
-    (current: any) => {
-      const base = typeof current === 'number'
-        ? current
-        : (current?.count ?? current?.unreadCount ?? current?.total ?? 0);
-      // Always store a number so the Chats badge comparison stays reliable.
-      return Math.max(0, base + delta);
-    },
-  );
-}
-
-/** Inbox unread badge counts conversations with unread > 0, not message totals. */
-function adjustInboxUnreadConversationCount(queryClient: any, previousUnread: number, nextUnread: number) {
-  const wasUnread = previousUnread > 0;
-  const isUnread = nextUnread > 0;
-  if (wasUnread === isUnread) return;
-  adjustInboxUnreadCount(queryClient, isUnread ? 1 : -1);
 }
 
 async function sendTemplateMutation(conversationId: string, params: { templateName: string; templateCategory?: string | null; languageCode?: string; text?: string; templateComponents?: unknown[] }, queryClient: any, setDraft: (v: string) => void) {
