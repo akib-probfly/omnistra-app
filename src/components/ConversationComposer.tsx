@@ -8,7 +8,6 @@ import { useRef, useState } from 'react';
 import { Alert, Image, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EmojiKeyboard, type EmojiType } from 'rn-emoji-keyboard';
-import { GestureDetector } from 'react-native-gesture-handler';
 import { fetchQuickReplies } from '../api/inbox';
 import { fetchWhatsappTemplates } from '../api/whatsappTemplates';
 import {
@@ -672,13 +671,6 @@ export function ConversationComposer({
                 {remainingAttachmentSlots} of {COMPOSER_MAX_ATTACHMENT_COUNT} slots left
               </Text>
             </View>
-            <Pressable
-              onPress={() => setAttachmentPickerOpen(false)}
-              style={[styles.closeBtn, { backgroundColor: colors.surfaceSecondary }]}
-              hitSlop={8}
-            >
-              <X color={colors.textSecondary} size={18} />
-            </Pressable>
           </View>
 
           <View style={styles.attachOptions}>
