@@ -451,32 +451,35 @@ export function ConversationComposer({
 
   return (
     <>
-      <Modal visible={quickOpen} transparent animationType="fade" onRequestClose={() => setQuickOpen(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setQuickOpen(false)}>
-          <View style={[styles.pickerPanel, { backgroundColor: colors.surface }]}>
-             <View style={styles.pickerHeader}><Zap color={colors.primary} size={16} /><Text style={styles.pickerTitle}>Quick replies</Text><Text style={styles.pickerCount}>{quickReplies.data?.items?.length ?? 0}</Text><View style={styles.spacer} />                <Pressable onPress={() => setQuickOpen(false)} style={[styles.closeBtn, { backgroundColor: colors.surfaceSecondary }]}><X color={colors.textSecondary} size={20} /></Pressable></View>
-             <TextInput autoFocus placeholder="Search by keyword, message" placeholderTextColor={colors.textMuted} value={quickQuery} onChangeText={setQuickQuery} style={styles.pickerSearch} />
-            {quickReplies.isLoading ? <PanelSkeleton rows={4} /> : quickReplies.isError ? <Text style={styles.pickerError}>Could not load quick replies.</Text> : (
-              <FlatList
-                data={quickReplies.data?.items ?? []}
-                keyExtractor={(item) => item.id}
-                style={styles.pickerList}
-                keyboardShouldPersistTaps="handled"
-                ListEmptyComponent={<Text style={styles.pickerError}>No quick replies found</Text>}
-                renderItem={({ item }) => (
-                  <Pressable style={styles.pickerRow} onPress={() => insertQuickReply(item.body)}>
-                    <Text style={styles.pickerRowTitle}># {item.title ?? 'Quick reply'}</Text>
-                    {item.category ? <Text style={styles.pickerRowCategory}>{item.category}</Text> : null}
-                    {item.shortcut ? <Text style={styles.pickerRowShortcut}>/{item.shortcut}</Text> : null}
-                    <Text numberOfLines={2} style={styles.pickerRowBody}>{item.body}</Text>
-                  </Pressable>
-                )}
-              />
-            )}
-            <Text style={styles.pickerHint}>Type / to filter · Click to insert</Text>
+      <BottomSheet visible={quickOpen} onClose={() => setQuickOpen(false)}>
+        <View style={styles.pickerPanel}>
+          <View style={styles.pickerHeader}>
+            <Zap color={colors.primary} size={16} />
+            <Text style={styles.pickerTitle}>Quick replies</Text>
+            <Text style={styles.pickerCount}>{quickReplies.data?.items?.length ?? 0}</Text>
+            <View style={styles.spacer} />
           </View>
-        </Pressable>
-      </Modal>
+          <TextInput autoFocus placeholder="Search by keyword, message" placeholderTextColor={colors.textMuted} value={quickQuery} onChangeText={setQuickQuery} style={styles.pickerSearch} />
+          {quickReplies.isLoading ? <PanelSkeleton rows={4} /> : quickReplies.isError ? <Text style={styles.pickerError}>Could not load quick replies.</Text> : (
+            <FlatList
+              data={quickReplies.data?.items ?? []}
+              keyExtractor={(item) => item.id}
+              style={styles.pickerList}
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={<Text style={styles.pickerError}>No quick replies found</Text>}
+              renderItem={({ item }) => (
+                <Pressable style={styles.pickerRow} onPress={() => insertQuickReply(item.body)}>
+                  <Text style={styles.pickerRowTitle}># {item.title ?? 'Quick reply'}</Text>
+                  {item.category ? <Text style={styles.pickerRowCategory}>{item.category}</Text> : null}
+                  {item.shortcut ? <Text style={styles.pickerRowShortcut}>/{item.shortcut}</Text> : null}
+                  <Text numberOfLines={2} style={styles.pickerRowBody}>{item.body}</Text>
+                </Pressable>
+              )}
+            />
+          )}
+          <Text style={styles.pickerHint}>Type / to filter · Click to insert</Text>
+        </View>
+      </BottomSheet>
 
       <WhatsappTemplateSendModal
         visible={templateOpen}
@@ -897,7 +900,7 @@ const styles = StyleSheet.create({
   pauseBtnActive: { backgroundColor: '#4338ca' },
   sendRecording: { alignItems: 'center', backgroundColor: '#16a34a', borderRadius: 20, height: 40, justifyContent: 'center', width: 40 },
   modalBackdrop: { backgroundColor: '#0003', flex: 1, justifyContent: 'flex-end' },
-  pickerPanel: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '85%', padding: 16 },
+  pickerPanel: { padding: 16 },
   pickerHeader: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   closeBtn: { alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 18, height: 34, justifyContent: 'center', width: 34 },
   pickerTitle: { color: '#17233a', fontSize: 15, fontWeight: '700' },
