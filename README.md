@@ -9,8 +9,8 @@ This project is configured for Expo EAS Build with `eas.json`.
 Build profiles:
 
 - `development`: internal development-client build.
-- `preview`: internal installable Android APK for QA/testing.
-- `production-apk`: production-mode installable Android APK for sharing with testers.
+- `preview`: internal installable Android APK for QA/testing (arm64-only, faster builds).
+- `production-preview`: production API + release APK for sharing with testers (universal ARM).
 - `production`: Android App Bundle (`.aab`) for Google Play submission.
 
 Android settings live in `app.json`:
@@ -50,12 +50,18 @@ npm run validate:android
 If local Android build tooling is not installed, use the hosted EAS builder instead:
 
 ```powershell
-npm run build:android:apk
+npm run build:android:production-preview
 ```
 
-### Create a shareable APK
+### Create a shareable production preview APK
 
-Generate the installable Android APK:
+Generate the installable production preview APK (recommended for testers):
+
+```powershell
+npm run build:android:production-preview
+```
+
+For a faster arm64-only QA APK:
 
 ```powershell
 npm run build:android:apk

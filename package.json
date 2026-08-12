@@ -61,6 +61,7 @@
     "doctor": "expo-doctor",
     "validate:android": "npm run doctor && npm run typecheck",
     "build:android:apk": "eas build --platform android --profile preview",
+    "build:android:production-preview": "eas build --platform android --profile production-preview",
     "build:android:dev": "eas build --platform android --profile development",
     "build:android:aab": "eas build --platform android --profile production"
   },
