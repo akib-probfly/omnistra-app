@@ -4,7 +4,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { requestRecordingPermissionsAsync, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { ChevronDown, Clock3, FileText, Mic, Pause, Paperclip, Play, Send, Smile, Trash2, X, Zap, PanelsTopLeft } from 'lucide-react-native';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, FlatList, Image, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EmojiKeyboard, type EmojiType } from 'rn-emoji-keyboard';
@@ -22,8 +22,9 @@ import { WhatsappTemplateSendModal, type TemplateSendPayload } from './WhatsappT
 import { useTheme } from '../theme/ThemeContext';
 
 type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT'; sizeBytes?: number | null };
+export type ComposerSendPayload = { attachments?: SendAttachment[]; text?: string };
 type Props = {
-  value: string; onChange: (value: string) => void; onSend: () => void; sending?: boolean;
+  value: string; onChange: (value: string) => void; onSend: (payload?: ComposerSendPayload) => void; sending?: boolean;
   attachments?: SendAttachment[]; onAttachments?: (list: SendAttachment[]) => void;
   replyPreview?: { name: string; text: string } | null; onCancelReply?: () => void;
   workspaceId?: string; channelId?: string; channelType?: string; contactName?: string;
@@ -87,10 +88,6 @@ export function ConversationComposer({
     staleTime: 60000,
   });
   const approvedTemplates = (templates.data?.items ?? []).filter((template) => (template.status ?? '').toUpperCase() === 'APPROVED').filter((template) => template.name.toLowerCase().includes(templateQuery.toLowerCase()));
-
-  useEffect(() => {
-    if (!recording) return;
-  }, [recording]);
 
   async function appendValidatedAttachments(
     candidates: Array<{
@@ -212,12 +209,14 @@ export function ConversationComposer({
   }
 
   async function startRecording() {
+    if (sending) return;
     const permission = await requestRecordingPermissionsAsync();
     if (!permission.granted) { Alert.alert('Microphone permission', 'Permission to record your voice was denied.'); return; }
     try {
-      await setAudioModeAsync({ allowsRecording: true });
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       await recorder.prepareToRecordAsync();
       recorder.record();
+      setPaused(false);
       setRecording(true);
     } catch (error) {
       console.error('[voice] record start failed', error);
@@ -225,24 +224,57 @@ export function ConversationComposer({
     }
   }
   async function stopRecording(send: boolean) {
+    if (sending) return;
     try {
       if (paused) recorder.record();
       await recorder.stop();
     } catch (error) {
       console.error('[voice] record stop failed', error);
+      setPaused(false);
+      setRecording(false);
+      try {
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+      } catch {
+        // ignore audio mode reset failures
+      }
+      if (send) {
+        Alert.alert('Recording failed', 'Could not finish the recording. Please try again.');
+      }
+      return;
     }
     setPaused(false);
     setRecording(false);
-    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
-    const uri = recorder.uri;
-    if (send && uri) {
-      await appendValidatedAttachments([{
-        uri,
-        name: 'voice-note.m4a',
-        mimeType: 'audio/mp4',
-        type: 'VOICE',
-      }]);
+    try {
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+    } catch {
+      // ignore audio mode reset failures
     }
+    const uri = recorder.uri;
+    if (!send) return;
+    if (!uri) {
+      Alert.alert('Recording failed', 'No audio was captured. Please try again.');
+      return;
+    }
+
+    const voiceAttachment: SendAttachment = {
+      uri,
+      name: `voice-note-${Date.now()}.m4a`,
+      mimeType: 'audio/mp4',
+      type: 'VOICE',
+    };
+    const sizeBytes = await resolveAttachmentSizeBytes(uri);
+    const validationError = await getComposerAttachmentValidationError({
+      mimeType: voiceAttachment.mimeType,
+      sizeBytes,
+      channelType: channelType ?? 'WHATSAPP',
+    });
+    if (validationError) {
+      Alert.alert('Could not send voice note', validationError);
+      return;
+    }
+
+    // Send immediately (matches web). Do not stage in the composer — that left a stuck Mic+X preview.
+    onSend({ attachments: [{ ...voiceAttachment, sizeBytes }], text: '' });
   }
 
   function togglePause() {
@@ -350,17 +382,17 @@ export function ConversationComposer({
   if (recording) {
     return (
         <View style={styles.recording}>
-        <Pressable onPress={() => stopRecording(false)} style={styles.delete}><Trash2 color={colors.surface} size={17} /></Pressable>
+        <Pressable disabled={sending} onPress={() => stopRecording(false)} style={styles.delete}><Trash2 color={colors.surface} size={17} /></Pressable>
         <Text style={[styles.recordTime, paused && styles.recordTimePaused]}>{paused ? '⏸ Paused' : `● ${`0:${String(recordingSeconds).padStart(2, '0')}`}`}</Text>
         <View style={styles.recordingLevels}>
           {[0.4, 0.8, 0.5, 1, 0.6, 0.9, 0.45, 0.75, 0.55, 1, 0.7, 0.4].map((height, index) => (
             <View key={index} style={[styles.levelBar, { height: height * 22 }]} />
           ))}
         </View>
-        <Pressable onPress={togglePause} style={[styles.pauseBtn, paused && styles.pauseBtnActive]}>
+        <Pressable disabled={sending} onPress={togglePause} style={[styles.pauseBtn, paused && styles.pauseBtnActive]}>
           {paused ? <Play color={colors.surface} size={16} /> : <Pause color="#4338ca" size={16} />}
         </Pressable>
-        <Pressable onPress={() => stopRecording(true)} style={styles.sendRecording}><Send color={colors.surface} size={18} /></Pressable>
+        <Pressable disabled={sending} onPress={() => stopRecording(true)} style={[styles.sendRecording, sending && styles.sendDisabled]}><Send color={colors.surface} size={18} /></Pressable>
       </View>
     );
   }
@@ -424,7 +456,10 @@ export function ConversationComposer({
                   {isMedia ? (
                     <Image source={{ uri: attachment.uri }} style={styles.attachmentThumb} />
                   ) : attachment.type === 'VOICE' ? (
-                    <Mic color={colors.primary} size={18} />
+                    <>
+                      <Mic color={colors.primary} size={18} />
+                      <Text numberOfLines={1} style={styles.attachmentName}>Voice note</Text>
+                    </>
                   ) : (
                     <>
                       <FileText color={colors.primary} size={18} />

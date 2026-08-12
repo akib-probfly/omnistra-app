@@ -79,7 +79,7 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
     return (
       <View>
         <Text
-          style={outgoing ? styles.outgoingText : [styles.messageText, { color: colors.textSecondary }]}
+          style={outgoing ? styles.outgoingText : [styles.messageText, { color: colors.text }]}
           numberOfLines={clamp ? COLLAPSED_LINE_COUNT : undefined}
           onTextLayout={(e) => {
             if (!canExpand && e.nativeEvent.lines.length > COLLAPSED_LINE_COUNT) setCanExpand(true);

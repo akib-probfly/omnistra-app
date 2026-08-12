@@ -168,7 +168,7 @@ export function NotificationBell({ onOpen }: { onOpen: () => void }) {
     <Pressable style={[styles.bellButton, { borderColor: colors.cardBorder }]} onPress={onOpen} hitSlop={8}>
       <Bell color={colors.textMuted} size={18} />
       {unreadCount > 0 ? (
-        <Animated.View style={[styles.bellBadge, { opacity: blink }]}>
+        <Animated.View style={[styles.bellBadge, { borderColor: colors.surface, opacity: blink }]}>
           <Text style={styles.bellBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
         </Animated.View>
       ) : null}
@@ -292,7 +292,7 @@ export function NotificationCenter({ visible, onClose }: { visible: boolean; onC
 const styles = StyleSheet.create({
   bellButton: { alignItems: 'center', borderRadius: 22, borderWidth: 1, height: 40, justifyContent: 'center', position: 'relative', width: 40 },
   bellBadge: { alignItems: 'center', backgroundColor: '#ef4444', borderRadius: 9, borderWidth: 1.5, height: 18, justifyContent: 'center', minWidth: 18, paddingHorizontal: 3, position: 'absolute', right: -5, top: -5 },
-  bellBadgeText: { fontSize: 10, fontWeight: '800' },
+  bellBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
 
   notificationOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },
   notificationSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, height: '82%', overflow: 'hidden' },  notificationHeader: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 16 },

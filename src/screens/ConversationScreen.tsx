@@ -16,6 +16,7 @@ import { getRealtimeConnectionStatus, setActiveConversationId, subscribeRealtime
 import { markRecentLocalMessageSend } from '../lib/inbox-realtime-suppression';
 import { setUnreadOverride } from '../lib/unread-count-override';
 import { ConversationComposer } from '../components/ConversationComposer';
+import type { ComposerSendPayload } from '../components/ConversationComposer';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ConversationSkeleton } from '../components/Skeleton';
 import { InboxPatternBackground } from '../components/InboxPatternBackground';
@@ -203,16 +204,18 @@ export function ConversationScreen() {
   const messageById = useMemo(() => { const map = new Map<string, Message>(); allMessages.forEach((message) => map.set(message.id, message)); return map; }, [allMessages]);
 
   const send = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (payload?: ComposerSendPayload) => {
+      const selectedAttachments = payload?.attachments ?? attachments;
+      const draftText = payload?.text !== undefined ? payload.text : draft;
       const workspaceId = route.params.workspaceId ?? allMessages.find((message) => message.workspaceId)?.workspaceId;
-      if (!workspaceId && attachments.length) throw new Error('Workspace information is unavailable. Please reload the conversation.');
+      if (!workspaceId && selectedAttachments.length) throw new Error('Workspace information is unavailable. Please reload the conversation.');
       const attachmentIds: string[] = [];
-      for (const selected of attachments) {
+      for (const selected of selectedAttachments) {
         const uploaded = await uploadFile('/files/upload', selected.uri, selected.name, selected.mimeType, { workspaceId });
         attachmentIds.push(uploaded.id);
       }
-      const text = draft.replace(/\u200B/g, '').trim() || undefined;
-      const type = attachments.length ? (attachments[0].type === 'VOICE' ? 'VOICE' : attachments[0].type) : 'TEXT';
+      const text = draftText.replace(/\u200B/g, '').trim() || undefined;
+      const type = selectedAttachments.length ? (selectedAttachments[0].type === 'VOICE' ? 'VOICE' : selectedAttachments[0].type) : 'TEXT';
       const channelTypeForSend = (header.conversation?.channel?.channelType ?? route.params.channelType ?? '').toUpperCase();
       const response = await apiFetch<any>(`/conversations/${route.params.conversationId}/messages`, {
         method: 'POST',
@@ -231,13 +234,15 @@ export function ConversationScreen() {
       if (!created?.id) throw new Error('Message was sent but the server response was incomplete.');
       return created;
     },
-    onMutate: async () => {
+    onMutate: async (payload) => {
+      const selectedAttachments = payload?.attachments ?? attachments;
+      const draftText = payload?.text !== undefined ? payload.text : draft;
       await queryClient.cancelQueries({ queryKey: ['messages', route.params.conversationId] });
       const previous = queryClient.getQueryData<any>(['messages', route.params.conversationId]);
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const clientKey = tempId;
-      const text = draft.replace(/\u200B/g, '').trim() || undefined;
-      const type = attachments.length ? (attachments[0].type === 'VOICE' ? 'VOICE' : attachments[0].type) : 'TEXT';
+      const text = draftText.replace(/\u200B/g, '').trim() || undefined;
+      const type = selectedAttachments.length ? (selectedAttachments[0].type === 'VOICE' ? 'VOICE' : selectedAttachments[0].type) : 'TEXT';
       const optimistic: Message = {
         id: tempId,
         direction: 'OUTBOUND',
@@ -251,7 +256,7 @@ export function ConversationScreen() {
         createdAt: new Date().toISOString(),
         sentAt: new Date().toISOString(),
         metadata: { optimistic: true, clientKey },
-        attachments: attachments.map((selected) => ({
+        attachments: selectedAttachments.map((selected) => ({
           id: `${tempId}-${selected.uri}`,
           mediaType: selected.type,
           mimeType: selected.mimeType,
@@ -269,7 +274,14 @@ export function ConversationScreen() {
         return { ...current, items: [...current.items, optimistic] };
       });
       setTimeout(() => listRef.current?.scrollToOffset({ offset: 0, animated: true }), 100);
-      return { tempId, clientKey, previous, previousDraft: draft, previousAttachments: attachments, previousReplyTo: replyTo };
+      return {
+        tempId,
+        clientKey,
+        previous,
+        previousDraft: draft,
+        previousAttachments: payload?.attachments ?? attachments,
+        previousReplyTo: replyTo,
+      };
     },
     onSuccess: (created, _vars, context) => {
       markRecentLocalMessageSend(route.params.conversationId, created.id);
@@ -787,7 +799,7 @@ export function ConversationScreen() {
           onSendTemplate={(params) => sendTemplateMutation(route.params.conversationId, params, queryClient, setDraft)}
           replyPreview={replyTo ? { name: replyTo.direction === 'INBOUND' ? title : 'You', text: replyTo.text ?? 'Attachment' } : null}
           onCancelReply={() => setReplyTo(null)}
-          onSend={() => { if (!send.isPending) send.mutate(); }}
+          onSend={(payload) => { if (!send.isPending) send.mutate(payload); }}
           canSendFreeform={canSendFreeform}
           messengerMessagingMode={messengerMessagingMode}
           onMessengerMessagingModeChange={setMessengerMessagingMode}
