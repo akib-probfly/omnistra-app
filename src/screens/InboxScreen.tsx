@@ -22,6 +22,7 @@ import {
 } from '../lib/conversation-last-interaction';
 import { applyUnreadOverrideToPage } from '../lib/unread-count-override';
 import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
+import { useTheme } from '../theme/ThemeContext';
 
 type SidebarTab = 'chats' | 'calls';
 type Tab = 'all' | 'unread' | 'closed';
@@ -45,6 +46,7 @@ function getChannelFilterLabel(channelType: string) {
 export function InboxScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
+  const { colors } = useTheme();
   const queryClient = useQueryClient();
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('chats');
   const [tab, setTab] = useState<Tab>('all');
@@ -243,22 +245,22 @@ export function InboxScreen() {
   }, []);
 
   return (
-    <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
+    <View style={[styles.screen, { backgroundColor: colors.background, flex: 1 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 6, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <View style={styles.headerTitleLine}>
-          <Text style={styles.headerTitle}>Inbox</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Inbox</Text>
         </View>
         <View style={styles.sidebarTabs}>
           <Pressable style={styles.sidebarTab} onPress={() => setSidebarTab('chats')}>
-            <MessageSquareText color={sidebarTab === 'chats' ? '#2563eb' : '#94a3b8'} size={15} />
-            <Text style={[styles.sidebarTabText, sidebarTab === 'chats' && styles.sidebarTabTextActive]}>Chats</Text>
-            <Text style={styles.sidebarTabCount}>{unreadCount.data ?? 0}</Text>
-            {sidebarTab === 'chats' ? <View style={styles.sidebarTabUnderline} /> : null}
+            <MessageSquareText color={sidebarTab === 'chats' ? colors.primary : colors.textMuted} size={15} />
+            <Text style={[styles.sidebarTabText, { color: sidebarTab === 'chats' ? colors.primary : colors.textMuted }]}>Chats</Text>
+            <Text style={[styles.sidebarTabCount, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{unreadCount.data ?? 0}</Text>
+            {sidebarTab === 'chats' ? <View style={[styles.sidebarTabUnderline, { backgroundColor: colors.primary }]} /> : null}
           </Pressable>
           <Pressable style={styles.sidebarTab} onPress={() => setSidebarTab('calls')}>
-            <Phone color={sidebarTab === 'calls' ? '#2563eb' : '#94a3b8'} size={15} />
-            <Text style={[styles.sidebarTabText, sidebarTab === 'calls' && styles.sidebarTabTextActive]}>Calls</Text>
-            {sidebarTab === 'calls' ? <View style={styles.sidebarTabUnderline} /> : null}
+            <Phone color={sidebarTab === 'calls' ? colors.primary : colors.textMuted} size={15} />
+            <Text style={[styles.sidebarTabText, { color: sidebarTab === 'calls' ? colors.primary : colors.textMuted }]}>Calls</Text>
+            {sidebarTab === 'calls' ? <View style={[styles.sidebarTabUnderline, { backgroundColor: colors.primary }]} /> : null}
           </Pressable>
         </View>
       </View>
@@ -267,44 +269,44 @@ export function InboxScreen() {
         <InboxCallsPane onOpenConversation={openCallConversation} />
       ) : (
         <>
-          <View style={styles.searchRow}>
-            <View style={styles.search}>
-              <Search color="#8ba2c3" size={16} />
-              <TextInput value={search} onChangeText={onSearchChange} placeholder="Search..." placeholderTextColor="#8ba2c3" style={styles.input} />
-              {debouncedSearch ? <Pressable onPress={() => { setSearch(''); setDebouncedSearch(''); }}><Text style={styles.clearSearch}>✕</Text></Pressable> : null}
+          <View style={[styles.searchRow, { borderBottomColor: colors.separator }]}>
+            <View style={[styles.search, { backgroundColor: colors.surfaceSecondary }]}>
+              <Search color={colors.textMuted} size={16} />
+              <TextInput value={search} onChangeText={onSearchChange} placeholder="Search..." placeholderTextColor={colors.textMuted} style={[styles.input, { color: colors.text }]} />
+              {debouncedSearch ? <Pressable onPress={() => { setSearch(''); setDebouncedSearch(''); }}><Text style={[styles.clearSearch, { color: colors.textMuted }]}>✕</Text></Pressable> : null}
             </View>
-            <Pressable style={[styles.filterButton, hasAdvancedFilters && styles.filterButtonActive]} onPress={() => setFilterOpen(true)}>
-              <Filter color={hasAdvancedFilters ? '#2563eb' : '#64748b'} size={15} />
-              {hasAdvancedFilters ? <View style={styles.filterActiveDot} /> : null}
+            <Pressable style={[styles.filterButton, { borderColor: hasAdvancedFilters ? colors.primary : colors.cardBorder }]} onPress={() => setFilterOpen(true)}>
+              <Filter color={hasAdvancedFilters ? colors.primary : colors.textSecondary} size={15} />
+              {hasAdvancedFilters ? <View style={[styles.filterActiveDot, { backgroundColor: colors.primary }]} /> : null}
             </Pressable>
           </View>
 
-          <View style={styles.filtersRow}>
-            <View style={styles.filters}>
+          <View style={[styles.filtersRow, { borderBottomColor: colors.separator }]}>
+            <View style={[styles.filters, { backgroundColor: colors.surfaceSecondary }]}>
               {(['all', 'unread', 'closed'] as Tab[]).map((key) => {
                 const active = tab === key;
                 return (
-                  <Pressable key={key} style={[styles.filterPill, active && styles.filterPillActive]} onPress={() => setTab(key)}>
-                    <Text style={[styles.filterText, active && styles.filterTextActive]}>{key === 'all' ? 'All' : key === 'unread' ? 'Unread' : 'Closed'}</Text>
+                  <Pressable key={key} style={[styles.filterPill, active && styles.filterPillActive, active && { backgroundColor: colors.surface }]} onPress={() => setTab(key)}>
+                    <Text style={[styles.filterText, { color: active ? colors.text : colors.textSecondary }]}>{key === 'all' ? 'All' : key === 'unread' ? 'Unread' : 'Closed'}</Text>
                   </Pressable>
                 );
               })}
             </View>
             <Pressable
-              style={[styles.unrepliedToggle, unrepliedOnly && styles.unrepliedToggleActive]}
+              style={[styles.unrepliedToggle, { borderColor: colors.cardBorder }, unrepliedOnly && styles.unrepliedToggleActive, unrepliedOnly && { backgroundColor: colors.surfaceSecondary, borderColor: colors.primary }]}
               onPress={() => setUnrepliedOnly((v) => !v)}
               accessibilityRole="switch"
               accessibilityState={{ checked: unrepliedOnly }}
               accessibilityLabel="Unreplied only"
             >
               <AppToggle value={unrepliedOnly} variant="sidebar" />
-              <Text style={[styles.unrepliedLabel, unrepliedOnly && styles.unrepliedLabelActive]}>Unreplied</Text>
+              <Text style={[styles.unrepliedLabel, { color: unrepliedOnly ? colors.primary : colors.textSecondary }]}>Unreplied</Text>
             </Pressable>
           </View>
 
           {tab === 'closed' ? (
-            <View style={styles.closedBanner}>
-              <Text style={styles.closedBannerTitle}>
+            <View style={[styles.closedBanner, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+              <Text style={[styles.closedBannerTitle, { color: colors.text }]}>
                 {closedCount.isLoading ? 'Loading closed count...' : `${new Intl.NumberFormat().format(closedCount.data ?? 0)} closed`}
               </Text>
             </View>
@@ -321,28 +323,28 @@ export function InboxScreen() {
               extraData={listExtraData}
               ListEmptyComponent={(
                 <View style={styles.empty}>
-                  <Inbox color="#c3d0e2" size={44} />
-                  <Text style={styles.emptyTitle}>No conversations</Text>
-                  <Text style={styles.emptyBody}>
+                  <Inbox color={colors.textMuted} size={44} />
+                  <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>No conversations</Text>
+                  <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
                     {canClearFilters || debouncedSearch.trim()
                       ? 'No conversations match the current filters.'
                       : 'New conversations will appear here in real time.'}
                   </Text>
                   {canClearFilters || debouncedSearch.trim() ? (
                     <Pressable
-                      style={styles.emptyClearButton}
+                      style={[styles.emptyClearButton, { backgroundColor: colors.surfaceSecondary }]}
                       onPress={() => {
                         resetFilters();
                         setSearch('');
                         setDebouncedSearch('');
                       }}
                     >
-                      <Text style={styles.emptyClearButtonText}>Clear filters</Text>
+                      <Text style={[styles.emptyClearButtonText, { color: colors.primary }]}>Clear filters</Text>
                     </Pressable>
                   ) : null}
                 </View>
               )}
-              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
               onEndReachedThreshold={0.4}
               onEndReached={() => { const last = conversations.data?.pages?.at(-1); if (last?.pageInfo?.hasMore && !conversations.isFetchingNextPage) conversations.fetchNextPage(); }}
               contentContainerStyle={styles.list}
@@ -359,18 +361,18 @@ export function InboxScreen() {
       <Modal visible={filterOpen && sidebarTab === 'chats'} transparent animationType="slide" onRequestClose={() => setFilterOpen(false)}>
         <View style={styles.filterOverlay}>
           <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setFilterOpen(false)} />
-          <View style={[styles.filterSheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+          <View style={[styles.filterSheet, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: colors.surface }]}>
             <View style={styles.filterSheetHeader}>
-              <Text style={styles.filterSheetTitle}>Filters</Text>
-              <Pressable onPress={() => setFilterOpen(false)} hitSlop={8}><X color="#64748b" size={20} /></Pressable>
+              <Text style={[styles.filterSheetTitle, { color: colors.text }]}>Filters</Text>
+              <Pressable onPress={() => setFilterOpen(false)} hitSlop={8}><X color={colors.textSecondary} size={20} /></Pressable>
             </View>
 
-            <View style={styles.filterLayerTabs}>
+            <View style={[styles.filterLayerTabs, { backgroundColor: colors.surfaceSecondary }]}>
               {FILTER_LAYERS.map((layer) => {
                 const active = filterLayer === layer.id;
                 return (
-                  <Pressable key={layer.id} style={[styles.filterLayerTab, active && styles.filterLayerTabActive]} onPress={() => setFilterLayer(layer.id)}>
-                    <Text style={[styles.filterLayerTabText, active && styles.filterLayerTabTextActive]}>{layer.label}</Text>
+                  <Pressable key={layer.id} style={[styles.filterLayerTab, active && styles.filterLayerTabActive, active && { backgroundColor: colors.surface }]} onPress={() => setFilterLayer(layer.id)}>
+                    <Text style={[styles.filterLayerTabText, { color: active ? colors.text : colors.textSecondary }]}>{layer.label}</Text>
                   </Pressable>
                 );
               })}
@@ -407,17 +409,17 @@ export function InboxScreen() {
 
               {filterLayer === 'tags' ? (
                 <>
-                  <View style={styles.inlineSearch}>
-                    <Search color="#8ba2c3" size={16} />
+                  <View style={[styles.inlineSearch, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+                    <Search color={colors.textMuted} size={16} />
                     <TextInput
                       value={tagTextInput}
                       onChangeText={onTagTextChange}
                       placeholder="Search tags..."
-                      placeholderTextColor="#8ba2c3"
-                      style={styles.inlineSearchInput}
+                      placeholderTextColor={colors.textMuted}
+                      style={[styles.inlineSearchInput, { color: colors.text }]}
                     />
                   </View>
-                  <Text style={styles.selectedCount}>{selectedTagIds.length} selected</Text>
+                  <Text style={[styles.selectedCount, { color: colors.textSecondary }]}>{selectedTagIds.length} selected</Text>
                   {tagsQuery.isLoading ? <PanelSkeleton rows={4} /> : (
                     <View style={styles.optionList}>
                       {visibleTagOptions.map((tag) => {
@@ -425,15 +427,15 @@ export function InboxScreen() {
                         return (
                           <Pressable
                             key={tag.id}
-                            style={[styles.optionRow, active && styles.optionRowActive]}
+                            style={[styles.optionRow, active && styles.optionRowActive, active && { backgroundColor: colors.primary }]}
                             onPress={() => setSelectedTagIds((current) => active ? current.filter((id) => id !== tag.id) : [...current, tag.id])}
                           >
-                            <View style={[styles.tagDot, { backgroundColor: tag.color || '#94a3b8' }]} />
-                            <Text style={[styles.optionRowText, active && styles.optionRowTextActive]} numberOfLines={1}>{tag.text}</Text>
+                            <View style={[styles.tagDot, { backgroundColor: tag.color || colors.textMuted }]} />
+                            <Text style={[styles.optionRowText, { color: active ? '#fff' : colors.textSecondary }, active && styles.optionRowTextActive]} numberOfLines={1}>{tag.text}</Text>
                           </Pressable>
                         );
                       })}
-                      {!visibleTagOptions.length ? <Text style={styles.emptyFilterHint}>No tags match the current search</Text> : null}
+                      {!visibleTagOptions.length ? <Text style={[styles.emptyFilterHint, { color: colors.textMuted }]}>No tags match the current search</Text> : null}
                     </View>
                   )}
                 </>
@@ -441,18 +443,18 @@ export function InboxScreen() {
 
               {filterLayer === 'users' ? (
                 <>
-                  <View style={styles.inlineSearch}>
-                    <Search color="#8ba2c3" size={16} />
+                  <View style={[styles.inlineSearch, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+                    <Search color={colors.textMuted} size={16} />
                     <TextInput
                       value={userSearchInput}
                       onChangeText={setUserSearchInput}
                       placeholder="Search assignees..."
-                      placeholderTextColor="#8ba2c3"
-                      style={styles.inlineSearchInput}
+                      placeholderTextColor={colors.textMuted}
+                      style={[styles.inlineSearchInput, { color: colors.text }]}
                     />
                   </View>
                   {assigneesQuery.isLoading ? <PanelSkeleton rows={4} /> : assigneesQuery.isError ? (
-                    <Text style={styles.emptyFilterHint}>Could not load assignee options.</Text>
+                    <Text style={[styles.emptyFilterHint, { color: colors.textMuted }]}>Could not load assignee options.</Text>
                   ) : (
                     <View style={styles.optionList}>
                       {visibleAssigneeOptions.map((member) => {
@@ -460,14 +462,14 @@ export function InboxScreen() {
                         return (
                           <Pressable
                             key={member.workspaceMemberId}
-                            style={[styles.optionRow, active && styles.optionRowActive]}
+                            style={[styles.optionRow, active && styles.optionRowActive, active && { backgroundColor: colors.primary }]}
                             onPress={() => setAssigneeIds((current) => active ? current.filter((id) => id !== member.workspaceMemberId) : [...current, member.workspaceMemberId])}
                           >
-                            <Text style={[styles.optionRowText, active && styles.optionRowTextActive]} numberOfLines={1}>{member.name ?? member.email}</Text>
+                            <Text style={[styles.optionRowText, { color: active ? '#fff' : colors.textSecondary }, active && styles.optionRowTextActive]} numberOfLines={1}>{member.name ?? member.email}</Text>
                           </Pressable>
                         );
                       })}
-                      {!visibleAssigneeOptions.length ? <Text style={styles.emptyFilterHint}>No assignee options match the current search</Text> : null}
+                      {!visibleAssigneeOptions.length ? <Text style={[styles.emptyFilterHint, { color: colors.textMuted }]}>No assignee options match the current search</Text> : null}
                     </View>
                   )}
                 </>
@@ -475,17 +477,17 @@ export function InboxScreen() {
 
               {filterLayer === 'more' ? (
                 <>
-                  <Text style={styles.sectionLabel}>Assignment</Text>
-                  <View style={styles.assignmentSegment}>
+                  <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Assignment</Text>
+                  <View style={[styles.assignmentSegment, { backgroundColor: colors.surfaceSecondary }]}>
                     {([['any', 'Any'], ['assigned', 'Assigned'], ['unassigned', 'Unassigned']] as const).map(([value, label]) => (
-                      <Pressable key={value} style={[styles.assignmentOption, assignment === value && styles.assignmentOptionActive]} onPress={() => setAssignment(value)}>
-                        <Text style={[styles.assignmentOptionText, assignment === value && styles.assignmentOptionTextActive]}>{label}</Text>
+                      <Pressable key={value} style={[styles.assignmentOption, assignment === value && styles.assignmentOptionActive, assignment === value && { backgroundColor: colors.surface }]} onPress={() => setAssignment(value)}>
+                        <Text style={[styles.assignmentOptionText, { color: assignment === value ? colors.text : colors.textSecondary }]}>{label}</Text>
                       </Pressable>
                     ))}
                   </View>
 
                   <Pressable
-                    style={styles.switchRow}
+                    style={[styles.switchRow, { borderColor: colors.cardBorder }]}
                     onPress={() => setStarredOnly((value) => !value)}
                     accessibilityRole="switch"
                     accessibilityState={{ checked: starredOnly }}
@@ -493,21 +495,21 @@ export function InboxScreen() {
                   >
                     <View style={styles.switchRowCopy}>
                       <Star color="#f59e0b" size={16} fill={starredOnly ? '#f59e0b' : 'none'} />
-                      <Text style={styles.switchRowLabel}>Starred only</Text>
+                      <Text style={[styles.switchRowLabel, { color: colors.textSecondary }]}>Starred only</Text>
                     </View>
                     <AppToggle value={starredOnly} tone="amber" />
                   </Pressable>
 
                   <Pressable
-                    style={styles.switchRow}
+                    style={[styles.switchRow, { borderColor: colors.cardBorder }]}
                     onPress={() => setUnrepliedOnly((value) => !value)}
                     accessibilityRole="switch"
                     accessibilityState={{ checked: unrepliedOnly }}
                     accessibilityLabel="Unreplied only"
                   >
                     <View style={styles.switchRowCopy}>
-                      <Mail color="#2563eb" size={16} />
-                      <Text style={styles.switchRowLabel}>Unreplied only</Text>
+                      <Mail color={colors.primary} size={16} />
+                      <Text style={[styles.switchRowLabel, { color: colors.textSecondary }]}>Unreplied only</Text>
                     </View>
                     <AppToggle value={unrepliedOnly} tone="blue" />
                   </Pressable>
@@ -516,9 +518,9 @@ export function InboxScreen() {
             </ScrollView>
 
             <Pressable style={[styles.filterReset, !canClearFilters && styles.filterResetDisabled]} onPress={resetFilters} disabled={!canClearFilters}>
-              <Text style={[styles.filterResetText, !canClearFilters && styles.filterResetTextDisabled]}>Clear all</Text>
+              <Text style={[styles.filterResetText, { color: canClearFilters ? colors.error : colors.textMuted }]}>Clear all</Text>
             </Pressable>
-            <Pressable style={styles.filterApply} onPress={() => setFilterOpen(false)}>
+            <Pressable style={[styles.filterApply, { backgroundColor: colors.primary }]} onPress={() => setFilterOpen(false)}>
               <Text style={styles.filterApplyText}>Apply filters</Text>
             </Pressable>
           </View>
@@ -581,6 +583,7 @@ function hexWithAlpha(color: string | null | undefined, alphaHex = '18') {
 }
 
 function ConversationTagChips({ tags, maxVisible = 2 }: { tags?: ConversationListItem['tags']; maxVisible?: number }) {
+  const { colors } = useTheme();
   const resolved = (tags ?? []).filter((tag) => tag && !tag.isArchived && tag.text?.trim());
   if (!resolved.length) return null;
   const visible = resolved.slice(0, maxVisible);
@@ -601,8 +604,8 @@ function ConversationTagChips({ tags, maxVisible = 2 }: { tags?: ConversationLis
         );
       })}
       {hiddenCount > 0 ? (
-        <View style={styles.tagMoreChip}>
-          <Text style={styles.tagMoreText}>+{hiddenCount}</Text>
+        <View style={[styles.tagMoreChip, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.tagMoreText, { color: colors.textSecondary }]}>+{hiddenCount}</Text>
         </View>
       ) : null}
     </View>
@@ -622,6 +625,7 @@ function ConversationPreviewContent({
 }: {
   conversation: ConversationListItem;
 }) {
+  const { colors } = useTheme();
   const presentation = getConversationLastInteractionPresentation(conversation);
   const preview = presentation?.preview ?? 'No messages yet';
   const messageType = (presentation?.message?.type ?? '').toUpperCase();
@@ -648,40 +652,41 @@ function ConversationPreviewContent({
   if (showImage) {
     return (
       <View style={styles.mediaPreview}>
-        <ImageIcon color="#64748b" size={14} />
-        <Text style={styles.preview} numberOfLines={1}>Photo</Text>
+        <ImageIcon color={colors.textSecondary} size={14} />
+        <Text style={[styles.preview, { color: colors.textSecondary }]} numberOfLines={1}>Photo</Text>
       </View>
     );
   }
   if (showVideo) {
     return (
       <View style={styles.mediaPreview}>
-        <Video color="#64748b" size={14} />
-        <Text style={styles.preview} numberOfLines={1}>Video</Text>
+        <Video color={colors.textSecondary} size={14} />
+        <Text style={[styles.preview, { color: colors.textSecondary }]} numberOfLines={1}>Video</Text>
       </View>
     );
   }
   if (showVoice) {
     return (
       <View style={styles.mediaPreview}>
-        <Mic color="#64748b" size={14} />
-        <Text style={styles.preview} numberOfLines={1}>Voice note</Text>
+        <Mic color={colors.textSecondary} size={14} />
+        <Text style={[styles.preview, { color: colors.textSecondary }]} numberOfLines={1}>Voice note</Text>
       </View>
     );
   }
   if (showAudio) {
     return (
       <View style={styles.mediaPreview}>
-        <Mic color="#64748b" size={14} />
-        <Text style={styles.preview} numberOfLines={1}>Audio</Text>
+        <Mic color={colors.textSecondary} size={14} />
+        <Text style={[styles.preview, { color: colors.textSecondary }]} numberOfLines={1}>Audio</Text>
       </View>
     );
   }
 
-  return <Text style={styles.preview} numberOfLines={1}>{preview}</Text>;
+  return <Text style={[styles.preview, { color: colors.textSecondary }]} numberOfLines={1}>{preview}</Text>;
 }
 
 const ConversationRow = memo(function ConversationRow({ conversation, navigation }: { conversation: ConversationListItem; navigation: any }) {
+  const { colors } = useTheme();
   const presentation = getConversationLastInteractionPresentation(conversation);
   const direction = presentation?.direction ?? null;
   const previewTimestamp = presentation?.timestamp ?? conversation.lastMessageAt;
@@ -699,22 +704,22 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
     });
   }, [navigation, conversation]);
   return (
-    <Pressable onPress={onPress} style={styles.rowPressable}>
-      <View style={styles.row}>
+    <Pressable onPress={onPress} style={[styles.rowPressable, { backgroundColor: colors.surface }]}>
+      <View style={[styles.row, { backgroundColor: colors.surface, borderBottomColor: colors.separator }]}>
         <View style={styles.avatar}>
           <ColorfulAvatar
             name={conversation.contact.displayName ?? 'Unknown contact'}
             size={48}
             url={conversation.contact.avatarUrl}
           />
-          {conversation.channel?.channelType ? <View style={styles.channelBadgeWrap}><ChannelLogo type={conversation.channel.channelType} box={22} glyph={13} radius={11} /></View> : null}
+          {conversation.channel?.channelType ? <View style={[styles.channelBadgeWrap, { borderColor: colors.surface }]}><ChannelLogo type={conversation.channel.channelType} box={22} glyph={13} radius={11} /></View> : null}
         </View>
         <View style={styles.copy}>
           <View style={styles.nameLine}>
-            <Text style={[styles.name, hasUnread && styles.nameUnread]} numberOfLines={1}>{conversation.contact.displayName ?? 'Unknown contact'}</Text>
+            <Text style={[styles.name, { color: colors.text }, hasUnread && styles.nameUnread]} numberOfLines={1}>{conversation.contact.displayName ?? 'Unknown contact'}</Text>
             {showWindowDot ? <WindowPulseDot expired={windowExpired} /> : null}
           </View>
-          <Text style={styles.channel} numberOfLines={1}>{conversation.channel?.channelName ?? ''}</Text>
+          <Text style={[styles.channel, { color: colors.textMuted }]} numberOfLines={1}>{conversation.channel?.channelName ?? ''}</Text>
           <View style={styles.previewRow}>
             <InteractionDirectionIndicator direction={direction} />
             <View style={styles.previewContent}>
@@ -724,7 +729,7 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
           <ConversationTagChips tags={conversation.tags} />
         </View>
         <View style={styles.side}>
-          <Text style={[styles.time, hasUnread && styles.timeUnread]}>{formatTime(previewTimestamp)}</Text>
+          <Text style={[styles.time, { color: hasUnread ? colors.primary : colors.textMuted }, hasUnread && styles.timeUnread]}>{formatTime(previewTimestamp)}</Text>
           <View style={styles.sideMiddle}>
             {hasUnread ? (
               <View style={styles.unreadBadge}><Text style={styles.unreadText}>{conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}</Text></View>

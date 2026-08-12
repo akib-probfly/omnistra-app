@@ -1,21 +1,23 @@
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { SkeletonBone, SkeletonPulse } from '../components/Skeleton';
+import { useTheme } from '../theme/ThemeContext';
 
 export function SplashScreen() {
+  const { colors } = useTheme();
   return (
-    <View style={styles.screen}>
-      <View style={styles.glow} />
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <View style={[styles.glow, { backgroundColor: colors.primary }]} />
       <Image source={require('../../assets/logo-main.png')} resizeMode="contain" style={styles.logo} />
-      <Text style={styles.tagline}>Your omnichannel inbox, everywhere.</Text>
+      <Text style={[styles.tagline, { color: colors.textSecondary }]}>Your omnichannel inbox, everywhere.</Text>
       <View style={styles.loading}>
         <SkeletonPulse style={styles.skeletonStack}>
           <SkeletonBone width={160} height={10} radius={6} />
           <SkeletonBone width={110} height={10} radius={6} style={styles.skeletonGap} />
           <SkeletonBone width={80} height={10} radius={6} style={styles.skeletonGap} />
         </SkeletonPulse>
-        <Text style={styles.loadingText}>Loading your workspace...</Text>
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading your workspace...</Text>
       </View>
-      <Text style={styles.footer}>OMNISTRA</Text>
+      <Text style={[styles.footer, { color: colors.textMuted }]}>OMNISTRA</Text>
     </View>
   );
 }

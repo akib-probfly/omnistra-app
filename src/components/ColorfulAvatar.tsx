@@ -2,6 +2,7 @@ import Avatar from '@liquidspirit/react-native-boring-avatars';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useColorfulAvatars } from '../hooks/useInboxAppearance';
+import { useTheme } from '../theme/ThemeContext';
 import { AuthenticatedImage } from './AuthenticatedImage';
 
 /** Same curated palettes as osaas-frontend `UserAvatar`. */
@@ -41,6 +42,7 @@ type Props = {
 
 export function ColorfulAvatar({ name, size = 40, url, allowColorful = true, style }: Props) {
   const { enabled } = useColorfulAvatars();
+  const { colors } = useTheme();
   const useColorful = allowColorful && enabled;
   const initials = getInitials(name);
   const [imageFailed, setImageFailed] = useState(false);
@@ -64,8 +66,8 @@ export function ColorfulAvatar({ name, size = 40, url, allowColorful = true, sty
 
   if (!useColorful) {
     return (
-      <View style={[styles.plain, { width: size, height: size, borderRadius: size / 2 }, style]}>
-        <Text style={[styles.plainText, { fontSize: Math.max(10, Math.round(size * 0.36)) }]}>{initials}</Text>
+      <View style={[styles.plain, { backgroundColor: colors.surfaceSecondary, width: size, height: size, borderRadius: size / 2 }, style]}>
+        <Text style={[styles.plainText, { color: colors.textSecondary, fontSize: Math.max(10, Math.round(size * 0.36)) }]}>{initials}</Text>
       </View>
     );
   }

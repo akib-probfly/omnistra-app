@@ -10,7 +10,8 @@ type BoneProps = {
 };
 
 export function SkeletonBone({ width = '100%', height = 14, radius = 10, style }: BoneProps) {
-  return <View style={[styles.bone, { width, height, borderRadius: radius }, style]} />;
+  const { colors } = useTheme();
+  return <View style={[styles.bone, { backgroundColor: colors.surfaceSecondary, width, height, borderRadius: radius }, style]} />;
 }
 
 export function SkeletonPulse({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {

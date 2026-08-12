@@ -23,6 +23,7 @@ import { TroubleshootTab } from '../components/TroubleshootTab';
 import { WhatsappCallingTab } from '../components/WhatsappCallingTab';
 import { WhatsappTemplatesTab } from '../components/WhatsappTemplatesTab';
 import type { ChannelsStackParamList } from '../navigation/ChannelsStack';
+import { useTheme } from '../theme/ThemeContext';
 
 const STATUS_TONE: Record<string, { bg: string; fg: string }> = {
   CONNECTED: { bg: '#e8fbf3', fg: '#047857' },
@@ -70,6 +71,7 @@ export function ChannelDetailsScreen() {
   const queryClient = useQueryClient();
   const channelId = route.params.channelId;
   const [tab, setTab] = useState<string>('overview');
+  const { colors, isDark } = useTheme();
 
   const details = useQuery({
     queryKey: ['channel-details', channelId],
@@ -151,7 +153,7 @@ export function ChannelDetailsScreen() {
 
   if (details.isLoading) {
     return (
-      <View style={styles.screen}>
+      <View style={[styles.screen, { backgroundColor: colors.background }]}>
         <HeaderBar insets={insets} onBack={() => navigation.goBack()} />
         <FormSkeleton fields={6} />
       </View>
@@ -159,12 +161,12 @@ export function ChannelDetailsScreen() {
   }
   if (details.isError || !channel) {
     return (
-      <View style={styles.screen}>
+      <View style={[styles.screen, { backgroundColor: colors.background }]}>
         <HeaderBar insets={insets} onBack={() => navigation.goBack()} />
         <View style={{ alignItems: 'center', padding: 32, marginTop: 40 }}>
-          <Text style={styles.msgTitle}>Could not load channel</Text>
-          <Text style={styles.msgText}>{details.error instanceof Error ? details.error.message : 'Please try again or return to the list.'}</Text>
-          <Pressable style={[styles.primaryButton, { alignSelf: 'center', marginTop: 20, paddingHorizontal: 18, paddingVertical: 9 }]} onPress={() => details.refetch()}><RefreshCw color="#fff" size={14} /><Text style={[styles.primaryButtonText, { fontSize: 13 }]}>Retry</Text></Pressable>
+          <Text style={[styles.msgTitle, { color: colors.text }]}>Could not load channel</Text>
+          <Text style={[styles.msgText, { color: colors.textSecondary }]}>{details.error instanceof Error ? details.error.message : 'Please try again or return to the list.'}</Text>
+          <Pressable style={[styles.primaryButton, { alignSelf: 'center', marginTop: 20, paddingHorizontal: 18, paddingVertical: 9, backgroundColor: colors.primary }]} onPress={() => details.refetch()}><RefreshCw color="#fff" size={14} /><Text style={[styles.primaryButtonText, { fontSize: 13 }]}>Retry</Text></Pressable>
         </View>
       </View>
     );
@@ -183,10 +185,10 @@ export function ChannelDetailsScreen() {
       const config = channel.configuration as { pageId?: string | null; pageName?: string | null; businessAccountId?: string | null; webhookSubscriptionStatus?: string | null; lastWebhookError?: string | null } | null;
       return (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
-          <View style={styles.titleCard}>
+          <View style={[styles.titleCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
             <ChannelLogo type={channel.type} box={52} glyph={26} radius={18} />
             <View style={styles.titleCopy}>
-              <Text style={styles.channelName}>{channel.name}</Text>
+              <Text style={[styles.channelName, { color: colors.text }]}>{channel.name}</Text>
               <View style={styles.badges}>
                 <View style={[styles.badge, { backgroundColor: statusTone.bg }]}><Text style={[styles.badgeText, { color: statusTone.fg }]}>{channel.status}</Text></View>
                 {lifecycle.isPaused ? <View style={[styles.badge, { backgroundColor: '#fff7df' }]}><Text style={[styles.badgeText, { color: '#b45309' }]}>Paused</Text></View> : null}
@@ -195,15 +197,15 @@ export function ChannelDetailsScreen() {
           </View>
 
           {lifecycle.isRemoved ? (
-            <View style={styles.dangerCard}>
-              <Text style={styles.dangerTitle}>Removal scheduled</Text>
-              <Text style={styles.dangerText}>This channel is pending permanent deletion. {lifecycle.removeReason ? `Reason: ${lifecycle.removeReason}` : ''}</Text>
-              <Pressable style={[styles.primaryButton, { marginTop: 12 }]} onPress={() => restore.mutate()}><RotateCcw color="#fff" size={15} /><Text style={styles.primaryButtonText}>Restore channel</Text></Pressable>
+            <View style={[styles.dangerCard, { backgroundColor: isDark ? colors.surface : '#fff1f2', borderColor: isDark ? colors.surfaceSecondary : '#fecdd3' }]}>
+              <Text style={[styles.dangerTitle, { color: colors.error }]}>Removal scheduled</Text>
+              <Text style={[styles.dangerText, { color: colors.textSecondary }]}>This channel is pending permanent deletion. {lifecycle.removeReason ? `Reason: ${lifecycle.removeReason}` : ''}</Text>
+              <Pressable style={[styles.primaryButton, { marginTop: 12, backgroundColor: colors.primary }]} onPress={() => restore.mutate()}><RotateCcw color="#fff" size={15} /><Text style={styles.primaryButtonText}>Restore channel</Text></Pressable>
             </View>
           ) : null}
 
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Overview</Text>
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Overview</Text>
             <View style={styles.grid}>
               <Summary title="Page ID" value={config?.pageId ?? 'Not linked'} detail="Meta page identifier" />
               <Summary title="Webhook" value={config?.webhookSubscriptionStatus ?? 'UNKNOWN'} detail={config?.lastWebhookError ?? 'No recent webhook errors'} />
@@ -212,16 +214,16 @@ export function ChannelDetailsScreen() {
             </View>
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Connection details</Text>
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Connection details</Text>
             <Field label="Current state" value={channel.status} />
             <Field label="Page name" value={config?.pageName ?? 'Not linked'} />
             <Field label="Page ID" value={config?.pageId ?? 'Not linked'} />
             <Field label="Webhook error" value={config?.lastWebhookError ?? 'None'} />
           </View>
 
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Workspace snapshot</Text>
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Workspace snapshot</Text>
             <Field label="Workspace" value={channel.workspaceName ?? '—'} />
             <Field label="Channel type" value={channel.type} />
             <Field label="Accounts" value={String(channel.accounts.length)} />
@@ -237,10 +239,10 @@ export function ChannelDetailsScreen() {
     const callingSetting = channel.callBusinessCallingSetting;
     return (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
-        <View style={styles.titleCard}>
+        <View style={[styles.titleCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
           <ChannelLogo type={channel.type} box={52} glyph={26} radius={18} />
           <View style={styles.titleCopy}>
-            <Text style={styles.channelName}>{channel.name}</Text>
+            <Text style={[styles.channelName, { color: colors.text }]}>{channel.name}</Text>
             <View style={styles.badges}>
               <View style={[styles.badge, { backgroundColor: statusTone.bg }]}><Text style={[styles.badgeText, { color: statusTone.fg }]}>{channel.status}</Text></View>
               {lifecycle.isPaused ? <View style={[styles.badge, { backgroundColor: '#fff7df' }]}><Text style={[styles.badgeText, { color: '#b45309' }]}>Paused</Text></View> : null}
@@ -250,15 +252,15 @@ export function ChannelDetailsScreen() {
         </View>
 
         {lifecycle.isRemoved ? (
-          <View style={styles.dangerCard}>
-            <Text style={styles.dangerTitle}>Removal scheduled</Text>
-            <Text style={styles.dangerText}>This channel is pending permanent deletion. {lifecycle.removeReason ? `Reason: ${lifecycle.removeReason}` : ''}</Text>
-            <Pressable style={[styles.primaryButton, { marginTop: 12 }]} onPress={() => restore.mutate()}><RotateCcw color="#fff" size={15} /><Text style={styles.primaryButtonText}>Restore channel</Text></Pressable>
+          <View style={[styles.dangerCard, { backgroundColor: isDark ? colors.surface : '#fff1f2', borderColor: isDark ? colors.surfaceSecondary : '#fecdd3' }]}>
+            <Text style={[styles.dangerTitle, { color: colors.error }]}>Removal scheduled</Text>
+            <Text style={[styles.dangerText, { color: colors.textSecondary }]}>This channel is pending permanent deletion. {lifecycle.removeReason ? `Reason: ${lifecycle.removeReason}` : ''}</Text>
+            <Pressable style={[styles.primaryButton, { marginTop: 12, backgroundColor: colors.primary }]} onPress={() => restore.mutate()}><RotateCcw color="#fff" size={15} /><Text style={styles.primaryButtonText}>Restore channel</Text></Pressable>
           </View>
         ) : null}
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Overview</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Overview</Text>
           <View style={styles.grid}>
             <Summary title="Phone line" value={config?.displayPhoneNumber ?? primaryAccount?.displayPhoneNumber ?? 'Not linked'} detail={config?.phoneNumberId ?? primaryAccount?.phoneNumberId ?? 'Phone number id unavailable'} />
             <Summary title="Templates" value={templateCounts ? String(templateCounts.total) : '—'} detail={templateCounts ? `${templateCounts.approved} approved · ${templateCounts.pending} pending` : 'No template counts'} />
@@ -268,21 +270,21 @@ export function ChannelDetailsScreen() {
             <Summary title="Messages 24h" value={channel.messagesLast24h != null ? String(channel.messagesLast24h) : '—'} detail={channel.type} />
           </View>
           <View style={styles.overviewActions}>
-            {isWhatsapp ? <Pressable style={[styles.primaryButton, { flex: 1, paddingHorizontal: 14, paddingVertical: 9 }]} onPress={() => setTab('templates')}><FileText color="#fff" size={14} /><Text style={styles.primaryButtonText}>Open templates</Text></Pressable> : null}
-            <Pressable style={[styles.outlineButton, { flex: 1, paddingHorizontal: 14, paddingVertical: 9 }]} onPress={() => details.refetch()}><RefreshCw color="#2563eb" size={14} /><Text style={styles.outlineButtonText}>Refresh details</Text></Pressable>
+            {isWhatsapp ? <Pressable style={[styles.primaryButton, { flex: 1, paddingHorizontal: 14, paddingVertical: 9, backgroundColor: colors.primary }]} onPress={() => setTab('templates')}><FileText color="#fff" size={14} /><Text style={styles.primaryButtonText}>Open templates</Text></Pressable> : null}
+            <Pressable style={[styles.outlineButton, { flex: 1, paddingHorizontal: 14, paddingVertical: 9, backgroundColor: colors.surface, borderColor: colors.cardBorder }]} onPress={() => details.refetch()}><RefreshCw color={colors.primary} size={14} /><Text style={[styles.outlineButtonText, { color: colors.primary }]}>Refresh details</Text></Pressable>
           </View>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Business information</Text>
-          <Text style={styles.cardSub}>Phone numbers and Meta-linked account details for this WhatsApp channel.</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Business information</Text>
+          <Text style={[styles.cardSub, { color: colors.textSecondary }]}>Phone numbers and Meta-linked account details for this WhatsApp channel.</Text>
           {channel.accounts.length > 0 ? (
             channel.accounts.map((account) => (
-              <View key={account.id} style={styles.account}>
-                <View style={styles.accountHead}>
+              <View key={account.id} style={[styles.account, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+                <View style={[styles.accountHead, { borderBottomColor: colors.cardBorder }]}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.accountName} numberOfLines={1}>{account.displayPhoneNumber ?? 'Linked WhatsApp account'}</Text>
-                    <Text style={styles.accountMeta}>{account.provider}</Text>
+                    <Text style={[styles.accountName, { color: colors.text }]} numberOfLines={1}>{account.displayPhoneNumber ?? 'Linked WhatsApp account'}</Text>
+                    <Text style={[styles.accountMeta, { color: colors.textSecondary }]}>{account.provider}</Text>
                   </View>
                   <View style={[styles.badge, { backgroundColor: (STATUS_TONE[account.webhookStatus] ?? STATUS_TONE.PENDING).bg }]}><Text style={[styles.badgeText, { color: (STATUS_TONE[account.webhookStatus] ?? STATUS_TONE.PENDING).fg }]}>Webhook {account.webhookStatus}</Text></View>
                 </View>
@@ -293,13 +295,13 @@ export function ChannelDetailsScreen() {
               </View>
             ))
           ) : (
-            <Text style={styles.emptyField}>No business account is linked to this channel.</Text>
+            <Text style={[styles.emptyField, { color: colors.textSecondary }]}>No business account is linked to this channel.</Text>
           )}
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Workspace snapshot</Text>
-          <Text style={styles.cardSub}>Channel facts and quick controls.</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Workspace snapshot</Text>
+          <Text style={[styles.cardSub, { color: colors.textSecondary }]}>Channel facts and quick controls.</Text>
           <Field label="Workspace" value={channel.workspaceName ?? '—'} />
           <Field label="Channel type" value={channel.type} />
           <Field label="Status" value={channel.status} />
@@ -313,12 +315,12 @@ export function ChannelDetailsScreen() {
 
   const renderBusiness = () => (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
         <View style={styles.cardHead}>
-          <Text style={styles.cardTitle}>WhatsApp Business profile</Text>
-          <Pressable style={styles.syncButton} onPress={() => sync.mutate()} disabled={isBusy}><RefreshCw color="#315efb" size={15} /><Text style={styles.syncText}>Sync</Text></Pressable>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>WhatsApp Business profile</Text>
+          <Pressable style={[styles.syncButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]} onPress={() => sync.mutate()} disabled={isBusy}><RefreshCw color={colors.primary} size={15} /><Text style={[styles.syncText, { color: colors.primary }]}>Sync</Text></Pressable>
         </View>
-        <Text style={styles.cardSub}>The public profile of your WhatsApp Business API account.</Text>
+        <Text style={[styles.cardSub, { color: colors.textSecondary }]}>The public profile of your WhatsApp Business API account.</Text>
 
         <FieldEdit label="About" value={draft.about} onChange={(text) => setDraft({ ...draft, about: text })} placeholder="What your business is about" multiline />
         <FieldEdit label="Email" value={draft.email} onChange={(text) => setDraft({ ...draft, email: text })} placeholder="business@email.com" keyboardType="email-address" />
@@ -326,12 +328,12 @@ export function ChannelDetailsScreen() {
         <FieldEdit label="Website" value={draft.websites} onChange={(text) => setDraft({ ...draft, websites: text })} placeholder="https:// (one per line)" />
         <FieldEdit label="Description" value={draft.description} onChange={(text) => setDraft({ ...draft, description: text })} placeholder="Add description" multiline />
 
-        <Text style={styles.fieldLabel}>Category</Text>
-        <Pressable style={styles.select} onPress={() => setVerticalPicker(true)}>
-          <Text style={draft.vertical ? styles.selectText : styles.selectPlaceholder}>{WHATSAPP_BUSINESS_VERTICAL_OPTIONS.find((option) => option.value === draft.vertical)?.label ?? 'Select category'}</Text>
+        <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Category</Text>
+        <Pressable style={[styles.select, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]} onPress={() => setVerticalPicker(true)}>
+          <Text style={draft.vertical ? [styles.selectText, { color: colors.text }] : [styles.selectPlaceholder, { color: colors.textMuted }]}>{WHATSAPP_BUSINESS_VERTICAL_OPTIONS.find((option) => option.value === draft.vertical)?.label ?? 'Select category'}</Text>
         </Pressable>
 
-        <Pressable style={[styles.primaryButton, { marginTop: 18 }]} onPress={() => save.mutate()} disabled={isBusy}>
+        <Pressable style={[styles.primaryButton, { marginTop: 18, backgroundColor: colors.primary }]} onPress={() => save.mutate()} disabled={isBusy}>
           {save.isPending ? <LoaderCircle color="#fff" size={16} /> : null}
           <Text style={styles.primaryButtonText}>Save profile</Text>
         </Pressable>
@@ -340,7 +342,7 @@ export function ChannelDetailsScreen() {
   );
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <HeaderBar
         insets={insets}
         onBack={() => navigation.goBack()}
@@ -348,7 +350,7 @@ export function ChannelDetailsScreen() {
         refreshing={details.isFetching && !details.isLoading}
       />
 
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBarContent}>
           {tabs.map((item) => (
             <TabButton key={item.key} label={item.label} active={tab === item.key} onPress={() => setTab(item.key)} />
@@ -378,12 +380,12 @@ export function ChannelDetailsScreen() {
 
       <Modal visible={verticalPicker} transparent animationType="fade" onRequestClose={() => setVerticalPicker(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setVerticalPicker(false)}>
-          <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Select category</Text>
+          <View style={[styles.modalSheet, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Select category</Text>
             <ScrollView style={{ maxHeight: 420 }}>
               {WHATSAPP_BUSINESS_VERTICAL_OPTIONS.map((option) => (
                 <Pressable key={option.value} style={styles.modalRow} onPress={() => { setDraft({ ...draft, vertical: option.value }); setVerticalPicker(false); }}>
-                  <Text style={draft.vertical === option.value ? styles.modalRowActive : styles.modalRowText}>{option.label}</Text>
+                  <Text style={draft.vertical === option.value ? [styles.modalRowActive, { color: colors.primary }] : [styles.modalRowText, { color: colors.textSecondary }]}>{option.label}</Text>
                 </Pressable>
               ))}
             </ScrollView>
@@ -406,6 +408,7 @@ function HeaderBar({
   refreshing?: boolean;
 }) {
   const spin = useRef(new Animated.Value(0)).current;
+  const { colors } = useTheme();
 
   useEffect(() => {
     if (!refreshing) {
@@ -428,12 +431,12 @@ function HeaderBar({
   const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
   return (
-    <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-      <Pressable onPress={onBack} hitSlop={10}><ArrowLeft color="#334155" size={23} /></Pressable>
-      <Text style={styles.headerTitle}>Channel details</Text>
+    <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
+      <Pressable onPress={onBack} hitSlop={10}><ArrowLeft color={colors.textSecondary} size={23} /></Pressable>
+      <Text style={[styles.headerTitle, { color: colors.text }]}>Channel details</Text>
       <Pressable onPress={onRefresh} hitSlop={10} disabled={refreshing} style={refreshing ? { opacity: 0.7 } : undefined}>
         <Animated.View style={{ transform: [{ rotate }] }}>
-          <RefreshCw color="#334155" size={20} />
+          <RefreshCw color={colors.textSecondary} size={20} />
         </Animated.View>
       </Pressable>
     </View>
@@ -441,26 +444,30 @@ function HeaderBar({
 }
 
 function TabButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  const { colors } = useTheme();
   return (
-    <Pressable onPress={onPress} style={[styles.tab, active && styles.tabActive]}>
-      <Text style={[styles.tabText, active && styles.tabTextActive]} numberOfLines={1}>{label}</Text>
+    <Pressable onPress={onPress} style={[styles.tab, active && styles.tabActive, active && { backgroundColor: colors.surfaceSecondary }]}>
+      <Text style={[styles.tabText, active && styles.tabTextActive, { color: active ? colors.primary : colors.textSecondary }]} numberOfLines={1}>{label}</Text>
     </Pressable>
   );
 }
 
 function Summary({ title, value, detail }: { title: string; value: string; detail?: string | null }) {
-  return <View style={styles.summary}><Text style={styles.summaryTitle}>{title}</Text><Text style={styles.summaryValue} numberOfLines={1}>{value}</Text>{detail ? <Text style={styles.summaryDetail} numberOfLines={2}>{detail}</Text> : null}</View>;
+  const { colors } = useTheme();
+  return <View style={[styles.summary, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}><Text style={[styles.summaryTitle, { color: colors.textSecondary }]}>{title}</Text><Text style={[styles.summaryValue, { color: colors.text }]} numberOfLines={1}>{value}</Text>{detail ? <Text style={[styles.summaryDetail, { color: colors.textSecondary }]} numberOfLines={2}>{detail}</Text> : null}</View>;
 }
 
 function Field({ label, value }: { label: string; value: string }) {
-  return <View style={styles.field}><Text style={styles.fieldLabel}>{label}</Text><Text style={styles.fieldValue}>{value}</Text></View>;
+  const { colors } = useTheme();
+  return <View style={styles.field}><Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{label}</Text><Text style={[styles.fieldValue, { color: colors.textSecondary }]}>{value}</Text></View>;
 }
 
 function FieldEdit({ label, value, onChange, placeholder, multiline = false, keyboardType }: { label: string; value: string; onChange: (text: string) => void; placeholder: string; multiline?: boolean; keyboardType?: 'email-address' }) {
+  const { colors } = useTheme();
   return (
     <View style={styles.fieldEdit}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor="#94a3b8" multiline={multiline} numberOfLines={multiline ? 4 : 1} keyboardType={keyboardType ?? 'default'} style={multiline ? styles.inputMultiline : styles.input} />
+      <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{label}</Text>
+      <TextInput value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={colors.textMuted} multiline={multiline} numberOfLines={multiline ? 4 : 1} keyboardType={keyboardType ?? 'default'} style={multiline ? [styles.inputMultiline, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder, color: colors.text }] : [styles.input, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder, color: colors.text }]} />
     </View>
   );
 }

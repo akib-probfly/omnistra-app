@@ -1,11 +1,13 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useTheme } from '../theme/ThemeContext';
 
 export function HomeScreen() {
+  const { colors } = useTheme();
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Omnistra Mobile</Text>
-      <Text style={styles.subtitle}>The mobile foundation is ready.</Text>
-      <Text style={styles.body}>Next: authentication, inbox conversations, channels, and realtime updates.</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Text style={[styles.title, { color: colors.text }]}>Omnistra Mobile</Text>
+      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>The mobile foundation is ready.</Text>
+      <Text style={[styles.body, { color: colors.textSecondary }]}>Next: authentication, inbox conversations, channels, and realtime updates.</Text>
     </View>
   );
 }

@@ -1,6 +1,7 @@
 import { Clock3, Phone, PhoneIncoming, PhoneMissed, PhoneOff, PhoneOutgoing } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ConversationCallSession } from '../api/inbox';
+import { useTheme } from '../theme/ThemeContext';
 import { ChannelLogo } from './ChannelLogo';
 import { ColorfulAvatar } from './ColorfulAvatar';
 import {
@@ -74,6 +75,7 @@ function getStatusTone(normalizedStatus: string) {
 }
 
 export function CallFeedItem({ session, onPress }: { session: ConversationCallSession; onPress: () => void }) {
+  const { colors } = useTheme();
   const displayName = getCallDisplayName(session);
   const activityAt = getCallActivityAt(session);
   const normalizedStatus = getNormalizedCallSessionOutcome(session.status, session.direction);
@@ -89,7 +91,7 @@ export function CallFeedItem({ session, onPress }: { session: ConversationCallSe
   const showDuration = session.status === 'CONNECTED' || (session.status === 'ENDED' && session.durationSeconds !== null);
 
   return (
-    <Pressable onPress={onPress} style={styles.row}>
+    <Pressable onPress={onPress} style={[styles.row, { borderBottomColor: colors.separator }]}>
       <View style={styles.avatarWrap}>
         <ColorfulAvatar
           name={displayName}
@@ -105,10 +107,10 @@ export function CallFeedItem({ session, onPress }: { session: ConversationCallSe
 
       <View style={styles.copy}>
         <View style={styles.topLine}>
-          <Text style={[styles.name, isMissed && styles.nameMissed]} numberOfLines={1}>{displayName}</Text>
-          <Text style={styles.time}>{formatRelativeTime(activityAt)}</Text>
+          <Text style={[styles.name, { color: colors.text }, isMissed && styles.nameMissed]} numberOfLines={1}>{displayName}</Text>
+          <Text style={[styles.time, { color: colors.textMuted }]}>{formatRelativeTime(activityAt)}</Text>
         </View>
-        {subtitle ? <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text> : null}
+        {subtitle ? <Text style={[styles.subtitle, { color: colors.textMuted }]} numberOfLines={1}>{subtitle}</Text> : null}
         <View style={styles.chips}>
           <View style={[styles.chip, session.direction === 'INBOUND' ? styles.chipIncoming : styles.chipOutgoing]}>
             {session.direction === 'INBOUND'
@@ -127,9 +129,9 @@ export function CallFeedItem({ session, onPress }: { session: ConversationCallSe
             <Text style={[styles.chipText, { color: statusTone.text }]}>{statusLabel}</Text>
           </View>
           {showDuration ? (
-            <View style={[styles.chip, styles.chipDuration]}>
-              <Clock3 color="#475569" size={12} />
-              <Text style={[styles.chipText, styles.chipTextDuration]}>{durationLabel ?? 'Live'}</Text>
+            <View style={[styles.chip, styles.chipDuration, { backgroundColor: colors.surfaceSecondary }]}>
+              <Clock3 color={colors.textSecondary} size={12} />
+              <Text style={[styles.chipText, styles.chipTextDuration, { color: colors.textSecondary }]}>{durationLabel ?? 'Live'}</Text>
             </View>
           ) : null}
         </View>

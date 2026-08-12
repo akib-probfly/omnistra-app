@@ -11,6 +11,7 @@ import { attachConversationTag, createConversationNote, createConversationTag, d
 import { AuthenticatedImage } from './AuthenticatedImage';
 import { ColorfulAvatar } from './ColorfulAvatar';
 import { PanelSkeleton } from './Skeleton';
+import { useTheme } from '../theme/ThemeContext';
 
 export function formatPhoneNumberDisplay(phone: string | null | undefined): string | null {
   if (!phone) return null;
@@ -46,6 +47,7 @@ type PanelProps = {
 export function ContactDetailsPanel({ visible, onClose, conversation, isUpdatingStatus = false, onToggleStatus }: PanelProps) {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { colors } = useTheme();
   const [customerOpen, setCustomerOpen] = useState(true);
   const [tagsOpen, setTagsOpen] = useState(true);
   const [notesOpen, setNotesOpen] = useState(true);
@@ -163,24 +165,24 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
         <DrawerShell onClose={onClose}>
-        <View style={styles.drawerHeader}>
-          <Text style={styles.drawerTitle}>Contact details</Text>
-           <Pressable onPress={onClose} hitSlop={10} style={styles.drawerClose}><X color="#64748b" size={20} /></Pressable>
+        <View style={[styles.drawerHeader, { backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
+          <Text style={[styles.drawerTitle, { color: colors.text }]}>Contact details</Text>
+           <Pressable onPress={onClose} hitSlop={10} style={[styles.drawerClose, { backgroundColor: colors.surfaceSecondary }]}><X color={colors.textSecondary} size={20} /></Pressable>
         </View>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} keyboardShouldPersistTaps="handled">
-            <View style={styles.chatSummaryPill}>
-              <View style={styles.sparkWrap}><Sparkles color="#5a83f6" size={15} /></View>
-              <Text style={styles.chatSummaryTitle}>Chat Summary</Text>
+            <View style={[styles.chatSummaryPill, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+              <View style={[styles.sparkWrap, { backgroundColor: colors.surfaceSecondary }]}><Sparkles color="#5a83f6" size={15} /></View>
+              <Text style={[styles.chatSummaryTitle, { color: colors.text }]}>Chat Summary</Text>
             </View>
 
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
               <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardTitle}>Customer Information</Text>
-                <Pressable onPress={() => setCustomerOpen((v) => !v)} hitSlop={8} style={styles.collapseBtn}>{customerOpen ? <ChevronUp color="#64748b" size={16} /> : <ChevronDown color="#64748b" size={16} />}</Pressable>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>Customer Information</Text>
+                <Pressable onPress={() => setCustomerOpen((v) => !v)} hitSlop={8} style={[styles.collapseBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>{customerOpen ? <ChevronUp color={colors.textSecondary} size={16} /> : <ChevronDown color={colors.textSecondary} size={16} />}</Pressable>
               </View>
               {customerOpen ? (
-                <View style={styles.customerBox}>
+                <View style={[styles.customerBox, { borderColor: colors.cardBorder }]}>
                   <View style={styles.customerTop}>
                     <View style={styles.customerAvatarWrap}>
                       <ColorfulAvatar
@@ -190,57 +192,57 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
                       />
                     </View>
                     <View style={styles.customerIdentity}>
-                      <Text style={styles.customerName} numberOfLines={1}>{contactTitle}</Text>
-                      <Text style={styles.customerMeta} numberOfLines={1}>{formatPhoneNumberDisplay(displayPhone) ?? formatPhoneNumberDisplay(conversation.channel.displayPhoneNumber) ?? conversation.channel.channelName}</Text>
-                      {displayEmail ? <Text style={styles.customerEmail} numberOfLines={1}>{displayEmail}</Text> : null}
+                      <Text style={[styles.customerName, { color: colors.text }]} numberOfLines={1}>{contactTitle}</Text>
+                      <Text style={[styles.customerMeta, { color: colors.textSecondary }]} numberOfLines={1}>{formatPhoneNumberDisplay(displayPhone) ?? formatPhoneNumberDisplay(conversation.channel.displayPhoneNumber) ?? conversation.channel.channelName}</Text>
+                      {displayEmail ? <Text style={[styles.customerEmail, { color: colors.textMuted }]} numberOfLines={1}>{displayEmail}</Text> : null}
                     </View>
                   </View>
-                  <View style={styles.infoRows}>
+                  <View style={[styles.infoRows, { borderTopColor: colors.separator }]}>
                     <View style={styles.infoRow}>
-                      <Text style={styles.infoLabel}>Channel</Text>
-                      <Text style={styles.infoValue} numberOfLines={1}>{conversation.channel.channelName}</Text>
+                      <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Channel</Text>
+                      <Text style={[styles.infoValue, { color: colors.text }]} numberOfLines={1}>{conversation.channel.channelName}</Text>
                     </View>
                     <View style={styles.infoRow}>
-                      <Text style={styles.infoLabel}>Phone</Text>
+                      <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Phone</Text>
                       {editingPhone ? (
                         <View style={styles.editFieldWrap}>
-                          <TextInput value={phoneDraft} onChangeText={setPhoneDraft} autoFocus style={styles.editInput} placeholder="Write phone and press done" placeholderTextColor="#94a3b8" onSubmitEditing={savePhone} />
-                          <Pressable onPress={savePhone} hitSlop={6} style={styles.editConfirm}><Check color="#2563eb" size={14} /></Pressable>
+                          <TextInput value={phoneDraft} onChangeText={setPhoneDraft} autoFocus style={[styles.editInput, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]} placeholder="Write phone and press done" placeholderTextColor={colors.textMuted} onSubmitEditing={savePhone} />
+                          <Pressable onPress={savePhone} hitSlop={6} style={styles.editConfirm}><Check color={colors.primary} size={14} /></Pressable>
                         </View>
                       ) : (
                         <View style={styles.infoValueWrap}>
-                          <Text style={styles.infoValue} numberOfLines={1}>{formatPhoneNumberDisplay(displayPhone) ?? formatPhoneNumberDisplay(conversation.channel.displayPhoneNumber) ?? 'Not available'}</Text>
+                          <Text style={[styles.infoValue, { color: colors.text }]} numberOfLines={1}>{formatPhoneNumberDisplay(displayPhone) ?? formatPhoneNumberDisplay(conversation.channel.displayPhoneNumber) ?? 'Not available'}</Text>
                           {canEditPhone ? (
-                            <Pressable onPress={() => { setPhoneDraft(displayPhone ?? ''); setEditingPhone(true); }} hitSlop={8} style={styles.editBtn}><Pencil color="#94a3b8" size={13} /></Pressable>
+                            <Pressable onPress={() => { setPhoneDraft(displayPhone ?? ''); setEditingPhone(true); }} hitSlop={8} style={styles.editBtn}><Pencil color={colors.textMuted} size={13} /></Pressable>
                           ) : null}
                         </View>
                       )}
                     </View>
-                    {phoneMutation.isError ? <Text style={styles.errorText}>{phoneMutation.error instanceof Error ? phoneMutation.error.message : 'Could not update phone'}</Text> : null}
+                    {phoneMutation.isError ? <Text style={[styles.errorText, { color: colors.error }]}>{phoneMutation.error instanceof Error ? phoneMutation.error.message : 'Could not update phone'}</Text> : null}
                     <View style={styles.infoRow}>
-                      <Text style={styles.infoLabel}>Email</Text>
+                      <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Email</Text>
                       {editingEmail ? (
                         <View style={styles.editFieldWrap}>
-                          <TextInput value={emailDraft} onChangeText={setEmailDraft} autoFocus keyboardType="email-address" style={styles.editInput} placeholder="Write email and press done" placeholderTextColor="#94a3b8" onSubmitEditing={saveEmail} />
-                          <Pressable onPress={saveEmail} hitSlop={6} style={styles.editConfirm}><Check color="#2563eb" size={14} /></Pressable>
+                          <TextInput value={emailDraft} onChangeText={setEmailDraft} autoFocus keyboardType="email-address" style={[styles.editInput, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]} placeholder="Write email and press done" placeholderTextColor={colors.textMuted} onSubmitEditing={saveEmail} />
+                          <Pressable onPress={saveEmail} hitSlop={6} style={styles.editConfirm}><Check color={colors.primary} size={14} /></Pressable>
                         </View>
                       ) : (
                         <View style={styles.infoValueWrap}>
-                          <Text style={styles.infoValue} numberOfLines={1}>{displayEmail ?? 'Not available'}</Text>
-                          <Pressable onPress={() => { setEmailDraft(displayEmail ?? ''); setEditingEmail(true); }} hitSlop={8} style={styles.editBtn}><Pencil color="#94a3b8" size={13} /></Pressable>
+                          <Text style={[styles.infoValue, { color: colors.text }]} numberOfLines={1}>{displayEmail ?? 'Not available'}</Text>
+                          <Pressable onPress={() => { setEmailDraft(displayEmail ?? ''); setEditingEmail(true); }} hitSlop={8} style={styles.editBtn}><Pencil color={colors.textMuted} size={13} /></Pressable>
                         </View>
                       )}
                     </View>
-                    {emailMutation.isError ? <Text style={styles.errorText}>{emailMutation.error instanceof Error ? emailMutation.error.message : 'Could not update email'}</Text> : null}
+                    {emailMutation.isError ? <Text style={[styles.errorText, { color: colors.error }]}>{emailMutation.error instanceof Error ? emailMutation.error.message : 'Could not update email'}</Text> : null}
                   </View>
                 </View>
               ) : null}
             </View>
 
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
               <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardTitle}>Tags</Text>
-                <Pressable onPress={() => setTagsOpen((v) => !v)} hitSlop={8} style={styles.collapseBtn}>{tagsOpen ? <ChevronUp color="#64748b" size={16} /> : <ChevronDown color="#64748b" size={16} />}</Pressable>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>Tags</Text>
+                <Pressable onPress={() => setTagsOpen((v) => !v)} hitSlop={8} style={[styles.collapseBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>{tagsOpen ? <ChevronUp color={colors.textSecondary} size={16} /> : <ChevronDown color={colors.textSecondary} size={16} />}</Pressable>
               </View>
               {tagsOpen ? (
                 <View style={styles.tagsBody}>
@@ -254,26 +256,26 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
                       ))}
                     </View>
                   ) : (
-                    <Text style={styles.emptyText}>No tags attached yet.</Text>
+                    <Text style={[styles.emptyText, { color: colors.textMuted }]}>No tags attached yet.</Text>
                   )}
                   <View style={styles.tagSearchWrap}>
-                    <TextInput value={tagInput} onChangeText={setTagInput} style={styles.tagSearchInput} placeholder="Search or create a tag..." placeholderTextColor="#94a3b8" />
+                    <TextInput value={tagInput} onChangeText={setTagInput} style={[styles.tagSearchInput, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder, color: colors.text }]} placeholder="Search or create a tag..." placeholderTextColor={colors.textMuted} />
                     <View style={styles.colorRow}>
                       {TAG_COLOR_OPTIONS.map((color) => (
-                        <Pressable key={color} onPress={() => setSelectedColor(color)} style={[styles.colorDot, { backgroundColor: color }, selectedColor === color && styles.colorDotActive]} />
+                        <Pressable key={color} onPress={() => setSelectedColor(color)} style={[styles.colorDot, { backgroundColor: color }, selectedColor === color && [styles.colorDotActive, { borderColor: colors.text }]]} />
                       ))}
                     </View>
                   </View>
                   <View style={styles.suggestedTags}>
                     {workspaceTags.filter((tag) => !conversationTagIds.has(tag.id)).slice(0, 12).map((tag) => (
-                      <Pressable key={tag.id} onPress={() => handleAttach(tag)} style={[styles.suggestChip, { borderColor: tag.color ?? '#cbd5e1' }]}>
-                        <Plus color={tag.color ?? '#64748b'} size={12} />
-                        <Text style={styles.suggestChipText}>{tag.text}</Text>
+                      <Pressable key={tag.id} onPress={() => handleAttach(tag)} style={[styles.suggestChip, { borderColor: tag.color ?? colors.cardBorder }]}>
+                        <Plus color={tag.color ?? colors.textSecondary} size={12} />
+                        <Text style={[styles.suggestChipText, { color: colors.textSecondary }]}>{tag.text}</Text>
                       </Pressable>
                     ))}
                   </View>
                   {tagInput.trim().length > 0 && !workspaceTags.some((tag) => tag.text.toLowerCase() === tagInput.trim().toLowerCase()) ? (
-                    <Pressable onPress={() => createTagMutation.mutate()} style={styles.createTagBtn}>
+                    <Pressable onPress={() => createTagMutation.mutate()} style={[styles.createTagBtn, { backgroundColor: colors.primary }]}>
                       {createTagMutation.isPending ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.createTagText}>Create tag "{tagInput.trim()}"</Text>}
                     </Pressable>
                   ) : null}
@@ -281,32 +283,32 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
               ) : null}
             </View>
 
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
               <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardTitle}>Notes</Text>
-                <Pressable onPress={() => setNotesOpen((v) => !v)} hitSlop={8} style={styles.collapseBtn}>{notesOpen ? <ChevronUp color="#64748b" size={16} /> : <ChevronDown color="#64748b" size={16} />}</Pressable>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>Notes</Text>
+                <Pressable onPress={() => setNotesOpen((v) => !v)} hitSlop={8} style={[styles.collapseBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>{notesOpen ? <ChevronUp color={colors.textSecondary} size={16} /> : <ChevronDown color={colors.textSecondary} size={16} />}</Pressable>
               </View>
               {notesOpen ? (
                 <View style={styles.notesBody}>
                   {notesQuery.isLoading ? <PanelSkeleton rows={3} /> : notes.length > 0 ? (
                     notes.map((note) => (
-                      <View key={note.id} style={styles.noteItem}>
+                      <View key={note.id} style={[styles.noteItem, { borderBottomColor: colors.separator }]}>
                         {editingNoteId === note.id ? (
                           <>
-                            <TextInput value={editingNoteDraft} onChangeText={setEditingNoteDraft} style={[styles.noteEditInput, { minHeight: 64 }]} multiline autoFocus />
+                            <TextInput value={editingNoteDraft} onChangeText={setEditingNoteDraft} style={[styles.noteEditInput, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder, color: colors.text }, { minHeight: 64 }]} multiline autoFocus />
                             <View style={styles.noteActions}>
-                              <Pressable onPress={saveEditingNote} hitSlop={6} style={styles.noteActionBtn}><Text style={styles.noteActionSave}>Save</Text></Pressable>
-                              <Pressable onPress={() => { setEditingNoteId(null); setEditingNoteDraft(''); }} hitSlop={6} style={styles.noteActionBtn}><Text style={styles.noteActionCancel}>Cancel</Text></Pressable>
+                              <Pressable onPress={saveEditingNote} hitSlop={6} style={styles.noteActionBtn}><Text style={[styles.noteActionSave, { color: colors.primary }]}>Save</Text></Pressable>
+                              <Pressable onPress={() => { setEditingNoteId(null); setEditingNoteDraft(''); }} hitSlop={6} style={styles.noteActionBtn}><Text style={[styles.noteActionCancel, { color: colors.textMuted }]}>Cancel</Text></Pressable>
                             </View>
                           </>
                         ) : (
                           <>
-                            <Text style={styles.noteText}>{note.content}</Text>
+                            <Text style={[styles.noteText, { color: colors.text }]}>{note.content}</Text>
                             <View style={styles.noteMetaRow}>
-                              <Text style={styles.noteMeta}>{note.author?.userName ?? note.author?.userEmail ?? 'Unknown'}</Text>
+                              <Text style={[styles.noteMeta, { color: colors.textMuted }]}>{note.author?.userName ?? note.author?.userEmail ?? 'Unknown'}</Text>
                               <View style={styles.noteMetaActions}>
-                                <Pressable onPress={() => { setEditingNoteId(note.id); setEditingNoteDraft(note.content); }} hitSlop={8}><Pencil color="#94a3b8" size={13} /></Pressable>
-                                <Pressable onPress={() => Alert.alert('Delete note', 'Are you sure?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => deleteNoteMutation.mutate(note.id) }])} hitSlop={8}><Text style={styles.noteDelete}>×</Text></Pressable>
+                                <Pressable onPress={() => { setEditingNoteId(note.id); setEditingNoteDraft(note.content); }} hitSlop={8}><Pencil color={colors.textMuted} size={13} /></Pressable>
+                                <Pressable onPress={() => Alert.alert('Delete note', 'Are you sure?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => deleteNoteMutation.mutate(note.id) }])} hitSlop={8}><Text style={[styles.noteDelete, { color: colors.error }]}>×</Text></Pressable>
                               </View>
                             </View>
                           </>
@@ -314,11 +316,11 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
                       </View>
                     ))
                   ) : (
-                    <Text style={styles.emptyText}>No notes yet.</Text>
+                    <Text style={[styles.emptyText, { color: colors.textMuted }]}>No notes yet.</Text>
                   )}
                   <View style={styles.noteComposer}>
-                    <TextInput value={noteDraft} onChangeText={setNoteDraft} style={styles.noteInput} placeholder="Add a note..." placeholderTextColor="#94a3b8" multiline />
-                    <Pressable onPress={saveNote} disabled={createNoteMutation.isPending || !noteDraft.trim()} style={[styles.noteAddBtn, (!noteDraft.trim() || createNoteMutation.isPending) && styles.noteAddBtnDisabled]}>
+                    <TextInput value={noteDraft} onChangeText={setNoteDraft} style={[styles.noteInput, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder, color: colors.text }]} placeholder="Add a note..." placeholderTextColor={colors.textMuted} multiline />
+                    <Pressable onPress={saveNote} disabled={createNoteMutation.isPending || !noteDraft.trim()} style={[styles.noteAddBtn, { backgroundColor: colors.primary }, (!noteDraft.trim() || createNoteMutation.isPending) && styles.noteAddBtnDisabled]}>
                       {createNoteMutation.isPending ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.noteAddText}>Add</Text>}
                     </Pressable>
                   </View>
@@ -326,16 +328,16 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
               ) : null}
             </View>
 
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
               <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardTitle}>Files</Text>
-                <Pressable onPress={() => setFilesOpen((v) => !v)} hitSlop={8} style={styles.collapseBtn}>{filesOpen ? <ChevronUp color="#64748b" size={16} /> : <ChevronDown color="#64748b" size={16} />}</Pressable>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>Files</Text>
+                <Pressable onPress={() => setFilesOpen((v) => !v)} hitSlop={8} style={[styles.collapseBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>{filesOpen ? <ChevronUp color={colors.textSecondary} size={16} /> : <ChevronDown color={colors.textSecondary} size={16} />}</Pressable>
               </View>
               {filesOpen ? (
                 <View style={styles.filesBody}>
-                  <View style={styles.filterTabs}>
-                    <Pressable onPress={() => setAttachmentFilter('MEDIA')} style={[styles.filterTab, attachmentFilter === 'MEDIA' && styles.filterTabActive]}><Text style={[styles.filterTabText, attachmentFilter === 'MEDIA' && styles.filterTabTextActive]}>Media ({mediaAttachments.length})</Text></Pressable>
-                    <Pressable onPress={() => setAttachmentFilter('DOCUMENTS')} style={[styles.filterTab, attachmentFilter === 'DOCUMENTS' && styles.filterTabActive]}><Text style={[styles.filterTabText, attachmentFilter === 'DOCUMENTS' && styles.filterTabTextActive]}>Documents ({documentAttachments.length})</Text></Pressable>
+                  <View style={[styles.filterTabs, { backgroundColor: colors.surfaceSecondary }]}>
+                    <Pressable onPress={() => setAttachmentFilter('MEDIA')} style={[styles.filterTab, attachmentFilter === 'MEDIA' && [styles.filterTabActive, { backgroundColor: colors.surface }]]}><Text style={[styles.filterTabText, { color: colors.textSecondary }, attachmentFilter === 'MEDIA' && [styles.filterTabTextActive, { color: colors.text }]]}>Media ({mediaAttachments.length})</Text></Pressable>
+                    <Pressable onPress={() => setAttachmentFilter('DOCUMENTS')} style={[styles.filterTab, attachmentFilter === 'DOCUMENTS' && [styles.filterTabActive, { backgroundColor: colors.surface }]]}><Text style={[styles.filterTabText, { color: colors.textSecondary }, attachmentFilter === 'DOCUMENTS' && [styles.filterTabTextActive, { color: colors.text }]]}>Documents ({documentAttachments.length})</Text></Pressable>
                   </View>
                   {attachmentsQuery.isLoading ? <PanelSkeleton rows={3} /> : attachmentFilter === 'MEDIA' ? (
                     mediaAttachments.length > 0 ? (
@@ -344,12 +346,12 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
                           const src = apiUrl(attachment.previewUrl ?? attachment.thumbnailUrl ?? attachment.downloadUrl ?? null);
                           return (
                             <Pressable key={attachment.id} onPress={() => setLightbox(src)} style={styles.mediaTile}>
-                              {src ? <AuthenticatedImage url={src} resizeMode="cover" style={styles.mediaThumb} /> : <View style={[styles.mediaThumb, styles.mediaThumbEmpty]}><Text style={styles.mediaThumbEmptyText}>{attachment.mediaType?.[0] ?? '?'}</Text></View>}
+                              {src ? <AuthenticatedImage url={src} resizeMode="cover" style={styles.mediaThumb} /> : <View style={[styles.mediaThumb, styles.mediaThumbEmpty, { backgroundColor: colors.surfaceSecondary }]}><Text style={[styles.mediaThumbEmptyText, { color: colors.textMuted }]}>{attachment.mediaType?.[0] ?? '?'}</Text></View>}
                             </Pressable>
                           );
                         })}
                       </View>
-                    ) : <Text style={styles.emptyText}>No media has been shared in this conversation yet.</Text>
+                    ) : <Text style={[styles.emptyText, { color: colors.textMuted }]}>No media has been shared in this conversation yet.</Text>
                   ) : documentAttachments.length > 0 ? (
                     documentAttachments.map((attachment) => {
                       const mime = (attachment.mimeType ?? '').toLowerCase();
@@ -358,30 +360,30 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
                       const isPdf = mime === 'application/pdf' || attachment.originalName?.toLowerCase().endsWith('.pdf');
                       const Icon = isVideo ? Film : isAudio ? Music : isPdf ? FileText : File;
                       return (
-                        <View key={attachment.id} style={styles.docRow}>
-                          <View style={[styles.docIcon, isPdf && styles.docIconPdf]}>
-                            <Icon color="#64748b" size={16} />
+                        <View key={attachment.id} style={[styles.docRow, { borderColor: colors.cardBorder }]}>
+                          <View style={[styles.docIcon, { backgroundColor: colors.surfaceSecondary }, isPdf && styles.docIconPdf]}>
+                            <Icon color={colors.textSecondary} size={16} />
                           </View>
                           <View style={styles.docInfo}>
-                            <Text style={styles.docName} numberOfLines={1}>{attachment.originalName ?? 'Attachment'}</Text>
-                            <Text style={styles.docMeta}>{formatAttachmentSize(attachment.sizeBytes) ?? 'Unknown size'}</Text>
+                            <Text style={[styles.docName, { color: colors.text }]} numberOfLines={1}>{attachment.originalName ?? 'Attachment'}</Text>
+                            <Text style={[styles.docMeta, { color: colors.textMuted }]}>{formatAttachmentSize(attachment.sizeBytes) ?? 'Unknown size'}</Text>
                           </View>
                           <Pressable onPress={() => downloadDocument(attachment)} disabled={downloadingId === attachment.id} hitSlop={8} style={styles.docDownload}>
-                            {downloadingId === attachment.id ? <ActivityIndicator color="#2563eb" size="small" /> : <Download color="#64748b" size={15} />}
+                            {downloadingId === attachment.id ? <ActivityIndicator color={colors.primary} size="small" /> : <Download color={colors.textSecondary} size={15} />}
                           </Pressable>
                         </View>
                       );
                     })
-                  ) : <Text style={styles.emptyText}>No documents have been shared in this conversation yet.</Text>}
+                  ) : <Text style={[styles.emptyText, { color: colors.textMuted }]}>No documents have been shared in this conversation yet.</Text>}
                 </View>
               ) : null}
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-        <View style={[styles.statusBar, { paddingBottom: insets.bottom + 14 }]}>
-          <Pressable onPress={onToggleStatus} disabled={isUpdatingStatus} style={[styles.statusBtn, conversation.status === 'CLOSED' ? styles.statusBtnClosed : styles.statusBtnOpen]}>
-            {isUpdatingStatus ? <ActivityIndicator color={conversation.status === 'CLOSED' ? '#2563eb' : '#10b981'} size="small" /> : conversation.status === 'CLOSED' ? <RotateCcw color="#2563eb" size={17} /> : <Check color="#10b981" size={17} />}
-            <Text style={[styles.statusBtnText, conversation.status === 'CLOSED' ? styles.statusBtnTextClosed : styles.statusBtnTextOpen]}>{conversation.status === 'CLOSED' ? 'Reopen conversation' : 'Mark as closed'}</Text>
+        <View style={[styles.statusBar, { backgroundColor: colors.surface, borderTopColor: colors.cardBorder, paddingBottom: insets.bottom + 14 }]}>
+          <Pressable onPress={onToggleStatus} disabled={isUpdatingStatus} style={[styles.statusBtn, conversation.status === 'CLOSED' ? [styles.statusBtnClosed, { backgroundColor: colors.surface }] : styles.statusBtnOpen]}>
+            {isUpdatingStatus ? <ActivityIndicator color={conversation.status === 'CLOSED' ? colors.primary : '#10b981'} size="small" /> : conversation.status === 'CLOSED' ? <RotateCcw color={colors.primary} size={17} /> : <Check color="#10b981" size={17} />}
+            <Text style={[styles.statusBtnText, conversation.status === 'CLOSED' ? [styles.statusBtnTextClosed, { color: colors.primary }] : styles.statusBtnTextOpen]}>{conversation.status === 'CLOSED' ? 'Reopen conversation' : 'Mark as closed'}</Text>
           </Pressable>
         </View>
       </DrawerShell>
@@ -395,6 +397,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
 }
 
 function DrawerShell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+  const { colors } = useTheme();
   const translateY = useRef(new Animated.Value(700)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -408,7 +411,7 @@ function DrawerShell({ children, onClose }: { children: React.ReactNode; onClose
       <Animated.View style={[styles.drawerBackdrop, { opacity }]}>
         <Pressable style={styles.drawerBackdropPress} onPress={onClose} />
       </Animated.View>
-      <Animated.View style={[styles.drawer, { transform: [{ translateY }] }]}>
+      <Animated.View style={[styles.drawer, { transform: [{ translateY }], backgroundColor: colors.surface }]}>
         {children}
       </Animated.View>
     </View>

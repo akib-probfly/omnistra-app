@@ -13,6 +13,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../theme/ThemeContext';
 import {
   confirmReturnedPipraPayPayment,
   fetchBillingPlans,
@@ -80,6 +81,7 @@ export function BillingSettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList>>();
   const route = useRoute<RouteProp<SettingsStackParamList, 'Billing'>>();
   const queryClient = useQueryClient();
+  const { colors } = useTheme();
   const initialTab = route.params?.tab ?? 'current';
   const [tab, setTab] = useState<BillingTab>(initialTab);
   const [packageCycle, setPackageCycle] = useState<BillingInterval>('monthly');
@@ -230,23 +232,23 @@ export function BillingSettingsScreen() {
   };
 
   return (
-    <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.backButton}>
-          <ArrowLeft color="#0f172a" size={22} />
+          <ArrowLeft color={colors.text} size={22} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={styles.headerTitle}>Billing</Text>
-          <Text style={styles.headerSubtitle}>Plans, invoices, and subscription history</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Billing</Text>
+          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Plans, invoices, and subscription history</Text>
         </View>
       </View>
 
-      <View style={styles.tabs}>
+      <View style={[styles.tabs, { backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         {TABS.map((item) => {
           const active = tab === item.id;
           return (
-            <Pressable key={item.id} style={[styles.tab, active && styles.tabActive]} onPress={() => setTab(item.id)}>
-              <Text style={[styles.tabText, active && styles.tabTextActive]}>{item.label}</Text>
+            <Pressable key={item.id} style={[styles.tab, { backgroundColor: colors.surfaceSecondary }, active && styles.tabActive]} onPress={() => setTab(item.id)}>
+              <Text style={[styles.tabText, { color: colors.textSecondary }, active && styles.tabTextActive]}>{item.label}</Text>
             </Pressable>
           );
         })}
@@ -262,7 +264,7 @@ export function BillingSettingsScreen() {
       ) : (
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         >
           {tab === 'current' ? (
             subscriptionQuery.isLoading || usageQuery.isLoading ? (
@@ -301,20 +303,20 @@ export function BillingSettingsScreen() {
             ) : (
               <>
                 <View style={styles.packagesIntro}>
-                  <Text style={styles.packagesTitle}>Build the perfect customer experience suite</Text>
-                  <Text style={styles.packagesSubtitle}>
+                  <Text style={[styles.packagesTitle, { color: colors.text }]}>Build the perfect customer experience suite</Text>
+                  <Text style={[styles.packagesSubtitle, { color: colors.textSecondary }]}>
                     Unify Customer Service, Generative AI Chatbot, Workflows, and Campaign Management into one subscription.
                   </Text>
-                  <View style={styles.cycleToggle}>
+                  <View style={[styles.cycleToggle, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
                     {(['monthly', 'yearly'] as const).map((cycle) => {
                       const active = packageCycle === cycle;
                       return (
                         <Pressable
                           key={cycle}
-                          style={[styles.cycleOption, active && styles.cycleOptionActive]}
+                          style={[styles.cycleOption, active && { backgroundColor: colors.primary }]}
                           onPress={() => setPackageCycle(cycle)}
                         >
-                          <Text style={[styles.cycleOptionText, active && styles.cycleOptionTextActive]}>
+                          <Text style={[styles.cycleOptionText, { color: colors.textSecondary }, active && styles.cycleOptionTextActive]}>
                             {cycle === 'monthly' ? 'Pay monthly' : 'Pay yearly'}
                           </Text>
                         </Pressable>
@@ -366,10 +368,10 @@ export function BillingSettingsScreen() {
             ) : invoicesQuery.isError ? (
               <ErrorState message="Unable to load invoices." onRetry={() => invoicesQuery.refetch()} />
             ) : (invoicesQuery.data?.items?.length ?? 0) === 0 ? (
-              <View style={styles.emptyCard}>
-                <Receipt color="#94a3b8" size={28} />
-                <Text style={styles.emptyTitle}>No invoices yet</Text>
-                <Text style={styles.emptyBody}>Paid invoices for this workspace will appear here.</Text>
+              <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+                <Receipt color={colors.textMuted} size={28} />
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>No invoices yet</Text>
+                <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>Paid invoices for this workspace will appear here.</Text>
               </View>
             ) : (
               (invoicesQuery.data?.items ?? []).map((invoice, invoiceIndex) => (
@@ -384,10 +386,10 @@ export function BillingSettingsScreen() {
             ) : historyQuery.isError ? (
               <ErrorState message="Unable to load subscription history." onRetry={() => historyQuery.refetch()} />
             ) : (historyQuery.data?.items?.length ?? 0) === 0 ? (
-              <View style={styles.emptyCard}>
-                <Package color="#94a3b8" size={28} />
-                <Text style={styles.emptyTitle}>No subscription history</Text>
-                <Text style={styles.emptyBody}>Past subscriptions for this workspace will show up here.</Text>
+              <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+                <Package color={colors.textMuted} size={28} />
+                <Text style={[styles.emptyTitle, { color: colors.text }]}>No subscription history</Text>
+                <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>Past subscriptions for this workspace will show up here.</Text>
               </View>
             ) : (
               (historyQuery.data?.items ?? []).map((item, historyIndex) => (
@@ -432,6 +434,7 @@ function CurrentPlanSection({
   usage: WorkspaceUsage | null;
   onBrowsePackages: () => void;
 }) {
+  const { colors } = useTheme();
   const statusLabel = isTrialing
     ? 'Free Trial'
     : resolvedStatus
@@ -450,34 +453,34 @@ function CurrentPlanSection({
 
   return (
     <>
-      <View style={[styles.planHero, isExpired && styles.planHeroExpired]}>
+      <View style={[styles.planHero, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, isExpired && styles.planHeroExpired]}>
         <View style={styles.planHeroTop}>
-          <View style={styles.planHeroIcon}>
-            {isTrialing ? <Sparkles color="#2563eb" size={18} /> : <CreditCard color="#2563eb" size={18} />}
+          <View style={[styles.planHeroIcon, { backgroundColor: colors.surfaceSecondary }]}>
+            {isTrialing ? <Sparkles color={colors.primary} size={18} /> : <CreditCard color={colors.primary} size={18} />}
           </View>
           <View style={[styles.statusPill, { backgroundColor: statusColors.bg }]}>
             <Text style={[styles.statusPillText, { color: statusColors.text }]}>{statusLabel}</Text>
           </View>
         </View>
 
-        <Text style={styles.planHeroEyebrow}>
+        <Text style={[styles.planHeroEyebrow, { color: colors.textSecondary }]}>
           {isTrialing ? 'Trial' : isExpired ? 'Subscription expired' : 'Current plan'}
         </Text>
-        <Text style={styles.planHeroName}>{planName}</Text>
-        <Text style={styles.planHeroSubtitle}>{subtitle}</Text>
+        <Text style={[styles.planHeroName, { color: colors.text }]}>{planName}</Text>
+        <Text style={[styles.planHeroSubtitle, { color: colors.textSecondary }]}>{subtitle}</Text>
 
         {planPrice ? (
-          <View style={styles.priceChip}>
-            <Text style={styles.priceChipValue}>{planPrice}</Text>
-            <Text style={styles.priceChipSuffix}>{planPriceSuffix}</Text>
-            <Text style={styles.priceChipCycle}>· {titleCase(billingCycle)}</Text>
+          <View style={[styles.priceChip, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.priceChipValue, { color: colors.primary }]}>{planPrice}</Text>
+            <Text style={[styles.priceChipSuffix, { color: colors.textSecondary }]}>{planPriceSuffix}</Text>
+            <Text style={[styles.priceChipCycle, { color: colors.textMuted }]}>· {titleCase(billingCycle)}</Text>
           </View>
         ) : null}
 
         {(periodStart || periodEnd) ? (
           <View style={styles.metaRow}>
-            <CalendarDays color="#64748b" size={14} />
-            <Text style={styles.metaText}>
+            <CalendarDays color={colors.textSecondary} size={14} />
+            <Text style={[styles.metaText, { color: colors.textSecondary }]}>
               {formatBillingDate(periodStart)} – {formatBillingDate(periodEnd)}
             </Text>
           </View>
@@ -501,16 +504,16 @@ function CurrentPlanSection({
           </View>
         ) : null}
 
-        <Pressable style={styles.primaryButton} onPress={onBrowsePackages}>
+        <Pressable style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={onBrowsePackages}>
           <Text style={styles.primaryButtonText}>
             {isExpired || isTrialing ? 'View packages' : 'Change plan'}
           </Text>
         </Pressable>
       </View>
 
-      <View style={[styles.card, isExpired && styles.usageCardExpired]}>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, isExpired && styles.usageCardExpired]}>
         <View style={styles.usageTitleRow}>
-          <Text style={styles.cardTitle}>Current usage</Text>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Current usage</Text>
           {isExpired ? (
             <View style={[styles.statusPill, { backgroundColor: '#fffbeb' }]}>
               <Text style={[styles.statusPillText, { color: '#b45309' }]}>Expired snapshot</Text>
@@ -534,6 +537,7 @@ function CurrentPlanSection({
 }
 
 function UsageRow({ label, count, limit }: { label: string; count: number; limit: number | null }) {
+  const { colors } = useTheme();
   const percent = usagePercent(count, limit);
   const isNearLimit = limit != null && percent >= 80 && percent < 100;
   const isOverLimit = limit != null && percent >= 100;
@@ -543,14 +547,14 @@ function UsageRow({ label, count, limit }: { label: string; count: number; limit
     : `${formatNumber(count)} / ${formatNumber(limit)}`;
 
   return (
-    <View style={styles.usageCard}>
+    <View style={[styles.usageCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
       <View style={styles.usageHeader}>
-        <Text style={styles.usageLabel}>{label}</Text>
-        <Text style={styles.usageValue}>{valueLabel}</Text>
+        <Text style={[styles.usageLabel, { color: colors.text }]}>{label}</Text>
+        <Text style={[styles.usageValue, { color: colors.textSecondary }]}>{valueLabel}</Text>
       </View>
       {limit != null ? (
         <>
-          <View style={styles.usageTrack}>
+          <View style={[styles.usageTrack, { backgroundColor: colors.surfaceSecondary }]}>
             <View style={[styles.usageFill, { width: `${percent}%`, backgroundColor: fillColor }]} />
           </View>
           {isOverLimit ? (
@@ -579,6 +583,7 @@ function PlanCard({
   hasScheduledDowngrade: boolean;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
   const unavailable = Boolean(plan.intervals) && !getPlanInterval(plan, cycle);
   const price = unavailable ? 'Unavailable' : getPlanPrice(plan, cycle) ?? '—';
   const features = getPlanFeatures(plan, cycle).slice(0, 5);
@@ -594,14 +599,14 @@ function PlanCard({
         : plan.buttonLabel ?? 'View details';
 
   return (
-    <View style={[styles.packageCard, (plan.highlighted || isCurrent) && styles.cardHighlight]}>
+    <View style={[styles.packageCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, (plan.highlighted || isCurrent) && { borderColor: colors.primary }]}>
       {plan.badge ? (
         <View style={styles.packageBadge}>
           <Text style={styles.packageBadgeText}>{plan.badge}</Text>
         </View>
       ) : null}
       <View style={styles.planHeader}>
-        <Text style={styles.planName}>{plan.name}</Text>
+        <Text style={[styles.planName, { color: colors.text }]}>{plan.name}</Text>
         {isCurrent ? (
           <View style={[styles.statusPill, { backgroundColor: isCurrentTrial ? '#fffbeb' : '#dcfce7' }]}>
             <Text style={[styles.statusPillText, { color: isCurrentTrial ? '#b45309' : '#15803d' }]}>
@@ -610,17 +615,17 @@ function PlanCard({
           </View>
         ) : null}
       </View>
-      <Text style={styles.cardBody}>{plan.description}</Text>
-      <Text style={styles.priceLine}>
+      <Text style={[styles.cardBody, { color: colors.textSecondary }]}>{plan.description}</Text>
+      <Text style={[styles.priceLine, { color: colors.primary }]}>
         {price}
-        {!unavailable ? <Text style={styles.priceSuffix}> {cycle === 'yearly' ? '/yr' : '/mo'}</Text> : null}
+        {!unavailable ? <Text style={[styles.priceSuffix, { color: colors.textSecondary }]}> {cycle === 'yearly' ? '/yr' : '/mo'}</Text> : null}
       </Text>
       <Pressable
-        style={[styles.packageCta, disabled && styles.packageCtaDisabled]}
+        style={[styles.packageCta, { backgroundColor: colors.primary }, disabled && { backgroundColor: colors.surface, borderColor: colors.cardBorder, borderWidth: 1 }]}
         disabled={disabled}
         onPress={onPress}
       >
-        <Text style={[styles.packageCtaText, disabled && styles.packageCtaTextDisabled]}>{cta}</Text>
+        <Text style={[styles.packageCtaText, disabled && { color: colors.textSecondary }]}>{cta}</Text>
       </Pressable>
       <View style={styles.featureList}>
         {features.map((feature, featureIndex) => (
@@ -628,14 +633,14 @@ function PlanCard({
             key={`${plan.id || plan.key}-${feature.key || feature.label || 'feature'}-${featureIndex}`}
             style={styles.featureItem}
           >
-            <Check color="#2563eb" size={14} />
-            <Text style={styles.featureLine}>{formatFeatureLabel(feature, cycle)}</Text>
+            <Check color={colors.primary} size={14} />
+            <Text style={[styles.featureLine, { color: colors.textSecondary }]}>{formatFeatureLabel(feature, cycle)}</Text>
           </View>
         ))}
       </View>
       {!hasScheduledDowngrade && !unavailable ? (
         <Pressable onPress={onPress} style={styles.viewDetailsLink}>
-          <Text style={styles.viewDetailsText}>View plan details</Text>
+          <Text style={[styles.viewDetailsText, { color: colors.primary }]}>View plan details</Text>
         </Pressable>
       ) : null}
     </View>
@@ -643,18 +648,19 @@ function PlanCard({
 }
 
 function InvoiceRow({ invoice }: { invoice: WorkspaceInvoice }) {
+  const { colors } = useTheme();
   const tone = statusTone(String(invoice.status));
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
       <View style={styles.rowBetween}>
-        <Text style={styles.planName}>{formatCents(invoice.amountCents, invoice.currency)}</Text>
+        <Text style={[styles.planName, { color: colors.text }]}>{formatCents(invoice.amountCents, invoice.currency)}</Text>
         <View style={[styles.statusPill, { backgroundColor: tone.bg }]}>
           <Text style={[styles.statusPillText, { color: tone.text }]}>{String(invoice.status)}</Text>
         </View>
       </View>
-      <Text style={styles.muted}>{formatBillingDate(invoice.paidAt ?? invoice.createdAt)}</Text>
+      <Text style={[styles.muted, { color: colors.textSecondary }]}>{formatBillingDate(invoice.paidAt ?? invoice.createdAt)}</Text>
       {(invoice.periodStart || invoice.periodEnd) ? (
-        <Text style={styles.muted}>
+        <Text style={[styles.muted, { color: colors.textSecondary }]}>
           {formatBillingDate(invoice.periodStart)} – {formatBillingDate(invoice.periodEnd)}
         </Text>
       ) : null}
@@ -663,17 +669,18 @@ function InvoiceRow({ invoice }: { invoice: WorkspaceInvoice }) {
 }
 
 function HistoryRow({ item }: { item: SubscriptionView }) {
+  const { colors } = useTheme();
   const tone = statusTone(String(item.status));
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
       <View style={styles.rowBetween}>
-        <Text style={styles.planName}>{item.planKey}</Text>
+        <Text style={[styles.planName, { color: colors.text }]}>{item.planKey}</Text>
         <View style={[styles.statusPill, { backgroundColor: tone.bg }]}>
           <Text style={[styles.statusPillText, { color: tone.text }]}>{String(item.status)}</Text>
         </View>
       </View>
-      <Text style={styles.muted}>{String(item.billingCycle).toLowerCase()}</Text>
-      <Text style={styles.muted}>
+      <Text style={[styles.muted, { color: colors.textSecondary }]}>{String(item.billingCycle).toLowerCase()}</Text>
+      <Text style={[styles.muted, { color: colors.textSecondary }]}>
         {formatBillingDate(item.currentPeriodStart)} – {formatBillingDate(item.currentPeriodEnd)}
       </Text>
     </View>

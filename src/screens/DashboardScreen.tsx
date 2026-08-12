@@ -31,6 +31,25 @@ const RANGE_LABELS: Record<RangePreset, string> = { today: 'Today', '7d': '7 Day
 const INITIAL_VISIBLE_CHANNELS = 6;
 const TONE_COLORS = { healthy: '#22c55e', degraded: '#f59e0b', warning: '#ef4444', offline: '#94a3b8' };
 
+function mixHex(hex: string, target: string, amount: number) {
+  const parse = (value: string) => {
+    let normalized = value.replace('#', '');
+    if (normalized.length === 3) normalized = normalized.split('').map((c) => c + c).join('');
+    return normalized;
+  };
+  const from = parse(hex);
+  const to = parse(target);
+  const a = [parseInt(from.slice(0, 2), 16), parseInt(from.slice(2, 4), 16), parseInt(from.slice(4, 6), 16)];
+  const b = [parseInt(to.slice(0, 2), 16), parseInt(to.slice(2, 4), 16), parseInt(to.slice(4, 6), 16)];
+  const out = a.map((v, i) => Math.round(v * (1 - amount) + b[i] * amount));
+  return `#${out.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/** Dark, tinted version of a light gradient so Uber cards stay colorful but readable in dark mode. */
+function darkGradient(light: [string, string]): [string, string] {
+  return [mixHex(light[0], '#0f172a', 0.6), mixHex(light[1], '#0f172a', 0.6)];
+}
+
 function startOfDay(value: Date) {
   const next = new Date(value);
   next.setHours(0, 0, 0, 0);
@@ -306,7 +325,7 @@ function UberCard({
   onDark?: boolean;
   valueColor?: string;
 }) {
-  const effectiveOnDark = isDark ? false : onDark;
+  const effectiveOnDark = isDark ? true : onDark;
   return (
     <View style={[styles.uberCard, { width }]}>
       <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.uberPoster}>
@@ -435,10 +454,10 @@ function TeamCommandCenter({ data, colors, isDark }: { data: DashboardResponse |
   ];
   const list = filter === 'all' ? enriched : enriched.filter((row) => row.status === filter);
   const teamStats = [
-    { label: 'Available now', value: `${availableNow}/${totalMembers}`, note: 'Agents ready to take conversations', colors: isDark ? [colors.surface, colors.surfaceSecondary] as [string, string] : ['#047857', '#34d399'] as [string, string], Icon: UserCheck },
-    { label: 'Assigned load', value: formatNumber(totalAssigned), note: 'Conversations currently with agents', colors: isDark ? [colors.surface, colors.surfaceSecondary] as [string, string] : ['#1d4ed8', '#60a5fa'] as [string, string], Icon: Inbox },
-    { label: 'Still open', value: formatNumber(totalOpen), note: 'Waiting on a reply from the team', colors: isDark ? [colors.surface, colors.surfaceSecondary] as [string, string] : ['#c2410c', '#fb923c'] as [string, string], Icon: MessageSquareText },
-    { label: 'Avg response', value: avgResponseLabel, note: `${teamProgress}% team progress · ${formatNumber(totalReplied)} replied`, colors: isDark ? [colors.surface, colors.surfaceSecondary] as [string, string] : ['#6d28d9', '#a78bfa'] as [string, string], Icon: Clock3 },
+    { label: 'Available now', value: `${availableNow}/${totalMembers}`, note: 'Agents ready to take conversations', colors: isDark ? darkGradient(['#047857', '#34d399']) : ['#047857', '#34d399'] as [string, string], Icon: UserCheck },
+    { label: 'Assigned load', value: formatNumber(totalAssigned), note: 'Conversations currently with agents', colors: isDark ? darkGradient(['#1d4ed8', '#60a5fa']) : ['#1d4ed8', '#60a5fa'] as [string, string], Icon: Inbox },
+    { label: 'Still open', value: formatNumber(totalOpen), note: 'Waiting on a reply from the team', colors: isDark ? darkGradient(['#c2410c', '#fb923c']) : ['#c2410c', '#fb923c'] as [string, string], Icon: MessageSquareText },
+    { label: 'Avg response', value: avgResponseLabel, note: `${teamProgress}% team progress · ${formatNumber(totalReplied)} replied`, colors: isDark ? darkGradient(['#6d28d9', '#a78bfa']) : ['#6d28d9', '#a78bfa'] as [string, string], Icon: Clock3 },
   ];
 
   return (
@@ -611,7 +630,7 @@ function MetricCard({
       valueColor={color}
       icon={<Icon color={color} size={20} strokeWidth={2.2} />}
       footerBadge={delta?.label ? (
-        <Text style={[styles.uberDelta, delta.positive ? styles.deltaPositive : styles.deltaNegative]} numberOfLines={1}>
+        <Text style={[styles.uberDelta, isDark ? (delta.positive ? styles.deltaPositiveDark : styles.deltaNegativeDark) : (delta.positive ? styles.deltaPositive : styles.deltaNegative)]} numberOfLines={1}>
           {delta.label}
         </Text>
       ) : undefined}
@@ -626,6 +645,7 @@ function MetricCarousel({
   title,
   subtitle,
   metrics,
+  colors,
   isDark,
 }: {
   title: string;
@@ -639,13 +659,14 @@ function MetricCarousel({
     Icon: typeof MessageSquareText;
     delta: { label: string | null; positive: boolean } | null;
   }>;
+  colors: ThemeColors;
   isDark: boolean;
 }) {
   const { width: windowWidth } = useWindowDimensions();
   const cardWidth = Math.min(248, Math.max(210, windowWidth * 0.62));
 
   return (
-    <CarouselSection title={title} subtitle={subtitle}>
+    <CarouselSection title={title} subtitle={subtitle} colors={colors}>
       <HScroll>
         {metrics.map((metric) => (
           <MetricCard key={metric.label} {...metric} width={cardWidth} isDark={isDark} />
@@ -681,19 +702,19 @@ export function DashboardScreen() {
     const respCmp = compareValues(snapshot.response.previous, snapshot.response.current, false);
     const rateCmp = compareValues(snapshot.rate.previous, snapshot.rate.current, true);
     return [
-      { label: 'Conversations', value: formatNumber(summary?.totalConversations), note: 'vs prior period', color: isDark ? colors.text : '#3f6212', colors: isDark ? [colors.surface, colors.surfaceSecondary] as [string, string] : ['#ecfccb', '#a3e635'] as [string, string], Icon: MessageSquareText, delta: totalCmp },
-      { label: 'Unique contacts', value: formatNumber(summary?.uniqueContactsCreated), note: 'in range', color: isDark ? colors.text : '#9a3412', colors: isDark ? [colors.surface, colors.surfaceSecondary] as [string, string] : ['#ffedd5', '#fb923c'] as [string, string], Icon: Users, delta: null },
-      { label: 'Unassigned', value: formatNumber(summary?.unassignedConversations), note: 'needs owner', color: isDark ? colors.text : '#075985', colors: isDark ? [colors.surface, colors.surfaceSecondary] as [string, string] : ['#e0f2fe', '#38bdf8'] as [string, string], Icon: Inbox, delta: null },
-      { label: 'Assigned', value: formatNumber(summary?.assignedConversations), note: 'with agents', color: isDark ? colors.text : '#166534', colors: isDark ? [colors.surface, colors.surfaceSecondary] as [string, string] : ['#dcfce7', '#4ade80'] as [string, string], Icon: UserCheck, delta: null },
-      { label: 'First response', value: formatDuration(summary?.avgFirstResponseMinutes ?? null), note: 'vs prior period', color: isDark ? colors.text : '#991b1b', colors: isDark ? [colors.surface, colors.surfaceSecondary] as [string, string] : ['#fee2e2', '#f87171'] as [string, string], Icon: Clock3, delta: respCmp },
-      { label: 'Resolution rate', value: `${(summary?.resolutionRate ?? 0).toFixed(1)}%`, note: 'vs prior period', color: isDark ? colors.text : '#065f46', colors: isDark ? [colors.surface, colors.surfaceSecondary] as [string, string] : ['#d1fae5', '#34d399'] as [string, string], Icon: Percent, delta: rateCmp },
+      { label: 'Conversations', value: formatNumber(summary?.totalConversations), note: 'vs prior period', color: isDark ? '#d9f99d' : '#3f6212', colors: isDark ? darkGradient(['#ecfccb', '#a3e635']) : ['#ecfccb', '#a3e635'] as [string, string], Icon: MessageSquareText, delta: totalCmp },
+      { label: 'Unique contacts', value: formatNumber(summary?.uniqueContactsCreated), note: 'in range', color: isDark ? '#fdba74' : '#9a3412', colors: isDark ? darkGradient(['#ffedd5', '#fb923c']) : ['#ffedd5', '#fb923c'] as [string, string], Icon: Users, delta: null },
+      { label: 'Unassigned', value: formatNumber(summary?.unassignedConversations), note: 'needs owner', color: isDark ? '#7dd3fc' : '#075985', colors: isDark ? darkGradient(['#e0f2fe', '#38bdf8']) : ['#e0f2fe', '#38bdf8'] as [string, string], Icon: Inbox, delta: null },
+      { label: 'Assigned', value: formatNumber(summary?.assignedConversations), note: 'with agents', color: isDark ? '#86efac' : '#166534', colors: isDark ? darkGradient(['#dcfce7', '#4ade80']) : ['#dcfce7', '#4ade80'] as [string, string], Icon: UserCheck, delta: null },
+      { label: 'First response', value: formatDuration(summary?.avgFirstResponseMinutes ?? null), note: 'vs prior period', color: isDark ? '#fca5a5' : '#991b1b', colors: isDark ? darkGradient(['#fee2e2', '#f87171']) : ['#fee2e2', '#f87171'] as [string, string], Icon: Clock3, delta: respCmp },
+      { label: 'Resolution rate', value: `${(summary?.resolutionRate ?? 0).toFixed(1)}%`, note: 'vs prior period', color: isDark ? '#6ee7b7' : '#065f46', colors: isDark ? darkGradient(['#d1fae5', '#34d399']) : ['#d1fae5', '#34d399'] as [string, string], Icon: Percent, delta: rateCmp },
     ];
   }, [summary, snapshot, isDark, colors]);
 
   const overview = [
-    { label: 'Conversations', value: formatNumber(summary?.totalConversations), note: 'Total in selected range', colors: isDark ? [colors.surface, colors.surfaceSecondary] as [string, string] : ['#1d4ed8', '#60a5fa'] as [string, string], Icon: MessageSquareText },
-    { label: 'Channels', value: formatNumber(channelsCount), note: 'Connected in workspace', colors: isDark ? [colors.surface, colors.surfaceSecondary] as [string, string] : ['#0f766e', '#2dd4bf'] as [string, string], Icon: Wifi },
-    { label: 'Team', value: formatNumber(teamMembers), note: 'Agents in command center', colors: isDark ? [colors.surface, colors.surfaceSecondary] as [string, string] : ['#7c3aed', '#c4b5fd'] as [string, string], Icon: Users },
+    { label: 'Conversations', value: formatNumber(summary?.totalConversations), note: 'Total in selected range', colors: isDark ? darkGradient(['#1d4ed8', '#60a5fa']) : ['#1d4ed8', '#60a5fa'] as [string, string], Icon: MessageSquareText },
+    { label: 'Channels', value: formatNumber(channelsCount), note: 'Connected in workspace', colors: isDark ? darkGradient(['#0f766e', '#2dd4bf']) : ['#0f766e', '#2dd4bf'] as [string, string], Icon: Wifi },
+    { label: 'Team', value: formatNumber(teamMembers), note: 'Agents in command center', colors: isDark ? darkGradient(['#7c3aed', '#c4b5fd']) : ['#7c3aed', '#c4b5fd'] as [string, string], Icon: Users },
   ];
 
   const applySearch = () => setSearch(searchInput.trim());
@@ -769,7 +790,7 @@ export function DashboardScreen() {
               </HScroll>
             </CarouselSection>
 
-            <MetricCarousel title="Key metrics" metrics={metrics} isDark={isDark} />
+            <MetricCarousel title="Key metrics" metrics={metrics} colors={colors} isDark={isDark} />
 
             <Section
               title="Conversation volume"
@@ -1026,6 +1047,8 @@ const styles = StyleSheet.create({
   },
   deltaPositive: { color: '#059669' },
   deltaNegative: { color: '#dc2626' },
+  deltaPositiveDark: { color: '#4ade80' },
+  deltaNegativeDark: { color: '#fca5a5' },
 
   legend: { flexDirection: 'row', gap: 16, marginBottom: 8 },
   legendItem: { alignItems: 'center', flexDirection: 'row', gap: 6 },

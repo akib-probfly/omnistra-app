@@ -12,6 +12,7 @@ import {
   type ChannelQuickAutomationSettings,
   type ChannelType,
 } from '../api/channels';
+import { useTheme } from '../theme/ThemeContext';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 const FREQUENCIES = [
@@ -42,6 +43,7 @@ function toTimeString(date: Date) {
 }
 
 export function QuickAutomationTab({ channelId, channelType }: { channelId: string; channelType: ChannelType }) {
+  const { colors } = useTheme();
   const queryClient = useQueryClient();
   const settingsQuery = useQuery({
     queryKey: ['channel-automation', channelId],
@@ -102,37 +104,37 @@ export function QuickAutomationTab({ channelId, channelType }: { channelId: stri
   const channelLabel = channelType === 'MESSENGER' ? 'Messenger' : 'WhatsApp';
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
-      <View style={styles.card}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.content}>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
         <View style={styles.cardHead}>
-          <Zap color="#2563eb" size={18} />
-          <Text style={styles.cardTitle}>Welcome message</Text>
+          <Zap color={colors.primary} size={18} />
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Welcome message</Text>
         </View>
-        <Text style={styles.cardSub}>
+        <Text style={[styles.cardSub, { color: colors.textSecondary }]}>
           Sent automatically when a customer messages this {channelLabel} channel for the first time.
         </Text>
 
         <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>Enabled</Text>
+          <Text style={[styles.toggleLabel, { color: colors.text }]}>Enabled</Text>
           <AppToggle value={draft.welcomeEnabled} onValueChange={(value) => setDraft({ ...draft, welcomeEnabled: value })} accessibilityLabel="Welcome message enabled" />
         </View>
 
         {draft.welcomeEnabled ? (
           <>
-            <Text style={styles.fieldLabel}>Message</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Message</Text>
             <TextInput
               value={draft.welcomeMessage}
               onChangeText={(text) => setDraft({ ...draft, welcomeMessage: text })}
               placeholder="Hi {{name}}! Thanks for reaching out..."
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={colors.textMuted}
               multiline
-              style={styles.inputMultiline}
+              style={[styles.inputMultiline, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]}
             />
-            <Text style={styles.fieldLabel}>Send frequency</Text>
-            <View style={styles.segment}>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Send frequency</Text>
+            <View style={[styles.segment, { backgroundColor: colors.surfaceSecondary }]}>
               {FREQUENCIES.map((option) => (
-                <Pressable key={option.value} onPress={() => setDraft({ ...draft, welcomeSendFrequency: option.value })} style={[styles.segmentOption, draft.welcomeSendFrequency === option.value && styles.segmentOptionActive]}>
-                  <Text style={[styles.segmentText, draft.welcomeSendFrequency === option.value && styles.segmentTextActive]}>{option.label}</Text>
+                <Pressable key={option.value} onPress={() => setDraft({ ...draft, welcomeSendFrequency: option.value })} style={[styles.segmentOption, draft.welcomeSendFrequency === option.value && { backgroundColor: colors.surface }]}>
+                  <Text style={[styles.segmentText, { color: colors.textSecondary }, draft.welcomeSendFrequency === option.value && { color: colors.primary }]}>{option.label}</Text>
                 </Pressable>
               ))}
             </View>
@@ -140,35 +142,35 @@ export function QuickAutomationTab({ channelId, channelType }: { channelId: stri
         ) : null}
       </View>
 
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
         <View style={styles.cardHead}>
-          <Text style={styles.cardTitle}>Off-hour message</Text>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Off-hour message</Text>
         </View>
-        <Text style={styles.cardSub}>Sent when a customer messages outside your business hours.</Text>
+        <Text style={[styles.cardSub, { color: colors.textSecondary }]}>Sent when a customer messages outside your business hours.</Text>
 
         <View style={styles.toggleRow}>
-          <Text style={styles.toggleLabel}>Enabled</Text>
+          <Text style={[styles.toggleLabel, { color: colors.text }]}>Enabled</Text>
           <AppToggle value={draft.offHourEnabled} onValueChange={(value) => setDraft({ ...draft, offHourEnabled: value })} accessibilityLabel="Off-hour message enabled" />
         </View>
 
         {draft.offHourEnabled ? (
           <>
-            <Text style={styles.fieldLabel}>Message</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Message</Text>
             <TextInput
               value={draft.offHourMessage}
               onChangeText={(text) => setDraft({ ...draft, offHourMessage: text })}
               placeholder="We are currently closed. We will reply during business hours."
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={colors.textMuted}
               multiline
-              style={styles.inputMultiline}
+              style={[styles.inputMultiline, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]}
             />
           </>
         ) : null}
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Business hours</Text>
-        <Text style={styles.cardSub}>Used to decide when the off-hour message should apply.</Text>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>Business hours</Text>
+        <Text style={[styles.cardSub, { color: colors.textSecondary }]}>Used to decide when the off-hour message should apply.</Text>
         {DAYS.map((day) => (
           <View key={day} style={styles.dayRow}>
             <AppToggle
@@ -176,13 +178,13 @@ export function QuickAutomationTab({ channelId, channelType }: { channelId: stri
               onValueChange={(value) => setDraft({ ...draft, businessHours: { ...draft.businessHours, [day]: { ...draft.businessHours[day], enabled: value } } })}
               accessibilityLabel={`${day} business hours enabled`}
             />
-            <Text style={styles.dayLabel}>{day}</Text>
-            <Pressable disabled={!draft.businessHours[day].enabled} onPress={() => setPicker({ day, slot: 'from' })} style={[styles.timeChip, !draft.businessHours[day].enabled && styles.timeChipDisabled]}>
-              <Text style={styles.timeChipText}>{draft.businessHours[day].from}</Text>
+            <Text style={[styles.dayLabel, { color: colors.textSecondary }]}>{day}</Text>
+            <Pressable disabled={!draft.businessHours[day].enabled} onPress={() => setPicker({ day, slot: 'from' })} style={[styles.timeChip, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, !draft.businessHours[day].enabled && styles.timeChipDisabled]}>
+              <Text style={[styles.timeChipText, { color: colors.text }]}>{draft.businessHours[day].from}</Text>
             </Pressable>
-            <Text style={styles.dayDash}>—</Text>
-            <Pressable disabled={!draft.businessHours[day].enabled} onPress={() => setPicker({ day, slot: 'to' })} style={[styles.timeChip, !draft.businessHours[day].enabled && styles.timeChipDisabled]}>
-              <Text style={styles.timeChipText}>{draft.businessHours[day].to}</Text>
+            <Text style={[styles.dayDash, { color: colors.textMuted }]}>—</Text>
+            <Pressable disabled={!draft.businessHours[day].enabled} onPress={() => setPicker({ day, slot: 'to' })} style={[styles.timeChip, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, !draft.businessHours[day].enabled && styles.timeChipDisabled]}>
+              <Text style={[styles.timeChipText, { color: colors.text }]}>{draft.businessHours[day].to}</Text>
             </Pressable>
           </View>
         ))}
@@ -202,8 +204,8 @@ export function QuickAutomationTab({ channelId, channelType }: { channelId: stri
         />
       ) : null}
 
-      <Pressable style={[styles.primaryButton, save.isPending && styles.primaryButtonDisabled]} onPress={() => save.mutate()} disabled={save.isPending || settingsQuery.isLoading}>
-        {save.isPending ? <LoaderCircle color="#fff" size={16} /> : <Save color="#fff" size={16} />}
+      <Pressable style={[styles.primaryButton, { backgroundColor: colors.primary }, save.isPending && styles.primaryButtonDisabled]} onPress={() => save.mutate()} disabled={save.isPending || settingsQuery.isLoading}>
+        {save.isPending ? <LoaderCircle color={colors.primaryText} size={16} /> : <Save color={colors.primaryText} size={16} />}
         <Text style={styles.primaryButtonText}>Save automation</Text>
       </Pressable>
     </ScrollView>

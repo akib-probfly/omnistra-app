@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../theme/ThemeContext';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   fetchNotificationPreferences,
@@ -73,6 +74,7 @@ export function NotificationSettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
+  const { colors } = useTheme();
 
   const workspacesQuery = useQuery({
     queryKey: ['workspaces', 'mine'],
@@ -152,14 +154,14 @@ export function NotificationSettingsScreen() {
   };
 
   return (
-    <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.backButton}>
-          <ArrowLeft color="#0f172a" size={22} />
+          <ArrowLeft color={colors.text} size={22} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={styles.headerTitle}>Notifications</Text>
-          <Text style={styles.headerSubtitle}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Notifications</Text>
+          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
             {preferencesQuery.isSuccess ? 'Preferences saved to workspace' : 'Loading workspace preferences'}
           </Text>
         </View>
@@ -179,23 +181,23 @@ export function NotificationSettingsScreen() {
         />
       ) : (
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}>
-          <Text style={styles.sectionLabel}>Delivery channels</Text>
-          <Text style={styles.sectionHint}>Keep the channels you actually use, and mute the rest.</Text>
-          <View style={styles.card}>
+          <Text style={[styles.sectionLabel, { color: colors.text }]}>Delivery channels</Text>
+          <Text style={[styles.sectionHint, { color: colors.textSecondary }]}>Keep the channels you actually use, and mute the rest.</Text>
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
             {DELIVERY_ROWS.map((row, index) => {
               const Icon = row.icon;
               const enabled = preferences[row.key];
               return (
-                <View key={row.key} style={[styles.row, index < DELIVERY_ROWS.length - 1 && styles.rowBorder]}>
-                  <View style={styles.rowIcon}>
-                    <Icon color="#2563eb" size={18} />
+                <View key={row.key} style={[styles.row, index < DELIVERY_ROWS.length - 1 && { borderBottomColor: colors.separator, borderBottomWidth: 1 }]}>
+                  <View style={[styles.rowIcon, { backgroundColor: colors.surfaceSecondary }]}>
+                    <Icon color={colors.primary} size={18} />
                   </View>
                   <View style={styles.rowCopy}>
                     <View style={styles.titleLine}>
-                      <Text style={styles.rowTitle}>{row.title}</Text>
-                      <Text style={[styles.badge, enabled ? styles.badgeOn : styles.badgeOff]}>{enabled ? 'On' : 'Off'}</Text>
+                      <Text style={[styles.rowTitle, { color: colors.text }]}>{row.title}</Text>
+                      <Text style={[styles.badge, enabled ? styles.badgeOn : { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{enabled ? 'On' : 'Off'}</Text>
                     </View>
-                    <Text style={styles.rowBody}>{row.description}</Text>
+                    <Text style={[styles.rowBody, { color: colors.textSecondary }]}>{row.description}</Text>
                   </View>
                   <AppToggle
                     value={enabled}
@@ -208,21 +210,21 @@ export function NotificationSettingsScreen() {
             })}
           </View>
 
-          <Text style={styles.sectionLabel}>Alert scope</Text>
-          <Text style={styles.sectionHint}>Keep live alerts focused on the activity that matters most.</Text>
-          <View style={styles.card}>
+          <Text style={[styles.sectionLabel, { color: colors.text }]}>Alert scope</Text>
+          <Text style={[styles.sectionHint, { color: colors.textSecondary }]}>Keep live alerts focused on the activity that matters most.</Text>
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
             <View style={styles.row}>
-              <View style={styles.rowIcon}>
-                <MessageSquareMore color="#2563eb" size={18} />
+              <View style={[styles.rowIcon, { backgroundColor: colors.surfaceSecondary }]}>
+                <MessageSquareMore color={colors.primary} size={18} />
               </View>
               <View style={styles.rowCopy}>
                 <View style={styles.titleLine}>
-                  <Text style={styles.rowTitle}>Mentions and assignments only</Text>
-                  <Text style={[styles.badge, preferences.mentionsAndAssignmentsOnly ? styles.badgeOn : styles.badgeOff]}>
+                  <Text style={[styles.rowTitle, { color: colors.text }]}>Mentions and assignments only</Text>
+                  <Text style={[styles.badge, preferences.mentionsAndAssignmentsOnly ? styles.badgeOn : { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>
                     {preferences.mentionsAndAssignmentsOnly ? 'On' : 'Off'}
                   </Text>
                 </View>
-                <Text style={styles.rowBody}>
+                <Text style={[styles.rowBody, { color: colors.textSecondary }]}>
                   Limit live alerts to direct mentions and reassigned work. Other activity stays in the inbox.
                 </Text>
               </View>
@@ -235,15 +237,15 @@ export function NotificationSettingsScreen() {
             </View>
           </View>
 
-          <Text style={styles.sectionLabel}>More options</Text>
-          <View style={styles.card}>
-            <View style={[styles.row, styles.rowBorder]}>
-              <View style={styles.rowIcon}>
-                <Speaker color="#2563eb" size={18} />
+          <Text style={[styles.sectionLabel, { color: colors.text }]}>More options</Text>
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <View style={[styles.row, { borderBottomColor: colors.separator, borderBottomWidth: 1 }]}>
+              <View style={[styles.rowIcon, { backgroundColor: colors.surfaceSecondary }]}>
+                <Speaker color={colors.primary} size={18} />
               </View>
               <View style={styles.rowCopy}>
-                <Text style={styles.rowTitle}>Background sound</Text>
-                <Text style={styles.rowBody}>Keep tones available when the app is inactive.</Text>
+                <Text style={[styles.rowTitle, { color: colors.text }]}>Background sound</Text>
+                <Text style={[styles.rowBody, { color: colors.textSecondary }]}>Keep tones available when the app is inactive.</Text>
               </View>
               <AppToggle
                 value={preferences.backgroundSoundEnabled}
@@ -253,12 +255,12 @@ export function NotificationSettingsScreen() {
               />
             </View>
             <View style={styles.row}>
-              <View style={styles.rowIcon}>
-                <Clock3 color="#2563eb" size={18} />
+              <View style={[styles.rowIcon, { backgroundColor: colors.surfaceSecondary }]}>
+                <Clock3 color={colors.primary} size={18} />
               </View>
               <View style={styles.rowCopy}>
-                <Text style={styles.rowTitle}>Daily summary digest</Text>
-                <Text style={styles.rowBody}>Send a compact recap so you can catch up later.</Text>
+                <Text style={[styles.rowTitle, { color: colors.text }]}>Daily summary digest</Text>
+                <Text style={[styles.rowBody, { color: colors.textSecondary }]}>Send a compact recap so you can catch up later.</Text>
               </View>
               <AppToggle
                 value={preferences.dailySummaryDigestEnabled}

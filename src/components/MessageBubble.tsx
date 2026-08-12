@@ -21,6 +21,7 @@ import {
 import { LinkPreviewCard } from './LinkPreviewCard';
 import { MessageReferralPreviewCard } from './MessageReferralPreviewCard';
 import { findFirstUrlInText } from '../lib/link-preview';
+import { useTheme } from '../theme/ThemeContext';
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 const COLLAPSED_LINE_COUNT = 4;
@@ -31,18 +32,19 @@ function openLink(href?: string) {
 }
 
 export function MessageBubble({ message, outgoing, attachments, replyPreview, reactions, onImage, onVideo, onLongPress, onReplyPress, channelName }: any) {
+  const { colors, isDark } = useTheme();
   const isSystem = message.senderType === 'SYSTEM' && !message.campaignId;
   if (isSystem) {
     const missed = isMissedCall(message);
     const timestamp = message.sentAt ?? message.createdAt;
     return (
       <View style={styles.systemWrap}>
-        <View style={[styles.systemPill, missed && styles.systemPillMissed]}>
-          <View style={[styles.systemIconCircle, missed && styles.systemIconCircleMissed]}>
+        <View style={[styles.systemPill, missed && styles.systemPillMissed, { backgroundColor: isDark ? 'rgba(30,41,59,0.9)' : 'rgba(255,255,255,0.85)', borderColor: missed ? '#fef3c7' : isDark ? colors.cardBorder : '#e0f2fe' }]}>
+          <View style={[styles.systemIconCircle, missed && styles.systemIconCircleMissed, { backgroundColor: isDark ? colors.surfaceSecondary : missed ? '#fffbeb' : '#eff6ff' }]}>
             <Check color={missed ? '#f59e0b' : '#3b82f6'} size={12} />
           </View>
-          <Text style={[styles.systemText, missed && styles.systemTextMissed]}>{getSystemMessageLabel(message)}</Text>
-          <Text style={styles.systemTime}>{formatMessageTime(timestamp)}</Text>
+          <Text style={[styles.systemText, missed && styles.systemTextMissed, { color: missed ? '#d97706' : colors.textSecondary }]}>{getSystemMessageLabel(message)}</Text>
+          <Text style={[styles.systemTime, { color: colors.textMuted }]}>{formatMessageTime(timestamp)}</Text>
         </View>
       </View>
     );
@@ -70,29 +72,29 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
   function renderBody() {
     if (!body) return null;
     if (isEmojiOnlyMessage(body)) {
-      return <Text style={[styles.emojiOnly, outgoing && styles.outgoingText]}>{body}</Text>;
+      return <Text style={[styles.emojiOnly, outgoing && styles.outgoingText, !outgoing && { color: colors.text }]}>{body}</Text>;
     }
     const parts = parseMessageTextParts(body);
     const clamp = canExpand && !expanded;
     return (
       <View>
         <Text
-          style={outgoing ? styles.outgoingText : styles.messageText}
+          style={outgoing ? styles.outgoingText : [styles.messageText, { color: colors.textSecondary }]}
           numberOfLines={clamp ? COLLAPSED_LINE_COUNT : undefined}
           onTextLayout={(e) => {
             if (!canExpand && e.nativeEvent.lines.length > COLLAPSED_LINE_COUNT) setCanExpand(true);
           }}
         >
           {parts.map((part, index) => part.type === 'url' ? (
-            <Text key={index} style={[styles.link, outgoing && styles.outgoingLink]} onPress={() => openLink(part.href)}>{part.value}</Text>
+            <Text key={index} style={[styles.link, outgoing && styles.outgoingLink, !outgoing && { color: colors.primary }]} onPress={() => openLink(part.href)}>{part.value}</Text>
           ) : (
             <Text key={index}>{part.value}</Text>
           ))}
         </Text>
         {canExpand ? (
           <Pressable onPress={() => setExpanded((v) => !v)} hitSlop={6} style={styles.readMoreRow}>
-            {expanded ? <ChevronUp color={outgoing ? '#eaf1ff' : '#2563eb'} size={13} /> : <ChevronDown color={outgoing ? '#eaf1ff' : '#2563eb'} size={13} />}
-            <Text style={[styles.readMore, outgoing && styles.outgoingLink]}>{expanded ? 'Read less' : 'Read more'}</Text>
+            {expanded ? <ChevronUp color={outgoing ? '#eaf1ff' : colors.primary} size={13} /> : <ChevronDown color={outgoing ? '#eaf1ff' : colors.primary} size={13} />}
+            <Text style={[styles.readMore, outgoing && styles.outgoingLink, !outgoing && { color: colors.primary }]}>{expanded ? 'Read less' : 'Read more'}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -114,11 +116,12 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
           outgoing ? styles.bubbleOutgoing : styles.bubbleIncoming,
           (showLinkPreview || referralPreview) && styles.linkPreviewBubble,
           isTemplate ? (outgoing ? styles.outgoingTemplate : styles.incomingTemplate) : (outgoing ? styles.outgoing : styles.incoming),
+          !outgoing && { backgroundColor: colors.surface, borderColor: colors.cardBorder },
         ]}>
         {message.campaignId ? (
           <View style={styles.broadcastRow}>
-            <Megaphone color={outgoing ? '#cfe0ff' : '#2563eb'} size={12} />
-            <Text style={[styles.broadcastText, outgoing && styles.outgoingMuted]}>{message.campaignName || 'Broadcast'}</Text>
+            <Megaphone color={outgoing ? '#cfe0ff' : colors.primary} size={12} />
+            <Text style={[styles.broadcastText, outgoing && styles.outgoingMuted, !outgoing && { color: colors.primary }]}>{message.campaignName || 'Broadcast'}</Text>
           </View>
         ) : null}
         {referralPreview ? (
@@ -128,68 +131,68 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
         ) : null}
         {replyPreview ? (
           <Pressable disabled={!onReplyPress} onPress={() => onReplyPress?.()} hitSlop={4} style={({ pressed }) => pressed && onReplyPress ? styles.quotedPressed : undefined}>
-            <View style={[styles.quoted, !outgoing && styles.quotedIncoming]}>
-              <Text style={[styles.quotedName, !outgoing && styles.quotedNameIncoming]}>{replyPreview.name}</Text>
+            <View style={[styles.quoted, !outgoing && styles.quotedIncoming, !outgoing && { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+              <Text style={[styles.quotedName, !outgoing && styles.quotedNameIncoming, !outgoing && { color: colors.primary }]}>{replyPreview.name}</Text>
               <View style={styles.quotedRow}>
                 {replyPreview.imageUrl ? <AuthenticatedImage url={replyPreview.imageUrl} style={styles.quotedThumb} /> : null}
-                <Text numberOfLines={1} style={[styles.quotedText, !outgoing && styles.quotedTextIncoming]}>{replyPreview.text ?? 'Attachment'}</Text>
+                <Text numberOfLines={1} style={[styles.quotedText, !outgoing && styles.quotedTextIncoming, !outgoing && { color: colors.textSecondary }]}>{replyPreview.text ?? 'Attachment'}</Text>
               </View>
             </View>
           </Pressable>
         ) : null}
         {templateDisplay ? (
-          <View style={[styles.templateCard, outgoing && styles.templateCardOutgoing]}>
-            <View style={styles.templateCardHeader}>
+          <View style={[styles.templateCard, outgoing && styles.templateCardOutgoing, { backgroundColor: colors.surface }, !outgoing && { borderColor: colors.cardBorder }]}>
+            <View style={[styles.templateCardHeader, { borderBottomColor: colors.separator }]}>
               <View style={styles.templateBadge}>
-                <Sparkles color="#2563eb" size={11} />
-                <Text style={styles.templateBadgeText}>Template</Text>
+                <Sparkles color={colors.primary} size={11} />
+                <Text style={[styles.templateBadgeText, { color: colors.primary }]}>Template</Text>
               </View>
               {templateDisplay.category ? (
-                <View style={styles.templateCategoryBadge}>
-                  <Text style={styles.templateCategoryText}>{templateDisplay.category}</Text>
+                <View style={[styles.templateCategoryBadge, { backgroundColor: colors.surfaceSecondary }]}>
+                  <Text style={[styles.templateCategoryText, { color: colors.primary }]}>{templateDisplay.category}</Text>
                 </View>
               ) : null}
             </View>
             {templateDisplay.headerMediaUrl ? (
-              <View style={styles.templateHeaderMedia}>
+              <View style={[styles.templateHeaderMedia, { borderBottomColor: colors.separator }]}>
                 {templateDisplay.headerType === 'IMAGE' ? (
                   <AuthenticatedImage url={templateDisplay.headerMediaUrl} style={styles.templateHeaderImage} />
                 ) : templateDisplay.headerType === 'VIDEO' ? (
                   <VideoThumb url={templateDisplay.headerMediaUrl} posterUrl={templateDisplay.headerMediaUrl} name="Video" />
                 ) : templateDisplay.headerType === 'DOCUMENT' ? (
-                  <View style={styles.templateHeaderDoc}>
-                    <FileText color="#2563eb" size={20} />
-                    <Text style={styles.templateHeaderDocText} numberOfLines={1}>Document</Text>
+                  <View style={[styles.templateHeaderDoc, { borderBottomColor: colors.separator }]}>
+                    <FileText color={colors.primary} size={20} />
+                    <Text style={[styles.templateHeaderDocText, { color: colors.textSecondary }]} numberOfLines={1}>Document</Text>
                   </View>
                 ) : templateDisplay.headerText ? (
-                  <View style={styles.templateHeaderTextWrap}>
-                    <Text style={styles.templateHeaderText}>{templateDisplay.headerText}</Text>
+                  <View style={[styles.templateHeaderTextWrap, { borderBottomColor: colors.separator }]}>
+                    <Text style={[styles.templateHeaderText, { color: colors.textSecondary }]}>{templateDisplay.headerText}</Text>
                   </View>
                 ) : null}
               </View>
             ) : templateDisplay.headerText ? (
-              <View style={styles.templateHeaderTextWrap}>
-                <Text style={styles.templateHeaderText}>{templateDisplay.headerText}</Text>
+              <View style={[styles.templateHeaderTextWrap, { borderBottomColor: colors.separator }]}>
+                <Text style={[styles.templateHeaderText, { color: colors.textSecondary }]}>{templateDisplay.headerText}</Text>
               </View>
             ) : null}
             {templateDisplay.bodyText ? (
               <View style={styles.templateBodyWrap}>
-                <Text style={styles.templateBodyText}>{templateDisplay.bodyText}</Text>
+                <Text style={[styles.templateBodyText, { color: colors.textSecondary }]}>{templateDisplay.bodyText}</Text>
               </View>
             ) : null}
             {templateDisplay.footerText ? (
-              <Text style={styles.templateFooter}>{templateDisplay.footerText}</Text>
+              <Text style={[styles.templateFooter, { color: colors.textSecondary }]}>{templateDisplay.footerText}</Text>
             ) : null}
             {templateDisplay.buttons.length ? (
-              <View style={styles.templateButtons}>
+              <View style={[styles.templateButtons, { borderTopColor: colors.separator }]}>
                 {templateDisplay.buttons.map((button: any, index: number) => (
                   <Pressable
                     key={index}
-                    style={styles.templateButton}
+                    style={[styles.templateButton, { borderColor: colors.cardBorder }]}
                     onPress={() => { if (button.type === 'URL' && button.url) openLink(button.url); }}
                   >
-                    <Text style={styles.templateButtonText}>{button.label}</Text>
-                    {button.type === 'URL' ? <ExternalLink color="#2563eb" size={12} /> : null}
+                    <Text style={[styles.templateButtonText, { color: colors.primary }]}>{button.label}</Text>
+                    {button.type === 'URL' ? <ExternalLink color={colors.primary} size={12} /> : null}
                   </Pressable>
                 ))}
               </View>
@@ -205,7 +208,7 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
         ) : imageAttachments.length === 1 ? (
           <AuthenticatedImage
             url={previewUrl(imageAttachments[0])}
-            style={styles.image}
+            style={[styles.image, { backgroundColor: colors.surfaceSecondary }]}
             onPress={() => onImage?.(imageAttachments[0].id)}
             fitContent
             maxWidth={250}
@@ -234,8 +237,8 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
           <View style={styles.docList}>
             {documentAttachments.map((attachment: any) => (
               <View key={attachment.id} style={styles.file}>
-                <FileText color={outgoing ? '#cfe0ff' : '#2563eb'} size={18} />
-                <Text numberOfLines={1} style={[styles.fileName, outgoing && styles.outgoingMuted]}>{attachment.originalName ?? attachment.mediaType ?? 'Document'}</Text>
+                <FileText color={outgoing ? '#cfe0ff' : colors.primary} size={18} />
+                <Text numberOfLines={1} style={[styles.fileName, outgoing && styles.outgoingMuted, !outgoing && { color: colors.text }]}>{attachment.originalName ?? attachment.mediaType ?? 'Document'}</Text>
               </View>
             ))}
           </View>
@@ -251,14 +254,14 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
           ) : null}
           <View style={styles.metaRight}>
             {message.sentAt ? (
-              <Text style={[styles.status, outgoing ? styles.outgoingMuted : styles.incomingTime]}>
+              <Text style={[styles.status, outgoing ? styles.outgoingMuted : styles.incomingTime, !outgoing && { color: colors.textMuted }]}>
                 {outgoing && message.sender?.userName ? `${message.sender.userName}  ` : ''}
                 {new Date(message.sentAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
               </Text>
             ) : outgoing && message.sender?.userName ? (
               <Text style={[styles.status, styles.outgoingMuted]}>{message.sender.userName}</Text>
             ) : null}
-            {edited ? <Text style={[styles.editedChip, outgoing ? styles.editedOutgoing : styles.editedIncoming]}>Edited</Text> : null}
+            {edited ? <Text style={[styles.editedChip, outgoing ? styles.editedOutgoing : styles.editedIncoming, !outgoing && { borderColor: colors.cardBorder, color: colors.textSecondary }]}>Edited</Text> : null}
           </View>
         </View>
         {failedReason ? (
@@ -269,9 +272,9 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
       {hasReactions ? (
         <View style={[styles.reactionRow, outgoing && styles.reactionRowOutgoing]}>
           {reactionItems.map((reaction) => (
-            <View key={reaction.emoji} style={styles.reactionPill}>
+            <View key={reaction.emoji} style={[styles.reactionPill, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
               <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
-              {reaction.count > 1 ? <Text style={styles.reactionCount}>{reaction.count}</Text> : null}
+              {reaction.count > 1 ? <Text style={[styles.reactionCount, { color: colors.textSecondary }]}>{reaction.count}</Text> : null}
             </View>
           ))}
         </View>

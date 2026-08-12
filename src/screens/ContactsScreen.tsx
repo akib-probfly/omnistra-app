@@ -33,6 +33,7 @@ import { ChannelLogo } from '../components/ChannelLogo';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ErrorState } from '../components/ErrorState';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
+import { useTheme } from '../theme/ThemeContext';
 import type { ContactsStackParamList } from '../navigation/ContactsStack';
 
 type FilterLayer = 'channels' | 'labels' | 'users' | 'more';
@@ -102,6 +103,7 @@ export function ContactsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<ContactsStackParamList>>();
   const queryClient = useQueryClient();
+  const { colors } = useTheme();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -301,14 +303,14 @@ export function ContactsScreen() {
   }, [queryClient]);
 
   return (
-    <View style={styles.screen}>
-      <View style={[styles.topbar, { paddingTop: insets.top + 10 }]}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <View style={[styles.topbar, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <View style={styles.topbarCopy}>
-          <Text style={styles.title}>Contacts</Text>
-          <Text style={styles.subtitle}>Manage and organize your contact database</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Contacts</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Manage and organize your contact database</Text>
         </View>
         <View style={styles.topbarActions}>
-          <Pressable style={styles.addButton} onPress={() => setAddOpen(true)} hitSlop={8}>
+          <Pressable style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={() => setAddOpen(true)} hitSlop={8}>
             <Plus color="#fff" size={18} />
           </Pressable>
           <NotificationBell onOpen={() => setNotificationsOpen(true)} />
@@ -316,28 +318,28 @@ export function ContactsScreen() {
       </View>
 
       <View style={styles.searchRow}>
-        <View style={styles.search}>
-          <Search color="#8ba2c3" size={18} />
+        <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+          <Search color={colors.textMuted} size={18} />
           <TextInput
             value={search}
             onChangeText={onSearchChange}
             placeholder="Search by name, email, or phone..."
-            placeholderTextColor="#8ba2c3"
-            style={styles.searchInput}
+            placeholderTextColor={colors.textMuted}
+            style={[styles.searchInput, { color: colors.text }]}
           />
           {search ? (
             <Pressable onPress={() => { setSearch(''); setDebouncedSearch(''); }} hitSlop={8}>
-              <X color="#94a3b8" size={16} />
+              <X color={colors.textMuted} size={16} />
             </Pressable>
           ) : null}
         </View>
-        <Pressable style={[styles.filterButton, hasAdvancedFilters && styles.filterButtonActive]} onPress={() => setFilterOpen(true)}>
-          <Filter color={hasAdvancedFilters ? '#2563eb' : '#64748b'} size={16} />
-          {hasAdvancedFilters ? <View style={styles.filterDot} /> : null}
+        <Pressable style={[styles.filterButton, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, hasAdvancedFilters && [styles.filterButtonActive, { borderColor: colors.primary }]]} onPress={() => setFilterOpen(true)}>
+          <Filter color={hasAdvancedFilters ? colors.primary : colors.textSecondary} size={16} />
+          {hasAdvancedFilters ? <View style={[styles.filterDot, { backgroundColor: colors.primary }]} /> : null}
         </Pressable>
       </View>
 
-      <Text style={styles.countLabel}>
+      <Text style={[styles.countLabel, { color: colors.textSecondary }]}>
         {contactsQuery.isLoading ? 'Loading contacts...' : `${totalCount.toLocaleString()} contacts`}
       </Text>
 
@@ -354,7 +356,7 @@ export function ContactsScreen() {
           keyExtractor={(item) => item.id}
           style={styles.listFill}
           contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={contactsQuery.isRefetching && !contactsQuery.isFetchingNextPage} onRefresh={onRefresh} tintColor="#2563eb" />}
+          refreshControl={<RefreshControl refreshing={contactsQuery.isRefetching && !contactsQuery.isFetchingNextPage} onRefresh={onRefresh} tintColor={colors.primary} />}
           onEndReachedThreshold={0.4}
           onEndReached={() => {
             if (contactsQuery.hasNextPage && !contactsQuery.isFetchingNextPage) {
@@ -363,27 +365,27 @@ export function ContactsScreen() {
           }}
           ListEmptyComponent={(
             <View style={styles.empty}>
-              <ContactRound color="#c3d0e2" size={44} />
-              <Text style={styles.emptyTitle}>No contacts found</Text>
-              <Text style={styles.emptyText}>
+              <ContactRound color={colors.textMuted} size={44} />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>No contacts found</Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
                 {hasAdvancedFilters || debouncedSearch.trim()
                   ? 'Try adjusting your search or filters.'
                   : 'Add a contact to start building your CRM list.'}
               </Text>
               {hasAdvancedFilters || debouncedSearch.trim() ? (
                 <Pressable
-                  style={styles.emptyClearButton}
+                  style={[styles.emptyClearButton, { backgroundColor: colors.surfaceSecondary }]}
                   onPress={() => {
                     resetFilters();
                     setSearch('');
                     setDebouncedSearch('');
                   }}
                 >
-                  <Text style={styles.emptyClearButtonText}>Clear filters</Text>
+                  <Text style={[styles.emptyClearButtonText, { color: colors.primary }]}>Clear filters</Text>
                 </Pressable>
               ) : (
-                <Pressable style={styles.emptyClearButton} onPress={() => setAddOpen(true)}>
-                  <Text style={styles.emptyClearButtonText}>Add contact</Text>
+                <Pressable style={[styles.emptyClearButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setAddOpen(true)}>
+                  <Text style={[styles.emptyClearButtonText, { color: colors.primary }]}>Add contact</Text>
                 </Pressable>
               )}
             </View>
@@ -397,17 +399,17 @@ export function ContactsScreen() {
       <Modal visible={filterOpen} transparent animationType="slide" onRequestClose={() => setFilterOpen(false)}>
         <View style={styles.sheetOverlay}>
           <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setFilterOpen(false)} />
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: colors.surface }]}>
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Filters</Text>
-              <Pressable onPress={() => setFilterOpen(false)} hitSlop={8}><X color="#64748b" size={20} /></Pressable>
+              <Text style={[styles.sheetTitle, { color: colors.text }]}>Filters</Text>
+              <Pressable onPress={() => setFilterOpen(false)} hitSlop={8}><X color={colors.textSecondary} size={20} /></Pressable>
             </View>
-            <View style={styles.layerTabs}>
+            <View style={[styles.layerTabs, { backgroundColor: colors.surfaceSecondary }]}>
               {FILTER_LAYERS.map((layer) => {
                 const active = filterLayer === layer.id;
                 return (
-                  <Pressable key={layer.id} style={[styles.layerTab, active && styles.layerTabActive]} onPress={() => setFilterLayer(layer.id)}>
-                    <Text style={[styles.layerTabText, active && styles.layerTabTextActive]}>{layer.label}</Text>
+                  <Pressable key={layer.id} style={[styles.layerTab, active && [styles.layerTabActive, { backgroundColor: colors.surface }]]} onPress={() => setFilterLayer(layer.id)}>
+                    <Text style={[styles.layerTabText, { color: colors.textSecondary }, active && [styles.layerTabTextActive, { color: colors.text }]]}>{layer.label}</Text>
                   </Pressable>
                 );
               })}
@@ -421,25 +423,25 @@ export function ContactsScreen() {
                     return (
                       <Pressable
                         key={channel.id}
-                        style={[styles.optionRow, active && styles.optionRowActive]}
+                        style={[styles.optionRow, active && [styles.optionRowActive, { backgroundColor: colors.surfaceSecondary }]]}
                         onPress={() => setChannelIds((current) => (active ? current.filter((id) => id !== channel.id) : [...current, channel.id]))}
                       >
                         <ChannelLogo type={channel.type ?? channel.channelType} box={28} glyph={14} radius={8} />
-                        <Text style={[styles.optionText, active && styles.optionTextActive]} numberOfLines={1}>
+                        <Text style={[styles.optionText, { color: colors.textSecondary }, active && [styles.optionTextActive, { color: colors.primary }]]} numberOfLines={1}>
                           {channel.channelName ?? channel.name ?? 'Channel'}
                         </Text>
                       </Pressable>
                     );
                   })}
-                  {!channelOptions.length ? <Text style={styles.emptyHint}>No channels available.</Text> : null}
+                  {!channelOptions.length ? <Text style={[styles.emptyHint, { color: colors.textMuted }]}>No channels available.</Text> : null}
                 </>
               ) : null}
 
               {filterLayer === 'labels' ? (
                 <>
-                  <View style={styles.inlineSearch}>
-                    <Search color="#94a3b8" size={16} />
-                    <TextInput value={tagSearch} onChangeText={setTagSearch} placeholder="Search tags" placeholderTextColor="#94a3b8" style={styles.inlineSearchInput} />
+                  <View style={[styles.inlineSearch, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+                    <Search color={colors.textMuted} size={16} />
+                    <TextInput value={tagSearch} onChangeText={setTagSearch} placeholder="Search tags" placeholderTextColor={colors.textMuted} style={[styles.inlineSearchInput, { color: colors.text }]} />
                   </View>
                   {tagOptions.map((tag) => {
                     const active = tagIds.includes(tag.id);
@@ -447,32 +449,32 @@ export function ContactsScreen() {
                     return (
                       <Pressable
                         key={tag.id}
-                        style={[styles.optionRow, active && styles.optionRowActive]}
+                        style={[styles.optionRow, active && [styles.optionRowActive, { backgroundColor: colors.surfaceSecondary }]]}
                         onPress={() => setTagIds((current) => (active ? current.filter((id) => id !== tag.id) : [...current, tag.id]))}
                       >
                         <View style={[styles.tagDot, { backgroundColor: color }]} />
-                        <Text style={[styles.optionText, active && styles.optionTextActive]} numberOfLines={1}>{tag.text}</Text>
+                        <Text style={[styles.optionText, { color: colors.textSecondary }, active && [styles.optionTextActive, { color: colors.primary }]]} numberOfLines={1}>{tag.text}</Text>
                       </Pressable>
                     );
                   })}
-                  {!tagOptions.length ? <Text style={styles.emptyHint}>No tags found.</Text> : null}
+                  {!tagOptions.length ? <Text style={[styles.emptyHint, { color: colors.textMuted }]}>No tags found.</Text> : null}
                 </>
               ) : null}
 
               {filterLayer === 'users' ? (
                 <>
-                  <View style={styles.inlineSearch}>
-                    <Search color="#94a3b8" size={16} />
-                    <TextInput value={userSearch} onChangeText={setUserSearch} placeholder="Search owners" placeholderTextColor="#94a3b8" style={styles.inlineSearchInput} />
+                  <View style={[styles.inlineSearch, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+                    <Search color={colors.textMuted} size={16} />
+                    <TextInput value={userSearch} onChangeText={setUserSearch} placeholder="Search owners" placeholderTextColor={colors.textMuted} style={[styles.inlineSearchInput, { color: colors.text }]} />
                   </View>
-                  <Pressable style={[styles.optionRow, ownerId == null && styles.optionRowActive]} onPress={() => setOwnerId(null)}>
-                    <Text style={[styles.optionText, ownerId == null && styles.optionTextActive]}>Any owner</Text>
+                  <Pressable style={[styles.optionRow, ownerId == null && [styles.optionRowActive, { backgroundColor: colors.surfaceSecondary }]]} onPress={() => setOwnerId(null)}>
+                    <Text style={[styles.optionText, { color: colors.textSecondary }, ownerId == null && [styles.optionTextActive, { color: colors.primary }]]}>Any owner</Text>
                   </Pressable>
                   {assigneeOptions.map((member) => {
                     const active = ownerId === member.workspaceMemberId;
                     return (
-                      <Pressable key={member.workspaceMemberId} style={[styles.optionRow, active && styles.optionRowActive]} onPress={() => setOwnerId(member.workspaceMemberId)}>
-                        <Text style={[styles.optionText, active && styles.optionTextActive]} numberOfLines={1}>
+                      <Pressable key={member.workspaceMemberId} style={[styles.optionRow, active && [styles.optionRowActive, { backgroundColor: colors.surfaceSecondary }]]} onPress={() => setOwnerId(member.workspaceMemberId)}>
+                        <Text style={[styles.optionText, { color: colors.textSecondary }, active && [styles.optionTextActive, { color: colors.primary }]]} numberOfLines={1}>
                           {member.name?.trim() || member.email}
                         </Text>
                       </Pressable>
@@ -483,8 +485,8 @@ export function ContactsScreen() {
 
               {filterLayer === 'more' ? (
                 <>
-                  <Text style={styles.sectionLabel}>Assignment</Text>
-                  <View style={styles.segment}>
+                  <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Assignment</Text>
+                  <View style={[styles.segment, { backgroundColor: colors.surfaceSecondary }]}>
                     {([
                       ['all', 'All'],
                       ['assigned', 'Assigned'],
@@ -492,14 +494,14 @@ export function ContactsScreen() {
                     ] as const).map(([value, label]) => {
                       const active = assignment === value;
                       return (
-                        <Pressable key={value} style={[styles.segmentOption, active && styles.segmentOptionActive]} onPress={() => setAssignment(value)}>
-                          <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{label}</Text>
+                        <Pressable key={value} style={[styles.segmentOption, active && [styles.segmentOptionActive, { backgroundColor: colors.surface }]]} onPress={() => setAssignment(value)}>
+                          <Text style={[styles.segmentText, { color: colors.textSecondary }, active && [styles.segmentTextActive, { color: colors.text }]]}>{label}</Text>
                         </Pressable>
                       );
                     })}
                   </View>
-                  <Pressable style={styles.switchRow} onPress={() => setRecentlyActive((value) => !value)}>
-                    <Text style={styles.switchLabel}>Recently active</Text>
+                  <Pressable style={[styles.switchRow, { borderColor: colors.cardBorder }]} onPress={() => setRecentlyActive((value) => !value)}>
+                    <Text style={[styles.switchLabel, { color: colors.textSecondary }]}>Recently active</Text>
                     <AppToggle value={recentlyActive} variant="sidebar" />
                   </Pressable>
                 </>
@@ -507,9 +509,9 @@ export function ContactsScreen() {
             </ScrollView>
 
             <Pressable style={[styles.resetButton, !hasAdvancedFilters && styles.resetDisabled]} disabled={!hasAdvancedFilters} onPress={resetFilters}>
-              <Text style={[styles.resetText, !hasAdvancedFilters && styles.resetTextDisabled]}>Reset filters</Text>
+              <Text style={[styles.resetText, { color: colors.error }, !hasAdvancedFilters && [styles.resetTextDisabled, { color: colors.textMuted }]]}>Reset filters</Text>
             </Pressable>
-            <Pressable style={styles.applyButton} onPress={() => setFilterOpen(false)}>
+            <Pressable style={[styles.applyButton, { backgroundColor: colors.primary }]} onPress={() => setFilterOpen(false)}>
               <Text style={styles.applyText}>Apply</Text>
             </Pressable>
           </View>
@@ -519,28 +521,28 @@ export function ContactsScreen() {
       <Modal visible={addOpen} transparent animationType="slide" onRequestClose={() => setAddOpen(false)}>
         <View style={styles.sheetOverlay}>
           <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setAddOpen(false)} />
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: colors.surface }]}>
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Add contact</Text>
-              <Pressable onPress={() => setAddOpen(false)} hitSlop={8}><X color="#64748b" size={20} /></Pressable>
+              <Text style={[styles.sheetTitle, { color: colors.text }]}>Add contact</Text>
+              <Pressable onPress={() => setAddOpen(false)} hitSlop={8}><X color={colors.textSecondary} size={20} /></Pressable>
             </View>
             <ScrollView keyboardShouldPersistTaps="handled" style={styles.addFormScroll}>
-              <Text style={styles.fieldLabel}>Name *</Text>
-              <TextInput value={addName} onChangeText={setAddName} placeholder="Full name" placeholderTextColor="#94a3b8" style={styles.fieldInput} />
-              <Text style={styles.fieldLabel}>Phone *</Text>
-              <TextInput value={addPhone} onChangeText={setAddPhone} placeholder="+8801XXXXXXXXX" placeholderTextColor="#94a3b8" keyboardType="phone-pad" style={styles.fieldInput} />
-              <Text style={styles.fieldLabel}>Email</Text>
-              <TextInput value={addEmail} onChangeText={setAddEmail} placeholder="name@example.com" placeholderTextColor="#94a3b8" keyboardType="email-address" autoCapitalize="none" style={styles.fieldInput} />
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Name *</Text>
+              <TextInput value={addName} onChangeText={setAddName} placeholder="Full name" placeholderTextColor={colors.textMuted} style={[styles.fieldInput, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder, color: colors.text }]} />
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Phone *</Text>
+              <TextInput value={addPhone} onChangeText={setAddPhone} placeholder="+8801XXXXXXXXX" placeholderTextColor={colors.textMuted} keyboardType="phone-pad" style={[styles.fieldInput, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder, color: colors.text }]} />
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Email</Text>
+              <TextInput value={addEmail} onChangeText={setAddEmail} placeholder="name@example.com" placeholderTextColor={colors.textMuted} keyboardType="email-address" autoCapitalize="none" style={[styles.fieldInput, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder, color: colors.text }]} />
 
-              <Text style={styles.fieldLabel}>Channel</Text>
-              <View style={styles.inlineSearch}>
-                <Search color="#94a3b8" size={16} />
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Channel</Text>
+              <View style={[styles.inlineSearch, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+                <Search color={colors.textMuted} size={16} />
                 <TextInput
                   value={addChannelSearch}
                   onChangeText={setAddChannelSearch}
                   placeholder="Search channels"
-                  placeholderTextColor="#94a3b8"
-                  style={styles.inlineSearchInput}
+                  placeholderTextColor={colors.textMuted}
+                  style={[styles.inlineSearchInput, { color: colors.text }]}
                 />
               </View>
               {visibleAddChannels.map((option) => {
@@ -548,44 +550,44 @@ export function ContactsScreen() {
                 return (
                   <Pressable
                     key={option.accountId}
-                    style={[styles.optionRow, active && styles.optionRowActive]}
+                    style={[styles.optionRow, active && [styles.optionRowActive, { backgroundColor: colors.surfaceSecondary }]]}
                     onPress={() => setAddChannelAccountId(option.accountId)}
                   >
                     <ChannelLogo type={option.channelType} box={28} glyph={14} radius={8} />
                     <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={[styles.optionText, active && styles.optionTextActive]} numberOfLines={1}>{option.channelName}</Text>
+                      <Text style={[styles.optionText, { color: colors.textSecondary }, active && [styles.optionTextActive, { color: colors.primary }]]} numberOfLines={1}>{option.channelName}</Text>
                       {option.displayPhoneNumber ? (
-                        <Text style={styles.optionSubtext} numberOfLines={1}>{option.displayPhoneNumber}</Text>
+                        <Text style={[styles.optionSubtext, { color: colors.textMuted }]} numberOfLines={1}>{option.displayPhoneNumber}</Text>
                       ) : null}
                     </View>
                   </Pressable>
                 );
               })}
-              {!visibleAddChannels.length ? <Text style={styles.emptyHint}>No WhatsApp channels available.</Text> : null}
+              {!visibleAddChannels.length ? <Text style={[styles.emptyHint, { color: colors.textMuted }]}>No WhatsApp channels available.</Text> : null}
 
-              <Text style={styles.fieldLabel}>Tags</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Tags</Text>
               {addTags.length ? (
                 <View style={styles.addSelectedTags}>
                   {addTags.map((tag) => (
                     <Pressable
                       key={tag}
-                      style={styles.addSelectedTag}
+                      style={[styles.addSelectedTag, { backgroundColor: colors.surfaceSecondary }]}
                       onPress={() => setAddTags((current) => current.filter((item) => item !== tag))}
                     >
-                      <Text style={styles.addSelectedTagText}>{tag}</Text>
-                      <X color="#1d4ed8" size={12} />
+                      <Text style={[styles.addSelectedTagText, { color: colors.primary }]}>{tag}</Text>
+                      <X color={colors.primary} size={12} />
                     </Pressable>
                   ))}
                 </View>
               ) : null}
-              <View style={styles.inlineSearch}>
-                <Search color="#94a3b8" size={16} />
+              <View style={[styles.inlineSearch, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+                <Search color={colors.textMuted} size={16} />
                 <TextInput
                   value={addTagSearch}
                   onChangeText={setAddTagSearch}
                   placeholder="Search tags"
-                  placeholderTextColor="#94a3b8"
-                  style={styles.inlineSearchInput}
+                  placeholderTextColor={colors.textMuted}
+                  style={[styles.inlineSearchInput, { color: colors.text }]}
                 />
               </View>
               {visibleAddTags.map((tag) => (
@@ -597,30 +599,30 @@ export function ContactsScreen() {
                     setAddTagSearch('');
                   }}
                 >
-                  <Text style={styles.optionText}>{tag}</Text>
-                  <Plus color="#2563eb" size={14} />
+                  <Text style={[styles.optionText, { color: colors.textSecondary }]}>{tag}</Text>
+                  <Plus color={colors.primary} size={14} />
                 </Pressable>
               ))}
               {canCreateAddTag ? (
                 <Pressable
-                  style={styles.createTagRow}
+                  style={[styles.createTagRow, { backgroundColor: colors.surfaceSecondary }]}
                   onPress={() => {
                     const next = addTagSearch.trim();
                     setAddTags((current) => (current.includes(next) ? current : [...current, next]));
                     setAddTagSearch('');
                   }}
                 >
-                  <Plus color="#2563eb" size={14} />
-                  <Text style={styles.createTagRowText}>Create “{addTagSearch.trim()}”</Text>
+                  <Plus color={colors.primary} size={14} />
+                  <Text style={[styles.createTagRowText, { color: colors.primary }]}>Create “{addTagSearch.trim()}”</Text>
                 </Pressable>
               ) : null}
               {!visibleAddTags.length && !canCreateAddTag ? (
-                <Text style={styles.emptyHint}>{addTagSearch.trim() ? 'No tags match your search.' : 'No more tags to add.'}</Text>
+                <Text style={[styles.emptyHint, { color: colors.textMuted }]}>{addTagSearch.trim() ? 'No tags match your search.' : 'No more tags to add.'}</Text>
               ) : null}
             </ScrollView>
 
             <Pressable
-              style={[styles.applyButton, (!addName.trim() || !addPhone.trim() || createMutation.isPending) && styles.applyDisabled]}
+              style={[styles.applyButton, { backgroundColor: colors.primary }, (!addName.trim() || !addPhone.trim() || createMutation.isPending) && styles.applyDisabled]}
               disabled={!addName.trim() || !addPhone.trim() || createMutation.isPending}
               onPress={() => createMutation.mutate()}
             >
@@ -636,6 +638,7 @@ export function ContactsScreen() {
 }
 
 const ContactRow = memo(function ContactRow({ contact, navigation }: { contact: CrmContactListItem; navigation: any }) {
+  const { colors } = useTheme();
   const title = getContactTitle(contact);
   const phone = formatPhoneNumberDisplay(contact.primaryPhone);
   const tags = (contact.tags ?? []).filter((tag) => !tag.isArchived).slice(0, 2);
@@ -645,24 +648,24 @@ const ContactRow = memo(function ContactRow({ contact, navigation }: { contact: 
   }, [navigation, contact.id, title]);
 
   return (
-    <Pressable onPress={onPress} style={styles.card}>
+    <Pressable onPress={onPress} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
       <View style={styles.avatar}>
         <ColorfulAvatar name={title} size={48} url={contact.avatarUrl} />
         {contact.channelType ? (
-          <View style={styles.channelBadge}>
+          <View style={[styles.channelBadge, { borderColor: colors.surface }]}>
             <ChannelLogo type={contact.channelType} box={18} glyph={11} radius={9} />
           </View>
         ) : null}
       </View>
       <View style={styles.copy}>
-        <Text style={styles.name} numberOfLines={1}>{title}</Text>
+        <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{title}</Text>
         <View style={styles.metaRow}>
-          <Phone color="#94a3b8" size={12} />
-          <Text style={styles.metaText} numberOfLines={1}>{phone ?? 'No phone'}</Text>
+          <Phone color={colors.textMuted} size={12} />
+          <Text style={[styles.metaText, { color: colors.textSecondary }]} numberOfLines={1}>{phone ?? 'No phone'}</Text>
         </View>
         <View style={styles.metaRow}>
-          <Mail color="#94a3b8" size={12} />
-          <Text style={styles.metaText} numberOfLines={1}>{contact.primaryEmail?.trim() || 'No email'}</Text>
+          <Mail color={colors.textMuted} size={12} />
+          <Text style={[styles.metaText, { color: colors.textSecondary }]} numberOfLines={1}>{contact.primaryEmail?.trim() || 'No email'}</Text>
         </View>
         {contact.channelName ? (
           <View style={styles.channelPill}>
@@ -679,11 +682,11 @@ const ContactRow = memo(function ContactRow({ contact, navigation }: { contact: 
                 </View>
               );
             })}
-            {hiddenTagCount > 0 ? <Text style={styles.tagMore}>+{hiddenTagCount}</Text> : null}
+            {hiddenTagCount > 0 ? <Text style={[styles.tagMore, { color: colors.textSecondary }]}>+{hiddenTagCount}</Text> : null}
           </View>
         ) : null}
       </View>
-      <Text style={styles.activity}>{formatRelativeActivity(contact.lastActivityAt)}</Text>
+      <Text style={[styles.activity, { color: colors.textMuted }]}>{formatRelativeActivity(contact.lastActivityAt)}</Text>
     </Pressable>
   );
 });

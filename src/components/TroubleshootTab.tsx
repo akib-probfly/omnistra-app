@@ -3,6 +3,7 @@ import { ArrowLeft, Pause, Play, RefreshCcw, Trash2 } from 'lucide-react-native'
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { ChannelAccount, ChannelDetails, ChannelLifecycle } from '../api/channels';
+import { useTheme } from '../theme/ThemeContext';
 
 const RETENTION_MS = 60 * 60 * 1000;
 
@@ -56,25 +57,26 @@ export function TroubleshootTab({
   onGoToOverview?: () => void;
   isBusy: boolean;
 }) {
+  const { colors } = useTheme();
   const countdown = useRemovalCountdown(lifecycle.purgeAt);
   const needsReconnect = ['NEEDS_ACTION', 'ERROR', 'DISCONNECTED'].includes(channel.status);
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Access and diagnostics</Text>
-        <Text style={styles.cardSub}>Operational controls, permissions, and technical identifiers in one place.</Text>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.content}>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>Access and diagnostics</Text>
+        <Text style={[styles.cardSub, { color: colors.textSecondary }]}>Operational controls, permissions, and technical identifiers in one place.</Text>
 
         <View style={styles.summaryGrid}>
-          <View style={styles.summary}>
-            <Text style={styles.summaryLabel}>Process events</Text>
-            <Text style={styles.summaryValue}>{lifecycle.canProcessEvents ? 'Yes' : 'No'}</Text>
-            <Text style={styles.summaryDetail}>Controls whether inbox and workflow events are processed.</Text>
+          <View style={[styles.summary, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Process events</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>{lifecycle.canProcessEvents ? 'Yes' : 'No'}</Text>
+            <Text style={[styles.summaryDetail, { color: colors.textSecondary }]}>Controls whether inbox and workflow events are processed.</Text>
           </View>
-          <View style={styles.summary}>
-            <Text style={styles.summaryLabel}>Removed</Text>
-            <Text style={styles.summaryValue}>{lifecycle.isRemoved ? 'Yes' : 'No'}</Text>
-            <Text style={styles.summaryDetail}>Removed channels stay in history but stop receiving new management actions.</Text>
+          <View style={[styles.summary, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Removed</Text>
+            <Text style={[styles.summaryValue, { color: colors.text }]}>{lifecycle.isRemoved ? 'Yes' : 'No'}</Text>
+            <Text style={[styles.summaryDetail, { color: colors.textSecondary }]}>Removed channels stay in history but stop receiving new management actions.</Text>
           </View>
         </View>
 
@@ -92,43 +94,43 @@ export function TroubleshootTab({
               </View>
               <Text style={styles.countdownLabel}>{countdown?.label ?? ''}</Text>
             </View>
-            <Pressable style={[styles.restoreButton, isBusy && styles.buttonDisabled]} onPress={onRestore} disabled={isBusy}>
-              <RefreshCcw color="#fff" size={16} />
+            <Pressable style={[styles.restoreButton, { backgroundColor: colors.primary }, isBusy && styles.buttonDisabled]} onPress={onRestore} disabled={isBusy}>
+              <RefreshCcw color={colors.primaryText} size={16} />
               <Text style={styles.restoreButtonText}>Restore channel</Text>
             </Pressable>
             {onGoToOverview ? (
-              <Pressable style={[styles.outlineButton, { marginTop: 10 }]} onPress={onGoToOverview} disabled={isBusy}>
-                <ArrowLeft color="#334155" size={16} />
-                <Text style={styles.outlineButtonText}>View overview</Text>
+              <Pressable style={[styles.outlineButton, { backgroundColor: colors.surface, borderColor: colors.cardBorder, marginTop: 10 }]} onPress={onGoToOverview} disabled={isBusy}>
+                <ArrowLeft color={colors.textSecondary} size={16} />
+                <Text style={[styles.outlineButtonText, { color: colors.textSecondary }]}>View overview</Text>
               </Pressable>
             ) : null}
           </View>
         ) : needsReconnect ? (
-          <View style={styles.needsAttention}>
-            <Text style={styles.needsAttentionText}>
+          <View style={[styles.needsAttention, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.needsAttentionText, { color: colors.textSecondary }]}>
               This channel needs attention before it can fully manage Meta webhook processing again. Reconnect it in the web workspace to resubscribe Meta webhooks and restore the channel.
             </Text>
-            <Pressable style={[styles.destructiveButton, { marginTop: 12 }, isBusy && styles.buttonDisabled]} onPress={onRemove} disabled={isBusy}>
-              <Trash2 color="#fff" size={16} />
+            <Pressable style={[styles.destructiveButton, { backgroundColor: colors.error, marginTop: 12 }, isBusy && styles.buttonDisabled]} onPress={onRemove} disabled={isBusy}>
+              <Trash2 color={colors.primaryText} size={16} />
               <Text style={styles.destructiveButtonText}>Remove channel</Text>
             </Pressable>
           </View>
         ) : (
           <View style={styles.controls}>
-            <Pressable style={[styles.primaryButton, isBusy && styles.buttonDisabled]} onPress={onPauseResume} disabled={isBusy}>
-              {lifecycle.isPaused ? <Play color="#fff" size={16} /> : <Pause color="#fff" size={16} />}
+            <Pressable style={[styles.primaryButton, { backgroundColor: colors.primary }, isBusy && styles.buttonDisabled]} onPress={onPauseResume} disabled={isBusy}>
+              {lifecycle.isPaused ? <Play color={colors.primaryText} size={16} /> : <Pause color={colors.primaryText} size={16} />}
               <Text style={styles.primaryButtonText}>{lifecycle.isPaused ? 'Resume channel' : 'Pause channel'}</Text>
             </Pressable>
-            <Pressable style={[styles.destructiveButton, { flex: 1 }, isBusy && styles.buttonDisabled]} onPress={onRemove} disabled={isBusy}>
-              <Trash2 color="#fff" size={16} />
+            <Pressable style={[styles.destructiveButton, { backgroundColor: colors.error, flex: 1 }, isBusy && styles.buttonDisabled]} onPress={onRemove} disabled={isBusy}>
+              <Trash2 color={colors.primaryText} size={16} />
               <Text style={styles.destructiveButtonText}>Remove channel</Text>
             </Pressable>
           </View>
         )}
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Diagnostics</Text>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>Diagnostics</Text>
         <View style={styles.diag}>
           <DiagRow label="Workspace" value={channel.workspaceName} />
           <DiagRow label="Channel ID" value={channel.id} />
@@ -142,10 +144,11 @@ export function TroubleshootTab({
 }
 
 function DiagRow({ label, value }: { label: string; value: string }) {
+  const { colors } = useTheme();
   return (
     <View style={styles.diagRow}>
-      <Text style={styles.diagLabel}>{label}</Text>
-      <Text style={styles.diagValue} numberOfLines={2}>{value}</Text>
+      <Text style={[styles.diagLabel, { color: colors.textSecondary }]}>{label}</Text>
+      <Text style={[styles.diagValue, { color: colors.textSecondary }]} numberOfLines={2}>{value}</Text>
     </View>
   );
 }

@@ -28,6 +28,7 @@ import Animated, {
   useAnimatedStyle,
 } from 'react-native-reanimated';
 import { useAuth } from '../auth/AuthContext';
+import { useTheme } from '../theme/ThemeContext';
 
 function DecorativeWave() {
   return (
@@ -63,6 +64,7 @@ const fields: FormField[] = [
 
 export function RegisterScreen({ onLogin }: { onLogin: () => void }) {
   const { register } = useAuth();
+  const { colors } = useTheme();
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -108,9 +110,9 @@ export function RegisterScreen({ onLogin }: { onLogin: () => void }) {
   const isSecureField = (key: string) => key === 'password' || key === 'confirm_password';
 
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior="padding">
+    <KeyboardAvoidingView style={[styles.screen, { backgroundColor: colors.background }]} behavior="padding">
       <LinearGradient
-        colors={['#f8faff', '#eef2ff', '#faf5ff']}
+        colors={[colors.background, colors.surfaceSecondary, colors.background]}
         style={StyleSheet.absoluteFillObject}
       />
 
@@ -130,11 +132,11 @@ export function RegisterScreen({ onLogin }: { onLogin: () => void }) {
               <Text style={styles.logoIcon}>O</Text>
             </LinearGradient>
           </View>
-          <Text style={styles.title}>Create your account</Text>
-          <Text style={styles.subtitle}>Start managing conversations with your team.</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Create your account</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Start managing conversations with your team.</Text>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(300).duration(800)} style={styles.card}>
+        <Animated.View entering={FadeInDown.delay(300).duration(800)} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
           {fields.map((field, index) => {
             const Icon = field.icon;
             const isSecure = isSecureField(field.key);
@@ -143,16 +145,16 @@ export function RegisterScreen({ onLogin }: { onLogin: () => void }) {
               <Animated.View
                 key={field.key}
                 entering={FadeInDown.delay(400 + index * 80).duration(600)}
-                style={styles.inputWrapper}
+                style={[styles.inputWrapper, { backgroundColor: colors.surfaceSecondary, borderColor: colors.inputBorder }]}
               >
-                <Icon size={18} color="#6366f1" style={styles.inputIcon} />
+                <Icon size={18} color={colors.primary} style={styles.inputIcon} />
                 <TextInput
                   autoCapitalize={field.autoCapitalize || 'none'}
                   keyboardType={field.keyboardType || 'default'}
                   placeholder={field.placeholder}
-                  placeholderTextColor="#9ca3af"
+                  placeholderTextColor={colors.textMuted}
                   secureTextEntry={isSecure && !currentShow}
-                  style={[styles.input, isSecure && styles.inputWithToggle]}
+                  style={[styles.input, isSecure && styles.inputWithToggle, { color: colors.text }]}
                   value={form[field.key as keyof typeof form]}
                   onChangeText={(value) => update(field.key, value)}
                 />
@@ -166,9 +168,9 @@ export function RegisterScreen({ onLogin }: { onLogin: () => void }) {
                     style={styles.eyeToggle}
                   >
                     {currentShow ? (
-                      <EyeOff size={18} color="#9ca3af" />
+                      <EyeOff size={18} color={colors.textMuted} />
                     ) : (
-                      <Eye size={18} color="#9ca3af" />
+                      <Eye size={18} color={colors.textMuted} />
                     )}
                   </Pressable>
                 )}
@@ -177,7 +179,7 @@ export function RegisterScreen({ onLogin }: { onLogin: () => void }) {
           })}
 
           {error ? (
-            <Animated.Text entering={FadeInUp.duration(300)} style={styles.error}>
+            <Animated.Text entering={FadeInUp.duration(300)} style={[styles.error, { color: colors.error }]}>
               {error}
             </Animated.Text>
           ) : null}
@@ -211,8 +213,8 @@ export function RegisterScreen({ onLogin }: { onLogin: () => void }) {
           </Animated.View>
 
           <Pressable onPress={onLogin} style={styles.linkWrapper}>
-            <Text style={styles.link}>
-              Already have an account? <Text style={styles.linkBold}>Sign in</Text>
+            <Text style={[styles.link, { color: colors.textSecondary }]}>
+              Already have an account? <Text style={[styles.linkBold, { color: colors.primary }]}>Sign in</Text>
             </Text>
           </Pressable>
         </Animated.View>

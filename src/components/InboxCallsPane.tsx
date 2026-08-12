@@ -7,6 +7,7 @@ import { fetchWorkspaceCallSessionSummary, fetchWorkspaceCallSessions, type Conv
 import { ErrorState } from './ErrorState';
 import { CallFeedItem } from './CallFeedItem';
 import { ListSkeleton } from './Skeleton';
+import { useTheme } from '../theme/ThemeContext';
 
 export type CallFeedFilter = 'all' | 'missed' | 'incoming' | 'outgoing';
 
@@ -22,6 +23,7 @@ type Props = {
 };
 
 export function InboxCallsPane({ onOpenConversation }: Props) {
+  const { colors, isDark } = useTheme();
   const queryClient = useQueryClient();
   const [callFilter, setCallFilter] = useState<CallFeedFilter>('all');
   const [search, setSearch] = useState('');
@@ -91,36 +93,36 @@ export function InboxCallsPane({ onOpenConversation }: Props) {
   }, [queryClient]);
 
   return (
-    <View style={styles.pane}>
-      <View style={styles.search}>
-        <Search color="#8ba2c3" size={18} />
+    <View style={[styles.pane, { backgroundColor: colors.background }]}>
+      <View style={[styles.search, { backgroundColor: colors.surfaceSecondary }]}>
+        <Search color={colors.textSecondary} size={18} />
         <TextInput
           value={search}
           onChangeText={onSearchChange}
           placeholder="Search calls..."
-          placeholderTextColor="#8ba2c3"
-          style={styles.input}
+          placeholderTextColor={colors.textMuted}
+          style={[styles.input, { color: colors.text }]}
         />
         {debouncedSearch ? (
           <Pressable onPress={clearSearch}>
-            <Text style={styles.clearSearch}>✕</Text>
+            <Text style={[styles.clearSearch, { color: colors.textMuted }]}>✕</Text>
           </Pressable>
         ) : null}
       </View>
 
-      <View style={styles.filters}>
+      <View style={[styles.filters, { borderBottomColor: colors.separator }]}>
         {CALL_FILTERS.map((filter) => {
           const active = callFilter === filter.id;
           const count = summary ? summary[filter.id] : null;
           return (
             <Pressable
               key={filter.id}
-              style={[styles.filterChip, active && styles.filterChipActive]}
+              style={[styles.filterChip, active && styles.filterChipActive, active && isDark && { backgroundColor: colors.primary }]}
               onPress={() => setCallFilter(filter.id)}
             >
-              <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{filter.label}</Text>
+              <Text style={[styles.filterChipText, active && styles.filterChipTextActive, active && isDark && { color: colors.primaryText }]}>{filter.label}</Text>
               {count !== null ? (
-                <Text style={[styles.filterCount, active && styles.filterCountActive]}>{count}</Text>
+                <Text style={[styles.filterCount, active && styles.filterCountActive, active && isDark && { backgroundColor: colors.primary, color: colors.primaryText }, !active && { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{count}</Text>
               ) : null}
             </Pressable>
           );
@@ -138,10 +140,10 @@ export function InboxCallsPane({ onOpenConversation }: Props) {
               )}
               ListEmptyComponent={(
                 <View style={styles.empty}>
-                  <View style={styles.emptyIcon}>
-                    <Clock3 color="#8da0ba" size={22} />
+                  <View style={[styles.emptyIcon, { backgroundColor: colors.surfaceSecondary }]}>
+                    <Clock3 color={colors.textMuted} size={22} />
                   </View>
-                  <Text style={styles.emptyTitle}>
+                  <Text style={[styles.emptyTitle, { color: colors.text }]}>
                     {searchTerm
                       ? 'No matching calls'
                       : callFilter === 'missed'
@@ -152,19 +154,19 @@ export function InboxCallsPane({ onOpenConversation }: Props) {
                             ? 'No outgoing calls'
                             : 'No calls yet'}
                   </Text>
-                  <Text style={styles.emptyBody}>
+                  <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>
                     {searchTerm
                       ? 'Try a different name or phone number.'
                       : 'Call activity for this workspace will show up here.'}
                   </Text>
                   {searchTerm ? (
-                    <Pressable style={styles.clearButton} onPress={clearSearch}>
-                      <Text style={styles.clearButtonText}>Clear search</Text>
+                    <Pressable style={[styles.clearButton, { backgroundColor: colors.primary }]} onPress={clearSearch}>
+                      <Text style={[styles.clearButtonText, { color: colors.primaryText }]}>Clear search</Text>
                     </Pressable>
                   ) : null}
                 </View>
               )}
-              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#2563eb" />}
+              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
               onEndReachedThreshold={0.4}
               onEndReached={() => {
                 if (sessionsQuery.hasNextPage && !sessionsQuery.isFetchingNextPage) {

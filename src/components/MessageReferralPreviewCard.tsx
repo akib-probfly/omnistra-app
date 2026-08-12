@@ -3,12 +3,14 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Play } from 'lucide-react-native';
 import { AuthenticatedImage } from './AuthenticatedImage';
 import type { MessageReferralPreview } from '../lib/inbox-utils';
+import { useTheme } from '../theme/ThemeContext';
 
 type Props = {
   referral: MessageReferralPreview;
 };
 
 export function MessageReferralPreviewCard({ referral }: Props) {
+  const { colors } = useTheme();
   const hasHeadline = Boolean(referral.headline?.trim());
   const hasPageName = Boolean(referral.pageName?.trim());
   const hasWelcomeMessage = Boolean(referral.welcomeMessageText?.trim());
@@ -36,9 +38,9 @@ export function MessageReferralPreviewCard({ referral }: Props) {
   }
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
       {showImagePreview ? (
-        <View style={styles.mediaWrap}>
+        <View style={[styles.mediaWrap, { backgroundColor: colors.background, borderBottomColor: colors.separator }]}>
           <AuthenticatedImage
             url={activePreviewImageUrl!}
             style={styles.mediaImage}
@@ -84,22 +86,22 @@ export function MessageReferralPreviewCard({ referral }: Props) {
       ) : null}
 
       <View style={styles.body}>
-        <Text style={styles.previewLabel}>{referral.previewLabel}</Text>
+        <Text style={[styles.previewLabel, { color: colors.textSecondary }]}>{referral.previewLabel}</Text>
         {primaryTitle ? (
-          <Text style={styles.primaryTitle} numberOfLines={2}>{primaryTitle}</Text>
+          <Text style={[styles.primaryTitle, { color: colors.text }]} numberOfLines={2}>{primaryTitle}</Text>
         ) : null}
         {secondaryHeadline ? (
-          <Text style={styles.secondaryHeadline} numberOfLines={2}>{secondaryHeadline}</Text>
+          <Text style={[styles.secondaryHeadline, { color: colors.textSecondary }]} numberOfLines={2}>{secondaryHeadline}</Text>
         ) : null}
         {previewDescription ? (
-          <Text style={styles.description} numberOfLines={3}>{previewDescription}</Text>
+          <Text style={[styles.description, { color: colors.textSecondary }]} numberOfLines={3}>{previewDescription}</Text>
         ) : null}
         {hasWelcomeMessage ? (
-          <Text style={styles.welcome}>{referral.welcomeMessageText}</Text>
+          <Text style={[styles.welcome, { color: colors.textMuted }]}>{referral.welcomeMessageText}</Text>
         ) : null}
         {referral.sourceUrl ? (
           <Pressable onPress={() => openUrl(referral.sourceUrl)} hitSlop={6} style={styles.viewAd}>
-            <Text style={styles.viewAdText}>View ad</Text>
+            <Text style={[styles.viewAdText, { color: colors.primary }]}>View ad</Text>
           </Pressable>
         ) : null}
       </View>

@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Copy, Reply as ReplyIcon } from 'lucide-react-native';
+import { useTheme } from '../theme/ThemeContext';
 
 export const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -18,30 +19,31 @@ export function ReactionPicker({
   onReply: () => void;
   onCopy?: () => void;
 }) {
+  const { colors } = useTheme();
   useEffect(() => {
     if (!visible) return;
   }, [visible]);
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <View style={styles.panel}>
-          <Text style={styles.title}>React to message</Text>
+        <View style={[styles.panel, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.title, { color: colors.textSecondary }]}>React to message</Text>
           <View style={styles.emojis}>
             {REACTION_EMOJIS.map((emoji) => (
-              <Pressable key={emoji} style={styles.emojiButton} onPress={() => onPick(emoji)}>
+              <Pressable key={emoji} style={[styles.emojiButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => onPick(emoji)}>
                 <Text style={styles.emoji}>{emoji}</Text>
               </Pressable>
             ))}
           </View>
           <View style={styles.actionRow}>
-            <Pressable style={styles.actionButton} onPress={() => { onClose(); onReply(); }}>
-              <ReplyIcon color="#2563eb" size={20} />
-              <Text style={styles.actionText}>Reply</Text>
+            <Pressable style={[styles.actionButton, { borderColor: colors.cardBorder }]} onPress={() => { onClose(); onReply(); }}>
+              <ReplyIcon color={colors.primary} size={20} />
+              <Text style={[styles.actionText, { color: colors.primary }]}>Reply</Text>
             </Pressable>
             {onCopy ? (
-              <Pressable style={styles.actionButton} onPress={() => { onClose(); onCopy(); }}>
-                <Copy color="#2563eb" size={20} />
-                <Text style={styles.actionText}>Copy</Text>
+              <Pressable style={[styles.actionButton, { borderColor: colors.cardBorder }]} onPress={() => { onClose(); onCopy(); }}>
+                <Copy color={colors.primary} size={20} />
+                <Text style={[styles.actionText, { color: colors.primary }]}>Copy</Text>
               </Pressable>
             ) : null}
           </View>

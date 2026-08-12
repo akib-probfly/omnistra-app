@@ -4,6 +4,7 @@ import { LoaderCircle, RefreshCw, Sparkles } from 'lucide-react-native';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { syncWhatsappChannelCallingSettings, updateWhatsappChannelCalling, type WhatsappCallingSetting } from '../api/channels';
 import { AppToggle } from './AppToggle';
+import { useTheme } from '../theme/ThemeContext';
 
 function formatDateLabel(value: string | null | undefined) {
   if (!value) return 'Not available';
@@ -13,6 +14,7 @@ function formatDateLabel(value: string | null | undefined) {
 }
 
 export function WhatsappCallingTab({ channelId, callingSetting, callDisabledReason }: { channelId: string; callingSetting?: WhatsappCallingSetting | null; callDisabledReason?: string | null }) {
+  const { colors } = useTheme();
   const queryClient = useQueryClient();
   const calling = callingSetting ?? null;
   const enabled = calling?.whatsappCallingEnabled ?? false;
@@ -40,17 +42,17 @@ export function WhatsappCallingTab({ channelId, callingSetting, callDisabledReas
   });
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
-      <View style={styles.callout}>
-        <Sparkles color="#315efb" size={16} />
-        <Text style={styles.calloutText}>User-initiated calls are supported globally. Business-initiated calls are available based on Meta capability and region support.</Text>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.content}>
+      <View style={[styles.callout, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+        <Sparkles color={colors.primary} size={16} />
+        <Text style={[styles.calloutText, { color: colors.textSecondary }]}>User-initiated calls are supported globally. Business-initiated calls are available based on Meta capability and region support.</Text>
       </View>
 
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
         <View style={styles.row}>
           <View style={styles.rowCopy}>
-            <Text style={styles.rowTitle}>Enable WhatsApp Calls</Text>
-            <Text style={styles.rowSub}>Allow your organization to make and receive WhatsApp Calls on this channel.</Text>
+            <Text style={[styles.rowTitle, { color: colors.text }]}>Enable WhatsApp Calls</Text>
+            <Text style={[styles.rowSub, { color: colors.textSecondary }]}>Allow your organization to make and receive WhatsApp Calls on this channel.</Text>
           </View>
           <AppToggle
             value={enabled}
@@ -60,26 +62,26 @@ export function WhatsappCallingTab({ channelId, callingSetting, callDisabledReas
           />
         </View>
 
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: colors.separator }]} />
 
         <View style={styles.row}>
           <View style={styles.rowCopy}>
-            <Text style={styles.rowTitle}>Current state</Text>
-            <Text style={styles.rowSub}>{callDisabledReason ?? 'The current calling capability state is controlled by Meta and mirrored here in real time.'}</Text>
+            <Text style={[styles.rowTitle, { color: colors.text }]}>Current state</Text>
+            <Text style={[styles.rowSub, { color: colors.textSecondary }]}>{callDisabledReason ?? 'The current calling capability state is controlled by Meta and mirrored here in real time.'}</Text>
           </View>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{calling?.status ?? 'UNKNOWN'}</Text>
+          <View style={[styles.badge, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.badgeText, { color: colors.primary }]}>{calling?.status ?? 'UNKNOWN'}</Text>
           </View>
         </View>
 
-        <View style={styles.divider} />
+        <View style={[styles.divider, { backgroundColor: colors.separator }]} />
 
         <View style={styles.row}>
           <View style={styles.rowCopy}>
-            <Text style={styles.rowTitle}>Enabled at</Text>
-            <Text style={styles.rowSub}>{formatDateLabel(calling?.enabledAt)}</Text>
+            <Text style={[styles.rowTitle, { color: colors.text }]}>Enabled at</Text>
+            <Text style={[styles.rowSub, { color: colors.textSecondary }]}>{formatDateLabel(calling?.enabledAt)}</Text>
           </View>
-          <Text style={styles.lastChecked}>Last checked {formatDateLabel(calling?.lastCheckedAt)}</Text>
+          <Text style={[styles.lastChecked, { color: colors.textMuted }]}>Last checked {formatDateLabel(calling?.lastCheckedAt)}</Text>
         </View>
 
         {calling?.lastError ? (
@@ -88,9 +90,9 @@ export function WhatsappCallingTab({ channelId, callingSetting, callDisabledReas
           </View>
         ) : null}
 
-        <Pressable style={[styles.syncButton, sync.isPending && styles.buttonDisabled]} onPress={() => sync.mutate()} disabled={sync.isPending}>
-          {sync.isPending ? <LoaderCircle color="#315efb" size={15} /> : <RefreshCw color="#315efb" size={15} />}
-          <Text style={styles.syncText}>Sync calling settings</Text>
+        <Pressable style={[styles.syncButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }, sync.isPending && styles.buttonDisabled]} onPress={() => sync.mutate()} disabled={sync.isPending}>
+          {sync.isPending ? <LoaderCircle color={colors.primary} size={15} /> : <RefreshCw color={colors.primary} size={15} />}
+          <Text style={[styles.syncText, { color: colors.primary }]}>Sync calling settings</Text>
         </Pressable>
       </View>
     </ScrollView>

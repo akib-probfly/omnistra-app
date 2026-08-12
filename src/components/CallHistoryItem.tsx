@@ -1,6 +1,7 @@
 import { PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, PhoneOutgoing, Radio } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
 import type { ConversationCallSession } from '../api/inbox';
+import { useTheme } from '../theme/ThemeContext';
 import {
   formatCallDurationLabel,
   formatCallHistoryTime,
@@ -36,6 +37,7 @@ function renderIcon(tone: CallHistoryTone, direction: 'INBOUND' | 'OUTBOUND', co
 }
 
 export function CallHistoryItem({ session }: { session: ConversationCallSession }) {
+  const { colors } = useTheme();
   const presentation = getCallSessionHistoryPresentation(session);
   const timestamp = getCallSessionTimelineTimestamp(session);
   const timeLabel = formatCallHistoryTime(timestamp);
@@ -48,18 +50,18 @@ export function CallHistoryItem({ session }: { session: ConversationCallSession 
 
   return (
     <View style={styles.row}>
-      <View style={styles.pill}>
+      <View style={[styles.pill, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
         <View style={styles.line}>
           <View style={[styles.iconCircle, { backgroundColor: toneStyles.iconBg }]}>
             {renderIcon(tone, session.direction, toneStyles.iconColor)}
           </View>
-          <Text style={styles.direction}>{directionLabel}</Text>
-          <Text style={styles.sep}>·</Text>
+          <Text style={[styles.direction, { color: colors.text }]}>{directionLabel}</Text>
+          <Text style={[styles.sep, { color: colors.textMuted }]}>·</Text>
           <Text style={[styles.outcome, { color: toneStyles.text }]}>{outcomeLabel}</Text>
-          <Text style={styles.sep}>·</Text>
-          <Text style={styles.time}>{timeLabel}</Text>
+          <Text style={[styles.sep, { color: colors.textMuted }]}>·</Text>
+          <Text style={[styles.time, { color: colors.textMuted }]}>{timeLabel}</Text>
         </View>
-        {agentLabel ? <Text style={styles.agent} numberOfLines={1}>{agentLabel}</Text> : null}
+        {agentLabel ? <Text style={[styles.agent, { color: colors.textSecondary }]} numberOfLines={1}>{agentLabel}</Text> : null}
       </View>
     </View>
   );

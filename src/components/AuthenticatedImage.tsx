@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, View } from 'react-native';
+import { useTheme } from '../theme/ThemeContext';
 
 const cache = new Map<string, string>();
 
@@ -141,6 +142,7 @@ export function AuthenticatedImage({
   onLoaded?: () => void;
   onError?: () => void;
 }) {
+  const { colors } = useTheme();
   const publicRemote = isPublicRemoteUrl(url);
   const [localUri, setLocalUri] = useState<string | null>(publicRemote ? url : (cache.get(url) ?? null));
   const [failed, setFailed] = useState(false);
@@ -240,10 +242,10 @@ export function AuthenticatedImage({
           }}
         />
       ) : (
-        <View style={[fitContent ? fittedSize : adaptive ? styles.mediaPlaceholder : style, styles.mediaPlaceholder]}>
+        <View style={[fitContent ? fittedSize : adaptive ? styles.mediaPlaceholder : style, styles.mediaPlaceholder, { backgroundColor: colors.surfaceSecondary }]}>
           {loaded || failed ? null : (
             <View style={styles.loadingWrap}>
-              <ActivityIndicator color="#2563eb" size="small" />
+              <ActivityIndicator color={colors.primary} size="small" />
             </View>
           )}
         </View>

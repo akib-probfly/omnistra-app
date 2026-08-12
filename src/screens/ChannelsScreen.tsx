@@ -12,6 +12,7 @@ import { ErrorState } from '../components/ErrorState';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 import { ListSkeleton } from '../components/Skeleton';
 import type { ChannelsStackParamList } from '../navigation/ChannelsStack';
+import { useTheme } from '../theme/ThemeContext';
 
 type Channel = {
   id: string;
@@ -42,6 +43,7 @@ export function ChannelsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ChannelsStackParamList>>();
   const [search, setSearch] = useState('');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const { colors } = useTheme();
   const query = `/channels?page=1&limit=100&sortBy=createdAt&sortOrder=desc${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ''}`;
   const channels = useQuery({ queryKey: ['channels', search], queryFn: () => apiFetch<ChannelsResponse>(query), staleTime: 120000 });
   const items = channels.data?.items ?? [];
@@ -54,11 +56,11 @@ export function ChannelsScreen() {
   ];
 
   return (
-    <View style={styles.screen}>
-      <View style={[styles.topbar, { paddingTop: insets.top + 10 }]}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <View style={[styles.topbar, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <View style={styles.topbarCopy}>
-          <Text style={styles.title}>Channels</Text>
-          <Text style={styles.subtitle}>Manage your connected customer touchpoints.</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Channels</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Manage your connected customer touchpoints.</Text>
         </View>
         <NotificationBell onOpen={() => setNotificationsOpen(true)} />
       </View>
@@ -80,9 +82,9 @@ export function ChannelsScreen() {
         ))}
       </View>
 
-      <View style={styles.search}>
-        <Search color="#8ba2c3" size={18} />
-        <TextInput value={search} onChangeText={setSearch} placeholder="Search channels..." placeholderTextColor="#8ba2c3" style={styles.searchInput} />
+      <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+        <Search color={colors.textMuted} size={18} />
+        <TextInput value={search} onChangeText={setSearch} placeholder="Search channels..." placeholderTextColor={colors.textMuted} style={[styles.searchInput, { color: colors.text }]} />
       </View>
 
       {channels.isError ? (
@@ -93,13 +95,13 @@ export function ChannelsScreen() {
         <FlatList
           data={items}
           keyExtractor={(item) => item.id}
-          refreshControl={<RefreshControl refreshing={channels.isRefetching} onRefresh={() => channels.refetch()} tintColor="#2563eb" />}
+          refreshControl={<RefreshControl refreshing={channels.isRefetching} onRefresh={() => channels.refetch()} tintColor={colors.primary} />}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <View style={styles.empty}>
               <ChannelLogo box={52} glyph={26} radius={18} />
-              <Text style={styles.emptyTitle}>No channels connected</Text>
-              <Text style={styles.emptyText}>Channels connected in the web workspace will appear here automatically.</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>No channels connected</Text>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Channels connected in the web workspace will appear here automatically.</Text>
             </View>
           }
           renderItem={({ item }) => <ChannelRow channel={item} onPress={() => openDetails(item)} />}
@@ -112,6 +114,7 @@ export function ChannelsScreen() {
 }
 
 function ChannelRow({ channel, onPress }: { channel: Channel; onPress: () => void }) {
+  const { colors } = useTheme();
   const status = (channel.status ?? channel.webhookStatus ?? 'UNKNOWN').toUpperCase();
   const isPaused = channel.lifecycle?.isPaused ?? false;
   const connected = status === 'CONNECTED' && !isPaused;
@@ -122,23 +125,23 @@ function ChannelRow({ channel, onPress }: { channel: Channel; onPress: () => voi
   const StatusIcon = isPaused ? Pause : connected ? CheckCircle2 : CircleAlert;
   const statusTone = isPaused || !connected ? '#d97706' : '#059669';
   return (
-    <Pressable onPress={onPress} style={styles.card}>
+    <Pressable onPress={onPress} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
       <ChannelLogo type={channel.type ?? channel.channelType} box={48} glyph={24} radius={14} />
       <View style={styles.copy}>
         <View style={styles.nameLine}>
-          <Text style={styles.name}>{channel.channelName ?? channel.name ?? 'Unnamed channel'}</Text>
+          <Text style={[styles.name, { color: colors.text }]}>{channel.channelName ?? channel.name ?? 'Unnamed channel'}</Text>
           <View style={[styles.badge, { backgroundColor: isPaused || !connected ? '#fff4d6' : '#dff8ee' }]}>
             <StatusIcon color={statusTone} size={12} />
             <Text style={{ color: statusTone, fontSize: 11, fontWeight: '600' }}>{statusLabel}</Text>
           </View>
         </View>
-        <Text style={styles.detail} numberOfLines={1}>{primaryLine}</Text>
+        <Text style={[styles.detail, { color: colors.textSecondary }]} numberOfLines={1}>{primaryLine}</Text>
         <View style={styles.metaLine}>
-          <Text style={styles.idText} numberOfLines={1}>ID: {idLine}</Text>
-          <Text style={styles.msg24h}>{channel.messagesLast24h ?? 0} msgs / 24h</Text>
+          <Text style={[styles.idText, { color: colors.textMuted }]} numberOfLines={1}>ID: {idLine}</Text>
+          <Text style={[styles.msg24h, { color: colors.textSecondary }]}>{channel.messagesLast24h ?? 0} msgs / 24h</Text>
         </View>
       </View>
-      <ChevronRight color="#94a3b8" size={20} />
+      <ChevronRight color={colors.textMuted} size={20} />
     </Pressable>
   );
 }

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../theme/ThemeContext';
 import { apiUrl } from '../api/client';
 import { fetchMyProfile, updateMyProfile } from '../api/profile';
 import { useAuth } from '../auth/AuthContext';
@@ -21,6 +22,7 @@ export function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
+  const { colors } = useTheme();
   const { session, updateUser } = useAuth();
   const currentName = session?.user.name?.trim() || session?.user.email?.trim() || 'User';
   const initialAvatarUrl = session?.user.avatarUrl ?? null;
@@ -103,22 +105,22 @@ export function ProfileScreen() {
   const email = profileQuery.data?.email?.trim() || session?.user.email?.trim() || '';
 
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={8}><ArrowLeft color="#334155" size={23} /></Pressable>
+    <KeyboardAvoidingView style={[styles.screen, { backgroundColor: colors.background }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={8}><ArrowLeft color={colors.textSecondary} size={23} /></Pressable>
         <View style={styles.headerCopy}>
-          <Text style={styles.headerTitle}>Profile</Text>
-          <Text style={styles.headerSubtitle}>Manage your personal info, avatar, and password.</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Profile</Text>
+          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Manage your personal info, avatar, and password.</Text>
         </View>
       </View>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Personal information</Text>
-          <Text style={styles.cardDescription}>Update your name, avatar, and password.</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Personal information</Text>
+          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>Update your name, avatar, and password.</Text>
 
           <View style={styles.avatarRow}>
             <View style={styles.avatarWrap}>
-              {displayAvatarUrl ? <Image source={{ uri: displayAvatarUrl }} style={styles.avatarImage} /> : (
+              {displayAvatarUrl ? <Image source={{ uri: displayAvatarUrl }} style={[styles.avatarImage, { backgroundColor: colors.surfaceSecondary }]} /> : (
                 <View style={styles.avatar}><Text style={styles.avatarText}>{getInitials(displayName)}</Text></View>
               )}
               <Pressable style={styles.avatarEdit} onPress={handlePickAvatar} hitSlop={12}>
@@ -126,61 +128,61 @@ export function ProfileScreen() {
               </Pressable>
             </View>
             <View style={styles.avatarFields}>
-              <Text style={styles.fieldLabel}>Display name</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Display name</Text>
               <TextInput
                 value={displayName}
                 onChangeText={setNameOverride}
-                style={[styles.input, !hasValidDisplayName && styles.inputInvalid]}
+                style={[styles.input, { backgroundColor: colors.background, borderColor: colors.inputBorder, color: colors.text }, !hasValidDisplayName && { borderColor: colors.error }]}
                 placeholder="Your name"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={colors.textMuted}
                 autoCapitalize="words"
               />
-              <Text style={styles.fieldLabel}>Email</Text>
-              <View style={[styles.input, styles.inputDisabled]}>
-                <Text style={styles.inputDisabledText} numberOfLines={1}>{email || 'Account'}</Text>
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Email</Text>
+              <View style={[styles.input, styles.inputDisabled, { backgroundColor: colors.surfaceSecondary, borderColor: colors.inputBorder, color: colors.text }]}>
+                <Text style={[styles.inputDisabledText, { color: colors.textSecondary }]} numberOfLines={1}>{email || 'Account'}</Text>
               </View>
             </View>
           </View>
 
-          <View style={styles.sectionDivider} />
-          <Text style={styles.cardTitle}>Change password</Text>
-          <Text style={styles.cardDescription}>{PASSWORD_RULES}</Text>
+          <View style={[styles.sectionDivider, { backgroundColor: colors.separator }]} />
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Change password</Text>
+          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>{PASSWORD_RULES}</Text>
 
           <View style={styles.passwordFields}>
-            <Text style={styles.fieldLabel}>New password</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>New password</Text>
             <View style={styles.passwordWrap}>
               <TextInput
                 value={newPassword}
                 onChangeText={setNewPassword}
-                style={[styles.input, styles.passwordInput, newPasswordError && styles.inputInvalid]}
+                style={[styles.input, styles.passwordInput, { backgroundColor: colors.background, borderColor: colors.inputBorder, color: colors.text }, newPasswordError && { borderColor: colors.error }]}
                 placeholder="At least 8 characters"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={colors.textMuted}
                 secureTextEntry={!showPasswords}
                 autoComplete="new-password"
               />
               <Pressable style={styles.eye} onPress={() => setShowPasswords((current) => !current)} hitSlop={8}>
-                {showPasswords ? <EyeOff color="#64748b" size={18} /> : <Eye color="#64748b" size={18} />}
+                {showPasswords ? <EyeOff color={colors.textSecondary} size={18} /> : <Eye color={colors.textSecondary} size={18} />}
               </Pressable>
             </View>
-            {newPasswordError ? <Text style={styles.fieldError}>{newPasswordError}</Text> : null}
+            {newPasswordError ? <Text style={[styles.fieldError, { color: colors.error }]}>{newPasswordError}</Text> : null}
 
-            <Text style={styles.fieldLabel}>Confirm new password</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Confirm new password</Text>
             <View style={styles.passwordWrap}>
               <TextInput
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
-                style={[styles.input, styles.passwordInput, confirmPasswordError && styles.inputInvalid]}
+                style={[styles.input, styles.passwordInput, { backgroundColor: colors.background, borderColor: colors.inputBorder, color: colors.text }, confirmPasswordError && { borderColor: colors.error }]}
                 placeholder="Repeat new password"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={colors.textMuted}
                 secureTextEntry={!showPasswords}
                 autoComplete="new-password"
               />
             </View>
-            {confirmPasswordError ? <Text style={styles.fieldError}>{confirmPasswordError}</Text> : null}
+            {confirmPasswordError ? <Text style={[styles.fieldError, { color: colors.error }]}>{confirmPasswordError}</Text> : null}
           </View>
 
           <Pressable
-            style={[styles.submit, !canSubmit || profileMutation.isPending ? styles.submitDisabled : null]}
+            style={[styles.submit, { backgroundColor: colors.primary }, !canSubmit || profileMutation.isPending ? styles.submitDisabled : null]}
             onPress={handleSubmit}
             disabled={!canSubmit || profileMutation.isPending}
           >

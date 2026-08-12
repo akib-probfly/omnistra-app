@@ -54,6 +54,7 @@ import {
   validateTemplateForm,
 } from '../lib/whatsapp-template-utils';
 import { AppToggle } from './AppToggle';
+import { useTheme } from '../theme/ThemeContext';
 
 export type TemplateSheetMode = 'view' | 'edit' | 'create';
 
@@ -139,6 +140,7 @@ function getButtonIcon(type: WhatsappTemplateButtonType) {
 }
 
 function TemplatePreviewBubble({ form }: { form: WhatsappTemplateFormValues }) {
+  const { colors } = useTheme();
   const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const hasContent = Boolean(form.body.trim() || (form.header.enabled && form.header.content.trim()) || form.buttons.length);
   const headerText = form.header.enabled && form.header.type === 'TEXT' && form.header.content
@@ -152,68 +154,68 @@ function TemplatePreviewBubble({ form }: { form: WhatsappTemplateFormValues }) {
   const showAllOptions = form.buttons.length >= 3;
 
   return (
-    <View style={styles.previewCard}>
-      <Text style={styles.previewTitle}>Preview</Text>
+    <View style={[styles.previewCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+      <Text style={[styles.previewTitle, { color: colors.text }]}>Preview</Text>
 
-      <View style={styles.phoneShell}>
-        <View style={styles.statusBar}>
-          <Text style={styles.statusTime}>9:41</Text>
+      <View style={[styles.phoneShell, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+        <View style={[styles.statusBar, { backgroundColor: colors.surface }]}>
+          <Text style={[styles.statusTime, { color: colors.text }]}>9:41</Text>
           <View style={styles.statusIcons}>
             <View style={styles.signalBars}>
-              <View style={[styles.signalBar, { height: 4 }]} />
-              <View style={[styles.signalBar, { height: 6 }]} />
-              <View style={[styles.signalBar, { height: 8 }]} />
-              <View style={[styles.signalBar, { height: 10 }]} />
+              <View style={[styles.signalBar, { backgroundColor: colors.text, height: 4 }]} />
+              <View style={[styles.signalBar, { backgroundColor: colors.text, height: 6 }]} />
+              <View style={[styles.signalBar, { backgroundColor: colors.text, height: 8 }]} />
+              <View style={[styles.signalBar, { backgroundColor: colors.text, height: 10 }]} />
             </View>
-            <View style={styles.wifiIcon} />
+            <View style={[styles.wifiIcon, { borderColor: colors.text }]} />
             <View style={styles.batteryPill}>
               <Text style={styles.batteryText}>100</Text>
             </View>
           </View>
         </View>
 
-        <View style={styles.chatHeader}>
-          <ChevronLeft color="#0f172a" size={20} />
+        <View style={[styles.chatHeader, { backgroundColor: colors.surface, borderBottomColor: colors.separator }]}>
+          <ChevronLeft color={colors.text} size={20} />
           <View style={styles.avatar}>
-            <View style={styles.avatarInner} />
+            <View style={[styles.avatarInner, { backgroundColor: colors.surface }]} />
           </View>
           <View style={styles.chatHeaderCopy}>
             <View style={styles.chatHeaderNameRow}>
-              <Text style={styles.chatHeaderName}>Omnistra</Text>
+              <Text style={[styles.chatHeaderName, { color: colors.text }]}>Omnistra</Text>
               <BadgeCheck color="#1DA1F2" fill="#1DA1F2" size={15} />
             </View>
           </View>
-          <MoreVertical color="#64748b" size={18} />
+          <MoreVertical color={colors.textSecondary} size={18} />
         </View>
 
-        <View style={styles.chatBody}>
+        <View style={[styles.chatBody, { backgroundColor: colors.surfaceSecondary }]}>
           <View style={styles.metaNotice}>
             <Text style={styles.metaNoticeText}>
               This business uses a secure service from Meta to manage this chat. Tap to learn more
             </Text>
           </View>
 
-          <View style={styles.timePill}>
-            <Text style={styles.timePillText}>{now}</Text>
+          <View style={[styles.timePill, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.timePillText, { color: colors.textSecondary }]}>{now}</Text>
           </View>
 
           {hasContent ? (
-            <View style={styles.messageCard}>
+            <View style={[styles.messageCard, { backgroundColor: colors.surface }]}>
               {mediaType ? (
-                <View style={styles.mediaPlaceholder}>
-                  {mediaType === 'IMAGE' ? <ImageIcon color="#64748b" size={18} /> : null}
-                  {mediaType === 'VIDEO' ? <Video color="#64748b" size={18} /> : null}
-                  {mediaType === 'DOCUMENT' ? <FileText color="#64748b" size={18} /> : null}
-                  <Text style={styles.mediaPlaceholderText}>
+                <View style={[styles.mediaPlaceholder, { backgroundColor: colors.surfaceSecondary }]}>
+                  {mediaType === 'IMAGE' ? <ImageIcon color={colors.textSecondary} size={18} /> : null}
+                  {mediaType === 'VIDEO' ? <Video color={colors.textSecondary} size={18} /> : null}
+                  {mediaType === 'DOCUMENT' ? <FileText color={colors.textSecondary} size={18} /> : null}
+                  <Text style={[styles.mediaPlaceholderText, { color: colors.textSecondary }]}>
                     {mediaType.charAt(0) + mediaType.slice(1).toLowerCase()} preview
                   </Text>
                 </View>
               ) : null}
-              {headerText ? <Text style={styles.bubbleHeader}>{headerText}</Text> : null}
-              {bodyText ? <Text style={styles.bubbleBody}>{bodyText}</Text> : null}
-              {form.footer ? <Text style={styles.bubbleFooter}>{form.footer}</Text> : null}
+              {headerText ? <Text style={[styles.bubbleHeader, { color: colors.text }]}>{headerText}</Text> : null}
+              {bodyText ? <Text style={[styles.bubbleBody, { color: colors.text }]}>{bodyText}</Text> : null}
+              {form.footer ? <Text style={[styles.bubbleFooter, { color: colors.textSecondary }]}>{form.footer}</Text> : null}
               <View style={styles.bubbleMeta}>
-                <Text style={styles.bubbleMetaTime}>{now}</Text>
+                <Text style={[styles.bubbleMetaTime, { color: colors.textSecondary }]}>{now}</Text>
                 <Text style={styles.bubbleTicks}>✓✓</Text>
               </View>
               {visibleButtons.length > 0 ? (
@@ -234,28 +236,28 @@ function TemplatePreviewBubble({ form }: { form: WhatsappTemplateFormValues }) {
               ) : null}
             </View>
           ) : (
-            <View style={styles.emptyPreviewCard}>
-              <View style={styles.emptyPreviewIcon}>
-                <MessageCircle color="#315efb" size={22} />
+            <View style={[styles.emptyPreviewCard, { backgroundColor: colors.surface }]}>
+              <View style={[styles.emptyPreviewIcon, { backgroundColor: colors.surfaceSecondary }]}>
+                <MessageCircle color={colors.primary} size={22} />
               </View>
               <View style={styles.emptyPreviewCopy}>
-                <Text style={styles.emptyPreviewTitle}>Your message preview</Text>
-                <Text style={styles.emptyPreviewBody}>Choose a message type and add content to see it here.</Text>
+                <Text style={[styles.emptyPreviewTitle, { color: colors.text }]}>Your message preview</Text>
+                <Text style={[styles.emptyPreviewBody, { color: colors.textSecondary }]}>Choose a message type and add content to see it here.</Text>
               </View>
             </View>
           )}
         </View>
 
-        <View style={styles.composerBar}>
-          <View style={styles.composerPlus}>
-            <Plus color="#315efb" size={18} />
+        <View style={[styles.composerBar, { backgroundColor: colors.surfaceSecondary }]}>
+          <View style={[styles.composerPlus, { backgroundColor: colors.surface }]}>
+            <Plus color={colors.primary} size={18} />
           </View>
-          <View style={styles.composerInput}>
-            <Text style={styles.composerPlaceholder}>Message</Text>
-            <Smile color="#94a3b8" size={18} />
+          <View style={[styles.composerInput, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.composerPlaceholder, { color: colors.textMuted }]}>Message</Text>
+            <Smile color={colors.textMuted} size={18} />
           </View>
-          <MessageCircle color="#64748b" size={20} />
-          <Mic color="#64748b" size={20} />
+          <MessageCircle color={colors.textSecondary} size={20} />
+          <Mic color={colors.textSecondary} size={20} />
         </View>
       </View>
     </View>
@@ -272,6 +274,7 @@ export function WhatsappTemplateSheet({
   onEdit,
   onSave,
 }: Props) {
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<'preview' | 'editor'>('preview');
   const [form, setForm] = useState<WhatsappTemplateFormValues>(() => makeDraftTemplate());
@@ -376,36 +379,36 @@ export function WhatsappTemplateSheet({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={[styles.sheet, { backgroundColor: colors.surface, paddingBottom: Math.max(insets.bottom, 12) }]}>
           <View style={styles.handle} />
-          <View style={styles.header}>
+          <View style={[styles.header, { borderBottomColor: colors.separator }]}>
             <View style={styles.headerCopy}>
-              <Text style={styles.title} numberOfLines={1}>{title}</Text>
+              <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>{title}</Text>
               {template ? (
                 <View style={styles.metaRow}>
                   <View style={[styles.badge, { backgroundColor: tone.bg }]}>
                     <Text style={[styles.badgeText, { color: tone.fg }]}>{template.status}</Text>
                   </View>
-                  <Text style={styles.metaText}>{template.category} · {template.language}</Text>
+                  <Text style={[styles.metaText, { color: colors.textSecondary }]}>{template.category} · {template.language}</Text>
                 </View>
               ) : (
-                <Text style={styles.metaText}>Submit to Meta for review</Text>
+                <Text style={[styles.metaText, { color: colors.textSecondary }]}>Submit to Meta for review</Text>
               )}
             </View>
-            <Pressable style={styles.closeButton} onPress={onClose} hitSlop={8}>
-              <X color="#64748b" size={18} />
+            <Pressable style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary }]} onPress={onClose} hitSlop={8}>
+              <X color={colors.textSecondary} size={18} />
             </Pressable>
           </View>
 
           {editable ? (
-            <View style={styles.tabs}>
-              <Pressable style={[styles.tab, tab === 'editor' && styles.tabActive]} onPress={() => setTab('editor')}>
-                <Pencil color={tab === 'editor' ? '#2563eb' : '#64748b'} size={14} />
-                <Text style={[styles.tabText, tab === 'editor' && styles.tabTextActive]}>Editor</Text>
+            <View style={[styles.tabs, { backgroundColor: colors.surfaceSecondary }]}>
+              <Pressable style={[styles.tab, tab === 'editor' && { backgroundColor: colors.surface }]} onPress={() => setTab('editor')}>
+                <Pencil color={tab === 'editor' ? colors.primary : colors.textSecondary} size={14} />
+                <Text style={[styles.tabText, tab === 'editor' && { color: colors.primary }]}>Editor</Text>
               </Pressable>
-              <Pressable style={[styles.tab, tab === 'preview' && styles.tabActive]} onPress={() => setTab('preview')}>
-                <Eye color={tab === 'preview' ? '#2563eb' : '#64748b'} size={14} />
-                <Text style={[styles.tabText, tab === 'preview' && styles.tabTextActive]}>Preview</Text>
+              <Pressable style={[styles.tab, tab === 'preview' && { backgroundColor: colors.surface }]} onPress={() => setTab('preview')}>
+                <Eye color={tab === 'preview' ? colors.primary : colors.textSecondary} size={14} />
+                <Text style={[styles.tabText, tab === 'preview' && { color: colors.primary }]}>Preview</Text>
               </Pressable>
             </View>
           ) : null}
@@ -420,63 +423,63 @@ export function WhatsappTemplateSheet({
 
             {editable && tab === 'editor' ? (
               <>
-                <Text style={styles.sectionTitle}>Basics</Text>
-                <Text style={styles.fieldLabel}>Name</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Basics</Text>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Name</Text>
                 <TextInput
                   value={form.name}
                   editable={mode === 'create'}
                   onChangeText={(text) => setForm((current) => ({ ...current, name: text.toLowerCase().replace(/\s+/g, '_') }))}
                   placeholder="order_confirmation"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={colors.textMuted}
                   autoCapitalize="none"
-                  style={[styles.input, mode !== 'create' && styles.inputDisabled]}
+                  style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }, mode !== 'create' && styles.inputDisabled, mode !== 'create' && { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}
                 />
 
-                <Text style={styles.fieldLabel}>Category</Text>
-                <View style={styles.segment}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Category</Text>
+                <View style={[styles.segment, { backgroundColor: colors.surfaceSecondary }]}>
                   {CATEGORIES.map((option) => (
                     <Pressable
                       key={option.value}
                       onPress={() => setCategory(option.value)}
-                      style={[styles.segmentOption, form.category === option.value && styles.segmentOptionActive]}
+                      style={[styles.segmentOption, form.category === option.value && { backgroundColor: colors.surface }]}
                     >
-                      <Text style={[styles.segmentText, form.category === option.value && styles.segmentTextActive]}>{option.label}</Text>
+                      <Text style={[styles.segmentText, { color: colors.textSecondary }, form.category === option.value && { color: colors.primary }]}>{option.label}</Text>
                     </Pressable>
                   ))}
                 </View>
 
-                <Text style={styles.fieldLabel}>Language</Text>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Language</Text>
                 <View style={styles.chipWrap}>
                   {LANGUAGES.map((lang) => (
                     <Pressable
                       key={lang.value}
                       onPress={() => setForm((current) => ({ ...current, language: lang.value }))}
-                      style={[styles.chip, form.language === lang.value && styles.chipActive]}
+                      style={[styles.chip, { borderColor: colors.cardBorder }, form.language === lang.value && { backgroundColor: colors.primary, borderColor: colors.primary }]}
                     >
-                      <Text style={[styles.chipText, form.language === lang.value && styles.chipTextActive]}>{lang.label}</Text>
+                      <Text style={[styles.chipText, { color: colors.textSecondary }, form.language === lang.value && { color: colors.surface }]}>{lang.label}</Text>
                     </Pressable>
                   ))}
                 </View>
 
                 {form.category === 'AUTHENTICATION' ? (
                   <>
-                    <Text style={styles.sectionTitle}>Authentication</Text>
-                    <Text style={styles.fieldLabel}>Code delivery</Text>
-                    <View style={styles.segment}>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Authentication</Text>
+                    <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Code delivery</Text>
+                    <View style={[styles.segment, { backgroundColor: colors.surfaceSecondary }]}>
                       {(['COPY_CODE', 'ONE_TAP'] as const).map((method) => (
                         <Pressable
                           key={method}
                           onPress={() => updateAuth({ authCodeDeliveryMethod: method })}
-                          style={[styles.segmentOption, form.authCodeDeliveryMethod === method && styles.segmentOptionActive]}
+                          style={[styles.segmentOption, form.authCodeDeliveryMethod === method && { backgroundColor: colors.surface }]}
                         >
-                          <Text style={[styles.segmentText, form.authCodeDeliveryMethod === method && styles.segmentTextActive]}>
+                          <Text style={[styles.segmentText, { color: colors.textSecondary }, form.authCodeDeliveryMethod === method && { color: colors.primary }]}>
                             {method === 'COPY_CODE' ? 'Copy code' : 'One tap'}
                           </Text>
                         </Pressable>
                       ))}
                     </View>
                     <View style={styles.toggleRow}>
-                      <Text style={styles.toggleLabel}>Security recommendation</Text>
+                      <Text style={[styles.toggleLabel, { color: colors.text }]}>Security recommendation</Text>
                       <AppToggle
                         value={form.authIncludeSecurityRecommendation}
                         onValueChange={(value) => updateAuth({ authIncludeSecurityRecommendation: value })}
@@ -484,7 +487,7 @@ export function WhatsappTemplateSheet({
                       />
                     </View>
                     <View style={styles.toggleRow}>
-                      <Text style={styles.toggleLabel}>Expiration notice</Text>
+                      <Text style={[styles.toggleLabel, { color: colors.text }]}>Expiration notice</Text>
                       <AppToggle
                         value={form.authIncludeExpirationNotice}
                         onValueChange={(value) => updateAuth({
@@ -496,7 +499,7 @@ export function WhatsappTemplateSheet({
                     </View>
                     {form.authIncludeExpirationNotice ? (
                       <>
-                        <Text style={styles.fieldLabel}>Expires in (minutes)</Text>
+                        <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Expires in (minutes)</Text>
                         <TextInput
                           value={String(form.authCodeExpirationMinutes ?? 10)}
                           onChangeText={(text) => {
@@ -504,17 +507,17 @@ export function WhatsappTemplateSheet({
                             updateAuth({ authCodeExpirationMinutes: minutes });
                           }}
                           keyboardType="number-pad"
-                          style={styles.input}
+                          style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]}
                         />
                       </>
                     ) : null}
-                    <Text style={styles.helper}>Auth body and OTP button are generated automatically.</Text>
+                    <Text style={[styles.helper, { color: colors.textMuted }]}>Auth body and OTP button are generated automatically.</Text>
                   </>
                 ) : (
                   <>
-                    <Text style={styles.sectionTitle}>Header</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Header</Text>
                     <View style={styles.toggleRow}>
-                      <Text style={styles.toggleLabel}>Enable header</Text>
+                      <Text style={[styles.toggleLabel, { color: colors.text }]}>Enable header</Text>
                       <AppToggle
                         value={form.header.enabled}
                         onValueChange={(value) => patchForm((current) => ({
@@ -530,7 +533,7 @@ export function WhatsappTemplateSheet({
                     </View>
                     {form.header.enabled ? (
                       <>
-                        <Text style={styles.fieldLabel}>Header type</Text>
+                        <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Header type</Text>
                         <View style={styles.chipWrap}>
                           {HEADER_TYPES.filter((item) => item.value !== 'NONE').map((item) => (
                             <Pressable
@@ -539,15 +542,15 @@ export function WhatsappTemplateSheet({
                                 ...current,
                                 header: { ...current.header, type: item.value, content: item.value === 'TEXT' ? current.header.content : '' },
                               }))}
-                              style={[styles.chip, form.header.type === item.value && styles.chipActive]}
+                              style={[styles.chip, { borderColor: colors.cardBorder }, form.header.type === item.value && { backgroundColor: colors.primary, borderColor: colors.primary }]}
                             >
-                              <Text style={[styles.chipText, form.header.type === item.value && styles.chipTextActive]}>{item.label}</Text>
+                              <Text style={[styles.chipText, { color: colors.textSecondary }, form.header.type === item.value && { color: colors.surface }]}>{item.label}</Text>
                             </Pressable>
                           ))}
                         </View>
                         {form.header.type === 'TEXT' ? (
                           <>
-                            <Text style={styles.fieldLabel}>Header text</Text>
+                            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Header text</Text>
                             <TextInput
                               value={form.header.content}
                               onChangeText={(text) => patchForm((current) => ({
@@ -555,58 +558,58 @@ export function WhatsappTemplateSheet({
                                 header: { ...current.header, content: text },
                               }))}
                               placeholder="Order {{1}} update"
-                              placeholderTextColor="#94a3b8"
-                              style={styles.input}
+                              placeholderTextColor={colors.textMuted}
+                              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]}
                             />
                           </>
                         ) : (
-                          <Text style={styles.helper}>
+                          <Text style={[styles.helper, { color: colors.textMuted }]}>
                             Media headers use Meta sample media at submit time. Optional sample URL can be stored in variables.
                           </Text>
                         )}
                       </>
                     ) : null}
 
-                    <Text style={styles.sectionTitle}>Body</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Body</Text>
                     <TextInput
                       value={form.body}
                       onChangeText={(text) => patchForm((current) => ({ ...current, body: text }))}
                       placeholder="Hi {{1}}, your order is on the way."
-                      placeholderTextColor="#94a3b8"
+                      placeholderTextColor={colors.textMuted}
                       multiline
-                      style={styles.inputMultiline}
+                      style={[styles.inputMultiline, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]}
                     />
                     <View style={styles.inlineActions}>
                       <Pressable
-                        style={styles.secondaryButton}
+                        style={[styles.secondaryButton, { backgroundColor: colors.surfaceSecondary }]}
                         onPress={() => patchForm((current) => ({
                           ...current,
                           body: insertBodyVariable(current.body, current.variables),
                         }))}
                       >
-                        <Plus color="#2563eb" size={14} />
-                        <Text style={styles.secondaryButtonText}>Add variable</Text>
+                        <Plus color={colors.primary} size={14} />
+                        <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Add variable</Text>
                       </Pressable>
-                      <Text style={styles.charCount}>{form.body.length}/1024</Text>
+                      <Text style={[styles.charCount, { color: colors.textMuted }]}>{form.body.length}/1024</Text>
                     </View>
 
-                    <Text style={styles.sectionTitle}>Footer</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Footer</Text>
                     <TextInput
                       value={form.footer}
                       onChangeText={(text) => setForm((current) => ({ ...current, footer: text }))}
                       placeholder="Reply STOP to unsubscribe"
-                      placeholderTextColor="#94a3b8"
-                      style={styles.input}
+                      placeholderTextColor={colors.textMuted}
+                      style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]}
                     />
-                    <Text style={styles.charCount}>{form.footer.length}/60</Text>
+                    <Text style={[styles.charCount, { color: colors.textMuted }]}>{form.footer.length}/60</Text>
 
-                    <Text style={styles.sectionTitle}>Buttons</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Buttons</Text>
                     {form.buttons.map((button, index) => (
-                      <View key={button.id} style={styles.buttonCard}>
+                      <View key={button.id} style={[styles.buttonCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
                         <View style={styles.buttonCardHead}>
-                          <Text style={styles.buttonCardTitle}>Button {index + 1}</Text>
+                          <Text style={[styles.buttonCardTitle, { color: colors.text }]}>Button {index + 1}</Text>
                           <Pressable onPress={() => removeButton(button.id)} hitSlop={8}>
-                            <Trash2 color="#dc2626" size={15} />
+                            <Trash2 color={colors.error} size={15} />
                           </Pressable>
                         </View>
                         <View style={styles.chipWrap}>
@@ -614,55 +617,55 @@ export function WhatsappTemplateSheet({
                             <Pressable
                               key={item.value}
                               onPress={() => updateButton(button.id, { type: item.value })}
-                              style={[styles.chip, button.type === item.value && styles.chipActive]}
+                              style={[styles.chip, { borderColor: colors.cardBorder }, button.type === item.value && { backgroundColor: colors.primary, borderColor: colors.primary }]}
                             >
-                              <Text style={[styles.chipText, button.type === item.value && styles.chipTextActive]}>{item.label}</Text>
+                              <Text style={[styles.chipText, { color: colors.textSecondary }, button.type === item.value && { color: colors.surface }]}>{item.label}</Text>
                             </Pressable>
                           ))}
                         </View>
-                        <Text style={styles.fieldLabel}>Label</Text>
+                        <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Label</Text>
                         <TextInput
                           value={button.label}
                           onChangeText={(text) => updateButton(button.id, { label: text })}
                           placeholder="Track order"
-                          placeholderTextColor="#94a3b8"
-                          style={styles.input}
+                          placeholderTextColor={colors.textMuted}
+                          style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]}
                         />
                         {button.type === 'URL' ? (
                           <>
-                            <Text style={styles.fieldLabel}>URL</Text>
+                            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>URL</Text>
                             <TextInput
                               value={button.url ?? ''}
                               onChangeText={(text) => updateButton(button.id, { url: text })}
                               placeholder="https://example.com/order/{{1}}"
-                              placeholderTextColor="#94a3b8"
+                              placeholderTextColor={colors.textMuted}
                               autoCapitalize="none"
-                              style={styles.input}
+                              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]}
                             />
                           </>
                         ) : null}
                         {button.type === 'PHONE_NUMBER' ? (
                           <>
-                            <Text style={styles.fieldLabel}>Phone number</Text>
+                            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Phone number</Text>
                             <TextInput
                               value={button.phoneNumber ?? ''}
                               onChangeText={(text) => updateButton(button.id, { phoneNumber: text })}
                               placeholder="+15551234567"
-                              placeholderTextColor="#94a3b8"
+                              placeholderTextColor={colors.textMuted}
                               keyboardType="phone-pad"
-                              style={styles.input}
+                              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]}
                             />
                           </>
                         ) : null}
                         {button.type === 'COPY_CODE' ? (
                           <>
-                            <Text style={styles.fieldLabel}>Offer code sample</Text>
+                            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Offer code sample</Text>
                             <TextInput
                               value={button.offerCode ?? ''}
                               onChangeText={(text) => updateButton(button.id, { offerCode: text })}
                               placeholder="SAVE20"
-                              placeholderTextColor="#94a3b8"
-                              style={styles.input}
+                              placeholderTextColor={colors.textMuted}
+                              style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]}
                             />
                           </>
                         ) : null}
@@ -670,9 +673,9 @@ export function WhatsappTemplateSheet({
                     ))}
                     <View style={styles.chipWrap}>
                       {BUTTON_TYPES.map((item) => (
-                        <Pressable key={item.value} style={styles.addChip} onPress={() => addButton(item.value)}>
-                          <Plus color="#2563eb" size={13} />
-                          <Text style={styles.addChipText}>{item.label}</Text>
+                        <Pressable key={item.value} style={[styles.addChip, { backgroundColor: colors.surfaceSecondary }]} onPress={() => addButton(item.value)}>
+                          <Plus color={colors.primary} size={13} />
+                          <Text style={[styles.addChipText, { color: colors.primary }]}>{item.label}</Text>
                         </Pressable>
                       ))}
                     </View>
@@ -681,11 +684,11 @@ export function WhatsappTemplateSheet({
 
                 {form.variables.length > 0 ? (
                   <>
-                    <Text style={styles.sectionTitle}>Sample variables</Text>
-                    <Text style={styles.helper}>Meta requires sample values for each variable before review.</Text>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Sample variables</Text>
+                    <Text style={[styles.helper, { color: colors.textMuted }]}>Meta requires sample values for each variable before review.</Text>
                     {form.variables.map((variable) => (
-                      <View key={`${variable.section}-${variable.index}`} style={styles.variableCard}>
-                        <Text style={styles.variableTitle}>{`{{${variable.index}}}`} · {variable.section}</Text>
+                      <View key={`${variable.section}-${variable.index}`} style={[styles.variableCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+                        <Text style={[styles.variableTitle, { color: colors.textSecondary }]}>{`{{${variable.index}}}`} · {variable.section}</Text>
                         <TextInput
                           value={variable.label}
                           onChangeText={(text) => setForm((current) => ({
@@ -697,8 +700,8 @@ export function WhatsappTemplateSheet({
                             ),
                           }))}
                           placeholder="Label"
-                          placeholderTextColor="#94a3b8"
-                          style={styles.input}
+                          placeholderTextColor={colors.textMuted}
+                          style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]}
                         />
                         <TextInput
                           value={variable.sampleValue}
@@ -711,8 +714,8 @@ export function WhatsappTemplateSheet({
                             ),
                           }))}
                           placeholder="Sample value"
-                          placeholderTextColor="#94a3b8"
-                          style={[styles.input, { marginTop: 8 }]}
+                          placeholderTextColor={colors.textMuted}
+                          style={[styles.input, { marginTop: 8, backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]}
                         />
                       </View>
                     ))}
@@ -729,16 +732,16 @@ export function WhatsappTemplateSheet({
             ) : null}
           </ScrollView>
 
-          <View style={styles.footer}>
+          <View style={[styles.footer, { borderTopColor: colors.separator }]}>
             {editable ? (
-              <Pressable style={[styles.primaryButton, isSaving && styles.buttonDisabled]} onPress={handleSave} disabled={isSaving}>
-                {isSaving ? <LoaderCircle color="#fff" size={16} /> : null}
-                <Text style={styles.primaryButtonText}>{mode === 'create' ? 'Submit for review' : 'Update template'}</Text>
+              <Pressable style={[styles.primaryButton, { backgroundColor: colors.primary }, isSaving && styles.buttonDisabled]} onPress={handleSave} disabled={isSaving}>
+                {isSaving ? <LoaderCircle color={colors.primaryText} size={16} /> : null}
+                <Text style={[styles.primaryButtonText, { color: colors.primaryText }]}>{mode === 'create' ? 'Submit for review' : 'Update template'}</Text>
               </Pressable>
             ) : (
-              <Pressable style={styles.primaryButton} onPress={onEdit}>
-                <Pencil color="#fff" size={15} />
-                <Text style={styles.primaryButtonText}>Edit template</Text>
+              <Pressable style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={onEdit}>
+                <Pencil color={colors.primaryText} size={15} />
+                <Text style={[styles.primaryButtonText, { color: colors.primaryText }]}>Edit template</Text>
               </Pressable>
             )}
           </View>

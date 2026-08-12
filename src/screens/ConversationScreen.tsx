@@ -32,6 +32,7 @@ import { useCallController } from '../providers/CallControllerProvider';
 import { isWhatsappCallSupported } from '../lib/whatsapp-calling';
 import { playMessageSentSound } from '../lib/notificationSound';
 import { useInboxAppearance } from '../hooks/useInboxAppearance';
+import { useTheme } from '../theme/ThemeContext';
 
 type Attachment = { id: string; messageId?: string | null; mediaType: string; mimeType: string; originalName: string | null; downloadUrl: string; previewUrl: string | null; thumbnailUrl: string | null; durationMs: number | null };
 type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBOUND'; senderType?: string | null; sender?: { userName?: string | null; userEmail?: string | null } | null; type: string; text: string | null; deliveryStatus?: string; failureReason?: string | null; campaignId?: string | null; campaignName?: string | null; replyToMessageId?: string | null; replyTo?: { sender?: { userName?: string | null } | null; text?: string | null } | null; sentAt?: string | null; createdAt?: string; metadata?: any; attachments?: Attachment[] };
@@ -57,6 +58,7 @@ export function ConversationScreen() {
   const isFocused = useIsFocused();
   const realtimeStatus = useSyncExternalStore(subscribeRealtimeConnectionStatus, getRealtimeConnectionStatus);
   const { session } = useAuth();
+  const { colors } = useTheme();
   const callController = useCallController();
   const listRef = useRef<FlatList>(null);
   const [draft, setDraft] = useState(''); const [replyTo, setReplyTo] = useState<Message | null>(null);
@@ -684,21 +686,21 @@ export function ConversationScreen() {
   const renderMessage = ({ item }: { item: Message }) => <SwipeableMessage message={item} channelName={channelName} setReplyTo={setReplyTo} setReactTarget={setReactTarget} onImage={openImage} onVideo={openVideo} replyTarget={messageById.get(item.replyToMessageId ?? '') ?? null} reactions={reactionGroups[item.id]} onJumpToMessage={jumpToMessage} />;
 
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={() => navigation.navigate('Inbox', { screen: 'InboxList' })}><ArrowLeft color="#334155" size={23} /></Pressable>
+    <KeyboardAvoidingView style={[styles.screen, { backgroundColor: colors.background, flex: 1 }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
+        <Pressable onPress={() => navigation.navigate('Inbox', { screen: 'InboxList' })}><ArrowLeft color={colors.textSecondary} size={23} /></Pressable>
         <View style={styles.avatarWrap}>
           <ColorfulAvatar
             name={title}
             size={42}
             url={header.conversation?.contact?.avatarUrl ?? null}
           />
-          <View style={styles.presence} />
+          <View style={[styles.presence, { borderColor: colors.surface }]} />
         </View>
         <View style={styles.titleBlock}>
-          <Text style={styles.name} numberOfLines={1}>{title}</Text>
-          <Text style={[styles.window, windowInfo.tone === 'expired' && styles.windowExpired]}>{windowInfo.label}</Text>
-          <Text style={styles.assignee} numberOfLines={1}>{assigneeLabel}</Text>
+          <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{title}</Text>
+          <Text style={[styles.window, windowInfo.tone === 'expired' && styles.windowExpired, windowInfo.tone === 'expired' && { color: colors.error }]}>{windowInfo.label}</Text>
+          <Text style={[styles.assignee, { color: colors.textMuted }]} numberOfLines={1}>{assigneeLabel}</Text>
         </View>
         {isWhatsAppConversation ? (
           <Pressable
@@ -706,10 +708,10 @@ export function ConversationScreen() {
             hitSlop={8}
             style={!voiceCallButton.canStartVoiceCall || callController.isBusy ? { opacity: 0.35 } : undefined}
           >
-            <Phone color={voiceCallButton.canStartVoiceCall && !callController.isBusy ? '#2563eb' : '#94a3b8'} size={19} />
+            <Phone color={voiceCallButton.canStartVoiceCall && !callController.isBusy ? colors.primary : colors.textMuted} size={19} />
           </Pressable>
         ) : null}
-        <Pressable onPress={() => starMutation.mutate(!header.isStarred)} hitSlop={8}><Star color={header.isStarred ? '#f59e0b' : '#94a3b8'} fill={header.isStarred ? '#f59e0b' : 'none'} size={19} /></Pressable>
+        <Pressable onPress={() => starMutation.mutate(!header.isStarred)} hitSlop={8}><Star color={header.isStarred ? '#f59e0b' : colors.textMuted} fill={header.isStarred ? '#f59e0b' : 'none'} size={19} /></Pressable>
         <Pressable
           onPress={() => {
             if (readMutation.isPending || unreadMutation.isPending) return;
@@ -722,10 +724,10 @@ export function ConversationScreen() {
           }}
           hitSlop={8}
         >
-          {header.unreadCount > 0 ? <Mail color="#334155" size={19} /> : <MailOpen color="#334155" size={19} />}
+          {header.unreadCount > 0 ? <Mail color={colors.textSecondary} size={19} /> : <MailOpen color={colors.textSecondary} size={19} />}
         </Pressable>
-        <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}><UserRound color="#334155" size={19} /></Pressable>
-        <Pressable onPress={() => setDetailsOpen(true)} hitSlop={8}><MoreVertical color="#334155" size={19} /></Pressable>
+        <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}><UserRound color={colors.textSecondary} size={19} /></Pressable>
+        <Pressable onPress={() => setDetailsOpen(true)} hitSlop={8}><MoreVertical color={colors.textSecondary} size={19} /></Pressable>
       </View>
       <View style={styles.body}>
         <InboxPatternBackground pattern={inboxPattern} />
@@ -744,13 +746,13 @@ export function ConversationScreen() {
                 onScroll={onScroll}
                 scrollEventThrottle={120}
                 onContentSizeChange={() => { if (isAtBottomRef.current) listRef.current?.scrollToOffset({ offset: 0, animated: false }); }}
-                ListFooterComponent={loadingOlder ? <Text style={styles.olderPill}>Loading older messages...</Text> : null}
+                ListFooterComponent={loadingOlder ? <Text style={[styles.olderPill, { color: colors.textSecondary }]}>Loading older messages...</Text> : null}
                 renderItem={({ item }) => {
                   const { entry, showDivider } = item;
                   const highlighted = entry.kind === 'message' && entry.message.id === highlightedMessageId;
                   return (
                     <View style={highlighted ? styles.highlightRow : undefined}>
-                      {showDivider ? <Text style={styles.dayDivider}>{formatTimelineDayLabel(new Date(entry.timestamp))}</Text> : null}
+                      {showDivider ? <Text style={[styles.dayDivider, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{formatTimelineDayLabel(new Date(entry.timestamp))}</Text> : null}
                       {entry.kind === 'call' ? (
                         <CallHistoryItem session={entry.session} />
                       ) : entry.kind === 'assignment' ? (
@@ -771,12 +773,12 @@ export function ConversationScreen() {
                 }}
               />
               {!atBottom ? (
-                <Pressable style={styles.fab} onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}><ChevronDown color="#fff" size={22} /></Pressable>
+                <Pressable style={[styles.fab, { backgroundColor: colors.primary }]} onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}><ChevronDown color="#fff" size={22} /></Pressable>
               ) : null}
             </>
           )}
         </View>
-        {messages.isError ? <Text style={styles.error}>{messages.error instanceof Error ? messages.error.message : 'Unable to load messages.'}</Text> : null}
+        {messages.isError ? <Text style={[styles.error, { color: colors.error }]}>{messages.error instanceof Error ? messages.error.message : 'Unable to load messages.'}</Text> : null}
         <ConversationComposer
           value={draft} onChange={setDraft} sending={send.isPending}
           attachments={attachments} onAttachments={setAttachments}
@@ -809,27 +811,27 @@ export function ConversationScreen() {
       <VideoPlayerModal url={videoUrl} visible={Boolean(videoUrl)} onClose={() => setVideoUrl(null)} />
       <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
         <Pressable style={styles.menuOverlay} onPress={() => setMenuOpen(false)}>
-          <View style={styles.menuCard}>
-            <Text style={styles.menuTitle}>{title}</Text>
+          <View style={[styles.menuCard, { backgroundColor: colors.surface }]}>
+            <Text style={[styles.menuTitle, { color: colors.text }]}>{title}</Text>
             <View style={styles.menuRow}>
-              <Text style={styles.menuLabel}>Assigned to</Text>
-              <Text style={styles.menuValue}>{assigneeLabel}</Text>
+              <Text style={[styles.menuLabel, { color: colors.textSecondary }]}>Assigned to</Text>
+              <Text style={[styles.menuValue, { color: colors.text }]}>{assigneeLabel}</Text>
             </View>
             <View style={styles.menuRow}>
-              <Text style={styles.menuLabel}>Status</Text>
-              <Text style={[styles.menuValue, header.status === 'CLOSED' && styles.menuClosed]}>{header.status === 'CLOSED' ? 'Closed' : 'Open'}</Text>
+              <Text style={[styles.menuLabel, { color: colors.textSecondary }]}>Status</Text>
+              <Text style={[styles.menuValue, { color: colors.text }, header.status === 'CLOSED' && styles.menuClosed, header.status === 'CLOSED' && { color: colors.error }]}>{header.status === 'CLOSED' ? 'Closed' : 'Open'}</Text>
             </View>
-            <View style={styles.menuDivider} />
-            <Pressable style={styles.menuAction} onPress={assignToMe}>
-              <Text style={styles.menuActionText}>Assign to me</Text>
+            <View style={[styles.menuDivider, { backgroundColor: colors.separator }]} />
+            <Pressable style={[styles.menuAction, { backgroundColor: colors.surfaceSecondary }]} onPress={assignToMe}>
+              <Text style={[styles.menuActionText, { color: colors.primary }]}>Assign to me</Text>
             </Pressable>
             {header.conversation?.assignee ? (
-              <Pressable style={styles.menuAction} onPress={() => { setMenuOpen(false); assignmentMutation.mutate(null); }}>
-                <Text style={styles.menuActionText}>Unassign</Text>
+              <Pressable style={[styles.menuAction, { backgroundColor: colors.surfaceSecondary }]} onPress={() => { setMenuOpen(false); assignmentMutation.mutate(null); }}>
+                <Text style={[styles.menuActionText, { color: colors.primary }]}>Unassign</Text>
               </Pressable>
             ) : null}
             <Pressable
-              style={styles.menuAction}
+              style={[styles.menuAction, { backgroundColor: colors.surfaceSecondary }]}
               onPress={() => {
                 setMenuOpen(false);
                 if (readMutation.isPending || unreadMutation.isPending) return;
@@ -841,13 +843,13 @@ export function ConversationScreen() {
                 }
               }}
             >
-              <Text style={styles.menuActionText}>{header.unreadCount > 0 ? 'Mark as read' : 'Mark as unread'}</Text>
+              <Text style={[styles.menuActionText, { color: colors.primary }]}>{header.unreadCount > 0 ? 'Mark as read' : 'Mark as unread'}</Text>
             </Pressable>
-            <Pressable style={styles.menuAction} onPress={() => { setMenuOpen(false); statusMutation.mutate(header.status === 'CLOSED' ? 'OPEN' : 'CLOSED'); }}>
-              <Text style={[styles.menuActionText, header.status === 'CLOSED' && styles.menuClosed]}>{header.status === 'CLOSED' ? 'Reopen conversation' : 'Mark as closed'}</Text>
+            <Pressable style={[styles.menuAction, { backgroundColor: colors.surfaceSecondary }]} onPress={() => { setMenuOpen(false); statusMutation.mutate(header.status === 'CLOSED' ? 'OPEN' : 'CLOSED'); }}>
+              <Text style={[styles.menuActionText, { color: colors.primary }, header.status === 'CLOSED' && styles.menuClosed, header.status === 'CLOSED' && { color: colors.error }]}>{header.status === 'CLOSED' ? 'Reopen conversation' : 'Mark as closed'}</Text>
             </Pressable>
-            <Pressable style={styles.menuAction} onPress={() => setMenuOpen(false)}>
-              <Text style={styles.menuCancel}>Cancel</Text>
+            <Pressable style={[styles.menuAction, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setMenuOpen(false)}>
+              <Text style={[styles.menuCancel, { color: colors.textMuted }]}>Cancel</Text>
             </Pressable>
           </View>
         </Pressable>
@@ -931,6 +933,7 @@ async function sendTemplateMutation(conversationId: string, params: { templateNa
 }
 
 const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, setReplyTo, setReactTarget, onImage, onVideo, replyTarget, reactions, onJumpToMessage }: { message: Message; channelName?: string | null; setReplyTo: (message: Message) => void; setReactTarget: (message: Message) => void; onImage: (attachId: string) => void; onVideo: (attachment: any) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }>; onJumpToMessage?: (messageId: string) => void }) {
+  const { colors } = useTheme();
   const outgoing = message.direction === 'OUTBOUND';
   const swipeRef = useRef<SwipeableMethods | null>(null);
   const replyLockRef = useRef(false);
@@ -938,11 +941,11 @@ const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, 
   const onReact = useCallback(() => setReactTarget(message), [setReactTarget, message]);
   const renderLeftActions = useCallback(() => (
     <View style={styles.replyAction}>
-      <View style={styles.replyIconCircle}>
-        <Reply color="#2563eb" size={20} strokeWidth={2.4} />
+      <View style={[styles.replyIconCircle, { backgroundColor: colors.surfaceSecondary }]}>
+        <Reply color={colors.primary} size={20} strokeWidth={2.4} />
       </View>
     </View>
-  ), []);
+  ), [colors]);
   const handleWillOpen = useCallback(() => {
     if (replyLockRef.current) return;
     replyLockRef.current = true;

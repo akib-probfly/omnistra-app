@@ -12,6 +12,7 @@ import {
   getInboxPattern,
   type InboxPatternId,
 } from '../lib/inbox-patterns';
+import { useTheme } from '../theme/ThemeContext';
 
 type Props = {
   pattern: InboxPatternId;
@@ -26,6 +27,7 @@ type TileSize = { width: number; height: number };
  * so the pattern is not stretched/zoomed on Android or iOS.
  */
 export function InboxPatternBackground({ pattern, style }: Props) {
+  const { isDark } = useTheme();
   const resolved = getInboxPattern(pattern);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
 
@@ -101,7 +103,7 @@ export function InboxPatternBackground({ pattern, style }: Props) {
         ))}
       </View>
       {/* Soften the pattern like frontend's white/72 overlay */}
-      <View style={styles.fade} />
+      <View style={[styles.fade, { backgroundColor: isDark ? 'rgba(15, 23, 42, 0.4)' : 'rgba(255, 255, 255, 0.22)' }]} />
     </View>
   );
 }

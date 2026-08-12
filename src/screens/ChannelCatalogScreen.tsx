@@ -7,6 +7,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchChannels, startMessengerConnect, startWhatsAppConnect } from '../api/channels';
 import { CardGridSkeleton } from '../components/Skeleton';
+import { useTheme } from '../theme/ThemeContext';
 
 const CATALOG = [
   { id: 'whatsapp', name: 'WhatsApp Business Platform (API)', description: 'Connect WhatsApp Business API to enable seamless conversations.', category: 'Business Messaging', badge: 'Popular', tone: '#25D366', available: true },
@@ -26,6 +27,7 @@ export function ChannelCatalogScreen() {
   const queryClient = useQueryClient();
   const [activeFilter, setActiveFilter] = useState('All');
   const [query, setQuery] = useState('');
+  const { colors, isDark } = useTheme();
 
   const channels = useQuery({ queryKey: ['channels'], queryFn: () => fetchChannels(), staleTime: 2 * 60 * 1000 });
   const existingChannels = channels.data?.items ?? [];
@@ -81,29 +83,29 @@ export function ChannelCatalogScreen() {
   };
 
   return (
-    <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={10}><ArrowLeft color="#334155" size={23} /></Pressable>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={10}><ArrowLeft color={colors.textSecondary} size={23} /></Pressable>
         <View style={{ marginLeft: 12, flex: 1 }}>
-          <Text style={styles.headerTitle}>Channel Catalog</Text>
-          <Text style={styles.headerSub}>Discover new channels to acquire more customers.</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Channel Catalog</Text>
+          <Text style={[styles.headerSub, { color: colors.textSecondary }]}>Discover new channels to acquire more customers.</Text>
         </View>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
         {FILTERS.map((filter) => (
-          <Pressable key={filter} onPress={() => setActiveFilter(filter)} style={[styles.filterChip, activeFilter === filter && styles.filterChipActive]}>
-            <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive]}>{filter}</Text>
+          <Pressable key={filter} onPress={() => setActiveFilter(filter)} style={[styles.filterChip, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, activeFilter === filter && styles.filterChipActive, activeFilter === filter && { backgroundColor: isDark ? colors.primary : '#0f172a', borderColor: isDark ? colors.primary : '#0f172a' }]}>
+            <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive, { color: activeFilter === filter ? '#fff' : colors.textSecondary }]}>{filter}</Text>
           </Pressable>
         ))}
       </ScrollView>
 
-      <View style={styles.search}>
-        <Search color="#8ba2c3" size={18} />
-        <TextInput value={query} onChangeText={setQuery} placeholder="Search channel catalog..." placeholderTextColor="#8ba2c3" style={styles.searchInput} />
+      <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+        <Search color={colors.textMuted} size={18} />
+        <TextInput value={query} onChangeText={setQuery} placeholder="Search channel catalog..." placeholderTextColor={colors.textMuted} style={[styles.searchInput, { color: colors.text }]} />
       </View>
 
-      {errorText ? <View style={styles.banner}><Text style={styles.bannerText}>{errorText}</Text></View> : null}
+      {errorText ? <View style={[styles.banner, { backgroundColor: isDark ? colors.surface : '#fff1f2', borderColor: isDark ? colors.surfaceSecondary : '#fecdd3' }]}><Text style={[styles.bannerText, { color: colors.error }]}>{errorText}</Text></View> : null}
       {channels.isLoading ? <CardGridSkeleton cards={3} /> : null}
 
       <ScrollView contentContainerStyle={styles.grid}>
@@ -112,28 +114,28 @@ export function ChannelCatalogScreen() {
           const isLaunching = launchingId === item.id;
           const disabled = !item.available || isLaunching || isConnected;
           return (
-            <View key={item.id} style={styles.card}>
+            <View key={item.id} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
               <View style={styles.cardTop}>
                 <View style={[styles.icon, { backgroundColor: item.tone }]}>
                   <ChannelGlyph id={item.id} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={styles.nameRow}>
-                    <Text style={styles.name} numberOfLines={2}>{item.name}</Text>
+                    <Text style={[styles.name, { color: colors.text }]} numberOfLines={2}>{item.name}</Text>
                     {item.badge ? <View style={styles.badge}><Text style={styles.badgeText}>{item.badge}</Text></View> : null}
                   </View>
-                  <Text style={styles.description} numberOfLines={2}>{item.description}</Text>
+                  <Text style={[styles.description, { color: colors.textSecondary }]} numberOfLines={2}>{item.description}</Text>
                 </View>
               </View>
-              <View style={styles.cardFooter}>
-                <Text style={styles.category}>{item.category}</Text>
+              <View style={[styles.cardFooter, { backgroundColor: colors.background, borderTopColor: colors.separator }]}>
+                <Text style={[styles.category, { color: colors.textSecondary }]}>{item.category}</Text>
                 <Pressable
-                  style={[styles.connect, !item.available && styles.connectDisabled]}
+                  style={[styles.connect, !item.available && styles.connectDisabled, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}
                   disabled={disabled}
                   onPress={() => handleConnect(item)}
                 >
-                  {isLaunching ? <ActivityIndicator color="#0f172a" size="small" /> : null}
-                  <Text style={[styles.connectText, isConnected && styles.connectConnected]}>
+                  {isLaunching ? <ActivityIndicator color={colors.text} size="small" /> : null}
+                  <Text style={[styles.connectText, { color: colors.text }, isConnected && styles.connectConnected]}>
                     {isConnected ? 'Connected' : item.available ? 'Connect' : 'Coming soon'}
                   </Text>
                 </Pressable>

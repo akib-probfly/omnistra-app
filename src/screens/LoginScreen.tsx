@@ -20,6 +20,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { useAuth } from '../auth/AuthContext';
+import { useTheme } from '../theme/ThemeContext';
 
 function DecorativeWave() {
   return (
@@ -38,6 +39,7 @@ function DecorativeWave() {
 
 export function LoginScreen({ onRegister }: { onRegister: () => void }) {
   const { login } = useAuth();
+  const { colors } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -65,9 +67,9 @@ export function LoginScreen({ onRegister }: { onRegister: () => void }) {
   }
 
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior="padding">
+    <KeyboardAvoidingView style={[styles.screen, { backgroundColor: colors.background }]} behavior="padding">
       <LinearGradient
-        colors={['#f8faff', '#eef2ff', '#faf5ff']}
+        colors={[colors.background, colors.surfaceSecondary, colors.background]}
         style={StyleSheet.absoluteFillObject}
       />
 
@@ -87,48 +89,48 @@ export function LoginScreen({ onRegister }: { onRegister: () => void }) {
               <Text style={styles.logoIcon}>O</Text>
             </LinearGradient>
           </View>
-          <Text style={styles.logo}>omnistra</Text>
-          <Text style={styles.tagline}>Your omnichannel inbox, everywhere.</Text>
+          <Text style={[styles.logo, { color: colors.text }]}>omnistra</Text>
+          <Text style={[styles.tagline, { color: colors.textSecondary }]}>Your omnichannel inbox, everywhere.</Text>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(300).duration(800)} style={styles.card}>
-          <Text style={styles.title}>Welcome back</Text>
-          <Text style={styles.subtitle}>Sign in to your workspace</Text>
+        <Animated.View entering={FadeInDown.delay(300).duration(800)} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.title, { color: colors.text }]}>Welcome back</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Sign in to your workspace</Text>
 
-          <View style={styles.inputWrapper}>
-            <Mail size={18} color="#6366f1" style={styles.inputIcon} />
+          <View style={[styles.inputWrapper, { backgroundColor: colors.surfaceSecondary, borderColor: colors.inputBorder }]}>
+            <Mail size={18} color={colors.primary} style={styles.inputIcon} />
             <TextInput
               autoCapitalize="none"
               keyboardType="email-address"
               placeholder="Email address"
-              placeholderTextColor="#9ca3af"
-              style={styles.input}
+              placeholderTextColor={colors.textMuted}
+              style={[styles.input, { color: colors.text }]}
               value={email}
               onChangeText={setEmail}
             />
           </View>
 
-          <View style={styles.inputWrapper}>
-            <Lock size={18} color="#6366f1" style={styles.inputIcon} />
+          <View style={[styles.inputWrapper, { backgroundColor: colors.surfaceSecondary, borderColor: colors.inputBorder }]}>
+            <Lock size={18} color={colors.primary} style={styles.inputIcon} />
             <TextInput
               placeholder="Password"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.textMuted}
               secureTextEntry={!showPassword}
-              style={[styles.input, styles.inputWithToggle]}
+              style={[styles.input, styles.inputWithToggle, { color: colors.text }]}
               value={password}
               onChangeText={setPassword}
             />
             <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeToggle}>
               {showPassword ? (
-                <EyeOff size={18} color="#9ca3af" />
+                <EyeOff size={18} color={colors.textMuted} />
               ) : (
-                <Eye size={18} color="#9ca3af" />
+                <Eye size={18} color={colors.textMuted} />
               )}
             </Pressable>
           </View>
 
           {error ? (
-            <Animated.Text entering={FadeInUp.duration(300)} style={styles.error}>
+            <Animated.Text entering={FadeInUp.duration(300)} style={[styles.error, { color: colors.error }]}>
               {error}
             </Animated.Text>
           ) : null}
@@ -161,8 +163,8 @@ export function LoginScreen({ onRegister }: { onRegister: () => void }) {
           </Animated.View>
 
           <Pressable onPress={onRegister} style={styles.linkWrapper}>
-            <Text style={styles.link}>
-              Don't have an account? <Text style={styles.linkBold}>Sign up</Text>
+            <Text style={[styles.link, { color: colors.textSecondary }]}>
+              Don't have an account? <Text style={[styles.linkBold, { color: colors.primary }]}>Sign up</Text>
             </Text>
           </Pressable>
         </Animated.View>

@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useTheme } from '../theme/ThemeContext';
 
 type Tone = 'blue' | 'amber';
 type Variant = 'pill' | 'sidebar';
@@ -25,9 +26,10 @@ export function AppToggle({
   variant = 'pill',
   accessibilityLabel,
 }: Props) {
+  const { colors } = useTheme();
   const content = variant === 'sidebar' ? (
-    <View style={[styles.sidebarTrack, value ? styles.sidebarTrackOn : styles.sidebarTrackOff, disabled && styles.disabled]}>
-      <View style={[styles.sidebarThumb, value ? styles.sidebarThumbOn : styles.sidebarThumbOff]} />
+    <View style={[styles.sidebarTrack, value ? styles.sidebarTrackOn : [styles.sidebarTrackOff, { backgroundColor: colors.surface, borderColor: colors.cardBorder }], disabled && styles.disabled]}>
+      <View style={[styles.sidebarThumb, value ? styles.sidebarThumbOn : [styles.sidebarThumbOff, { borderColor: colors.cardBorder }]]} />
     </View>
   ) : (
     <View
@@ -35,7 +37,7 @@ export function AppToggle({
         styles.track,
         value
           ? (tone === 'amber' ? styles.trackAmber : styles.trackBlue)
-          : styles.trackOff,
+          : [styles.trackOff, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }],
         disabled && styles.disabled,
       ]}
     >

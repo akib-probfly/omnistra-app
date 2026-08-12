@@ -2,8 +2,10 @@ import { UserCheck } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
 import type { ConversationAssignmentEvent } from '../api/inbox';
 import { formatMessageTime, getAssignmentEventPresentation } from '../lib/inbox-utils';
+import { useTheme } from '../theme/ThemeContext';
 
 export function AssignmentHistoryItem({ event }: { event: ConversationAssignmentEvent }) {
+  const { colors } = useTheme();
   const presentation = getAssignmentEventPresentation(event);
   const targetLabel = presentation.targetLabel?.trim();
   const timeLabel = formatMessageTime(event.createdAt);
@@ -11,11 +13,11 @@ export function AssignmentHistoryItem({ event }: { event: ConversationAssignment
   return (
     <View style={styles.wrap}>
       <View style={styles.row}>
-        <UserCheck color="#315EFB" size={14} />
-        <Text style={styles.part}>{presentation.actorLabel}</Text>
-        <Text style={styles.part}>{presentation.actionLabel}</Text>
-        {targetLabel ? <Text style={[styles.part, styles.target]}>{targetLabel}</Text> : null}
-        <Text style={styles.time}>{timeLabel}</Text>
+        <UserCheck color={colors.primary} size={14} />
+        <Text style={[styles.part, { color: colors.textSecondary }]}>{presentation.actorLabel}</Text>
+        <Text style={[styles.part, { color: colors.textSecondary }]}>{presentation.actionLabel}</Text>
+        {targetLabel ? <Text style={[styles.part, styles.target, { color: colors.textSecondary }]}>{targetLabel}</Text> : null}
+        <Text style={[styles.time, { color: colors.textMuted }]}>{timeLabel}</Text>
       </View>
     </View>
   );

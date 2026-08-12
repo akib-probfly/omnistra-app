@@ -30,6 +30,7 @@ import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ErrorState } from '../components/ErrorState';
 import { FormSkeleton } from '../components/Skeleton';
 import type { ContactsStackParamList } from '../navigation/ContactsStack';
+import { useTheme } from '../theme/ThemeContext';
 
 const TAG_COLOR_OPTIONS = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#64748b'];
 
@@ -61,6 +62,7 @@ export function ContactDetailsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<ContactsStackParamList>>();
   const route = useRoute<RouteProp<ContactsStackParamList, 'ContactDetails'>>();
   const queryClient = useQueryClient();
+  const { colors } = useTheme();
   const { contactId, contactName } = route.params;
   const [noteDraft, setNoteDraft] = useState('');
   const [emailDraft, setEmailDraft] = useState<string | null>(null);
@@ -224,17 +226,17 @@ export function ContactDetailsScreen() {
   };
 
   return (
-    <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.backButton}>
-          <ArrowLeft color="#0f172a" size={22} />
+          <ArrowLeft color={colors.text} size={22} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
-          <Text style={styles.headerSubtitle}>Contact details</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>{title}</Text>
+          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Contact details</Text>
         </View>
-        <Pressable style={styles.messageButton} onPress={openLatestConversation}>
-          <MessageSquareText color="#2563eb" size={18} />
+        <Pressable style={[styles.messageButton, { backgroundColor: colors.surfaceSecondary }]} onPress={openLatestConversation}>
+          <MessageSquareText color={colors.primary} size={18} />
         </Pressable>
       </View>
 
@@ -247,55 +249,55 @@ export function ContactDetailsScreen() {
         />
       ) : (
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}>
-          <View style={styles.profileCard}>
+          <View style={[styles.profileCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
             <View style={styles.avatar}>
               <ColorfulAvatar name={title} size={72} url={contact.avatarUrl} />
               {contact.channelType ? (
-                <View style={styles.channelBadge}>
+                <View style={[styles.channelBadge, { borderColor: colors.surface }]}>
                   <ChannelLogo type={contact.channelType} box={22} glyph={13} radius={11} />
                 </View>
               ) : null}
             </View>
-            <Text style={styles.profileName}>{title}</Text>
-            {contact.channelName ? <Text style={styles.profileChannel}>{contact.channelName}</Text> : null}
+            <Text style={[styles.profileName, { color: colors.text }]}>{title}</Text>
+            {contact.channelName ? <Text style={[styles.profileChannel, { color: colors.textSecondary }]}>{contact.channelName}</Text> : null}
             <View style={styles.profileMeta}>
-              <View style={styles.metaChip}>
-                <Phone color="#64748b" size={14} />
-                <Text style={styles.metaChipText}>{phone ?? 'No phone'}</Text>
+              <View style={[styles.metaChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+                <Phone color={colors.textSecondary} size={14} />
+                <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>{phone ?? 'No phone'}</Text>
               </View>
-              <View style={styles.metaChip}>
-                <Mail color="#64748b" size={14} />
-                <Text style={styles.metaChipText}>{contact.primaryEmail?.trim() || 'No email'}</Text>
+              <View style={[styles.metaChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+                <Mail color={colors.textSecondary} size={14} />
+                <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>{contact.primaryEmail?.trim() || 'No email'}</Text>
               </View>
             </View>
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Profile</Text>
-            <Text style={styles.fieldLabel}>Display name</Text>
+          <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Profile</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Display name</Text>
             <TextInput
               value={nameDraft ?? contact.displayName ?? ''}
               onChangeText={setNameDraft}
               placeholder="Contact name"
-              placeholderTextColor="#94a3b8"
-              style={styles.fieldInput}
+              placeholderTextColor={colors.textMuted}
+              style={[styles.fieldInput, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder, color: colors.text }]}
             />
-            <Text style={styles.fieldLabel}>Email</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Email</Text>
             <TextInput
               value={emailDraft ?? contact.primaryEmail ?? ''}
               onChangeText={setEmailDraft}
               placeholder="name@example.com"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={colors.textMuted}
               autoCapitalize="none"
               keyboardType="email-address"
-              style={styles.fieldInput}
+              style={[styles.fieldInput, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder, color: colors.text }]}
             />
-            <Text style={styles.helperText}>Phone: {phone ?? '-'}</Text>
-            <Text style={styles.helperText}>Last active: {formatDateTime(contact.lastActivityAt)}</Text>
-            <Text style={styles.helperText}>Added: {formatDateTime(contact.createdAt)}</Text>
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>Phone: {phone ?? '-'}</Text>
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>Last active: {formatDateTime(contact.lastActivityAt)}</Text>
+            <Text style={[styles.helperText, { color: colors.textSecondary }]}>Added: {formatDateTime(contact.createdAt)}</Text>
             {(nameDraft != null && nameDraft !== (contact.displayName ?? '')) || (emailDraft != null && emailDraft !== (contact.primaryEmail ?? '')) ? (
               <Pressable
-                style={[styles.saveButton, updateMutation.isPending && styles.saveDisabled]}
+                style={[styles.saveButton, { backgroundColor: colors.primary }, updateMutation.isPending && styles.saveDisabled]}
                 disabled={updateMutation.isPending}
                 onPress={() => updateMutation.mutate({
                   displayName: nameDraft ?? contact.displayName,
@@ -307,8 +309,8 @@ export function ContactDetailsScreen() {
             ) : null}
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Tags</Text>
+          <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Tags</Text>
             {selectedTags.length ? (
               <View style={styles.tagRow}>
                 {selectedTags.map((tag) => {
@@ -326,21 +328,21 @@ export function ContactDetailsScreen() {
                 })}
               </View>
             ) : (
-              <Text style={styles.emptySection}>No tags yet. Search or create one below.</Text>
+              <Text style={[styles.emptySection, { color: colors.textMuted }]}>No tags yet. Search or create one below.</Text>
             )}
 
-            <View style={styles.tagSearch}>
-              <Search color="#94a3b8" size={16} />
+            <View style={[styles.tagSearch, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+              <Search color={colors.textMuted} size={16} />
               <TextInput
                 value={tagSearch}
                 onChangeText={setTagSearch}
                 placeholder="Search tags to add"
-                placeholderTextColor="#94a3b8"
-                style={styles.tagSearchInput}
+                placeholderTextColor={colors.textMuted}
+                style={[styles.tagSearchInput, { color: colors.text }]}
               />
               {tagSearch ? (
                 <Pressable onPress={() => setTagSearch('')} hitSlop={8}>
-                  <X color="#94a3b8" size={16} />
+                  <X color={colors.textMuted} size={16} />
                 </Pressable>
               ) : null}
             </View>
@@ -358,32 +360,32 @@ export function ContactDetailsScreen() {
                     }}
                   >
                     <View style={[styles.tagDot, { backgroundColor: color }]} />
-                    <Text style={styles.tagOptionText} numberOfLines={1}>{tag.text}</Text>
-                    <Plus color="#2563eb" size={14} />
+                    <Text style={[styles.tagOptionText, { color: colors.textSecondary }]} numberOfLines={1}>{tag.text}</Text>
+                    <Plus color={colors.primary} size={14} />
                   </Pressable>
                 );
               })}
               {!workspaceTagsQuery.isLoading && !searchableTags.length ? (
-                <Text style={styles.emptySection}>
+                <Text style={[styles.emptySection, { color: colors.textMuted }]}>
                   {tagSearch.trim() ? 'No workspace tags match your search.' : 'No more tags to add.'}
                 </Text>
               ) : null}
             </View>
 
             {canCreateTag ? (
-              <View style={styles.createTagBox}>
-                <Text style={styles.createTagLabel}>Create “{tagSearch.trim()}”</Text>
+              <View style={[styles.createTagBox, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+                <Text style={[styles.createTagLabel, { color: colors.text }]}>Create “{tagSearch.trim()}”</Text>
                 <View style={styles.colorRow}>
                   {TAG_COLOR_OPTIONS.map((color) => (
                     <Pressable
                       key={color}
                       onPress={() => setNewTagColor(color)}
-                      style={[styles.colorSwatch, { backgroundColor: color }, newTagColor === color && styles.colorSwatchActive]}
+                      style={[styles.colorSwatch, { backgroundColor: color }, newTagColor === color && [styles.colorSwatchActive, { borderColor: colors.text }]]}
                     />
                   ))}
                 </View>
                 <Pressable
-                  style={[styles.createTagButton, createTagMutation.isPending && styles.saveDisabled]}
+                  style={[styles.createTagButton, { backgroundColor: colors.primary }, createTagMutation.isPending && styles.saveDisabled]}
                   disabled={createTagMutation.isPending}
                   onPress={() => createTagMutation.mutate()}
                 >
@@ -401,7 +403,7 @@ export function ContactDetailsScreen() {
 
             {tagsDirty ? (
               <Pressable
-                style={[styles.saveButton, updateMutation.isPending && styles.saveDisabled]}
+                style={[styles.saveButton, { backgroundColor: colors.primary }, updateMutation.isPending && styles.saveDisabled]}
                 disabled={updateMutation.isPending}
                 onPress={() => updateMutation.mutate({ tagIds: selectedTagIds })}
               >
@@ -410,55 +412,55 @@ export function ContactDetailsScreen() {
             ) : null}
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Conversations</Text>
+          <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Conversations</Text>
             {conversations.length ? conversations.map((conversation) => (
-              <Pressable key={conversation.id} style={styles.conversationRow} onPress={() => openConversation(conversation.id)}>
+              <Pressable key={conversation.id} style={[styles.conversationRow, { borderColor: colors.cardBorder }]} onPress={() => openConversation(conversation.id)}>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.conversationStatus}>{conversation.status}</Text>
-                  <Text style={styles.conversationPreview} numberOfLines={1}>
+                  <Text style={[styles.conversationStatus, { color: colors.primary }]}>{conversation.status}</Text>
+                  <Text style={[styles.conversationPreview, { color: colors.textSecondary }]} numberOfLines={1}>
                     {conversation.lastMessagePreview?.trim() || 'No messages yet'}
                   </Text>
                 </View>
-                <Text style={styles.conversationTime}>{formatDateTime(conversation.lastMessageAt ?? conversation.createdAt)}</Text>
+                <Text style={[styles.conversationTime, { color: colors.textMuted }]}>{formatDateTime(conversation.lastMessageAt ?? conversation.createdAt)}</Text>
               </Pressable>
             )) : (
-              <Text style={styles.emptySection}>No conversations linked to this contact.</Text>
+              <Text style={[styles.emptySection, { color: colors.textMuted }]}>No conversations linked to this contact.</Text>
             )}
           </View>
 
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Notes</Text>
+          <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Notes</Text>
             <TextInput
               value={noteDraft}
               onChangeText={setNoteDraft}
               placeholder="Add a note..."
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={colors.textMuted}
               multiline
-              style={styles.noteInput}
+              style={[styles.noteInput, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder, color: colors.text }]}
             />
             <Pressable
-              style={[styles.saveButton, (!noteDraft.trim() || noteMutation.isPending) && styles.saveDisabled]}
+              style={[styles.saveButton, { backgroundColor: colors.primary }, (!noteDraft.trim() || noteMutation.isPending) && styles.saveDisabled]}
               disabled={!noteDraft.trim() || noteMutation.isPending}
               onPress={() => noteMutation.mutate()}
             >
               {noteMutation.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Add note</Text>}
             </Pressable>
             {notes.length ? notes.map((note) => (
-              <View key={note.id} style={styles.noteCard}>
-                <Text style={styles.noteBody}>{note.body}</Text>
-                <Text style={styles.noteMeta}>
+              <View key={note.id} style={[styles.noteCard, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+                <Text style={[styles.noteBody, { color: colors.text }]}>{note.body}</Text>
+                <Text style={[styles.noteMeta, { color: colors.textMuted }]}>
                   {note.author.userName?.trim() || note.author.userEmail} · {formatDateTime(note.createdAt)}
                 </Text>
               </View>
             )) : (
-              <Text style={styles.emptySection}>No notes yet.</Text>
+              <Text style={[styles.emptySection, { color: colors.textMuted }]}>No notes yet.</Text>
             )}
           </View>
 
-          <View style={styles.dangerSection}>
-            <Text style={styles.sectionTitle}>Danger zone</Text>
-            <Text style={styles.dangerHint}>
+          <View style={[styles.dangerSection, { backgroundColor: colors.surface, borderColor: colors.error }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Danger zone</Text>
+            <Text style={[styles.dangerHint, { color: colors.textSecondary }]}>
               Permanently delete this contact and their conversations, messages, attachments, tags, and stored files.
             </Text>
             <Pressable
@@ -477,7 +479,7 @@ export function ContactDetailsScreen() {
 
       <Modal visible={deleteOpen} transparent animationType="fade" onRequestClose={() => !deleteMutation.isPending && setDeleteOpen(false)}>
         <View style={styles.deleteModalOverlay}>
-          <View style={styles.deleteModalCard}>
+          <View style={[styles.deleteModalCard, { backgroundColor: colors.surface }]}>
             <Pressable
               style={styles.deleteModalClose}
               onPress={() => {
@@ -487,40 +489,40 @@ export function ContactDetailsScreen() {
               }}
               hitSlop={8}
             >
-              <X color="#94a3b8" size={20} />
+              <X color={colors.textMuted} size={20} />
             </Pressable>
-            <View style={styles.deleteModalIcon}>
+            <View style={[styles.deleteModalIcon, { backgroundColor: colors.surfaceSecondary }]}>
               <AlertTriangle color="#f43f5e" size={28} />
             </View>
-            <Text style={styles.deleteModalTitle}>Confirm deletion</Text>
-            <Text style={styles.deleteModalBody}>
+            <Text style={[styles.deleteModalTitle, { color: colors.text }]}>Confirm deletion</Text>
+            <Text style={[styles.deleteModalBody, { color: colors.textSecondary }]}>
               You are about to delete{' '}
-              <Text style={styles.deleteModalStrong}>1</Text>
+              <Text style={[styles.deleteModalStrong, { color: colors.text }]}>1</Text>
               {' '}contact. Type the number to confirm:
             </Text>
             <TextInput
               value={deleteConfirmValue}
               onChangeText={setDeleteConfirmValue}
               placeholder='Type "1" to confirm'
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor={colors.textMuted}
               keyboardType="number-pad"
               autoFocus
               editable={!deleteMutation.isPending}
-              style={styles.deleteConfirmInput}
+              style={[styles.deleteConfirmInput, { backgroundColor: colors.surfaceSecondary, borderColor: colors.error, color: colors.text }]}
               onSubmitEditing={() => {
                 if (canConfirmDelete) deleteMutation.mutate();
               }}
             />
             <View style={styles.deleteModalActions}>
               <Pressable
-                style={styles.deleteCancelButton}
+                style={[styles.deleteCancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}
                 disabled={deleteMutation.isPending}
                 onPress={() => {
                   setDeleteOpen(false);
                   setDeleteConfirmValue('');
                 }}
               >
-                <Text style={styles.deleteCancelText}>Cancel</Text>
+                <Text style={[styles.deleteCancelText, { color: colors.text }]}>Cancel</Text>
               </Pressable>
               <Pressable
                 style={[styles.deleteConfirmButton, !canConfirmDelete && styles.saveDisabled]}

@@ -4,6 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Pause, Play, RotateCw } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTheme } from '../theme/ThemeContext';
 
 const PLAYBACK_RATES = [1, 1.5, 2];
 const LOAD_TIMEOUT_MS = 8000;
@@ -32,6 +33,7 @@ function formatClock(seconds: number | null): string {
 }
 
 function PlayerShell({ url, token, outgoing, durationMs, autoRetries, onRetry }: { url: string; token: string | null; outgoing: boolean; durationMs: number | null; autoRetries: number; onRetry: () => void }) {
+  const { colors } = useTheme();
   const source = url && token ? { uri: url, headers: { Authorization: `Bearer ${token}` } } : null;
   const player = useAudioPlayer(source);
   const status = useAudioPlayerStatus(player);
@@ -153,17 +155,17 @@ function PlayerShell({ url, token, outgoing, durationMs, autoRetries, onRetry }:
   }
 
   const accent = outgoing ? '#cfe0ff' : '#3264f6';
-  const tint = outgoing ? '#ffffff' : '#526987';
+  const tint = outgoing ? '#ffffff' : colors.textSecondary;
   const barBg = outgoing ? 'rgba(255,255,255,0.28)' : 'rgba(50,100,246,0.18)';
   const fillBg = outgoing ? 'rgba(255,255,255,0.85)' : '#3264f6';
 
   if (!source) {
-    return <View style={[styles.row, { justifyContent: 'center', paddingVertical: 14 }]}><ActivityIndicator color={accent} size="small" /></View>;
+    return <View style={[styles.row, { justifyContent: 'center', paddingVertical: 14 }, !outgoing && { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><ActivityIndicator color={accent} size="small" /></View>;
   }
 
   if (failed) {
     return (
-      <View style={[styles.row, outgoing && styles.outgoingRow]}>
+      <View style={[styles.row, outgoing && styles.outgoingRow, !outgoing && { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
         <Pressable onPress={onRetry} style={[styles.playButton, { backgroundColor: accent }]}>
           <RotateCw color="#fff" size={16} />
         </Pressable>
@@ -176,11 +178,11 @@ function PlayerShell({ url, token, outgoing, durationMs, autoRetries, onRetry }:
   }
 
   if (!loaded) {
-    return <View style={[styles.row, { justifyContent: 'center', paddingVertical: 14 }]}><ActivityIndicator color={accent} size="small" /></View>;
+    return <View style={[styles.row, { justifyContent: 'center', paddingVertical: 14 }, !outgoing && { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><ActivityIndicator color={accent} size="small" /></View>;
   }
 
   return (
-    <View style={[styles.row, outgoing && styles.outgoingRow]}>
+    <View style={[styles.row, outgoing && styles.outgoingRow, !outgoing && { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
       <Pressable onPress={togglePlay} style={[styles.playButton, { backgroundColor: accent }]}>
         {status.playing ? <Pause color="#fff" fill="#fff" size={16} /> : <Play color="#fff" fill="#fff" size={16} style={{ marginLeft: 1 }} />}
       </Pressable>

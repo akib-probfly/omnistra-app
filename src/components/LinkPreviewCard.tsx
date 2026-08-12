@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ExternalLink, Globe } from 'lucide-react-native';
 import { fetchLinkPreview, getPreviewableUrl, type LinkPreviewPayload } from '../lib/link-preview';
+import { useTheme } from '../theme/ThemeContext';
 
 type Props = {
   url: string;
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export function LinkPreviewCard({ url }: Props) {
+  const { colors } = useTheme();
   const [preview, setPreview] = useState<LinkPreviewPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
@@ -44,11 +46,11 @@ export function LinkPreviewCard({ url }: Props) {
 
   if (loading) {
     return (
-      <View style={styles.card}>
-        <View style={styles.skeletonImage} />
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+        <View style={[styles.skeletonImage, { backgroundColor: colors.surfaceSecondary }]} />
         <View style={styles.skeletonBody}>
-          <View style={skeletonStyles.title} />
-          <View style={skeletonStyles.subtitle} />
+          <View style={[skeletonStyles.title, { backgroundColor: colors.cardBorder }]} />
+          <View style={[skeletonStyles.subtitle, { backgroundColor: colors.surfaceSecondary }]} />
         </View>
       </View>
     );
@@ -70,7 +72,7 @@ export function LinkPreviewCard({ url }: Props) {
   const hostname = data.hostname.replace(/^www\./, '');
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
       <Pressable
         onPress={() => Linking.openURL(data.url).catch(() => {})}
         style={styles.inner}
@@ -78,32 +80,32 @@ export function LinkPreviewCard({ url }: Props) {
         {showImage ? (
           <Image
             source={{ uri: data.imageUrl! }}
-            style={styles.image}
+            style={[styles.image, { backgroundColor: colors.surfaceSecondary }]}
             resizeMode="cover"
             onError={() => setImageError(true)}
           />
         ) : (
-          <View style={styles.imagePlaceholder}>
-            <Globe color="#94a3b8" size={24} />
+          <View style={[styles.imagePlaceholder, { backgroundColor: colors.background, borderBottomColor: colors.separator }]}>
+            <Globe color={colors.textMuted} size={24} />
             {data.siteName ? (
-              <Text style={styles.placeholderText}>{data.siteName}</Text>
+              <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>{data.siteName}</Text>
             ) : null}
           </View>
         )}
-        <View style={styles.content}>
+        <View style={[styles.content, { backgroundColor: colors.surface }]}>
           {data.siteName ? (
-            <Text style={styles.siteName} numberOfLines={1}>{data.siteName}</Text>
+            <Text style={[styles.siteName, { color: colors.textSecondary }]} numberOfLines={1}>{data.siteName}</Text>
           ) : null}
-          <Text style={styles.title} numberOfLines={2}>
+          <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
             {data.title || hostname}
           </Text>
           {data.description ? (
-            <Text style={styles.description} numberOfLines={2}>{data.description}</Text>
+            <Text style={[styles.description, { color: colors.textSecondary }]} numberOfLines={2}>{data.description}</Text>
           ) : null}
           <View style={styles.footer}>
             <View style={styles.footerLeft}>
-              <View style={[styles.themeDot, { backgroundColor: data.themeColor ?? '#64748b' }]} />
-              <Text style={styles.hostname} numberOfLines={1}>{hostname}</Text>
+              <View style={[styles.themeDot, { backgroundColor: data.themeColor ?? colors.textSecondary }]} />
+              <Text style={[styles.hostname, { color: colors.textSecondary }]} numberOfLines={1}>{hostname}</Text>
             </View>
             <View style={styles.openLink}>
               <Text style={styles.openLinkText}>Open link</Text>

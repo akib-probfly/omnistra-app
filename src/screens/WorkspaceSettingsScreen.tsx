@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../theme/ThemeContext';
 import {
   fetchMyWorkspaces,
   fetchTimezones,
@@ -29,6 +30,7 @@ export function WorkspaceSettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
+  const { colors } = useTheme();
   const [name, setName] = useState('');
   const [timezone, setTimezone] = useState('');
   const [timezonePickerOpen, setTimezonePickerOpen] = useState(false);
@@ -86,14 +88,14 @@ export function WorkspaceSettingsScreen() {
   });
 
   return (
-    <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.backButton}>
-          <ArrowLeft color="#0f172a" size={22} />
+          <ArrowLeft color={colors.text} size={22} />
         </Pressable>
         <View style={styles.headerCopy}>
-          <Text style={styles.headerTitle}>Workspace</Text>
-          <Text style={styles.headerSubtitle}>Name, timezone, and workspace basics</Text>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>Workspace</Text>
+          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Name, timezone, and workspace basics</Text>
         </View>
       </View>
 
@@ -106,24 +108,24 @@ export function WorkspaceSettingsScreen() {
         />
       ) : (
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}>
-          <View style={styles.card}>
-            <View style={styles.cardIcon}>
-              <Building2 color="#2563eb" size={20} />
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <View style={[styles.cardIcon, { backgroundColor: colors.surfaceSecondary }]}>
+              <Building2 color={colors.primary} size={20} />
             </View>
-            <Text style={styles.cardTitle}>Workspace details</Text>
-            <Text style={styles.cardBody}>Update how this workspace appears across Omnistra.</Text>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Workspace details</Text>
+            <Text style={[styles.cardBody, { color: colors.textSecondary }]}>Update how this workspace appears across Omnistra.</Text>
 
-            <Text style={styles.label}>Workspace name</Text>
-            <TextInput value={name} onChangeText={setName} placeholder="Workspace name" placeholderTextColor="#94a3b8" style={styles.input} />
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Workspace name</Text>
+            <TextInput value={name} onChangeText={setName} placeholder="Workspace name" placeholderTextColor={colors.textMuted} style={[styles.input, { backgroundColor: colors.background, borderColor: colors.inputBorder, color: colors.text }]} />
 
-            <Text style={styles.label}>Timezone</Text>
-            <Pressable style={styles.inputButton} onPress={() => setTimezonePickerOpen(true)}>
-              <Text style={styles.inputButtonText} numberOfLines={1}>{timezone || 'Select timezone'}</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Timezone</Text>
+            <Pressable style={[styles.inputButton, { backgroundColor: colors.background, borderColor: colors.inputBorder }]} onPress={() => setTimezonePickerOpen(true)}>
+              <Text style={[styles.inputButtonText, { color: colors.text }]} numberOfLines={1}>{timezone || 'Select timezone'}</Text>
             </Pressable>
           </View>
 
           <Pressable
-            style={[styles.saveButton, (!dirty || !name.trim() || saveMutation.isPending) && styles.saveDisabled]}
+            style={[styles.saveButton, { backgroundColor: colors.primary }, (!dirty || !name.trim() || saveMutation.isPending) && styles.saveDisabled]}
             disabled={!dirty || !name.trim() || saveMutation.isPending}
             onPress={() => saveMutation.mutate()}
           >
@@ -140,14 +142,14 @@ export function WorkspaceSettingsScreen() {
       <Modal visible={timezonePickerOpen} transparent animationType="slide" onRequestClose={() => setTimezonePickerOpen(false)}>
         <View style={styles.sheetOverlay}>
           <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setTimezonePickerOpen(false)} />
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-            <Text style={styles.sheetTitle}>Select timezone</Text>
+          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: colors.surface }]}>
+            <Text style={[styles.sheetTitle, { color: colors.text }]}>Select timezone</Text>
             <TextInput
               value={timezoneSearch}
               onChangeText={setTimezoneSearch}
               placeholder="Search timezone..."
-              placeholderTextColor="#94a3b8"
-              style={styles.input}
+              placeholderTextColor={colors.textMuted}
+              style={[styles.input, { backgroundColor: colors.background, borderColor: colors.inputBorder, color: colors.text }]}
             />
             {timezonesQuery.isLoading ? (
               <PanelSkeleton rows={5} />
@@ -159,18 +161,18 @@ export function WorkspaceSettingsScreen() {
                 keyboardShouldPersistTaps="handled"
                 renderItem={({ item }: { item: TimezoneOption }) => (
                   <Pressable
-                    style={[styles.timezoneRow, timezone === item.zoneName && styles.timezoneRowActive]}
+                    style={[styles.timezoneRow, timezone === item.zoneName && { backgroundColor: colors.surfaceSecondary }]}
                     onPress={() => {
                       setTimezone(item.zoneName);
                       setTimezonePickerOpen(false);
                       setTimezoneSearch('');
                     }}
                   >
-                    <Text style={styles.timezoneName}>{item.zoneName}</Text>
-                    <Text style={styles.timezoneMeta}>{formatGmtOffset(item.gmtOffset)} · {item.countryName}</Text>
+                    <Text style={[styles.timezoneName, { color: colors.text }]}>{item.zoneName}</Text>
+                    <Text style={[styles.timezoneMeta, { color: colors.textSecondary }]}>{formatGmtOffset(item.gmtOffset)} · {item.countryName}</Text>
                   </Pressable>
                 )}
-                ListEmptyComponent={<Text style={styles.empty}>No timezones match your search.</Text>}
+                ListEmptyComponent={<Text style={[styles.empty, { color: colors.textMuted }]}>No timezones match your search.</Text>}
               />
             )}
           </View>
