@@ -362,7 +362,7 @@ export function ConversationScreen() {
       setUnreadOverride(route.params.conversationId, 0);
       setHeader((c) => ({ ...c, unreadCount: 0 }));
       setConversationUnreadInCache(queryClient, route.params.conversationId, 0);
-      adjustInboxUnreadCount(queryClient, -previousUnreadCount);
+      adjustInboxUnreadConversationCount(queryClient, previousUnreadCount, 0);
       return { previousUnreadCount };
     },
     onError: (error, _vars, context) => {
@@ -371,7 +371,7 @@ export function ConversationScreen() {
       setUnreadOverride(route.params.conversationId, previousUnreadCount);
       setHeader((c) => ({ ...c, unreadCount: previousUnreadCount }));
       setConversationUnreadInCache(queryClient, route.params.conversationId, previousUnreadCount);
-      adjustInboxUnreadCount(queryClient, previousUnreadCount);
+      adjustInboxUnreadConversationCount(queryClient, 0, previousUnreadCount);
       lastAutoMarkedReadSignatureRef.current = null;
       if (manualReadToggleRef.current) {
         Alert.alert('Could not mark as read', error instanceof Error ? error.message : 'Please try again.');
@@ -400,7 +400,7 @@ export function ConversationScreen() {
       setUnreadOverride(route.params.conversationId, nextUnreadCount);
       setHeader((c) => ({ ...c, unreadCount: nextUnreadCount }));
       setConversationUnreadInCache(queryClient, route.params.conversationId, nextUnreadCount);
-      adjustInboxUnreadCount(queryClient, nextUnreadCount - previousUnreadCount);
+      adjustInboxUnreadConversationCount(queryClient, previousUnreadCount, nextUnreadCount);
       return { previousUnreadCount };
     },
     onError: (error, _vars, context) => {
@@ -410,7 +410,7 @@ export function ConversationScreen() {
       setUnreadOverride(route.params.conversationId, previousUnreadCount);
       setHeader((c) => ({ ...c, unreadCount: previousUnreadCount }));
       setConversationUnreadInCache(queryClient, route.params.conversationId, previousUnreadCount);
-      adjustInboxUnreadCount(queryClient, previousUnreadCount - Math.max(1, previousUnreadCount));
+      adjustInboxUnreadConversationCount(queryClient, Math.max(1, previousUnreadCount), previousUnreadCount);
       Alert.alert('Could not mark as unread', error instanceof Error ? error.message : 'Please try again.');
       manualReadToggleRef.current = false;
     },
@@ -925,6 +925,14 @@ function adjustInboxUnreadCount(queryClient: any, delta: number) {
       return next;
     },
   );
+}
+
+/** Inbox unread badge counts conversations with unread > 0, not message totals. */
+function adjustInboxUnreadConversationCount(queryClient: any, previousUnread: number, nextUnread: number) {
+  const wasUnread = previousUnread > 0;
+  const isUnread = nextUnread > 0;
+  if (wasUnread === isUnread) return;
+  adjustInboxUnreadCount(queryClient, isUnread ? 1 : -1);
 }
 
 async function sendTemplateMutation(conversationId: string, params: { templateName: string; templateCategory?: string | null; languageCode?: string; text?: string; templateComponents?: unknown[] }, queryClient: any, setDraft: (v: string) => void) {

@@ -14,6 +14,12 @@ import {
 } from '../api/notifications';
 import { shouldSuppressRealtimeMessageRefresh } from '../lib/inbox-realtime-suppression';
 import { refreshConversationMessagesPage } from '../lib/inbox-message-cache';
+import {
+  clearPreviewOverride,
+  clearUnreadOverride,
+  setPreviewOverride,
+  setUnreadOverride,
+} from '../lib/unread-count-override';
 import { playNotificationSound } from '../lib/notificationSound';
 import { writeIncomingCallPrompt } from '../lib/incoming-call-prompt';
 import { useNotificationPreferences } from './useNotificationPreferences';
@@ -95,7 +101,26 @@ function invalidateInboxQueries(queryClient: ReturnType<typeof useQueryClient>, 
   }, delay);
 }
 
-type CachedConversationList = { pages: Array<{ items?: Array<{ id: string; unreadCount?: number }> }> };
+type CachedConversationList = {
+  pages: Array<{
+    items?: Array<{
+      id: string;
+      unreadCount?: number;
+      lastMessageAt?: string | null;
+      lastMessagePreview?: string | null;
+      lastInteraction?: any;
+      updatedAt?: string;
+      contact?: { id?: string };
+      isUnreplied?: boolean;
+    }>;
+  }>;
+};
+
+function toTimestamp(value: string | null | undefined) {
+  if (!value) return 0;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 
 function getCachedConversationUnreadCount(queryClient: ReturnType<typeof useQueryClient>, conversationId: string) {
   let unreadCount = 0;
@@ -109,20 +134,121 @@ function getCachedConversationUnreadCount(queryClient: ReturnType<typeof useQuer
   return unreadCount;
 }
 
-function incrementConversationUnreadCountInCache(queryClient: ReturnType<typeof useQueryClient>, conversationId: string, nextUnreadCount: number) {
+function bumpConversationInCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  conversationId: string,
+  patch: {
+    unreadCount?: number;
+    lastMessagePreview?: string;
+    lastMessageAt?: string;
+    lastInteraction?: any;
+    isUnreplied?: boolean;
+  },
+) {
   queryClient.setQueriesData<CachedConversationList>({ queryKey: ['conversations'] }, (current) => {
-    if (!current) return current;
+    if (!current?.pages?.length) return current;
+
+    let moved: NonNullable<CachedConversationList['pages'][number]['items']>[number] | null = null;
+    const pagesWithoutTarget = current.pages.map((page) => ({
+      ...page,
+      items: (page.items ?? []).filter((conversation) => {
+        if (conversation.id !== conversationId) return true;
+        moved = {
+          ...conversation,
+          ...(typeof patch.unreadCount === 'number'
+            ? { unreadCount: Math.max(conversation.unreadCount ?? 0, patch.unreadCount) }
+            : {}),
+          ...(patch.lastMessagePreview != null ? { lastMessagePreview: patch.lastMessagePreview } : {}),
+          ...(patch.lastMessageAt != null ? { lastMessageAt: patch.lastMessageAt, updatedAt: patch.lastMessageAt } : {}),
+          ...(patch.lastInteraction ? { lastInteraction: patch.lastInteraction } : {}),
+          ...(typeof patch.isUnreplied === 'boolean' ? { isUnreplied: patch.isUnreplied } : {}),
+        };
+        return false;
+      }),
+    }));
+
+    if (!moved) return current;
+
+    const [firstPage, ...restPages] = pagesWithoutTarget;
     return {
       ...current,
-      pages: current.pages.map((page) => ({
-        ...page,
-        items: (page.items ?? []).map((conversation) =>
-          conversation.id === conversationId
-            ? { ...conversation, unreadCount: Math.max(conversation.unreadCount ?? 0, nextUnreadCount) }
-            : conversation,
-        ),
-      })),
+      pages: [
+        {
+          ...firstPage,
+          items: [moved, ...(firstPage.items ?? [])],
+        },
+        ...restPages,
+      ],
     };
+  });
+}
+
+function incrementConversationUnreadCountInCache(queryClient: ReturnType<typeof useQueryClient>, conversationId: string, nextUnreadCount: number) {
+  bumpConversationInCache(queryClient, conversationId, { unreadCount: nextUnreadCount });
+}
+
+function getNotificationMessagePreview(payload: NotificationCreatedEvent) {
+  const body = (payload.body ?? '').trim();
+  if (!body) return null;
+  const separatorIndex = body.indexOf(':');
+  if (separatorIndex >= 0 && separatorIndex < body.length - 1) {
+    return body.slice(separatorIndex + 1).trim() || body;
+  }
+  return body;
+}
+
+function patchConversationMessagePreviewFromNotification(
+  queryClient: ReturnType<typeof useQueryClient>,
+  payload: NotificationCreatedEvent,
+) {
+  if (payload.type !== 'NEW_MESSAGE' || !payload.conversationId) return;
+
+  const preview = getNotificationMessagePreview(payload);
+  if (!preview) return;
+
+  const occurredAt = payload.createdAt || new Date().toISOString();
+  const occurredAtTimestamp = toTimestamp(occurredAt);
+  const messageId = payload.entityType === 'MESSAGE' ? payload.entityId : payload.notificationId;
+  const message = {
+    id: messageId,
+    direction: 'INBOUND' as const,
+    type: 'TEXT',
+    text: preview,
+    sentAt: occurredAt,
+    createdAt: occurredAt,
+  };
+
+  setPreviewOverride(payload.conversationId, {
+    at: occurredAt,
+    preview,
+    message,
+  });
+
+  // Skip regressing an already-newer cached preview.
+  let hasNewerCachedPreview = false;
+  queryClient.getQueriesData<CachedConversationList>({ queryKey: ['conversations'] }).forEach(([, data]) => {
+    data?.pages?.forEach((page) => {
+      page.items?.forEach((conversation) => {
+        if (conversation.id !== payload.conversationId) return;
+        const lastAt = Math.max(
+          toTimestamp(conversation.lastInteraction?.at),
+          toTimestamp(conversation.lastMessageAt),
+        );
+        if (lastAt > occurredAtTimestamp) hasNewerCachedPreview = true;
+      });
+    });
+  });
+  if (hasNewerCachedPreview) return;
+
+  bumpConversationInCache(queryClient, payload.conversationId, {
+    lastMessagePreview: preview,
+    lastMessageAt: occurredAt,
+    lastInteraction: {
+      kind: 'MESSAGE',
+      at: occurredAt,
+      message,
+    },
+    isUnreplied: true,
   });
 }
 
@@ -274,8 +400,15 @@ export function useRealtimeSync(accessToken: string | null) {
 
       if (!isConversationCurrentlyViewed && !isRecentLocalMessageEcho) {
         const currentUnreadCount = getCachedConversationUnreadCount(queryClient, payload.conversationId);
-        incrementConversationUnreadCountInCache(queryClient, payload.conversationId, currentUnreadCount + 1);
+        const nextUnreadCount = currentUnreadCount + 1;
+        // Protect optimistic unread from stale conversation refetches (backend lag).
+        setUnreadOverride(payload.conversationId, nextUnreadCount);
+        incrementConversationUnreadCountInCache(queryClient, payload.conversationId, nextUnreadCount);
         if (currentUnreadCount <= 0) incrementInboxUnreadCountInCache(queryClient);
+      } else if (isConversationCurrentlyViewed) {
+        // Viewing the thread — don't keep a stale "marked read" override around.
+        clearUnreadOverride(payload.conversationId);
+        clearPreviewOverride(payload.conversationId);
       }
 
       // Local send already patched the thread cache — skip refetch to avoid optimistic blink.
@@ -314,6 +447,8 @@ export function useRealtimeSync(accessToken: string | null) {
       // Keep badge + list warm even while the notification sheet is closed.
       incrementNotificationUnreadCountInCache(queryClient);
       prependNotificationInCache(queryClient, payload);
+      // Match web: NEW_MESSAGE notifications carry the preview text that message.created lacks.
+      patchConversationMessagePreviewFromNotification(queryClient, payload);
       void queryClient.invalidateQueries({ queryKey: [...notificationQueryKeys.all, 'list'], refetchType: 'active' });
       void queryClient.invalidateQueries({ queryKey: notificationQueryKeys.unreadCount(), refetchType: 'active' });
 

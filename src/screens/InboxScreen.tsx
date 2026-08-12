@@ -255,7 +255,11 @@ export function InboxScreen() {
           <Pressable style={styles.sidebarTab} onPress={() => setSidebarTab('chats')}>
             <MessageSquareText color={sidebarTab === 'chats' ? colors.primary : colors.textMuted} size={15} />
             <Text style={[styles.sidebarTabText, { color: sidebarTab === 'chats' ? colors.primary : colors.textMuted }]}>Chats</Text>
-            <Text style={[styles.sidebarTabCount, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{unreadCount.data ?? 0}</Text>
+            {(unreadCount.data ?? 0) > 0 ? (
+              <Text style={[styles.sidebarTabCount, { backgroundColor: colors.primary, color: '#fff' }]}>
+                {(unreadCount.data ?? 0) > 99 ? '99+' : unreadCount.data}
+              </Text>
+            ) : null}
             {sidebarTab === 'chats' ? <View style={[styles.sidebarTabUnderline, { backgroundColor: colors.primary }]} /> : null}
           </Pressable>
           <Pressable style={styles.sidebarTab} onPress={() => setSidebarTab('calls')}>
