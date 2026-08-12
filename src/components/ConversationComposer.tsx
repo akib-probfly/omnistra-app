@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import { requestRecordingPermissionsAsync, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
-import { ChevronDown, Clock3, FileText, Mic, Pause, Paperclip, Play, Send, Smile, Trash2, X, Zap, PanelsTopLeft } from 'lucide-react-native';
+import { Camera, ChevronDown, Clock3, FileText, Film, Image as ImageIcon, Mic, Pause, Paperclip, Play, Send, Smile, Trash2, X, Zap, PanelsTopLeft } from 'lucide-react-native';
 import { useRef, useState } from 'react';
 import { Alert, FlatList, Image, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,11 +12,13 @@ import { fetchQuickReplies } from '../api/inbox';
 import { fetchWhatsappTemplates } from '../api/whatsappTemplates';
 import {
   COMPOSER_MAX_ATTACHMENT_COUNT,
+  formatAttachmentSize,
   getComposerAttachmentValidationError,
   normalizeComposerMimeType,
   resolveAttachmentSizeBytes,
 } from '../lib/composer-attachments';
 import type { MessengerMessagingMode } from '../lib/inbox-utils';
+import { BottomSheet } from './BottomSheet';
 import { PanelSkeleton } from './Skeleton';
 import { WhatsappTemplateSendModal, type TemplateSendPayload } from './WhatsappTemplateSendModal';
 import { useTheme } from '../theme/ThemeContext';
@@ -66,6 +68,7 @@ export function ConversationComposer({
   valueRef.current = value;
   const [recording, setRecording] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [attachmentPickerOpen, setAttachmentPickerOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const [quickQuery, setQuickQuery] = useState('');
   const [templateOpen, setTemplateOpen] = useState(false);
@@ -73,6 +76,7 @@ export function ConversationComposer({
   const [messengerModeOpen, setMessengerModeOpen] = useState(false);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder, 200);
+  const remainingAttachmentSlots = Math.max(0, COMPOSER_MAX_ATTACHMENT_COUNT - attachments.length);
 
   const isWhatsAppChannel = (channelType ?? '').toUpperCase() === 'WHATSAPP';
   const isMessengerChannel = (channelType ?? '').toUpperCase() === 'MESSENGER';
@@ -150,14 +154,31 @@ export function ConversationComposer({
     }
   }
 
+  function openAttachmentPicker() {
+    if (canSendFreeform === false) return;
+    if (remainingAttachmentSlots <= 0) {
+      Alert.alert('Attachment limit', `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once.`);
+      return;
+    }
+    Keyboard.dismiss();
+    setEmojiOpen(false);
+    setAttachmentPickerOpen(true);
+  }
+
+  async function runAttachmentAction(action: () => Promise<void>) {
+    setAttachmentPickerOpen(false);
+    // Let the sheet dismiss before opening the system picker.
+    await new Promise((resolve) => setTimeout(resolve, 220));
+    await action();
+  }
+
   async function chooseImage() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert('Permission required', 'Allow photo library access to attach images and videos.');
       return;
     }
-    const remaining = Math.max(0, COMPOSER_MAX_ATTACHMENT_COUNT - attachments.length);
-    if (remaining <= 0) {
+    if (remainingAttachmentSlots <= 0) {
       Alert.alert('Attachment limit', `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once.`);
       return;
     }
@@ -165,7 +186,7 @@ export function ConversationComposer({
       mediaTypes: ['images', 'videos'],
       quality: 0.85,
       allowsMultipleSelection: true,
-      selectionLimit: remaining,
+      selectionLimit: remainingAttachmentSlots,
       allowsEditing: false,
     });
     if (result.canceled || !result.assets?.length) return;
@@ -183,9 +204,39 @@ export function ConversationComposer({
     );
   }
 
+  async function chooseCamera() {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission required', 'Allow camera access to take a photo or video.');
+      return;
+    }
+    if (remainingAttachmentSlots <= 0) {
+      Alert.alert('Attachment limit', `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once.`);
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images', 'videos'],
+      quality: 0.85,
+      videoMaxDuration: 60,
+      allowsEditing: false,
+    });
+    if (result.canceled || !result.assets?.length) return;
+    await appendValidatedAttachments(
+      result.assets.map((asset, index) => {
+        const isVideo = asset.type === 'video' || (asset.mimeType ?? '').startsWith('video/');
+        return {
+          uri: asset.uri,
+          name: asset.fileName ?? (isVideo ? `camera-video-${index + 1}.mp4` : `camera-photo-${index + 1}.jpg`),
+          mimeType: asset.mimeType,
+          type: isVideo ? 'VIDEO' : 'IMAGE',
+          sizeBytes: asset.fileSize ?? null,
+        };
+      }),
+    );
+  }
+
   async function chooseDocument() {
-    const remaining = Math.max(0, COMPOSER_MAX_ATTACHMENT_COUNT - attachments.length);
-    if (remaining <= 0) {
+    if (remainingAttachmentSlots <= 0) {
       Alert.alert('Attachment limit', `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once.`);
       return;
     }
@@ -204,6 +255,7 @@ export function ConversationComposer({
       })),
     );
   }
+
   function removeAttachment(uri: string) {
     onAttachments?.(attachments.filter((a) => a.uri !== uri));
   }
@@ -451,27 +503,57 @@ export function ConversationComposer({
           >
             {attachments.map((attachment) => {
               const isMedia = attachment.type === 'IMAGE' || attachment.type === 'VIDEO';
+              const sizeLabel = formatAttachmentSize(attachment.sizeBytes);
               return (
-                <View key={attachment.uri} style={[isMedia ? styles.attachmentMedia : styles.attachment, isMedia ? { backgroundColor: colors.surfaceSecondary } : { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+                <View
+                  key={attachment.uri}
+                  style={[
+                    isMedia ? styles.attachmentMedia : styles.attachment,
+                    isMedia
+                      ? { backgroundColor: colors.surfaceSecondary }
+                      : { backgroundColor: colors.surface, borderColor: colors.cardBorder },
+                  ]}
+                >
                   {isMedia ? (
-                    <Image source={{ uri: attachment.uri }} style={styles.attachmentThumb} />
+                    <>
+                      <Image source={{ uri: attachment.uri }} style={styles.attachmentThumb} />
+                      {attachment.type === 'VIDEO' ? (
+                        <View style={styles.attachmentMediaBadge}>
+                          <Film color="#fff" size={12} />
+                        </View>
+                      ) : null}
+                    </>
                   ) : attachment.type === 'VOICE' ? (
                     <>
-                      <Mic color={colors.primary} size={18} />
-                      <Text numberOfLines={1} style={styles.attachmentName}>Voice note</Text>
+                      <View style={[styles.attachmentIconWrap, { backgroundColor: '#eff6ff' }]}>
+                        <Mic color={colors.primary} size={16} />
+                      </View>
+                      <View style={styles.attachmentCopy}>
+                        <Text numberOfLines={1} style={[styles.attachmentName, { color: colors.text }]}>Voice note</Text>
+                        {sizeLabel ? <Text style={[styles.attachmentMeta, { color: colors.textMuted }]}>{sizeLabel}</Text> : null}
+                      </View>
                     </>
                   ) : (
                     <>
-                      <FileText color={colors.primary} size={18} />
-                      <Text numberOfLines={1} style={styles.attachmentName}>{attachment.name}</Text>
+                      <View style={[styles.attachmentIconWrap, { backgroundColor: '#eff6ff' }]}>
+                        <FileText color={colors.primary} size={16} />
+                      </View>
+                      <View style={styles.attachmentCopy}>
+                        <Text numberOfLines={1} style={[styles.attachmentName, { color: colors.text }]}>{attachment.name}</Text>
+                        {sizeLabel ? <Text style={[styles.attachmentMeta, { color: colors.textMuted }]}>{sizeLabel}</Text> : null}
+                      </View>
                     </>
                   )}
                   <Pressable
                     onPress={() => removeAttachment(attachment.uri)}
-                    style={isMedia ? styles.attachmentRemove : undefined}
+                    style={isMedia ? styles.attachmentRemove : styles.attachmentChipRemove}
                     hitSlop={6}
                   >
-                    <Text style={[styles.close, isMedia && styles.attachmentRemoveText]}>×</Text>
+                    {isMedia ? (
+                      <Text style={styles.attachmentRemoveText}>×</Text>
+                    ) : (
+                      <X color={colors.textSecondary} size={14} />
+                    )}
                   </Pressable>
                 </View>
               );
@@ -515,10 +597,10 @@ export function ConversationComposer({
           </Pressable>
           <Pressable
             disabled={!canComposeFreeform}
-            onPress={() => Alert.alert('Attachment', 'Choose an image or document', [{ text: 'Image', onPress: chooseImage }, { text: 'Document', onPress: chooseDocument }, { text: 'Cancel', style: 'cancel' }])}
+            onPress={openAttachmentPicker}
             style={!canComposeFreeform ? styles.actionDisabled : undefined}
           >
-            <Paperclip color={colors.textSecondary} size={20} />
+            <Paperclip color={attachmentPickerOpen ? colors.primary : colors.textSecondary} size={20} />
           </Pressable>
           <Pressable disabled={!canComposeFreeform} onPress={startRecording} style={!canComposeFreeform ? styles.actionDisabled : undefined}>
             <Mic color={colors.textSecondary} size={20} />
@@ -567,6 +649,67 @@ export function ConversationComposer({
           />
         </View>
       ) : null}
+
+      <BottomSheet visible={attachmentPickerOpen} onClose={() => setAttachmentPickerOpen(false)}>
+        <View style={styles.attachSheet}>
+          <View style={styles.attachSheetHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.attachSheetTitle, { color: colors.text }]}>Add attachment</Text>
+              <Text style={[styles.attachSheetSubtitle, { color: colors.textSecondary }]}>
+                {remainingAttachmentSlots} of {COMPOSER_MAX_ATTACHMENT_COUNT} slots left
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setAttachmentPickerOpen(false)}
+              style={[styles.closeBtn, { backgroundColor: colors.surfaceSecondary }]}
+              hitSlop={8}
+            >
+              <X color={colors.textSecondary} size={18} />
+            </Pressable>
+          </View>
+
+          <View style={styles.attachOptions}>
+            <Pressable
+              style={[styles.attachOption, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}
+              onPress={() => void runAttachmentAction(chooseImage)}
+            >
+              <View style={[styles.attachOptionIcon, { backgroundColor: '#dbeafe' }]}>
+                <ImageIcon color="#2563eb" size={22} />
+              </View>
+              <View style={styles.attachOptionCopy}>
+                <Text style={[styles.attachOptionTitle, { color: colors.text }]}>Photos & videos</Text>
+                <Text style={[styles.attachOptionBody, { color: colors.textSecondary }]}>Choose from your library</Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              style={[styles.attachOption, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}
+              onPress={() => void runAttachmentAction(chooseCamera)}
+            >
+              <View style={[styles.attachOptionIcon, { backgroundColor: '#fce7f3' }]}>
+                <Camera color="#db2777" size={22} />
+              </View>
+              <View style={styles.attachOptionCopy}>
+                <Text style={[styles.attachOptionTitle, { color: colors.text }]}>Camera</Text>
+                <Text style={[styles.attachOptionBody, { color: colors.textSecondary }]}>Take a photo or short video</Text>
+              </View>
+            </Pressable>
+
+            <Pressable
+              style={[styles.attachOption, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}
+              onPress={() => void runAttachmentAction(chooseDocument)}
+            >
+              <View style={[styles.attachOptionIcon, { backgroundColor: '#ecfdf5' }]}>
+                <FileText color="#059669" size={22} />
+              </View>
+              <View style={styles.attachOptionCopy}>
+                <Text style={[styles.attachOptionTitle, { color: colors.text }]}>Document</Text>
+                <Text style={[styles.attachOptionBody, { color: colors.textSecondary }]}>PDF, Word, Excel, and more</Text>
+              </View>
+            </Pressable>
+          </View>
+        </View>
+      </BottomSheet>
 
       <Modal visible={messengerModeOpen} transparent animationType="fade" onRequestClose={() => setMessengerModeOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setMessengerModeOpen(false)}>
@@ -657,18 +800,50 @@ const styles = StyleSheet.create({
   send: { alignItems: 'center', backgroundColor: '#b9dafa', borderRadius: 20, height: 40, justifyContent: 'center', width: 40 },
   sendActive: { backgroundColor: '#2563eb' },
   sendDisabled: { opacity: 0.7 },
-  attachmentScroll: { marginBottom: 8, maxHeight: 88 },
+  attachmentScroll: { marginBottom: 8, maxHeight: 96 },
   attachmentRow: { alignItems: 'center', flexDirection: 'row', gap: 8, paddingVertical: 2 },
-  attachment: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 16, flexDirection: 'row', maxWidth: 220, paddingHorizontal: 12, paddingVertical: 8 },
+  attachment: {
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderColor: '#cfe0fa',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    maxWidth: 220,
+    paddingLeft: 8,
+    paddingRight: 8,
+    paddingVertical: 8,
+  },
   attachmentMedia: {
     backgroundColor: '#e8eef7',
     borderRadius: 14,
-    height: 72,
+    height: 76,
     overflow: 'hidden',
-    width: 72,
+    width: 76,
   },
   attachmentThumb: { height: '100%', width: '100%' },
-  attachmentName: { color: '#334155', flexShrink: 1, fontSize: 13, marginLeft: 8, maxWidth: 140 },
+  attachmentMediaBadge: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(15,23,42,0.55)',
+    borderRadius: 10,
+    bottom: 6,
+    height: 20,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: 6,
+    width: 20,
+  },
+  attachmentIconWrap: {
+    alignItems: 'center',
+    borderRadius: 12,
+    height: 34,
+    justifyContent: 'center',
+    width: 34,
+  },
+  attachmentCopy: { flexShrink: 1, maxWidth: 130 },
+  attachmentName: { color: '#334155', fontSize: 13, fontWeight: '600' },
+  attachmentMeta: { color: '#94a3b8', fontSize: 11, marginTop: 2 },
   attachmentRemove: {
     alignItems: 'center',
     backgroundColor: 'rgba(15,23,42,0.62)',
@@ -680,8 +855,38 @@ const styles = StyleSheet.create({
     top: 4,
     width: 20,
   },
-  attachmentRemoveText: { color: '#fff', fontSize: 14, lineHeight: 16, marginLeft: 0 },
+  attachmentChipRemove: {
+    alignItems: 'center',
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
+  },
+  attachmentRemoveText: { color: '#fff', fontSize: 14, lineHeight: 16 },
   close: { color: '#64748b', fontSize: 22, marginLeft: 10 },
+  attachSheet: { gap: 14, paddingHorizontal: 16, paddingTop: 8 },
+  attachSheetHeader: { alignItems: 'center', flexDirection: 'row', gap: 12 },
+  attachSheetTitle: { fontSize: 17, fontWeight: '800' },
+  attachSheetSubtitle: { fontSize: 12, marginTop: 2 },
+  attachOptions: { gap: 10, paddingBottom: 8 },
+  attachOption: {
+    alignItems: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  attachOptionIcon: {
+    alignItems: 'center',
+    borderRadius: 14,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  attachOptionCopy: { flex: 1, minWidth: 0 },
+  attachOptionTitle: { fontSize: 15, fontWeight: '700' },
+  attachOptionBody: { fontSize: 12, marginTop: 2 },
   recording: { alignItems: 'center', backgroundColor: '#fff5f5', borderColor: '#fecaca', borderRadius: 24, borderWidth: 1, flexDirection: 'row', gap: 12, margin: 12, padding: 12 },
   delete: { alignItems: 'center', backgroundColor: '#fee2e2', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   recordTime: { color: '#17233a', fontWeight: '600' },
