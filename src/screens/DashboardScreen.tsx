@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Clock3,
   Inbox,
@@ -12,14 +12,13 @@ import {
   Users,
   Wifi,
 } from 'lucide-react-native';
-import { useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useIsFocused } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { fetchDashboard, type DashboardChannelHealthItem, type DashboardResponse, type DashboardTeamCommandCenterMember, type DashboardTrendPoint } from '../api/dashboard';
-import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { channelBrandColor, ChannelLogo } from '../components/ChannelLogo';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 import { DashboardSkeleton } from '../components/Skeleton';
@@ -681,25 +680,45 @@ function MetricCarousel({
 export function DashboardScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const isFocused = useIsFocused();
-  const realtimeStatus = useSyncExternalStore(subscribeRealtimeConnectionStatus, getRealtimeConnectionStatus);
   const { width: windowWidth } = useWindowDimensions();
   const contentWidth = Math.max(windowWidth - 32, 280);
   const [preset, setPreset] = useState<RangePreset>('7d');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [pullRefreshing, setPullRefreshing] = useState(false);
   const range = useMemo(() => resolveRange(preset), [preset]);
   const query = useMemo(() => ({ from: toUtcIso(range.from), to: toUtcIso(range.to), search: search.trim() || undefined }), [range, search]);
-  // Keep a slow poll even when realtime is connected — aggregates can lag event delivery.
-  const dashboardPollMs = !isFocused ? false : realtimeStatus === 'connected' ? 60_000 : 20_000;
   const dashboard = useQuery({
     queryKey: ['dashboard', query],
     queryFn: () => fetchDashboard(query),
-    staleTime: 15_000,
-    refetchInterval: dashboardPollMs,
-    refetchOnMount: 'always',
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    refetchInterval: isFocused ? 30_000 : false,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    placeholderData: keepPreviousData,
   });
+
+  // Silent refresh when returning to the tab — only if cached data is stale.
+  useFocusEffect(
+    useCallback(() => {
+      void queryClient.refetchQueries({ queryKey: ['dashboard', query], stale: true });
+    }, [queryClient, query]),
+  );
+
+  const onPullRefresh = useCallback(async () => {
+    setPullRefreshing(true);
+    try {
+      await dashboard.refetch();
+    } finally {
+      setPullRefreshing(false);
+    }
+  }, [dashboard.refetch]);
+
   const rangeLabel = formatDateRangeLabel(range.from, range.to);
 
   const summary = dashboard.data?.summary;
@@ -746,7 +765,7 @@ export function DashboardScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        refreshControl={<RefreshControl refreshing={dashboard.isRefetching} onRefresh={() => dashboard.refetch()} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={pullRefreshing} onRefresh={onPullRefresh} tintColor={colors.primary} />}
       >
         <View style={[styles.controlsCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
           <View style={[styles.search, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>

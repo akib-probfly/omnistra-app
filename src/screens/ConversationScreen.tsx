@@ -1002,7 +1002,7 @@ const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, 
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: 'transparent', flex: 1 },
-  body: { backgroundColor: 'transparent', flex: 1, overflow: 'hidden' },
+  body: { backgroundColor: 'transparent', flex: 1 },
   header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#dbe4f1', borderBottomWidth: 1, flexDirection: 'row', gap: 12, paddingHorizontal: 14, paddingVertical: 9 },
   avatarWrap: { position: 'relative' },
   presence: { backgroundColor: '#22c55e', borderColor: '#fff', borderRadius: 6, borderWidth: 1.5, bottom: 1, height: 12, position: 'absolute', right: 1, width: 12 },
@@ -1012,7 +1012,7 @@ const styles = StyleSheet.create({
   windowExpired: { color: '#dc2626' },
   assignee: { color: '#94a3b8', fontSize: 11, marginTop: 1 },
   list: { backgroundColor: 'transparent', flex: 1 },
-  listWrap: { backgroundColor: 'transparent', flex: 1, minHeight: 0, overflow: 'hidden' },
+  listWrap: { backgroundColor: 'transparent', flex: 1, minHeight: 0 },
   error: { backgroundColor: 'transparent', color: '#dc2626', padding: 14, textAlign: 'center' },
   listContent: { gap: 10, padding: 14 },
   highlightRow: { backgroundColor: 'rgba(50,102,246,0.10)', borderRadius: 14, paddingVertical: 2 },
