@@ -1,9 +1,10 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDownLeft, ArrowUpRight, Filter, Image as ImageIcon, Inbox, Mail, MessageSquareText, Mic, Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Search, Star, Video, X } from 'lucide-react-native';
-import { Animated, Easing, FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
+import { ArrowDownLeft, ArrowUpRight, Filter, Image as ImageIcon, Inbox, Mail, MessageSquareText, Mic, Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Search, Star, Video } from 'lucide-react-native';
+import { Animated, Easing, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { AppToggle } from '../components/AppToggle';
+import { BottomSheet } from '../components/BottomSheet';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ErrorState } from '../components/ErrorState';
 import { ChannelLogo, channelBrandColor } from '../components/ChannelLogo';
@@ -358,13 +359,9 @@ export function InboxScreen() {
         </>
       )}
 
-      <Modal visible={filterOpen && sidebarTab === 'chats'} transparent animationType="slide" onRequestClose={() => setFilterOpen(false)}>
-        <View style={styles.filterOverlay}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setFilterOpen(false)} />
-          <View style={[styles.filterSheet, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: colors.surface }]}>
-            <View style={styles.filterSheetHeader}>
+      <BottomSheet visible={filterOpen && sidebarTab === 'chats'} onClose={() => setFilterOpen(false)} sheetStyle={styles.filterSheetSurface}>
+          <View style={styles.filterSheetHeader}>
               <Text style={[styles.filterSheetTitle, { color: colors.text }]}>Filters</Text>
-              <Pressable onPress={() => setFilterOpen(false)} hitSlop={8}><X color={colors.textSecondary} size={20} /></Pressable>
             </View>
 
             <View style={[styles.filterLayerTabs, { backgroundColor: colors.surfaceSecondary }]}>
@@ -523,9 +520,7 @@ export function InboxScreen() {
             <Pressable style={[styles.filterApply, { backgroundColor: colors.primary }]} onPress={() => setFilterOpen(false)}>
               <Text style={styles.filterApplyText}>Apply filters</Text>
             </Pressable>
-          </View>
-        </View>
-      </Modal>
+        </BottomSheet>
     </View>
   );
 }
@@ -795,7 +790,7 @@ const styles = StyleSheet.create({
   filterButtonActive: { borderColor: '#2563eb' },
   filterActiveDot: { backgroundColor: '#2563eb', borderRadius: 4, height: 8, position: 'absolute', right: -2, top: -2, width: 8 },
   filterOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },
-  filterSheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '85%', padding: 20 },
+  filterSheetSurface: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 },
   filterSheetHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   filterSheetTitle: { color: '#0f172a', fontSize: 18, fontWeight: '800' },
   filterLayerTabs: { backgroundColor: '#f1f5f9', borderRadius: 14, flexDirection: 'row', gap: 4, marginBottom: 12, padding: 4 },

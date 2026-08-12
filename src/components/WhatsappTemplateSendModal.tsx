@@ -15,7 +15,6 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -24,7 +23,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { uploadFile } from '../api/client';
 import type { WhatsappTemplate } from '../api/whatsappTemplates';
 import {
@@ -33,6 +31,7 @@ import {
   isMediaHeaderType,
   renderTemplateTextWithValues,
 } from '../lib/whatsapp-template-send';
+import { BottomSheet } from './BottomSheet';
 import { PanelSkeleton } from './Skeleton';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -76,7 +75,6 @@ export function WhatsappTemplateSendModal({
   onSend,
 }: Props) {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<WhatsappTemplate | null>(null);
   const [values, setValues] = useState<Record<number, string>>({});
@@ -255,20 +253,16 @@ export function WhatsappTemplateSendModal({
     : '';
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+    <BottomSheet visible={visible} onClose={handleClose} sheetStyle={styles.panelHeight}>
       <KeyboardAvoidingView
-        style={styles.backdrop}
+        style={styles.flexFill}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={[styles.panel, { paddingBottom: Math.max(insets.bottom, 12), backgroundColor: colors.surface }]}>
-          {selectedTemplateId == null || !activeTemplate ? (
+        {selectedTemplateId == null || !activeTemplate ? (
             <View style={styles.panelBody}>
               <View style={styles.header}>
                 <PanelsTopLeft color={colors.primary} size={16} />
                 <Text style={styles.title}>WhatsApp templates</Text>
-                <Pressable onPress={handleClose} style={styles.iconBtn} hitSlop={8}>
-                  <X color={colors.textSecondary} size={20} />
-                </Pressable>
               </View>
               <TextInput
                 autoFocus
@@ -330,9 +324,6 @@ export function WhatsappTemplateSendModal({
                 <Text style={styles.title} numberOfLines={1}>
                   Template: {activeTemplate.name}
                 </Text>
-                <Pressable onPress={handleClose} style={styles.iconBtn} hitSlop={8}>
-                  <X color={colors.textSecondary} size={20} />
-                </Pressable>
               </View>
 
               <ScrollView
@@ -471,9 +462,8 @@ export function WhatsappTemplateSendModal({
               ) : null}
             </View>
           )}
-        </View>
       </KeyboardAvoidingView>
-    </Modal>
+    </BottomSheet>
   );
 }
 
@@ -482,6 +472,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15,23,42,0.45)',
     flex: 1,
     justifyContent: 'flex-end',
+  },
+  flexFill: { flex: 1 },
+  panelHeight: {
+    flex: 1,
+    marginTop: 96,
+    paddingHorizontal: 16,
+    paddingTop: 14,
   },
   panel: {
     backgroundColor: '#fffdf6',

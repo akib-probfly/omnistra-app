@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -28,6 +27,7 @@ import {
 import { fetchAssigneeOptions } from '../api/inbox';
 import { fetchWorkspaceTags } from '../api/conversationDetails';
 import { AppToggle } from '../components/AppToggle';
+import { BottomSheet } from '../components/BottomSheet';
 import { InlineSkeleton, ListSkeleton } from '../components/Skeleton';
 import { ChannelLogo } from '../components/ChannelLogo';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
@@ -396,13 +396,9 @@ export function ContactsScreen() {
         />
       )}
 
-      <Modal visible={filterOpen} transparent animationType="slide" onRequestClose={() => setFilterOpen(false)}>
-        <View style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setFilterOpen(false)} />
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: colors.surface }]}>
+      <BottomSheet visible={filterOpen} onClose={() => setFilterOpen(false)} sheetStyle={styles.sheetSurface}>
             <View style={styles.sheetHeader}>
               <Text style={[styles.sheetTitle, { color: colors.text }]}>Filters</Text>
-              <Pressable onPress={() => setFilterOpen(false)} hitSlop={8}><X color={colors.textSecondary} size={20} /></Pressable>
             </View>
             <View style={[styles.layerTabs, { backgroundColor: colors.surfaceSecondary }]}>
               {FILTER_LAYERS.map((layer) => {
@@ -514,17 +510,11 @@ export function ContactsScreen() {
             <Pressable style={[styles.applyButton, { backgroundColor: colors.primary }]} onPress={() => setFilterOpen(false)}>
               <Text style={styles.applyText}>Apply</Text>
             </Pressable>
-          </View>
-        </View>
-      </Modal>
+        </BottomSheet>
 
-      <Modal visible={addOpen} transparent animationType="slide" onRequestClose={() => setAddOpen(false)}>
-        <View style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setAddOpen(false)} />
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: colors.surface }]}>
+      <BottomSheet visible={addOpen} onClose={() => setAddOpen(false)} sheetStyle={styles.sheetSurface}>
             <View style={styles.sheetHeader}>
               <Text style={[styles.sheetTitle, { color: colors.text }]}>Add contact</Text>
-              <Pressable onPress={() => setAddOpen(false)} hitSlop={8}><X color={colors.textSecondary} size={20} /></Pressable>
             </View>
             <ScrollView keyboardShouldPersistTaps="handled" style={styles.addFormScroll}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Name *</Text>
@@ -628,9 +618,7 @@ export function ContactsScreen() {
             >
               {createMutation.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.applyText}>Add contact</Text>}
             </Pressable>
-          </View>
-        </View>
-      </Modal>
+        </BottomSheet>
 
       <NotificationCenter visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
     </View>
@@ -731,7 +719,7 @@ const styles = StyleSheet.create({
   emptyClearButtonText: { color: '#2563eb', fontSize: 13, fontWeight: '700' },
   loader: { marginTop: 60 },
   sheetOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },
-  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '85%', padding: 20 },
+  sheetSurface: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 },
   sheetHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   sheetTitle: { color: '#0f172a', fontSize: 18, fontWeight: '800' },
   layerTabs: { backgroundColor: '#f1f5f9', borderRadius: 14, flexDirection: 'row', gap: 4, marginBottom: 12, padding: 4 },

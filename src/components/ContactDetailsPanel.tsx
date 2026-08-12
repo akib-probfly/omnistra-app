@@ -1,14 +1,15 @@
 // @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, ChevronDown, ChevronUp, Download, File, FileText, Film, Music, Pencil, Plus, RotateCcw, Sparkles, X } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Check, ChevronDown, ChevronUp, Download, File, FileText, Film, Music, Pencil, Plus, RotateCcw, Sparkles } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SecureStore from 'expo-secure-store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiUrl } from '../api/client';
 import { attachConversationTag, createConversationNote, createConversationTag, deleteConversationNote, detachConversationTag, fetchConversationAttachments, fetchConversationNotes, fetchConversationTags, fetchWorkspaceTags, updateConversationNote, updateCrmContact, type ConversationAttachment, type ConversationNote, type ConversationTag } from '../api/conversationDetails';
 import { AuthenticatedImage } from './AuthenticatedImage';
+import { BottomSheet } from './BottomSheet';
 import { ColorfulAvatar } from './ColorfulAvatar';
 import { PanelSkeleton } from './Skeleton';
 import { useTheme } from '../theme/ThemeContext';
@@ -163,11 +164,10 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   useEffect(() => { if (visible) resetState(); }, [visible]);
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-        <DrawerShell onClose={onClose}>
+    <>
+    <BottomSheet visible={visible} onClose={onClose} sheetStyle={{ height: '92%' }}>
         <View style={[styles.drawerHeader, { backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
           <Text style={[styles.drawerTitle, { color: colors.text }]}>Contact details</Text>
-           <Pressable onPress={onClose} hitSlop={10} style={[styles.drawerClose, { backgroundColor: colors.surfaceSecondary }]}><X color={colors.textSecondary} size={20} /></Pressable>
         </View>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} keyboardShouldPersistTaps="handled">
@@ -386,54 +386,17 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
             <Text style={[styles.statusBtnText, conversation.status === 'CLOSED' ? [styles.statusBtnTextClosed, { color: colors.primary }] : styles.statusBtnTextOpen]}>{conversation.status === 'CLOSED' ? 'Reopen conversation' : 'Mark as closed'}</Text>
           </Pressable>
         </View>
-      </DrawerShell>
+      </BottomSheet>
       <Modal visible={Boolean(lightbox)} transparent animationType="fade" onRequestClose={() => setLightbox(null)}>
         <Pressable style={styles.lightbox} onPress={() => setLightbox(null)}>
           {lightbox ? <Image source={{ uri: lightbox }} resizeMode="contain" style={styles.lightboxImage} /> : null}
         </Pressable>
       </Modal>
-    </Modal>
-  );
-}
-
-function DrawerShell({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
-  const { colors } = useTheme();
-  const translateY = useRef(new Animated.Value(700)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(translateY, { toValue: 0, duration: 260, useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
-    ]).start();
-  }, [translateY, opacity]);
-  return (
-    <View style={styles.drawerRoot}>
-      <Animated.View style={[styles.drawerBackdrop, { opacity }]}>
-        <Pressable style={styles.drawerBackdropPress} onPress={onClose} />
-      </Animated.View>
-      <Animated.View style={[styles.drawer, { transform: [{ translateY }], backgroundColor: colors.surface }]}>
-        {children}
-      </Animated.View>
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  drawerRoot: { flex: 1, justifyContent: 'flex-end' },
-  drawerBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15,23,42,0.45)' },
-  drawerBackdropPress: { flex: 1 },
-  drawer: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    elevation: 16,
-    height: '92%',
-    overflow: 'hidden',
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 20,
-  },
   drawerHeader: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e5e7eb', borderBottomWidth: 1, flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 16 },
   drawerTitle: { color: '#17233a', fontSize: 17, fontWeight: '700', flex: 1 },
   drawerClose: { alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 18, height: 34, justifyContent: 'center', width: 34 },

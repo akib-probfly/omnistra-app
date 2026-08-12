@@ -13,7 +13,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -36,6 +35,7 @@ import {
   workspaceCanUpdateSettings,
 } from '../api/workspaces';
 import { AppToggle } from '../components/AppToggle';
+import { BottomSheet } from '../components/BottomSheet';
 import { ErrorState } from '../components/ErrorState';
 import { FormSkeleton, PanelSkeleton } from '../components/Skeleton';
 
@@ -357,10 +357,7 @@ function AssignmentPolicyForm({
         </Pressable>
       </ScrollView>
 
-      <Modal visible={ownerPickerOpen} transparent animationType="slide" onRequestClose={() => setOwnerPickerOpen(false)}>
-        <View style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setOwnerPickerOpen(false)} />
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: colors.surface }]}>
+      <BottomSheet visible={ownerPickerOpen} onClose={() => setOwnerPickerOpen(false)} sheetStyle={styles.sheetSurface}>
             <Text style={[styles.sheetTitle, { color: colors.text }]}>Select default owner</Text>
             <TextInput
               value={ownerSearch}
@@ -399,9 +396,7 @@ function AssignmentPolicyForm({
                 ListEmptyComponent={<Text style={[styles.emptyOwners, { color: colors.textMuted }]}>No active members match your search.</Text>}
               />
             )}
-          </View>
-        </View>
-      </Modal>
+        </BottomSheet>
     </View>
   );
 }
@@ -506,7 +501,7 @@ const styles = StyleSheet.create({
   saveText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   disabled: { opacity: 0.55 },
   sheetOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },
-  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
+  sheetSurface: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 },
   sheetTitle: { fontSize: 18, fontWeight: '800', marginBottom: 12 },
   searchInput: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 12 },
   ownerRow: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 10, paddingHorizontal: 10, paddingVertical: 12 },

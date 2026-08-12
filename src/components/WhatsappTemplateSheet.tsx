@@ -19,13 +19,11 @@ import {
   Smile,
   Trash2,
   Video,
-  X,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -34,7 +32,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BottomSheet } from './BottomSheet';
+import { AppToggle } from './AppToggle';
 import type {
   WhatsappTemplate,
   WhatsappTemplateButton,
@@ -53,7 +52,6 @@ import {
   renumberTemplateVariables,
   validateTemplateForm,
 } from '../lib/whatsapp-template-utils';
-import { AppToggle } from './AppToggle';
 import { useTheme } from '../theme/ThemeContext';
 
 export type TemplateSheetMode = 'view' | 'edit' | 'create';
@@ -275,7 +273,6 @@ export function WhatsappTemplateSheet({
   onSave,
 }: Props) {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<'preview' | 'editor'>('preview');
   const [form, setForm] = useState<WhatsappTemplateFormValues>(() => makeDraftTemplate());
   const [sessionKey, setSessionKey] = useState<string | null>(null);
@@ -376,11 +373,8 @@ export function WhatsappTemplateSheet({
   const editable = mode === 'create' || mode === 'edit';
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <BottomSheet visible={visible} onClose={onClose} sheetStyle={styles.sheetHeight}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={[styles.sheet, { backgroundColor: colors.surface, paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <View style={styles.handle} />
           <View style={[styles.header, { borderBottomColor: colors.separator }]}>
             <View style={styles.headerCopy}>
               <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>{title}</Text>
@@ -395,9 +389,6 @@ export function WhatsappTemplateSheet({
                 <Text style={[styles.metaText, { color: colors.textSecondary }]}>Submit to Meta for review</Text>
               )}
             </View>
-            <Pressable style={[styles.closeButton, { backgroundColor: colors.surfaceSecondary }]} onPress={onClose} hitSlop={8}>
-              <X color={colors.textSecondary} size={18} />
-            </Pressable>
           </View>
 
           {editable ? (
@@ -745,32 +736,20 @@ export function WhatsappTemplateSheet({
               </Pressable>
             )}
           </View>
-        </View>
       </KeyboardAvoidingView>
-    </Modal>
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15,23,42,0.45)' },
-  sheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+  sheetHeight: {
     flexShrink: 1,
     height: '92%',
     maxHeight: '96%',
     minHeight: '88%',
     paddingTop: 8,
-  },
-  handle: {
-    alignSelf: 'center',
-    backgroundColor: '#cbd5e1',
-    borderRadius: 999,
-    height: 4,
-    marginBottom: 8,
-    width: 40,
   },
   header: {
     alignItems: 'flex-start',

@@ -16,7 +16,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -41,6 +40,7 @@ import {
 } from '../api/quickReplies';
 import { fetchMyWorkspaces } from '../api/workspaces';
 import { ErrorState } from '../components/ErrorState';
+import { BottomSheet } from '../components/BottomSheet';
 import { FormSkeleton, ListSkeleton } from '../components/Skeleton';
 
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
@@ -384,15 +384,9 @@ export function QuickRepliesSettingsScreen() {
         </>
       )}
 
-      <Modal visible={editorOpen} transparent animationType="slide" onRequestClose={closeEditor}>
-        <View style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={closeEditor} />
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: colors.surface }]}>
+      <BottomSheet visible={editorOpen} onClose={closeEditor} sheetStyle={styles.sheetSurface}>
             <View style={styles.sheetHeader}>
               <Text style={[styles.sheetTitle, { color: colors.text }]}>{editing ? 'Edit quick reply' : 'Create quick reply'}</Text>
-              <Pressable onPress={closeEditor} hitSlop={8}>
-                <X color={colors.textSecondary} size={20} />
-              </Pressable>
             </View>
 
             <ScrollView
@@ -469,9 +463,7 @@ export function QuickRepliesSettingsScreen() {
                 <Text style={styles.primaryButtonText}>{editing ? 'Save changes' : 'Create quick reply'}</Text>
               )}
             </Pressable>
-          </View>
-        </View>
-      </Modal>
+        </BottomSheet>
     </View>
   );
 }
@@ -502,7 +494,7 @@ const styles = StyleSheet.create({
   primaryButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   disabled: { opacity: 0.55 },
   sheetOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },
-  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '85%', padding: 20 },
+  sheetSurface: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 },
   sheetHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   sheetTitle: { fontSize: 18, fontWeight: '800' },
   sheetScroll: { maxHeight: 420 },

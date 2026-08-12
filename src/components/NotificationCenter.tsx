@@ -1,10 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { Bell, CheckCheck, MessageSquare, PhoneCall, Trash2, UserMinus, UserRoundCheck, X } from 'lucide-react-native';
+import { Bell, CheckCheck, MessageSquare, PhoneCall, Trash2, UserMinus, UserRoundCheck } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import { BottomSheet } from './BottomSheet';
 import {
   deleteAllNotifications,
   fetchNotifications,
@@ -177,7 +178,6 @@ export function NotificationBell({ onOpen }: { onOpen: () => void }) {
 
 export function NotificationCenter({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const queryClient = useQueryClient();
   const [optimisticIds, setOptimisticIds] = useState<Set<string>>(new Set());
@@ -241,16 +241,13 @@ export function NotificationCenter({ visible, onClose }: { visible: boolean; onC
   const isError = notificationsQuery.isError;
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.notificationOverlay} onPress={onClose}>
-        <View style={[styles.notificationSheet, { backgroundColor: colors.surface, paddingBottom: insets.bottom + 12 }]} onStartShouldSetResponder={() => true}>
+    <BottomSheet visible={visible} onClose={onClose} sheetStyle={{ height: '82%' }}>
           <View style={[styles.notificationHeader, { borderBottomColor: colors.separator }]}>
             <View style={styles.notificationHeaderCopy}>
               <View style={[styles.notificationHeaderIcon, { backgroundColor: colors.primary }]}><Bell color={colors.surface} size={15} /></View>
               <Text style={[styles.notificationTitle, { color: colors.text }]}>Notifications</Text>
               {unreadCount > 0 ? <View style={styles.unreadPill}><Text style={styles.unreadPillText}>{unreadCount} unread</Text></View> : null}
             </View>
-             <Pressable onPress={onClose} hitSlop={8}><X color={colors.textMuted} size={20} /></Pressable>
           </View>
 
           <View style={styles.notificationActions}>
@@ -288,9 +285,7 @@ export function NotificationCenter({ visible, onClose }: { visible: boolean; onC
               ))}
             </ScrollView>
           )}
-        </View>
-      </Pressable>
-    </Modal>
+        </BottomSheet>
   );
 }
 
@@ -300,8 +295,7 @@ const styles = StyleSheet.create({
   bellBadgeText: { fontSize: 10, fontWeight: '800' },
 
   notificationOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },
-  notificationSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, height: '82%', overflow: 'hidden' },
-  notificationHeader: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 16 },
+  notificationSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, height: '82%', overflow: 'hidden' },  notificationHeader: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 16 },
   notificationHeaderCopy: { alignItems: 'center', flexDirection: 'row', gap: 10 },
   notificationHeaderIcon: { alignItems: 'center', borderRadius: 10, height: 30, justifyContent: 'center', width: 30 },
   notificationTitle: { fontSize: 17, fontWeight: '800' },

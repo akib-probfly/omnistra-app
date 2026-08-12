@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -24,6 +23,7 @@ import {
   type TimezoneOption,
 } from '../api/workspaces';
 import { ErrorState } from '../components/ErrorState';
+import { BottomSheet } from '../components/BottomSheet';
 import { FormSkeleton, PanelSkeleton } from '../components/Skeleton';
 
 export function WorkspaceSettingsScreen() {
@@ -139,10 +139,7 @@ export function WorkspaceSettingsScreen() {
         </ScrollView>
       )}
 
-      <Modal visible={timezonePickerOpen} transparent animationType="slide" onRequestClose={() => setTimezonePickerOpen(false)}>
-        <View style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setTimezonePickerOpen(false)} />
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20), backgroundColor: colors.surface }]}>
+      <BottomSheet visible={timezonePickerOpen} onClose={() => setTimezonePickerOpen(false)} sheetStyle={styles.sheetSurface}>
             <Text style={[styles.sheetTitle, { color: colors.text }]}>Select timezone</Text>
             <TextInput
               value={timezoneSearch}
@@ -175,9 +172,7 @@ export function WorkspaceSettingsScreen() {
                 ListEmptyComponent={<Text style={[styles.empty, { color: colors.textMuted }]}>No timezones match your search.</Text>}
               />
             )}
-          </View>
-        </View>
-      </Modal>
+        </BottomSheet>
     </View>
   );
 }
@@ -203,7 +198,7 @@ const styles = StyleSheet.create({
   saveDisabled: { opacity: 0.5 },
   saveText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   sheetOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },
-  sheet: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
+  sheetSurface: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 },
   sheetTitle: { color: '#0f172a', fontSize: 18, fontWeight: '800', marginBottom: 12 },
   timezoneRow: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 12 },
   timezoneRowActive: { backgroundColor: '#dbeafe' },
