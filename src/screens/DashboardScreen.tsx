@@ -12,12 +12,14 @@ import {
   Users,
   Wifi,
 } from 'lucide-react-native';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { fetchDashboard, type DashboardChannelHealthItem, type DashboardResponse, type DashboardTeamCommandCenterMember, type DashboardTrendPoint } from '../api/dashboard';
+import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { channelBrandColor, ChannelLogo } from '../components/ChannelLogo';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 import { DashboardSkeleton } from '../components/Skeleton';
@@ -679,6 +681,8 @@ function MetricCarousel({
 export function DashboardScreen() {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
+  const realtimeStatus = useSyncExternalStore(subscribeRealtimeConnectionStatus, getRealtimeConnectionStatus);
   const { width: windowWidth } = useWindowDimensions();
   const contentWidth = Math.max(windowWidth - 32, 280);
   const [preset, setPreset] = useState<RangePreset>('7d');
@@ -687,7 +691,15 @@ export function DashboardScreen() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const range = useMemo(() => resolveRange(preset), [preset]);
   const query = useMemo(() => ({ from: toUtcIso(range.from), to: toUtcIso(range.to), search: search.trim() || undefined }), [range, search]);
-  const dashboard = useQuery({ queryKey: ['dashboard', query], queryFn: () => fetchDashboard(query), staleTime: 15000 });
+  // Keep a slow poll even when realtime is connected — aggregates can lag event delivery.
+  const dashboardPollMs = !isFocused ? false : realtimeStatus === 'connected' ? 60_000 : 20_000;
+  const dashboard = useQuery({
+    queryKey: ['dashboard', query],
+    queryFn: () => fetchDashboard(query),
+    staleTime: 15_000,
+    refetchInterval: dashboardPollMs,
+    refetchOnMount: 'always',
+  });
   const rangeLabel = formatDateRangeLabel(range.from, range.to);
 
   const summary = dashboard.data?.summary;

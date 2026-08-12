@@ -225,6 +225,15 @@ export function InboxScreen() {
   }, [queryClient]);
 
   const items = useMemo(() => (conversations.data?.pages ?? []).flatMap((page) => page.items), [conversations.data]);
+  const unreadConversationCountFromList = useMemo(
+    () => items.reduce((count, item) => count + (item.unreadCount > 0 ? 1 : 0), 0),
+    [items],
+  );
+  const apiUnreadConversationCount = typeof unreadCount.data === 'number'
+    ? unreadCount.data
+    : Math.max(0, Number((unreadCount.data as { count?: number } | undefined)?.count ?? 0) || 0);
+  // Badge can lag behind optimistic row unread; never show less than what's visible in the list.
+  const chatsUnreadCount = Math.max(apiUnreadConversationCount, unreadConversationCountFromList);
   const listExtraData = useMemo(
     () => items.map((item) => {
       const at = item.lastInteraction?.at ?? item.lastMessageAt ?? '';
@@ -255,9 +264,9 @@ export function InboxScreen() {
           <Pressable style={styles.sidebarTab} onPress={() => setSidebarTab('chats')}>
             <MessageSquareText color={sidebarTab === 'chats' ? colors.primary : colors.textMuted} size={15} />
             <Text style={[styles.sidebarTabText, { color: sidebarTab === 'chats' ? colors.primary : colors.textMuted }]}>Chats</Text>
-            {(unreadCount.data ?? 0) > 0 ? (
+            {chatsUnreadCount > 0 ? (
               <Text style={[styles.sidebarTabCount, { backgroundColor: colors.primary, color: '#fff' }]}>
-                {(unreadCount.data ?? 0) > 99 ? '99+' : unreadCount.data}
+                {chatsUnreadCount > 99 ? '99+' : chatsUnreadCount}
               </Text>
             ) : null}
             {sidebarTab === 'chats' ? <View style={[styles.sidebarTabUnderline, { backgroundColor: colors.primary }]} /> : null}

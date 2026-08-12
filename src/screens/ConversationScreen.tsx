@@ -915,14 +915,11 @@ function adjustInboxUnreadCount(queryClient: any, delta: number) {
   queryClient.setQueriesData<number | { count?: number; unreadCount?: number; total?: number }>(
     { queryKey: ['inbox-unread-count'] },
     (current: any) => {
-      if (typeof current === 'number') return Math.max(0, current + delta);
-      if (!current || typeof current !== 'object') return current;
-      const base = current.count ?? current.unreadCount ?? current.total ?? 0;
-      const next = Math.max(0, base + delta);
-      if ('count' in current) return { ...current, count: next };
-      if ('unreadCount' in current) return { ...current, unreadCount: next };
-      if ('total' in current) return { ...current, total: next };
-      return next;
+      const base = typeof current === 'number'
+        ? current
+        : (current?.count ?? current?.unreadCount ?? current?.total ?? 0);
+      // Always store a number so the Chats badge comparison stays reliable.
+      return Math.max(0, base + delta);
     },
   );
 }

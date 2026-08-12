@@ -29,6 +29,8 @@ const REALTIME_CONVERSATION_UPDATED_EVENT = 'conversation.updated';
 const REALTIME_MESSAGE_CREATED_EVENT = 'message.created';
 const REALTIME_CALL_SESSION_UPDATED_EVENT = 'call.session.updated';
 const REALTIME_NOTIFICATION_CREATED_EVENT = 'notification.created';
+const REALTIME_PRESENCE_UPDATED_EVENT = 'presence.updated';
+const REALTIME_WORKSPACE_USAGE_UPDATED_EVENT = 'workspace.usage.updated';
 
 type ConversationUpdatedEvent = {
   workspaceId: string;
@@ -98,6 +100,13 @@ function invalidateInboxQueries(queryClient: ReturnType<typeof useQueryClient>, 
     void queryClient.invalidateQueries({ queryKey: ['conversations'], refetchType: 'active' });
     void queryClient.invalidateQueries({ queryKey: ['conversation-count'], refetchType: 'active' });
     void queryClient.invalidateQueries({ queryKey: ['inbox-unread-count'], refetchType: 'active' });
+  }, delay);
+}
+
+function invalidateDashboardQueries(queryClient: ReturnType<typeof useQueryClient>, delay = 800) {
+  // Dashboard aggregates are heavier — debounce more aggressively than inbox.
+  schedule('dashboard', () => {
+    void queryClient.invalidateQueries({ queryKey: ['dashboard'], refetchType: 'active' });
   }, delay);
 }
 
@@ -255,8 +264,10 @@ function patchConversationMessagePreviewFromNotification(
 function incrementInboxUnreadCountInCache(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.setQueriesData<number | { count?: number; unreadCount?: number; total?: number }>({ queryKey: ['inbox-unread-count'] }, (current) => {
     if (typeof current === 'number') return current + 1;
-    if (current && typeof current === 'object' && 'count' in current) return { ...current, count: (current.count ?? 0) + 1 };
-    return current;
+    if (current && typeof current === 'object') {
+      return (current.count ?? current.unreadCount ?? current.total ?? 0) + 1;
+    }
+    return 1;
   });
 }
 
@@ -359,6 +370,7 @@ export function useRealtimeSync(accessToken: string | null) {
 
       if (shouldRefreshConversationMetadata) {
         invalidateInboxQueries(queryClient, 400);
+        invalidateDashboardQueries(queryClient, 900);
         if (payload.conversationId) {
           schedule(`assignment-events:${payload.conversationId}`, () => {
             void queryClient.invalidateQueries({ queryKey: ['assignment-events', payload.conversationId], refetchType: 'active' });
@@ -379,6 +391,9 @@ export function useRealtimeSync(accessToken: string | null) {
         && (payload.createdMessage || payload.messageDeliveryStatus || isMessageStatusUpdate)
       ) {
         invalidateInboxQueries(queryClient, payload.createdMessage ? 250 : 400);
+        if (payload.createdMessage) {
+          invalidateDashboardQueries(queryClient, 900);
+        }
         refreshConversationMessages(
           queryClient,
           payload.conversationId,
@@ -414,10 +429,12 @@ export function useRealtimeSync(accessToken: string | null) {
       // Local send already patched the thread cache — skip refetch to avoid optimistic blink.
       if (isRecentLocalMessageEcho) {
         invalidateInboxQueries(queryClient, 400);
+        invalidateDashboardQueries(queryClient, 900);
         return;
       }
 
       invalidateInboxQueries(queryClient, 250);
+      invalidateDashboardQueries(queryClient, 900);
       if (payload.conversationId) {
         refreshConversationMessages(queryClient, payload.conversationId, 150);
       }
@@ -435,6 +452,16 @@ export function useRealtimeSync(accessToken: string | null) {
         void queryClient.invalidateQueries({ queryKey: ['active-calls'], refetchType: 'active' });
       }, 500);
       invalidateInboxQueries(queryClient, 500);
+      invalidateDashboardQueries(queryClient, 1000);
+    };
+
+    const handlePresenceUpdated = () => {
+      // Team command center online/offline chips live on the dashboard.
+      invalidateDashboardQueries(queryClient, 1200);
+    };
+
+    const handleWorkspaceUsageUpdated = () => {
+      invalidateDashboardQueries(queryClient, 600);
     };
 
     const handleNotificationCreated = (payload: NotificationCreatedEvent) => {
@@ -497,6 +524,7 @@ export function useRealtimeSync(accessToken: string | null) {
     const refreshOnForeground = () => {
       const activeConversationId = getActiveConversationId();
       invalidateInboxQueries(queryClient, 0);
+      invalidateDashboardQueries(queryClient, 0);
       if (activeConversationId) {
         refreshConversationMessages(queryClient, activeConversationId, 0);
       }
@@ -524,6 +552,8 @@ export function useRealtimeSync(accessToken: string | null) {
     socket.on(REALTIME_MESSAGE_CREATED_EVENT, handleMessageCreated);
     socket.on(REALTIME_CALL_SESSION_UPDATED_EVENT, handleCallSessionUpdated);
     socket.on(REALTIME_NOTIFICATION_CREATED_EVENT, handleNotificationCreated);
+    socket.on(REALTIME_PRESENCE_UPDATED_EVENT, handlePresenceUpdated);
+    socket.on(REALTIME_WORKSPACE_USAGE_UPDATED_EVENT, handleWorkspaceUsageUpdated);
 
     const appStateSub = AppState.addEventListener('change', onAppStateChange);
 
@@ -538,6 +568,8 @@ export function useRealtimeSync(accessToken: string | null) {
       socket.off(REALTIME_MESSAGE_CREATED_EVENT, handleMessageCreated);
       socket.off(REALTIME_CALL_SESSION_UPDATED_EVENT, handleCallSessionUpdated);
       socket.off(REALTIME_NOTIFICATION_CREATED_EVENT, handleNotificationCreated);
+      socket.off(REALTIME_PRESENCE_UPDATED_EVENT, handlePresenceUpdated);
+      socket.off(REALTIME_WORKSPACE_USAGE_UPDATED_EVENT, handleWorkspaceUsageUpdated);
       socket.disconnect();
       if (socketRef.current === socket) socketRef.current = null;
       pendingInvalidations.forEach((timeout) => clearTimeout(timeout));
