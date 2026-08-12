@@ -12,7 +12,6 @@ import { useDeferredValue, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -35,7 +34,7 @@ import {
   workspaceCanUpdateSettings,
 } from '../api/workspaces';
 import { AppToggle } from '../components/AppToggle';
-import { BottomSheet } from '../components/BottomSheet';
+import { BottomSheet, SheetFlatList } from '../components/BottomSheet';
 import { ErrorState } from '../components/ErrorState';
 import { FormSkeleton, PanelSkeleton } from '../components/Skeleton';
 
@@ -369,7 +368,7 @@ function AssignmentPolicyForm({
             {ownersQuery.isLoading ? (
               <PanelSkeleton rows={5} />
             ) : (
-              <FlatList
+              <SheetFlatList
                 data={owners}
                 keyExtractor={(item) => item.userId}
                 style={{ marginTop: 10, maxHeight: 360 }}

@@ -26,13 +26,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { BottomSheet } from './BottomSheet';
+import { BottomSheet, SheetScrollView } from './BottomSheet';
 import { AppToggle } from './AppToggle';
 import type {
   WhatsappTemplate,
@@ -404,7 +403,7 @@ export function WhatsappTemplateSheet({
             </View>
           ) : null}
 
-          <ScrollView
+          <SheetScrollView
             style={styles.body}
             contentContainerStyle={styles.bodyContent}
             keyboardShouldPersistTaps="handled"
@@ -721,7 +720,7 @@ export function WhatsappTemplateSheet({
                 <Text style={styles.rejectionText}>{template.rejectionReason}</Text>
               </View>
             ) : null}
-          </ScrollView>
+          </SheetScrollView>
 
           <View style={[styles.footer, { borderTopColor: colors.separator }]}>
             {editable ? (

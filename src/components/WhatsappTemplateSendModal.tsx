@@ -13,11 +13,9 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -31,7 +29,7 @@ import {
   isMediaHeaderType,
   renderTemplateTextWithValues,
 } from '../lib/whatsapp-template-send';
-import { BottomSheet } from './BottomSheet';
+import { BottomSheet, SheetFlatList, SheetScrollView } from './BottomSheet';
 import { PanelSkeleton } from './Skeleton';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -62,6 +60,39 @@ type Props = {
   onClose: () => void;
   onSend: (payload: TemplateSendPayload) => void;
 };
+
+function TemplateSelectList({ templates, onSelect }: { templates: WhatsappTemplate[]; onSelect: (template: WhatsappTemplate) => void }) {
+  const { colors } = useTheme();
+  return (
+    <SheetFlatList
+      data={templates}
+      keyExtractor={(item) => item.id}
+      style={styles.list}
+      keyboardShouldPersistTaps="handled"
+      ListEmptyComponent={<Text style={styles.errorText}>No approved templates found</Text>}
+      renderItem={({ item }) => (
+        <Pressable style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} onPress={() => onSelect(item)}>
+          <View style={styles.nameRow}>
+            <Text style={styles.rowTitle} numberOfLines={1}>{item.name}</Text>
+            {item.category ? (
+              <Text style={styles.category}>{String(item.category).toLowerCase()}</Text>
+            ) : null}
+          </View>
+          {item.body ? (
+            <Text numberOfLines={2} style={styles.rowBody}>
+              {renderTemplateTextWithValues(item.body, {}, item.variables)}
+            </Text>
+          ) : null}
+          {(item.variables?.length ?? 0) > 0 ? (
+            <Text style={styles.variableCount}>
+              {item.variables.length} variable{item.variables.length === 1 ? '' : 's'}
+            </Text>
+          ) : null}
+        </Pressable>
+      )}
+    />
+  );
+}
 
 export function WhatsappTemplateSendModal({
   visible,
@@ -277,33 +308,7 @@ export function WhatsappTemplateSendModal({
               ) : error ? (
                 <Text style={styles.errorText}>Could not load templates.</Text>
               ) : (
-                <FlatList
-                  data={templates}
-                  keyExtractor={(item) => item.id}
-                  style={styles.list}
-                  keyboardShouldPersistTaps="handled"
-                  ListEmptyComponent={<Text style={styles.errorText}>No approved templates found</Text>}
-                  renderItem={({ item }) => (
-                    <Pressable style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} onPress={() => handleSelectTemplate(item)}>
-                      <View style={styles.nameRow}>
-                        <Text style={styles.rowTitle} numberOfLines={1}>{item.name}</Text>
-                        {item.category ? (
-                          <Text style={styles.category}>{String(item.category).toLowerCase()}</Text>
-                        ) : null}
-                      </View>
-                      {item.body ? (
-                        <Text numberOfLines={2} style={styles.rowBody}>
-                          {renderTemplateTextWithValues(item.body, {}, item.variables)}
-                        </Text>
-                      ) : null}
-                      {(item.variables?.length ?? 0) > 0 ? (
-                        <Text style={styles.variableCount}>
-                          {item.variables.length} variable{item.variables.length === 1 ? '' : 's'}
-                        </Text>
-                      ) : null}
-                    </Pressable>
-                  )}
-                />
+                <TemplateSelectList templates={templates} onSelect={handleSelectTemplate} />
               )}
               <Text style={styles.hint}>Select a template, fill variables, then send</Text>
             </View>
@@ -326,7 +331,7 @@ export function WhatsappTemplateSendModal({
                 </Text>
               </View>
 
-              <ScrollView
+              <SheetScrollView
                 style={styles.configureScroll}
                 contentContainerStyle={styles.configureContent}
                 keyboardShouldPersistTaps="handled"
@@ -441,7 +446,7 @@ export function WhatsappTemplateSendModal({
                     ) : null}
                   </View>
                 </View>
-              </ScrollView>
+              </SheetScrollView>
 
                 <Pressable
                   style={[styles.sendBtn, { backgroundColor: colors.primary }, !canSendTemplate && styles.sendBtnDisabled]}

@@ -1,10 +1,10 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDownLeft, ArrowUpRight, Filter, Image as ImageIcon, Inbox, Mail, MessageSquareText, Mic, Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Search, Star, Video } from 'lucide-react-native';
-import { Animated, Easing, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
+import { Animated, Easing, FlatList, Pressable, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { AppToggle } from '../components/AppToggle';
-import { BottomSheet } from '../components/BottomSheet';
+import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ErrorState } from '../components/ErrorState';
 import { ChannelLogo, channelBrandColor } from '../components/ChannelLogo';
@@ -375,7 +375,7 @@ export function InboxScreen() {
               })}
             </View>
 
-            <ScrollView style={styles.filterLayerBody} contentContainerStyle={styles.filterLayerContent} keyboardShouldPersistTaps="handled">
+            <SheetScrollView style={styles.filterLayerBody} contentContainerStyle={styles.filterLayerContent} keyboardShouldPersistTaps="handled">
               {filterLayer === 'channels' ? (
                 <View style={styles.chipRow}>
                   {CHANNEL_TYPES.map((type) => {
@@ -512,7 +512,7 @@ export function InboxScreen() {
                   </Pressable>
                 </>
               ) : null}
-            </ScrollView>
+            </SheetScrollView>
 
             <Pressable style={[styles.filterReset, !canClearFilters && styles.filterResetDisabled]} onPress={resetFilters} disabled={!canClearFilters}>
               <Text style={[styles.filterResetText, { color: canClearFilters ? colors.error : colors.textMuted }]}>Clear all</Text>

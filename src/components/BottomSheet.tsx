@@ -1,9 +1,50 @@
-import { useEffect } from 'react';
-import { Modal, Pressable, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
+import { createContext, useContext, useEffect, type ReactNode } from 'react';
+import { Modal, Pressable, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle, type ScrollViewProps, type FlatListProps } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
+import Animated, { runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+
+type BottomSheetContextValue = {
+  pan: ReturnType<typeof Gesture.Pan>;
+  contentOffsetY: SharedValue<number>;
+};
+
+const BottomSheetContext = createContext<BottomSheetContextValue | null>(null);
+
+/**
+ * Drop-in replacements for ScrollView / FlatList that live inside a
+ * <BottomSheet>. They run their native scroll simultaneously with the sheet's
+ * drag pan and report the scroll offset back so the sheet only drags (and
+ * dismisses) when the content is scrolled to the top.
+ */
+export function SheetScrollView(props: ScrollViewProps) {
+  const ctx = useContext(BottomSheetContext);
+  const { onScroll, ...rest } = props;
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event: any) => {
+      if (ctx) ctx.contentOffsetY.value = event.contentOffset.y;
+      onScroll?.((event as any) as Parameters<NonNullable<ScrollViewProps['onScroll']>>[0]);
+    },
+  });
+  const content = <Animated.ScrollView {...rest} onScroll={scrollHandler as any} scrollEventThrottle={16} />;
+  const nativeGesture = ctx ? Gesture.Native().simultaneousWithExternalGesture(ctx.pan) : null;
+  return nativeGesture ? <GestureDetector gesture={nativeGesture}>{content}</GestureDetector> : content;
+}
+
+export function SheetFlatList(props: FlatListProps<any>) {
+  const ctx = useContext(BottomSheetContext);
+  const { onScroll, ...rest } = props;
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event: any) => {
+      if (ctx) ctx.contentOffsetY.value = event.contentOffset.y;
+      onScroll?.((event as any) as Parameters<NonNullable<FlatListProps<any>['onScroll']>>[0]);
+    },
+  });
+  const content = <Animated.FlatList {...(rest as any)} onScroll={scrollHandler as any} scrollEventThrottle={16} />;
+  const nativeGesture = ctx ? Gesture.Native().simultaneousWithExternalGesture(ctx.pan) : null;
+  return nativeGesture ? <GestureDetector gesture={nativeGesture}>{content}</GestureDetector> : content;
+}
 
 type BottomSheetProps = {
   visible: boolean;
@@ -39,12 +80,18 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
     }
   }, [visible, translateY]);
 
+  const contentOffsetY = useSharedValue(0);
+
   const pan = Gesture.Pan()
     .activeOffsetY(8)
     .onUpdate((event) => {
+      // Only drag the sheet when the inner scrollable is at the top.
+      // Otherwise a downward swipe scrolls the list instead of closing the sheet.
+      if (contentOffsetY.value > 0) return;
       translateY.value = Math.max(0, event.translationY);
     })
     .onEnd((event) => {
+      if (contentOffsetY.value > 0) return;
       const shouldDismiss = event.translationY > sheetHeight.value * 0.2 || event.velocityY > 700;
       if (shouldDismiss) {
         translateY.value = withTiming(sheetHeight.value + 60, { duration: 220 }, (finished) => {
@@ -78,7 +125,9 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
               ]}
             >
               {showHandle ? <View style={[styles.handle, { backgroundColor: colors.cardBorder }]} /> : null}
-              {children}
+              <BottomSheetContext.Provider value={{ pan, contentOffsetY }}>
+                {children}
+              </BottomSheetContext.Provider>
             </Animated.View>
           </GestureDetector>
         </View>

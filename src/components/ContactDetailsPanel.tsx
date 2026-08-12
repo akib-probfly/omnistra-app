@@ -2,14 +2,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronDown, ChevronUp, Download, File, FileText, Film, Music, Pencil, Plus, RotateCcw, Sparkles } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SecureStore from 'expo-secure-store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiUrl } from '../api/client';
 import { attachConversationTag, createConversationNote, createConversationTag, deleteConversationNote, detachConversationTag, fetchConversationAttachments, fetchConversationNotes, fetchConversationTags, fetchWorkspaceTags, updateConversationNote, updateCrmContact, type ConversationAttachment, type ConversationNote, type ConversationTag } from '../api/conversationDetails';
 import { AuthenticatedImage } from './AuthenticatedImage';
-import { BottomSheet } from './BottomSheet';
+import { BottomSheet, SheetScrollView } from './BottomSheet';
 import { ColorfulAvatar } from './ColorfulAvatar';
 import { PanelSkeleton } from './Skeleton';
 import { useTheme } from '../theme/ThemeContext';
@@ -170,7 +170,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
           <Text style={[styles.drawerTitle, { color: colors.text }]}>Contact details</Text>
         </View>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} keyboardShouldPersistTaps="handled">
+          <SheetScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} keyboardShouldPersistTaps="handled">
             <View style={[styles.chatSummaryPill, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
               <View style={[styles.sparkWrap, { backgroundColor: colors.surfaceSecondary }]}><Sparkles color="#5a83f6" size={15} /></View>
               <Text style={[styles.chatSummaryTitle, { color: colors.text }]}>Chat Summary</Text>
@@ -378,7 +378,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
                 </View>
               ) : null}
             </View>
-          </ScrollView>
+          </SheetScrollView>
         </KeyboardAvoidingView>
         <View style={[styles.statusBar, { backgroundColor: colors.surface, borderTopColor: colors.cardBorder, paddingBottom: insets.bottom + 14 }]}>
           <Pressable onPress={onToggleStatus} disabled={isUpdatingStatus} style={[styles.statusBtn, conversation.status === 'CLOSED' ? [styles.statusBtnClosed, { backgroundColor: colors.surface }] : styles.statusBtnOpen]}>

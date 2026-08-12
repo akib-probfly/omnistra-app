@@ -7,7 +7,6 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -27,7 +26,7 @@ import {
 import { fetchAssigneeOptions } from '../api/inbox';
 import { fetchWorkspaceTags } from '../api/conversationDetails';
 import { AppToggle } from '../components/AppToggle';
-import { BottomSheet } from '../components/BottomSheet';
+import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 import { InlineSkeleton, ListSkeleton } from '../components/Skeleton';
 import { ChannelLogo } from '../components/ChannelLogo';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
@@ -411,7 +410,7 @@ export function ContactsScreen() {
               })}
             </View>
 
-            <ScrollView style={styles.optionList} keyboardShouldPersistTaps="handled">
+            <SheetScrollView style={styles.optionList} keyboardShouldPersistTaps="handled">
               {filterLayer === 'channels' ? (
                 <>
                   {channelOptions.map((channel) => {
@@ -502,7 +501,7 @@ export function ContactsScreen() {
                   </Pressable>
                 </>
               ) : null}
-            </ScrollView>
+            </SheetScrollView>
 
             <Pressable style={[styles.resetButton, !hasAdvancedFilters && styles.resetDisabled]} disabled={!hasAdvancedFilters} onPress={resetFilters}>
               <Text style={[styles.resetText, { color: colors.error }, !hasAdvancedFilters && [styles.resetTextDisabled, { color: colors.textMuted }]]}>Reset filters</Text>
@@ -516,7 +515,7 @@ export function ContactsScreen() {
             <View style={styles.sheetHeader}>
               <Text style={[styles.sheetTitle, { color: colors.text }]}>Add contact</Text>
             </View>
-            <ScrollView keyboardShouldPersistTaps="handled" style={styles.addFormScroll}>
+            <SheetScrollView keyboardShouldPersistTaps="handled" style={styles.addFormScroll}>
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Name *</Text>
               <TextInput value={addName} onChangeText={setAddName} placeholder="Full name" placeholderTextColor={colors.textMuted} style={[styles.fieldInput, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder, color: colors.text }]} />
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Phone *</Text>
@@ -609,7 +608,7 @@ export function ContactsScreen() {
               {!visibleAddTags.length && !canCreateAddTag ? (
                 <Text style={[styles.emptyHint, { color: colors.textMuted }]}>{addTagSearch.trim() ? 'No tags match your search.' : 'No more tags to add.'}</Text>
               ) : null}
-            </ScrollView>
+            </SheetScrollView>
 
             <Pressable
               style={[styles.applyButton, { backgroundColor: colors.primary }, (!addName.trim() || !addPhone.trim() || createMutation.isPending) && styles.applyDisabled]}

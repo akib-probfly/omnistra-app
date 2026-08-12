@@ -2,10 +2,10 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Bell, CheckCheck, MessageSquare, PhoneCall, Trash2, UserMinus, UserRoundCheck } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
-import { BottomSheet } from './BottomSheet';
+import { BottomSheet, SheetScrollView } from './BottomSheet';
 import {
   deleteAllNotifications,
   fetchNotifications,
@@ -176,6 +176,16 @@ export function NotificationBell({ onOpen }: { onOpen: () => void }) {
   );
 }
 
+function NotificationScrollList({ notifications, onOpen, onMarkRead }: { notifications: NotificationListItem[]; onOpen: (notification: NotificationListItem) => void; onMarkRead: (notification: NotificationListItem) => void }) {
+  return (
+    <SheetScrollView showsVerticalScrollIndicator={false} style={styles.notificationList}>
+      {notifications.map((notification) => (
+        <NotificationRow key={notification.id} notification={notification} onOpen={onOpen} onMarkRead={onMarkRead} />
+      ))}
+    </SheetScrollView>
+  );
+}
+
 export function NotificationCenter({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { colors } = useTheme();
   const navigation = useNavigation<any>();
@@ -279,11 +289,11 @@ export function NotificationCenter({ visible, onClose }: { visible: boolean; onC
               <Text style={[styles.notificationEmptyBody, { color: colors.textSecondary }]}>When messages, assignments, or calls arrive, they will appear here.</Text>
             </View>
           ) : (
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.notificationList}>
-              {notifications.map((notification) => (
-                <NotificationRow key={notification.id} notification={notification} onOpen={handleOpenNotification} onMarkRead={(item) => void markRead(item)} />
-              ))}
-            </ScrollView>
+            <NotificationScrollList
+              notifications={notifications}
+              onOpen={handleOpenNotification}
+              onMarkRead={(item) => void markRead(item)}
+            />
           )}
         </BottomSheet>
   );

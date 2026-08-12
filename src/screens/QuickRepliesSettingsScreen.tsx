@@ -17,7 +17,6 @@ import {
   Alert,
   FlatList,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -40,7 +39,7 @@ import {
 } from '../api/quickReplies';
 import { fetchMyWorkspaces } from '../api/workspaces';
 import { ErrorState } from '../components/ErrorState';
-import { BottomSheet } from '../components/BottomSheet';
+import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 import { FormSkeleton, ListSkeleton } from '../components/Skeleton';
 
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
@@ -389,7 +388,7 @@ export function QuickRepliesSettingsScreen() {
               <Text style={[styles.sheetTitle, { color: colors.text }]}>{editing ? 'Edit quick reply' : 'Create quick reply'}</Text>
             </View>
 
-            <ScrollView
+            <SheetScrollView
               keyboardShouldPersistTaps="handled"
               style={styles.sheetScroll}
               contentContainerStyle={styles.sheetContent}
@@ -450,7 +449,7 @@ export function QuickRepliesSettingsScreen() {
               <View style={[styles.previewCard, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
                 <Text style={[styles.previewText, { color: colors.text }]}>{previewText || 'Your message preview will appear here.'}</Text>
               </View>
-            </ScrollView>
+            </SheetScrollView>
 
             <Pressable
               style={[styles.primaryButton, { backgroundColor: colors.primary }, (savingDisabled || createMutation.isPending || updateMutation.isPending) && styles.disabled]}

@@ -5,9 +5,10 @@ import * as ImagePicker from 'expo-image-picker';
 import { requestRecordingPermissionsAsync, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { Camera, ChevronDown, Clock3, FileText, Film, Image as ImageIcon, Mic, Pause, Paperclip, Play, Send, Smile, Trash2, X, Zap, PanelsTopLeft } from 'lucide-react-native';
 import { useRef, useState } from 'react';
-import { Alert, FlatList, Image, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EmojiKeyboard, type EmojiType } from 'rn-emoji-keyboard';
+import { GestureDetector } from 'react-native-gesture-handler';
 import { fetchQuickReplies } from '../api/inbox';
 import { fetchWhatsappTemplates } from '../api/whatsappTemplates';
 import {
@@ -18,7 +19,7 @@ import {
   resolveAttachmentSizeBytes,
 } from '../lib/composer-attachments';
 import type { MessengerMessagingMode } from '../lib/inbox-utils';
-import { BottomSheet } from './BottomSheet';
+import { BottomSheet, SheetFlatList } from './BottomSheet';
 import { PanelSkeleton } from './Skeleton';
 import { WhatsappTemplateSendModal, type TemplateSendPayload } from './WhatsappTemplateSendModal';
 import { useTheme } from '../theme/ThemeContext';
@@ -40,6 +41,26 @@ type Props = {
 
 function renderQuickReplyBody(body: string, context: Record<string, string>): string {
   return body.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (match, key) => context[key] ?? context[key.toLowerCase()] ?? match);
+}
+
+function QuickRepliesList({ items, onInsert }: { items: any[]; onInsert: (body: string) => void }) {
+  return (
+    <SheetFlatList
+      data={items}
+      keyExtractor={(item) => item.id}
+      style={styles.pickerList}
+      keyboardShouldPersistTaps="handled"
+      ListEmptyComponent={<Text style={styles.pickerError}>No quick replies found</Text>}
+      renderItem={({ item }) => (
+        <Pressable style={styles.pickerRow} onPress={() => onInsert(item.body)}>
+          <Text style={styles.pickerRowTitle}># {item.title ?? 'Quick reply'}</Text>
+          {item.category ? <Text style={styles.pickerRowCategory}>{item.category}</Text> : null}
+          {item.shortcut ? <Text style={styles.pickerRowShortcut}>/{item.shortcut}</Text> : null}
+          <Text numberOfLines={2} style={styles.pickerRowBody}>{item.body}</Text>
+        </Pressable>
+      )}
+    />
+  );
 }
 
 export function ConversationComposer({
@@ -461,20 +482,9 @@ export function ConversationComposer({
           </View>
           <TextInput autoFocus placeholder="Search by keyword, message" placeholderTextColor={colors.textMuted} value={quickQuery} onChangeText={setQuickQuery} style={styles.pickerSearch} />
           {quickReplies.isLoading ? <PanelSkeleton rows={4} /> : quickReplies.isError ? <Text style={styles.pickerError}>Could not load quick replies.</Text> : (
-            <FlatList
-              data={quickReplies.data?.items ?? []}
-              keyExtractor={(item) => item.id}
-              style={styles.pickerList}
-              keyboardShouldPersistTaps="handled"
-              ListEmptyComponent={<Text style={styles.pickerError}>No quick replies found</Text>}
-              renderItem={({ item }) => (
-                <Pressable style={styles.pickerRow} onPress={() => insertQuickReply(item.body)}>
-                  <Text style={styles.pickerRowTitle}># {item.title ?? 'Quick reply'}</Text>
-                  {item.category ? <Text style={styles.pickerRowCategory}>{item.category}</Text> : null}
-                  {item.shortcut ? <Text style={styles.pickerRowShortcut}>/{item.shortcut}</Text> : null}
-                  <Text numberOfLines={2} style={styles.pickerRowBody}>{item.body}</Text>
-                </Pressable>
-              )}
+            <QuickRepliesList
+              items={quickReplies.data?.items ?? []}
+              onInsert={insertQuickReply}
             />
           )}
           <Text style={styles.pickerHint}>Type / to filter · Click to insert</Text>

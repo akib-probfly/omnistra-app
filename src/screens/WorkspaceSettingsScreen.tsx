@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,7 +22,7 @@ import {
   type TimezoneOption,
 } from '../api/workspaces';
 import { ErrorState } from '../components/ErrorState';
-import { BottomSheet } from '../components/BottomSheet';
+import { BottomSheet, SheetFlatList } from '../components/BottomSheet';
 import { FormSkeleton, PanelSkeleton } from '../components/Skeleton';
 
 export function WorkspaceSettingsScreen() {
@@ -151,7 +150,7 @@ export function WorkspaceSettingsScreen() {
             {timezonesQuery.isLoading ? (
               <PanelSkeleton rows={5} />
             ) : (
-              <FlatList
+              <SheetFlatList
                 data={filteredTimezones}
                 keyExtractor={(item) => item.zoneName}
                 style={{ marginTop: 10, maxHeight: 360 }}
