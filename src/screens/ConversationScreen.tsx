@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreVertical, Phone, Reply, Star, UserRound } from 'lucide-react-native';
+import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreVertical, Phone, Reply, UserRound } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
 import { ConversationAssignmentSheet } from '../components/ConversationAssignmentSheet';
@@ -752,7 +752,6 @@ export function ConversationScreen() {
               <Phone color={voiceCallButton.canStartVoiceCall && !callController.isBusy ? colors.primary : colors.textMuted} size={19} />
             </Pressable>
           ) : null}
-          <Pressable onPress={() => starMutation.mutate(!header.isStarred)} hitSlop={6}><Star color={header.isStarred ? '#f59e0b' : colors.textMuted} fill={header.isStarred ? '#f59e0b' : 'none'} size={19} /></Pressable>
           <Pressable
             onPress={() => {
               if (readMutation.isPending || unreadMutation.isPending) return;
@@ -863,9 +862,11 @@ export function ConversationScreen() {
         assignee={header.conversation?.assignee ?? null}
         status={header.status}
         unreadCount={header.unreadCount}
+        isStarred={header.isStarred}
         isUpdating={assignmentMutation.isPending}
         isUpdatingRead={readMutation.isPending || unreadMutation.isPending}
         isUpdatingStatus={statusMutation.isPending}
+        isUpdatingStar={starMutation.isPending}
         errorMessage={assignmentMutation.error instanceof Error ? assignmentMutation.error.message : null}
         onAssign={(member) => assignmentMutation.mutate(member)}
         onToggleRead={() => {
@@ -878,6 +879,7 @@ export function ConversationScreen() {
           }
         }}
         onToggleStatus={() => statusMutation.mutate(header.status === 'CLOSED' ? 'OPEN' : 'CLOSED')}
+        onToggleStar={() => starMutation.mutate(!header.isStarred)}
       />
       {header.conversation ? (
         <ContactDetailsPanel

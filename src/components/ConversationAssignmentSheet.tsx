@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Search, X } from 'lucide-react-native';
+import { Archive, Mail, MailOpen, RotateCcw, Search, Star, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { fetchAssigneeOptions, type AssigneeFilterOption } from '../api/inbox';
@@ -24,13 +24,16 @@ type Props = {
   assignee: ConversationAssignee;
   status?: string | null;
   unreadCount?: number;
+  isStarred?: boolean;
   isUpdating: boolean;
   isUpdatingRead?: boolean;
   isUpdatingStatus?: boolean;
+  isUpdatingStar?: boolean;
   errorMessage?: string | null;
   onAssign: (member: AssigneeFilterOption | null) => void;
   onToggleRead: () => void;
   onToggleStatus: () => void;
+  onToggleStar: () => void;
 };
 
 type SheetTab = 'assignment' | 'actions';
@@ -57,13 +60,16 @@ export function ConversationAssignmentSheet({
   assignee,
   status,
   unreadCount = 0,
+  isStarred = false,
   isUpdating,
   isUpdatingRead,
   isUpdatingStatus,
+  isUpdatingStar,
   errorMessage,
   onAssign,
   onToggleRead,
   onToggleStatus,
+  onToggleStar,
 }: Props) {
   const { colors } = useTheme();
   const { session } = useAuth();
@@ -241,12 +247,28 @@ export function ConversationAssignmentSheet({
             </View>
             <Pressable
               style={[styles.action, { backgroundColor: colors.surfaceSecondary }]}
+              disabled={isUpdatingStar}
+              onPress={() => {
+                onToggleStar();
+                onClose();
+              }}
+            >
+              <Star color="#f59e0b" fill={isStarred ? '#f59e0b' : 'none'} size={18} />
+              <Text style={[styles.actionText, { color: colors.primary }]}>
+                {isStarred ? 'Unstar conversation' : 'Star conversation'}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.action, { backgroundColor: colors.surfaceSecondary }]}
               disabled={isUpdatingRead}
               onPress={() => {
                 onToggleRead();
                 onClose();
               }}
             >
+              {unreadCount > 0
+                ? <Mail color={colors.primary} size={18} />
+                : <MailOpen color={colors.primary} size={18} />}
               <Text style={[styles.actionText, { color: colors.primary }]}>{unreadCount > 0 ? 'Mark as read' : 'Mark as unread'}</Text>
             </Pressable>
             <Pressable
@@ -257,6 +279,9 @@ export function ConversationAssignmentSheet({
                 onClose();
               }}
             >
+              {isClosed
+                ? <RotateCcw color={colors.error} size={18} />
+                : <Archive color={colors.primary} size={18} />}
               <Text style={[styles.actionText, { color: isClosed ? colors.error : colors.primary }]}>
                 {isClosed ? 'Reopen conversation' : 'Mark as closed'}
               </Text>
@@ -280,7 +305,7 @@ const styles = StyleSheet.create({
   metaRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   metaLabel: { fontSize: 13 },
   metaValue: { fontSize: 13, fontWeight: '700' },
-  action: { alignItems: 'center', borderRadius: 10, marginTop: 6, paddingVertical: 12 },
+  action: { alignItems: 'center', borderRadius: 10, flexDirection: 'row', gap: 10, marginTop: 6, paddingHorizontal: 14, paddingVertical: 12 },
   actionText: { fontSize: 14, fontWeight: '700' },
   currentCard: { borderRadius: 16, marginBottom: 12, padding: 12 },
   currentChip: { alignItems: 'center', borderRadius: 999, flexDirection: 'row', gap: 8, paddingHorizontal: 10, paddingVertical: 8 },
