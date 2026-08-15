@@ -6,8 +6,7 @@ import Toast from 'react-native-toast-message';
 import { ConversationAssignmentSheet } from '../components/ConversationAssignmentSheet';
 import { ContactDetailsPanel, formatPhoneNumberDisplay, formatUsernameDisplay } from '../components/ContactDetailsPanel';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { FlashList, type FlashListRef } from '@shopify/flash-list';
+import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useIsFocused, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -46,20 +45,8 @@ type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAG
 type MediaItem = { attachId: string; src: string; mediaType: string };
 type TimelineRow = { entry: ConversationTimelineEntry; showDivider: boolean };
 
-const THREAD_LIST_POSITION = {
-  startRenderingFromBottom: true,
-  autoscrollToBottomThreshold: 0.08,
-  animateAutoScrollToBottom: false,
-} as const;
-
 function timelineKeyExtractor(row: TimelineRow) {
   return `${row.entry.kind}:${row.entry.id}`;
-}
-
-function timelineItemType(row: TimelineRow) {
-  if (row.entry.kind !== 'message') return row.entry.kind;
-  const message = row.entry.message;
-  return `message:${message.direction}:${message.type ?? 'TEXT'}:${message.attachments?.length ? 'media' : 'plain'}`;
 }
 
 function TimelineSeparator() {
@@ -87,7 +74,7 @@ export function ConversationScreen() {
   const { session } = useAuth();
   const { colors } = useTheme();
   const callController = useCallController();
-  const listRef = useRef<FlashListRef<TimelineRow>>(null);
+  const listRef = useRef<FlatList>(null);
   const [draft, setDraft] = useState(''); const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [attachments, setAttachments] = useState<SendAttachment[]>([]);
   const [gallery, setGallery] = useState<MediaItem[]>([]); const [galleryIndex, setGalleryIndex] = useState(0);
@@ -98,7 +85,6 @@ export function ConversationScreen() {
   const [hasMoreOlder, setHasMoreOlder] = useState(true);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [atBottom, setAtBottom] = useState(true);
-  const [listVisible, setListVisible] = useState(false);
   const [assignmentOpen, setAssignmentOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [header, setHeader] = useState({ isStarred: false, unreadCount: 0, status: 'OPEN' as string, conversation: null as any });
@@ -203,7 +189,6 @@ export function ConversationScreen() {
     listReadyRef.current = false;
     isAtBottomRef.current = true;
     setAtBottom(true);
-    setListVisible(false);
   }, [route.params.conversationId]);
 
   useEffect(() => {
@@ -309,7 +294,7 @@ export function ConversationScreen() {
         if (!current || !Array.isArray(current.items)) return current;
         return { ...current, items: [...current.items, optimistic] };
       });
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
+      setTimeout(() => listRef.current?.scrollToOffset({ offset: 0, animated: true }), 100);
       return {
         tempId,
         clientKey,
@@ -555,7 +540,8 @@ export function ConversationScreen() {
     const scrollToTarget = () => {
       const index = timelineRef.current.findIndex((entry) => entry.kind === 'message' && entry.message.id === messageId);
       if (index < 0) return false;
-      void listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
+      const invertedIndex = timelineRef.current.length - 1 - index;
+      void listRef.current?.scrollToIndex({ index: invertedIndex, viewPosition: 0.5, animated: true });
       highlightMessage(messageId);
       return true;
     };
@@ -709,26 +695,26 @@ export function ConversationScreen() {
     [allMessages, callSessions, assignmentEvents],
   );
   timelineRef.current = timeline;
-  const displayEntries = useMemo<TimelineRow[]>(() => (
-    timeline.map((entry, index) => {
+  const displayEntries = useMemo<TimelineRow[]>(() => {
+    const chronological = timeline.map((entry, index) => {
       const previous = timeline[index - 1];
       const showDivider = !previous || new Date(previous.timestamp).toDateString() !== new Date(entry.timestamp).toDateString();
       return { entry, showDivider };
-    })
-  ), [timeline]);
-  const threadBootstrapReady = Boolean(messages.data);
-  const initialScrollIndex = Math.max(0, displayEntries.length - 1);
+    });
+    chronological.reverse();
+    return chronological;
+  }, [timeline]);
 
   useEffect(() => {
-    if (!threadBootstrapReady || listVisible) return undefined;
-    const timeout = setTimeout(() => setListVisible(true), 700);
+    if (!messages.data) return;
+    const timeout = setTimeout(() => {
+      listReadyRef.current = true;
+    }, 400);
     return () => clearTimeout(timeout);
-  }, [threadBootstrapReady, listVisible, route.params.conversationId]);
+  }, [messages.data, route.params.conversationId]);
 
   const onScroll = (event: any) => {
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
-    const nextAtBottom = distanceFromBottom <= 96;
+    const nextAtBottom = Math.abs(event.nativeEvent.contentOffset.y) <= 96;
     isAtBottomRef.current = nextAtBottom;
     setAtBottom((current) => (current === nextAtBottom ? current : nextAtBottom));
   };
@@ -788,41 +774,31 @@ export function ConversationScreen() {
       <View style={styles.body}>
         <InboxPatternBackground pattern={inboxPattern} />
         <View style={styles.listWrap}>
-          {threadBootstrapReady ? (
-            <FlashList
+          {messages.data ? (
+            <FlatList
                 ref={listRef}
                 key={route.params.conversationId}
-                style={[styles.list, !listVisible && styles.listHidden]}
+                style={styles.list}
+                inverted
                 data={displayEntries}
                 extraData={highlightedMessageId}
                 keyExtractor={timelineKeyExtractor}
-                getItemType={timelineItemType}
                 ItemSeparatorComponent={TimelineSeparator}
                 contentContainerStyle={styles.listContent}
-                drawDistance={500}
-                initialScrollIndex={initialScrollIndex}
-                maintainVisibleContentPosition={THREAD_LIST_POSITION}
                 keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="none"
+                initialNumToRender={24}
+                maxToRenderPerBatch={16}
+                windowSize={12}
+                removeClippedSubviews={false}
                 onScroll={onScroll}
                 scrollEventThrottle={16}
-                onLoad={() => {
-                  listRef.current?.scrollToEnd({ animated: false });
-                  requestAnimationFrame(() => {
-                    listRef.current?.scrollToEnd({ animated: false });
-                    requestAnimationFrame(() => {
-                      setListVisible(true);
-                      setTimeout(() => {
-                        listReadyRef.current = true;
-                      }, 300);
-                    });
-                  });
-                }}
-                onStartReached={() => {
+                onEndReached={() => {
                   if (!listReadyRef.current || !hasMoreOlder || !olderCursor) return;
                   void loadOlder();
                 }}
-                onStartReachedThreshold={0.2}
-                ListHeaderComponent={listVisible && loadingOlder ? <Text style={[styles.olderPill, { color: colors.textSecondary }]}>Loading older messages...</Text> : null}
+                onEndReachedThreshold={0.3}
+                ListFooterComponent={loadingOlder ? <Text style={[styles.olderPill, { color: colors.textSecondary }]}>Loading older messages...</Text> : null}
                 renderItem={({ item }) => {
                   const { entry, showDivider } = item;
                   const highlighted = entry.kind === 'message' && entry.message.id === highlightedMessageId;
@@ -840,14 +816,11 @@ export function ConversationScreen() {
                   );
                 }}
             />
-          ) : null}
-          {!listVisible ? (
-            <View style={styles.listCover} pointerEvents="none">
-              {messages.data ? null : <ConversationSkeleton />}
-            </View>
-          ) : null}
-          {listVisible && !atBottom ? (
-            <Pressable style={[styles.fab, { backgroundColor: colors.primary }]} onPress={() => listRef.current?.scrollToEnd({ animated: true })}><ChevronDown color="#fff" size={22} /></Pressable>
+          ) : (
+            <ConversationSkeleton />
+          )}
+          {!atBottom ? (
+            <Pressable style={[styles.fab, { backgroundColor: colors.primary }]} onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}><ChevronDown color="#fff" size={22} /></Pressable>
           ) : null}
         </View>
         {messages.isError ? <Text style={[styles.error, { color: colors.error }]}>{messages.error instanceof Error ? messages.error.message : 'Unable to load messages.'}</Text> : null}
@@ -998,9 +971,7 @@ const styles = StyleSheet.create({
   contactSubtitle: { color: '#64748b', fontSize: 12, fontWeight: '500', marginTop: 1, width: '100%' },
   headerActions: { alignItems: 'center', flexDirection: 'row', flexShrink: 0, gap: 8 },
   list: { backgroundColor: 'transparent', flex: 1 },
-  listHidden: { opacity: 0 },
   listWrap: { backgroundColor: 'transparent', flex: 1, minHeight: 0 },
-  listCover: { ...StyleSheet.absoluteFillObject, backgroundColor: 'transparent' },
   error: { backgroundColor: 'transparent', color: '#dc2626', padding: 14, textAlign: 'center' },
   listContent: { paddingHorizontal: 14, paddingVertical: 14 },
   rowGap: { height: 10 },
