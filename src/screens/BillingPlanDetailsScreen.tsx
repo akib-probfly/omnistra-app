@@ -165,11 +165,12 @@ export function BillingPlanDetailsScreen() {
   });
 
   const buildReturnUrls = (cycle: BillingInterval) => {
-    const successParams = new URLSearchParams({ planKey, cycle, workspaceId });
-    const cancelParams = new URLSearchParams({ planKey, cycle });
+    const webOrigin = (process.env.EXPO_PUBLIC_FRONTEND_BASE_URL ?? 'https://app.omnistra.ai').replace(/\/$/, '');
+    const successParams = new URLSearchParams({ cycle, workspaceId });
+    const cancelParams = new URLSearchParams({ cycle });
     return {
-      successUrl: `osaas://billing/success?${successParams.toString()}`,
-      cancelUrl: `osaas://billing/cancel?${cancelParams.toString()}`,
+      successUrl: `${webOrigin}/workspace-settings/billing/${planKey}/success?${successParams.toString()}`,
+      cancelUrl: `${webOrigin}/workspace-settings/billing/${planKey}?${cancelParams.toString()}`,
     };
   };
 
@@ -244,7 +245,7 @@ export function BillingPlanDetailsScreen() {
     ? upgradeMode
       ? 'Processing upgrade...'
       : isDowngrade
-        ? 'Starting downgrade checkout...'
+        ? 'Scheduling downgrade...'
         : 'Starting checkout...'
     : hasScheduledDowngrade
       ? 'Plan change locked'
@@ -257,7 +258,7 @@ export function BillingPlanDetailsScreen() {
             : upgradeMode
               ? `Upgrade to ${plan?.name ?? 'plan'}`
               : isDowngrade
-                ? 'Downgrade with payment'
+                ? 'Schedule downgrade'
                 : 'Continue to payment';
 
   if (plansQuery.isLoading || subscriptionQuery.isLoading) {
@@ -365,7 +366,7 @@ export function BillingPlanDetailsScreen() {
               : upgradeMode
                 ? `You are moving from ${currentPlan?.name ?? 'your current plan'} to ${plan.name}. Remaining value will be credited before the final charge.`
                 : isDowngrade
-                  ? `You are moving from ${currentPlan?.name ?? 'your current plan'} to ${plan.name}. Pay now; ${plan.name} starts at the end of this billing period.`
+                  ? `You are moving from ${currentPlan?.name ?? 'your current plan'} to ${plan.name}. Your current plan stays active, and ${plan.name} starts at the end of this billing period.`
                   : 'Your subscription is attached to this workspace. When payment succeeds, the plan unlocks for the workspace.'}
           </Text>
 
