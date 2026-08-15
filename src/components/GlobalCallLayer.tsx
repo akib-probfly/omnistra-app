@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { AppState } from 'react-native';
 import {
   fetchActiveConversationCallSessions,
   type ConversationCallConversation,
@@ -17,6 +18,7 @@ import { extractWhatsappCallSignal } from '../lib/whatsapp-calling';
 import { isCallSessionTerminal, isLiveCallSession } from '../lib/inbox-utils';
 import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
 import { useCallController } from '../providers/CallControllerProvider';
+import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { CallPanel } from './CallPanel';
 
 function selectVisibleCallSession(sessions: ConversationCallSession[], currentUserId: string | undefined) {
@@ -156,6 +158,14 @@ function getBizOpaqueCallbackData(metadata: unknown) {
 export function GlobalCallLayer() {
   const { session } = useAuth();
   const callController = useCallController();
+  useSyncExternalStore(subscribeRealtimeConnectionStatus, getRealtimeConnectionStatus);
+  const appState = useSyncExternalStore(
+    (onStoreChange) => {
+      const sub = AppState.addEventListener('change', onStoreChange);
+      return () => sub.remove();
+    },
+    () => AppState.currentState,
+  );
   const profileQuery = useQuery({
     queryKey: ['me-profile'],
     queryFn: fetchMyProfile,
@@ -168,13 +178,19 @@ export function GlobalCallLayer() {
     queryKey: ['active-calls'],
     queryFn: () => fetchActiveConversationCallSessions({ limit: 5 }),
     enabled: Boolean(session),
-    refetchInterval: (query) => {
-      const items = query.state.data?.items ?? [];
-      // Live calls need a short poll; idle inbox should not hammer /calls/active.
-      return items.some((item) => isLiveCallSession(item)) ? 5000 : 45_000;
-    },
-    staleTime: 10_000,
+    staleTime: 60_000,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
     refetchOnWindowFocus: false,
+    refetchIntervalInBackground: false,
+    refetchInterval: () => {
+      if (appState !== 'active') return false;
+      // /calls/active often still returns workspace REQUESTED/PERMISSION rows.
+      // Those are "live" in the API sense and were forcing a 5s poll even when
+      // this device is idle. Poll only while this phone is actually in a call.
+      if (callController.isBusy) return 5000;
+      return false;
+    },
   });
 
   const [incomingCallPrompt, setIncomingCallPrompt] = useState<IncomingCallPrompt | null>(() => readIncomingCallPrompt());
