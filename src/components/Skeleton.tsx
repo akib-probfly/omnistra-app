@@ -28,7 +28,7 @@ export function SkeletonPulse({ children, style }: { children: ReactNode; style?
     return () => animation.stop();
   }, [pulse]);
 
-  return <Animated.View style={[styles.pulse, style, { opacity: pulse }]}>{children}</Animated.View>;
+  return <Animated.View style={[styles.pulse, { backgroundColor: 'transparent' }, style, { opacity: pulse }]}>{children}</Animated.View>;
 }
 
 export function ListSkeleton({ rows = 6, avatar = true }: { rows?: number; avatar?: boolean }) {
@@ -124,22 +124,21 @@ export function PanelSkeleton({ rows = 4 }: { rows?: number }) {
 
 export function ConversationSkeleton() {
   const rows = [
-    { align: 'flex-end' as const, width: '52%' },
-    { align: 'flex-start' as const, width: '64%' },
-    { align: 'flex-start' as const, width: '38%' },
-    { align: 'flex-end' as const, width: '70%' },
-    { align: 'flex-start' as const, width: '46%' },
-    { align: 'flex-end' as const, width: '58%' },
-    { align: 'flex-start' as const, width: '72%' },
-    { align: 'flex-end' as const, width: '40%' },
+    { align: 'flex-end' as const, width: '52%', height: 36 },
+    { align: 'flex-start' as const, width: '64%', height: 44 },
+    { align: 'flex-start' as const, width: '38%', height: 32 },
+    { align: 'flex-end' as const, width: '70%', height: 40 },
+    { align: 'flex-start' as const, width: '46%', height: 36 },
+    { align: 'flex-end' as const, width: '58%', height: 32 },
+    { align: 'flex-start' as const, width: '72%', height: 48 },
+    { align: 'flex-end' as const, width: '40%', height: 32 },
   ];
 
   return (
     <SkeletonPulse style={styles.conversation}>
-      <SkeletonBone width={110} height={24} radius={999} style={styles.dayChip} />
       {rows.map((row, index) => (
         <View key={index} style={[styles.bubbleRow, { justifyContent: row.align }]}>
-          <SkeletonBone width={row.width as `${number}%`} height={38} radius={14} />
+          <SkeletonBone width={row.width as `${number}%`} height={row.height} radius={18} />
         </View>
       ))}
     </SkeletonPulse>
@@ -207,7 +206,12 @@ const styles = StyleSheet.create({
     padding: 12,
   },
 
-  conversation: { flex: 1, padding: 14 },
-  dayChip: { alignSelf: 'center', marginBottom: 14, marginTop: 4 },
-  bubbleRow: { flexDirection: 'row', marginBottom: 12 },
+  conversation: {
+    backgroundColor: 'transparent',
+    flex: 1,
+    justifyContent: 'flex-end',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  bubbleRow: { backgroundColor: 'transparent', flexDirection: 'row', marginBottom: 12 },
 });

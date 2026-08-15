@@ -170,7 +170,10 @@ export function ConversationScreen() {
       return { items, nextCursor: page.pageInfo?.nextCursor ?? null, hasMore: page.pageInfo?.hasMore ?? false, conversation: page.conversation ?? null };
     },
     enabled: isFocused,
-    staleTime: 15_000,
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
     // Realtime updates the open thread; keep a slow poll as a safety net for zombie sockets.
     // Briefly poll faster after send for delivery receipts.
     refetchInterval: () => {
@@ -651,13 +654,15 @@ export function ConversationScreen() {
     queryKey: ['conversation-calls', route.params.conversationId],
     queryFn: () => fetchConversationCallSessions({ conversationId: route.params.conversationId, limit: 10 }),
     enabled: isWhatsAppConversation,
-    staleTime: 30000,
+    staleTime: 60_000,
+    refetchOnMount: false,
   });
   const callSessions: ConversationCallSession[] = callsQuery.data?.items ?? [];
   const assignmentHistoryQuery = useQuery({
     queryKey: ['assignment-events', route.params.conversationId],
     queryFn: () => fetchConversationAssignmentEvents({ conversationId: route.params.conversationId, limit: 100 }),
     staleTime: 5 * 60 * 1000,
+    refetchOnMount: false,
   });
   const assignmentEvents = assignmentHistoryQuery.data?.items ?? [];
   // Match web: only RINGING/CONNECTED count as an active call for the start-call button.
@@ -711,10 +716,7 @@ export function ConversationScreen() {
       return { entry, showDivider };
     })
   ), [timeline]);
-  const threadBootstrapReady =
-    Boolean(messages.data) &&
-    !assignmentHistoryQuery.isPending &&
-    (!isWhatsAppConversation || !callsQuery.isEnabled || !callsQuery.isPending);
+  const threadBootstrapReady = Boolean(messages.data);
   const initialScrollIndex = Math.max(0, displayEntries.length - 1);
 
   useEffect(() => {
@@ -807,10 +809,12 @@ export function ConversationScreen() {
                   listRef.current?.scrollToEnd({ animated: false });
                   requestAnimationFrame(() => {
                     listRef.current?.scrollToEnd({ animated: false });
-                    setListVisible(true);
-                    setTimeout(() => {
-                      listReadyRef.current = true;
-                    }, 300);
+                    requestAnimationFrame(() => {
+                      setListVisible(true);
+                      setTimeout(() => {
+                        listReadyRef.current = true;
+                      }, 300);
+                    });
                   });
                 }}
                 onStartReached={() => {
@@ -838,8 +842,8 @@ export function ConversationScreen() {
             />
           ) : null}
           {!listVisible ? (
-            <View style={[styles.listCover, { backgroundColor: colors.background }]}>
-              <ConversationSkeleton />
+            <View style={styles.listCover} pointerEvents="none">
+              {messages.data ? null : <ConversationSkeleton />}
             </View>
           ) : null}
           {listVisible && !atBottom ? (
