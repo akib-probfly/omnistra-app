@@ -104,6 +104,20 @@ export async function updateCrmContact(contactId: string, input: { primaryPhone?
   return apiFetch(`/crm/contacts/${contactId}`, { method: 'PATCH', body: JSON.stringify(input) });
 }
 
+export async function banCrmContact(conversationId: string, reason?: string) {
+  return apiFetch(`/crm/conversations/${conversationId}/ban`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function unbanCrmContact(conversationId: string) {
+  return apiFetch(`/crm/conversations/${conversationId}/unban`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
 export async function fetchConversationAttachments(params: { conversationId: string; limit?: number; mediaType?: string; cursor?: string; search?: string }): Promise<{ items: ConversationAttachment[]; pageInfo?: PageInfo }> {
   const query = new URLSearchParams();
   if (params.limit) query.set('limit', String(params.limit));

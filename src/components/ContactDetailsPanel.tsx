@@ -1,13 +1,14 @@
 // @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, ChevronDown, ChevronUp, Download, File, FileText, Film, Music, Pencil, Plus, RotateCcw, Sparkles } from 'lucide-react-native';
+import { Ban, Check, ChevronDown, ChevronUp, Download, File, FileText, Film, Music, Pencil, Plus, RotateCcw, Sparkles } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import Toast from 'react-native-toast-message';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SecureStore from 'expo-secure-store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiUrl } from '../api/client';
-import { attachConversationTag, createConversationNote, createConversationTag, deleteConversationNote, detachConversationTag, fetchConversationAttachments, fetchConversationNotes, fetchConversationTags, fetchWorkspaceTags, updateConversationNote, updateCrmContact, type ConversationAttachment, type ConversationNote, type ConversationTag } from '../api/conversationDetails';
+import { attachConversationTag, banCrmContact, createConversationNote, createConversationTag, deleteConversationNote, detachConversationTag, fetchConversationAttachments, fetchConversationNotes, fetchConversationTags, fetchWorkspaceTags, unbanCrmContact, updateConversationNote, updateCrmContact, type ConversationAttachment, type ConversationNote, type ConversationTag } from '../api/conversationDetails';
 import { AuthenticatedImage } from './AuthenticatedImage';
 import { BottomSheet, SheetScrollView } from './BottomSheet';
 import { ColorfulAvatar } from './ColorfulAvatar';
@@ -45,7 +46,8 @@ type PanelProps = {
     id: string;
     workspaceId?: string;
     status?: string;
-    contact: { id: string; displayName: string | null; avatarUrl: string | null; primaryPhone?: string | null; primaryEmail?: string | null };
+    blockedAt?: string | null;
+    contact: { id: string; displayName: string | null; avatarUrl: string | null; primaryPhone?: string | null; primaryEmail?: string | null; blockedAt?: string | null };
     channel: { channelId?: string; channelType: string; channelName: string; displayPhoneNumber: string | null };
   };
   isUpdatingStatus?: boolean;
@@ -72,6 +74,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState(TAG_COLOR_OPTIONS[0]);
+  const [optimisticBlockedAt, setOptimisticBlockedAt] = useState<string | null | undefined>(undefined);
 
   // Only fetch sidebar data when the panel is open (matches web: notes/files load on expand).
   const conversationTagsQuery = useQuery({
@@ -108,6 +111,10 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   const displayPhone = conversation.contact.primaryPhone ?? null;
   const displayEmail = conversation.contact.primaryEmail ?? null;
   const canEditPhone = conversation.channel.channelType !== 'WHATSAPP';
+  const channelType = (conversation.channel.channelType ?? '').toUpperCase();
+  const canToggleBan = channelType === 'WHATSAPP' || channelType === 'MESSENGER';
+  const serverBlockedAt = conversation.blockedAt ?? conversation.contact.blockedAt ?? null;
+  const isBlocked = (optimisticBlockedAt !== undefined ? optimisticBlockedAt : serverBlockedAt) != null;
   const contactTitle = conversation.contact.displayName?.trim() || formatPhoneNumberDisplay(displayPhone) || formatPhoneNumberDisplay(conversation.channel.displayPhoneNumber) || conversation.channel.channelName || 'Contact';
 
   const notes = useMemo(() => [...(notesQuery.data?.items ?? [])].sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()), [notesQuery.data?.items]);
@@ -136,6 +143,82 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   const createNoteMutation = useMutation({ mutationFn: (content: string) => createConversationNote(conversation.id, content), onSuccess: () => { setNoteDraft(''); void queryClient.invalidateQueries({ queryKey: ['conversation-notes', conversation.id] }); }, onError: (error: Error) => Alert.alert('Could not add note', error.message) });
   const updateNoteMutation = useMutation({ mutationFn: ({ noteId, content }: { noteId: string; content: string }) => updateConversationNote(conversation.id, noteId, content), onSuccess: () => { setEditingNoteId(null); setEditingNoteDraft(''); void queryClient.invalidateQueries({ queryKey: ['conversation-notes', conversation.id] }); }, onError: (error: Error) => Alert.alert('Could not update note', error.message) });
   const deleteNoteMutation = useMutation({ mutationFn: (noteId: string) => deleteConversationNote(conversation.id, noteId), onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['conversation-notes', conversation.id] }); }, onError: (error: Error) => Alert.alert('Could not delete note', error.message) });
+
+  const patchBlockedState = useCallback((blockedAt: string | null) => {
+    queryClient.setQueryData(['messages', conversation.id], (current: any) => {
+      if (!current?.conversation) return current;
+      return {
+        ...current,
+        conversation: {
+          ...current.conversation,
+          blockedAt,
+          contact: {
+            ...(current.conversation.contact ?? {}),
+            blockedAt,
+          },
+        },
+      };
+    });
+    queryClient.setQueriesData({ queryKey: ['conversations'] }, (current: any) => {
+      if (!current?.pages) return current;
+      return {
+        ...current,
+        pages: current.pages.map((page: any) => ({
+          ...page,
+          items: (page.items ?? []).map((item: any) => (
+            item.id !== conversation.id
+              ? item
+              : {
+                  ...item,
+                  blockedAt,
+                  contact: { ...(item.contact ?? {}), blockedAt },
+                }
+          )),
+        })),
+      };
+    });
+  }, [conversation.id, queryClient]);
+
+  const banMutation = useMutation({
+    mutationFn: async () => (isBlocked ? unbanCrmContact(conversation.id) : banCrmContact(conversation.id)),
+    onMutate: () => {
+      const previous = serverBlockedAt;
+      const nextBlockedAt = isBlocked ? null : new Date().toISOString();
+      setOptimisticBlockedAt(nextBlockedAt);
+      patchBlockedState(nextBlockedAt);
+      return { previous };
+    },
+    onSuccess: (_data, _vars, context) => {
+      const nextBlockedAt = context?.previous ? null : new Date().toISOString();
+      setOptimisticBlockedAt(nextBlockedAt);
+      patchBlockedState(nextBlockedAt);
+      Toast.show({ type: 'success', text1: context?.previous ? 'Customer unbanned' : 'Customer banned' });
+      void queryClient.invalidateQueries({ queryKey: ['messages', conversation.id] });
+      void queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    },
+    onError: (error: Error, _vars, context) => {
+      setOptimisticBlockedAt(context?.previous ?? null);
+      patchBlockedState(context?.previous ?? null);
+      Alert.alert('Could not update customer access', error.message || 'Please try again.');
+    },
+  });
+
+  const confirmToggleBan = () => {
+    if (!canToggleBan || banMutation.isPending) {
+      if (!canToggleBan) {
+        Toast.show({ type: 'info', text1: 'Only WhatsApp and Messenger customers can be blocked' });
+      }
+      return;
+    }
+    Alert.alert(
+      isBlocked ? 'Unban customer' : 'Ban customer',
+      isBlocked ? 'Allow this customer to message again?' : 'Stop this customer from messaging the business?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: isBlocked ? 'Unban' : 'Ban', style: isBlocked ? 'default' : 'destructive', onPress: () => banMutation.mutate() },
+      ],
+    );
+  };
 
   const handleAttach = (tag: ConversationTag) => { if (!conversationTagIds.has(tag.id)) attachMutation.mutate(tag.id); };
   const handleDetach = (tagId: string) => { if (conversationTagIds.has(tagId)) detachMutation.mutate(tagId); };
@@ -167,6 +250,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   const resetState = () => {
     setCustomerOpen(true); setTagsOpen(true); setNotesOpen(true); setFilesOpen(false);
     setTagInput(''); setNoteDraft(''); setEditingNoteId(null); setEditingPhone(false); setEditingEmail(false); setLightbox(null); setDownloadingId(null);
+    setOptimisticBlockedAt(undefined);
   };
   useEffect(() => { if (visible) resetState(); }, [visible]);
 
@@ -178,6 +262,23 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
         </View>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <SheetScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} keyboardShouldPersistTaps="handled">
+            <Pressable
+              onPress={confirmToggleBan}
+              disabled={banMutation.isPending}
+              style={[styles.banAction, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }, banMutation.isPending && styles.disabled]}
+            >
+              <Ban color={isBlocked ? colors.error : colors.textSecondary} size={18} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.banActionTitle, { color: isBlocked ? colors.error : colors.text }]}>
+                  {isBlocked ? 'Unban customer' : 'Ban customer'}
+                </Text>
+                <Text style={[styles.banActionHint, { color: colors.textMuted }]}>
+                  {canToggleBan
+                    ? (isBlocked ? 'Allow this customer to message again' : 'Stop this customer from messaging the business')
+                    : 'Only WhatsApp and Messenger customers can be blocked'}
+                </Text>
+              </View>
+            </Pressable>
             <View style={[styles.chatSummaryPill, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
               <View style={[styles.sparkWrap, { backgroundColor: colors.surfaceSecondary }]}><Sparkles color="#5a83f6" size={15} /></View>
               <Text style={[styles.chatSummaryTitle, { color: colors.text }]}>Chat Summary</Text>
@@ -407,6 +508,10 @@ const styles = StyleSheet.create({
   drawerHeader: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e5e7eb', borderBottomWidth: 1, flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 16 },
   drawerTitle: { color: '#17233a', fontSize: 17, fontWeight: '700', flex: 1 },
   drawerClose: { alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 18, height: 34, justifyContent: 'center', width: 34 },
+  banAction: { alignItems: 'center', borderRadius: 16, borderWidth: 1, flexDirection: 'row', gap: 12, marginHorizontal: 16, marginTop: 14, paddingHorizontal: 14, paddingVertical: 12 },
+  banActionTitle: { fontSize: 14, fontWeight: '700' },
+  banActionHint: { fontSize: 12, marginTop: 2 },
+  disabled: { opacity: 0.45 },
   chatSummaryPill: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#c9def8', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 10, marginHorizontal: 16, marginTop: 14, paddingHorizontal: 14, paddingVertical: 11 },
   sparkWrap: { alignItems: 'center', backgroundColor: '#eef5ff', borderRadius: 14, height: 28, justifyContent: 'center', width: 28 },
   chatSummaryTitle: { color: '#0d1b2a', flex: 1, fontSize: 15, fontWeight: '700' },
