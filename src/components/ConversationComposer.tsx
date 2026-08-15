@@ -82,7 +82,7 @@ export function ConversationComposer({
   canSendStandardMessage = false,
   canSendHumanAgentMessage = false,
 }: Props) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const [emojiOpen, setEmojiOpen] = useState(false);
   const valueRef = useRef(value);
   valueRef.current = value;
@@ -587,7 +587,7 @@ export function ConversationComposer({
         <View style={styles.actions}>
           {isMessengerChannel ? (
              <Pressable style={[styles.messengerModeChip, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} onPress={() => setMessengerModeOpen(true)}>
-              <Text style={styles.messengerModeChipText} numberOfLines={1}>
+              <Text style={[styles.messengerModeChipText, { color: colors.text }]} numberOfLines={1}>
                 {messengerMessagingMode === 'STANDARD' ? 'Standard' : 'Human'}
               </Text>
                <ChevronDown color={colors.textSecondary} size={14} />
@@ -719,28 +719,38 @@ export function ConversationComposer({
       <Modal visible={messengerModeOpen} transparent animationType="fade" onRequestClose={() => setMessengerModeOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setMessengerModeOpen(false)}>
           <View style={[styles.modeSheet, { backgroundColor: colors.surface }]}>
-            <Text style={styles.modeSheetTitle}>Messenger messaging mode</Text>
+            <Text style={[styles.modeSheetTitle, { color: colors.text }]}>Messenger messaging mode</Text>
             <Pressable
-              style={[styles.modeOption, { backgroundColor: colors.background, borderColor: colors.cardBorder }, messengerMessagingMode === 'STANDARD' && styles.modeOptionActive, !canSendStandardMessage && styles.modeOptionDisabled]}
+              style={[
+                styles.modeOption,
+                { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder },
+                messengerMessagingMode === 'STANDARD' && (isDark ? styles.modeOptionActiveDark : styles.modeOptionActive),
+                !canSendStandardMessage && styles.modeOptionDisabled,
+              ]}
               disabled={!canSendStandardMessage}
               onPress={() => {
                 onMessengerMessagingModeChange?.('STANDARD');
                 setMessengerModeOpen(false);
               }}
             >
-              <Text style={styles.modeOptionTitle}>Standard</Text>
-              <Text style={styles.modeOptionBody}>Normal reply within 24 hours</Text>
+              <Text style={[styles.modeOptionTitle, { color: colors.text }]}>Standard</Text>
+              <Text style={[styles.modeOptionBody, { color: colors.textSecondary }]}>Normal reply within 24 hours</Text>
             </Pressable>
             <Pressable
-              style={[styles.modeOption, { backgroundColor: colors.background, borderColor: colors.cardBorder }, messengerMessagingMode === 'HUMAN_AGENT' && styles.modeOptionActive, !canSendHumanAgentMessage && styles.modeOptionDisabled]}
+              style={[
+                styles.modeOption,
+                { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder },
+                messengerMessagingMode === 'HUMAN_AGENT' && (isDark ? styles.modeOptionActiveDark : styles.modeOptionActive),
+                !canSendHumanAgentMessage && styles.modeOptionDisabled,
+              ]}
               disabled={!canSendHumanAgentMessage}
               onPress={() => {
                 onMessengerMessagingModeChange?.('HUMAN_AGENT');
                 setMessengerModeOpen(false);
               }}
             >
-              <Text style={styles.modeOptionTitle}>Human Agent</Text>
-              <Text style={styles.modeOptionBody}>Manual, non-promotional support reply within 7 days</Text>
+              <Text style={[styles.modeOptionTitle, { color: colors.text }]}>Human Agent</Text>
+              <Text style={[styles.modeOptionBody, { color: colors.textSecondary }]}>Manual, non-promotional support reply within 7 days</Text>
             </Pressable>
           </View>
         </Pressable>
@@ -780,27 +790,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  messengerModeChipText: { color: '#334155', fontSize: 12, fontWeight: '700' },
+  messengerModeChipText: { fontSize: 12, fontWeight: '700' },
   modeSheet: {
-    backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     gap: 8,
     padding: 16,
   },
-  modeSheetTitle: { color: '#0f172a', fontSize: 15, fontWeight: '800', marginBottom: 4 },
+  modeSheetTitle: { fontSize: 15, fontWeight: '800', marginBottom: 4 },
   modeOption: {
-    backgroundColor: '#f8fafc',
-    borderColor: '#e2e8f0',
     borderRadius: 14,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   modeOptionActive: { backgroundColor: '#eff6ff', borderColor: '#93c5fd' },
+  modeOptionActiveDark: { backgroundColor: 'rgba(59,130,246,0.22)', borderColor: '#60a5fa' },
   modeOptionDisabled: { opacity: 0.45 },
-  modeOptionTitle: { color: '#0f172a', fontSize: 14, fontWeight: '700' },
-  modeOptionBody: { color: '#64748b', fontSize: 12, marginTop: 3 },
+  modeOptionTitle: { fontSize: 14, fontWeight: '700' },
+  modeOptionBody: { fontSize: 12, marginTop: 3 },
   spacer: { flex: 1 },
   send: { alignItems: 'center', backgroundColor: '#b9dafa', borderRadius: 20, height: 40, justifyContent: 'center', width: 40 },
   sendActive: { backgroundColor: '#2563eb' },
