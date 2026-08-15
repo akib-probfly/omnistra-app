@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 import { Modal, Pressable, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle, type ScrollViewProps, type FlatListProps } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
@@ -7,6 +7,7 @@ import { useTheme } from '../theme/ThemeContext';
 
 type BottomSheetContextValue = {
   pan: ReturnType<typeof Gesture.Pan>;
+  nativeScrollGesture: ReturnType<typeof Gesture.Native>;
   contentOffsetY: SharedValue<number>;
 };
 
@@ -27,9 +28,17 @@ export function SheetScrollView(props: ScrollViewProps) {
       onScroll?.((event as any) as Parameters<NonNullable<ScrollViewProps['onScroll']>>[0]);
     },
   });
-  const content = <Animated.ScrollView {...rest} onScroll={scrollHandler as any} scrollEventThrottle={16} />;
-  const nativeGesture = ctx ? Gesture.Native().simultaneousWithExternalGesture(ctx.pan) : null;
-  return nativeGesture ? <GestureDetector gesture={nativeGesture}>{content}</GestureDetector> : content;
+  const content = (
+    <Animated.ScrollView
+      bounces={false}
+      alwaysBounceVertical={false}
+      overScrollMode="never"
+      {...rest}
+      onScroll={scrollHandler as any}
+      scrollEventThrottle={16}
+    />
+  );
+  return ctx ? <GestureDetector gesture={ctx.nativeScrollGesture}>{content}</GestureDetector> : content;
 }
 
 export function SheetFlatList(props: FlatListProps<any>) {
@@ -41,9 +50,16 @@ export function SheetFlatList(props: FlatListProps<any>) {
       onScroll?.((event as any) as Parameters<NonNullable<FlatListProps<any>['onScroll']>>[0]);
     },
   });
-  const content = <Animated.FlatList {...(rest as any)} onScroll={scrollHandler as any} scrollEventThrottle={16} />;
-  const nativeGesture = ctx ? Gesture.Native().simultaneousWithExternalGesture(ctx.pan) : null;
-  return nativeGesture ? <GestureDetector gesture={nativeGesture}>{content}</GestureDetector> : content;
+  const content = (
+    <Animated.FlatList
+      bounces={false}
+      overScrollMode="never"
+      {...(rest as any)}
+      onScroll={scrollHandler as any}
+      scrollEventThrottle={16}
+    />
+  );
+  return ctx ? <GestureDetector gesture={ctx.nativeScrollGesture}>{content}</GestureDetector> : content;
 }
 
 type BottomSheetProps = {
@@ -66,6 +82,8 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
   const { height: windowHeight } = useWindowDimensions();
   const translateY = useSharedValue(windowHeight);
   const sheetHeight = useSharedValue(windowHeight);
+  const contentOffsetY = useSharedValue(0);
+  const nativeScrollGesture = useMemo(() => Gesture.Native(), []);
 
   const requestClose = () => {
     if (!visible) return;
@@ -76,30 +94,47 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
 
   useEffect(() => {
     if (visible) {
+      contentOffsetY.value = 0;
       translateY.value = withTiming(0, { duration: 260 });
     }
-  }, [visible, translateY]);
+  }, [visible, translateY, contentOffsetY]);
 
-  const contentOffsetY = useSharedValue(0);
+  const settleOrDismiss = (translationY: number, velocityY: number) => {
+    'worklet';
+    const shouldDismiss = translationY > 72 || translationY > sheetHeight.value * 0.12 || velocityY > 500;
+    if (shouldDismiss) {
+      translateY.value = withTiming(sheetHeight.value + 60, { duration: 220 }, (finished) => {
+        if (finished) runOnJS(onClose)();
+      });
+      return;
+    }
+    translateY.value = withSpring(0, { damping: 18, stiffness: 200 });
+  };
 
   const pan = Gesture.Pan()
-    .activeOffsetY(8)
+    .simultaneousWithExternalGesture(nativeScrollGesture)
+    .activeOffsetY(10)
+    .failOffsetX([-28, 28])
     .onUpdate((event) => {
-      // Only drag the sheet when the inner scrollable is at the top.
-      // Otherwise a downward swipe scrolls the list instead of closing the sheet.
-      if (contentOffsetY.value > 0) return;
+      const draggingSheet = translateY.value > 0;
+      const atTop = contentOffsetY.value <= 2;
+      if (event.translationY <= 0 && !draggingSheet) return;
+      if (!atTop && !draggingSheet) return;
       translateY.value = Math.max(0, event.translationY);
     })
     .onEnd((event) => {
-      if (contentOffsetY.value > 0) return;
-      const shouldDismiss = event.translationY > sheetHeight.value * 0.2 || event.velocityY > 700;
-      if (shouldDismiss) {
-        translateY.value = withTiming(sheetHeight.value + 60, { duration: 220 }, (finished) => {
-          if (finished) runOnJS(onClose)();
-        });
-      } else {
-        translateY.value = withSpring(0, { damping: 18, stiffness: 200 });
-      }
+      if (translateY.value <= 0 && contentOffsetY.value > 2) return;
+      settleOrDismiss(event.translationY, event.velocityY);
+    });
+
+  const handlePan = Gesture.Pan()
+    .activeOffsetY(6)
+    .failOffsetX([-40, 40])
+    .onUpdate((event) => {
+      translateY.value = Math.max(0, event.translationY);
+    })
+    .onEnd((event) => {
+      settleOrDismiss(event.translationY, event.velocityY);
     });
 
   const sheetAnimatedStyle = useAnimatedStyle(() => ({
@@ -124,8 +159,14 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
                 sheetStyle,
               ]}
             >
-              {showHandle ? <View style={[styles.handle, { backgroundColor: colors.cardBorder }]} /> : null}
-              <BottomSheetContext.Provider value={{ pan, contentOffsetY }}>
+              {showHandle ? (
+                <GestureDetector gesture={handlePan}>
+                  <View style={styles.handleHit} hitSlop={12}>
+                    <View style={[styles.handle, { backgroundColor: colors.cardBorder }]} />
+                  </View>
+                </GestureDetector>
+              ) : null}
+              <BottomSheetContext.Provider value={{ pan, nativeScrollGesture, contentOffsetY }}>
                 {children}
               </BottomSheetContext.Provider>
             </Animated.View>
@@ -148,11 +189,15 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     overflow: 'hidden',
   },
+  handleHit: {
+    alignItems: 'center',
+    paddingBottom: 8,
+    paddingTop: 8,
+    width: '100%',
+  },
   handle: {
-    alignSelf: 'center',
     borderRadius: 3,
     height: 4,
-    marginTop: 8,
     width: 40,
   },
 });

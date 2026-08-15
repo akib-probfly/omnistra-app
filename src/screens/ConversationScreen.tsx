@@ -22,7 +22,7 @@ import {
 import { ConversationComposer } from '../components/ConversationComposer';
 import type { ComposerSendPayload } from '../components/ConversationComposer';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
-import { ConversationSkeleton } from '../components/Skeleton';
+import { ConversationSkeleton, ComposerSkeleton } from '../components/Skeleton';
 import { InboxPatternBackground } from '../components/InboxPatternBackground';
 import { MediaViewer } from '../components/MediaViewer';
 import { VideoPlayerModal } from '../components/VideoPlayer';
@@ -594,11 +594,12 @@ export function ConversationScreen() {
   const isWhatsAppConversation = (channelType ?? '').toUpperCase() === 'WHATSAPP';
   const isMessengerConversation = (channelType ?? '').toUpperCase() === 'MESSENGER';
   const messengerAvailability = getMessengerMessagingAvailability(header.conversation);
+  const messengerMessagingReady = Boolean(header.conversation);
   const canSendSelectedMessengerMode = messengerMessagingMode === 'STANDARD'
     ? messengerAvailability.canSendStandardMessage
     : messengerAvailability.canSendHumanAgentMessage;
   const canSendFreeform = isMessengerConversation
-    ? canSendSelectedMessengerMode
+    ? (messengerMessagingReady ? canSendSelectedMessengerMode : true)
     : header.conversation?.messaging?.canSendFreeformMessage;
   const contactSubtitle =
     formatPhoneNumberDisplay(header.conversation?.contact?.primaryPhone) ??
@@ -823,6 +824,7 @@ export function ConversationScreen() {
           ) : null}
         </View>
         {messages.isError ? <Text style={[styles.error, { color: colors.error }]}>{messages.error instanceof Error ? messages.error.message : 'Unable to load messages.'}</Text> : null}
+        {(header.conversation || messages.data?.conversation) ? (
         <ConversationComposer
           value={draft} onChange={setDraft} sending={send.isPending}
           attachments={attachments} onAttachments={setAttachments}
@@ -837,7 +839,11 @@ export function ConversationScreen() {
           onMessengerMessagingModeChange={setMessengerMessagingMode}
           canSendStandardMessage={messengerAvailability.canSendStandardMessage}
           canSendHumanAgentMessage={messengerAvailability.canSendHumanAgentMessage}
+          messengerMessagingReady={messengerMessagingReady}
         />
+        ) : (
+          <ComposerSkeleton />
+        )}
       </View>
       <ReactionPicker
         visible={Boolean(reactTarget)}

@@ -145,6 +145,24 @@ export function ConversationSkeleton() {
   );
 }
 
+export function ComposerSkeleton() {
+  const { colors } = useTheme();
+  return (
+    <SkeletonPulse style={[styles.composer, { borderColor: colors.cardBorder }]}>
+      <SkeletonBone height={18} radius={8} width="72%" />
+      <SkeletonBone height={12} radius={8} width="44%" style={styles.gap} />
+      <View style={styles.composerActions}>
+        <SkeletonBone width={64} height={28} radius={999} />
+        <SkeletonBone width={20} height={20} radius={10} />
+        <SkeletonBone width={20} height={20} radius={10} />
+        <SkeletonBone width={20} height={20} radius={10} />
+        <View style={styles.composerSpacer} />
+        <SkeletonBone width={40} height={40} radius={20} />
+      </View>
+    </SkeletonPulse>
+  );
+}
+
 export function InlineSkeleton({ width = 120, height = 16 }: { width?: number; height?: number }) {
   return (
     <SkeletonPulse>
@@ -214,4 +232,18 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   bubbleRow: { backgroundColor: 'transparent', flexDirection: 'row', marginBottom: 12 },
+  composer: {
+    backgroundColor: 'transparent',
+    borderRadius: 24,
+    borderWidth: 1,
+    margin: 12,
+    padding: 12,
+  },
+  composerActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 14,
+    marginTop: 16,
+  },
+  composerSpacer: { flex: 1 },
 });

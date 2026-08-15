@@ -36,6 +36,7 @@ type Props = {
   onMessengerMessagingModeChange?: (mode: MessengerMessagingMode) => void;
   canSendStandardMessage?: boolean;
   canSendHumanAgentMessage?: boolean;
+  messengerMessagingReady?: boolean;
 };
 
 function renderQuickReplyBody(body: string, context: Record<string, string>): string {
@@ -81,6 +82,7 @@ export function ConversationComposer({
   onMessengerMessagingModeChange,
   canSendStandardMessage = false,
   canSendHumanAgentMessage = false,
+  messengerMessagingReady = true,
 }: Props) {
   const { colors, isDark } = useTheme();
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -388,7 +390,7 @@ export function ConversationComposer({
 
   const isWhatsApp = isWhatsAppChannel;
   const whatsappWindowExpired = isWhatsApp && canSendFreeform === false;
-  const messengerWindowExpired = isMessengerChannel && !canSendStandardMessage && !canSendHumanAgentMessage;
+  const messengerWindowExpired = isMessengerChannel && messengerMessagingReady && !canSendStandardMessage && !canSendHumanAgentMessage;
   const canComposeFreeform = canSendFreeform !== false;
 
   if (messengerWindowExpired) {
