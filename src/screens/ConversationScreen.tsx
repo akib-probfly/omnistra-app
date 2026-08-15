@@ -727,22 +727,27 @@ export function ConversationScreen() {
     <KeyboardAvoidingView style={[styles.screen, { backgroundColor: colors.background, flex: 1 }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <Pressable onPress={() => navigation.navigate('Inbox', { screen: 'InboxList' })}><ArrowLeft color={colors.textSecondary} size={23} /></Pressable>
-        <View style={styles.avatarWrap}>
-          <ColorfulAvatar
-            name={title}
-            size={42}
-            url={header.conversation?.contact?.avatarUrl ?? null}
-          />
-          <View style={[styles.presence, { borderColor: colors.surface }]} />
-        </View>
-        <View style={styles.titleBlock}>
-          <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{title}</Text>
-          {contactSubtitle ? (
-            <Text style={[styles.contactSubtitle, { color: colors.textMuted }]}>
-              {contactSubtitle}
-            </Text>
-          ) : null}
-        </View>
+        <Pressable
+          onPress={() => { if (header.conversation) setDetailsOpen(true); }}
+          style={styles.headerIdentity}
+        >
+          <View style={styles.avatarWrap}>
+            <ColorfulAvatar
+              name={title}
+              size={42}
+              url={header.conversation?.contact?.avatarUrl ?? null}
+            />
+            <View style={[styles.presence, { borderColor: colors.surface }]} />
+          </View>
+          <View style={styles.titleBlock}>
+            <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{title}</Text>
+            {contactSubtitle ? (
+              <Text style={[styles.contactSubtitle, { color: colors.textMuted }]}>
+                {contactSubtitle}
+              </Text>
+            ) : null}
+          </View>
+        </Pressable>
         <View style={styles.headerActions}>
           {isWhatsAppConversation ? (
             <Pressable
@@ -973,6 +978,7 @@ const styles = StyleSheet.create({
   body: { backgroundColor: 'transparent', flex: 1 },
   header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#dbe4f1', borderBottomWidth: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 10, paddingVertical: 9 },
   avatarWrap: { flexShrink: 0, position: 'relative' },
+  headerIdentity: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 8, minWidth: 0 },
   presence: { backgroundColor: '#22c55e', borderColor: '#fff', borderRadius: 6, borderWidth: 1.5, bottom: 1, height: 12, position: 'absolute', right: 1, width: 12 },
   titleBlock: { flex: 1, minWidth: 0 },
   name: { color: '#0f172a', fontWeight: '700' },
