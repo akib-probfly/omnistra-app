@@ -3,9 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreVertical, Phone, Reply, Star, UserRound } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
+import { ConversationAssignmentSheet } from '../components/ConversationAssignmentSheet';
 import { ContactDetailsPanel, formatPhoneNumberDisplay, formatUsernameDisplay } from '../components/ContactDetailsPanel';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useIsFocused, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -29,7 +30,7 @@ import { VideoPlayerModal } from '../components/VideoPlayer';
 import { MessageBubble } from '../components/MessageBubble';
 import { AssignmentHistoryItem } from '../components/AssignmentHistoryItem';
 import { ReactionPicker } from '../components/ReactionPicker';
-import { fetchAssigneeOptions, fetchConversationAssignmentEvents, fetchConversationCallSessions, fetchMessagesPage, markConversationRead, markConversationUnread, sendReaction, sendTemplateMessage, updateConversationAssignment, updateConversationStar, updateConversationStatus, type ConversationCallSession } from '../api/inbox';
+import { fetchConversationAssignmentEvents, fetchConversationCallSessions, fetchMessagesPage, markConversationRead, markConversationUnread, sendReaction, sendTemplateMessage, updateConversationAssignment, updateConversationStar, updateConversationStatus, type AssigneeFilterOption, type ConversationCallSession } from '../api/inbox';
 import type { InboxStackParamList } from '../navigation/InboxStack';
 import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getConversationTitle, getMessengerMessagingAvailability, getVoiceCallButtonState, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
 import { CallHistoryItem } from '../components/CallHistoryItem';
@@ -75,7 +76,7 @@ export function ConversationScreen() {
   const [olderCursor, setOlderCursor] = useState<string | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [atBottom, setAtBottom] = useState(true);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [assignmentOpen, setAssignmentOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [header, setHeader] = useState({ isStarred: false, unreadCount: 0, status: 'OPEN' as string, conversation: null as any });
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
@@ -429,11 +430,22 @@ export function ConversationScreen() {
   });
   const statusMutation = useMutation({ mutationFn: (status: string) => updateConversationStatus(route.params.conversationId, status as 'OPEN' | 'CLOSED'), onSuccess: (_, status) => setHeader((c) => ({ ...c, status })) });
   const assignmentMutation = useMutation({
-    mutationFn: (assigneeWorkspaceMemberId: string | null) => updateConversationAssignment(route.params.conversationId, assigneeWorkspaceMemberId),
-    onSuccess: (_, assigneeWorkspaceMemberId) => {
-      const conversation = header.conversation as any;
-      const assignee = assigneeWorkspaceMemberId ? { ...(conversation?.assignee ?? {}), workspaceMemberId: assigneeWorkspaceMemberId } : null;
-      setHeader((c) => ({ ...c, conversation: { ...(c.conversation ?? {}), assignee } }));
+    mutationFn: (assignee: AssigneeFilterOption | null) => updateConversationAssignment(route.params.conversationId, assignee?.workspaceMemberId ?? null),
+    onSuccess: (_, assignee) => {
+      setHeader((c) => ({
+        ...c,
+        conversation: {
+          ...(c.conversation ?? {}),
+          assignee: assignee
+            ? {
+                workspaceMemberId: assignee.workspaceMemberId,
+                userName: assignee.name,
+                userEmail: assignee.email,
+                avatarUrl: assignee.avatarUrl,
+              }
+            : null,
+        },
+      }));
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
       void queryClient.invalidateQueries({ queryKey: ['assignment-events', route.params.conversationId], refetchType: 'all' });
     },
@@ -603,8 +615,6 @@ export function ConversationScreen() {
     messengerAvailability.canSendHumanAgentMessage,
     header.conversation,
   ]);
-  const assigneeLabel = header.conversation?.assignee?.userName ?? header.conversation?.assignee?.userEmail ?? (header.conversation?.assignee ? 'Assigned agent' : 'Unassigned');
-
   const callsQuery = useQuery({
     queryKey: ['conversation-calls', route.params.conversationId],
     queryFn: () => fetchConversationCallSessions({ conversationId: route.params.conversationId, limit: 10 }),
@@ -671,27 +681,6 @@ export function ConversationScreen() {
     });
   }, [timeline]);
 
-  const assignToMe = async () => {
-    setMenuOpen(false);
-    const userEmail = session?.user?.email?.toLowerCase();
-    if (!userEmail) {
-      Alert.alert('Unable to assign', 'Your user account is not available.');
-      return;
-    }
-    try {
-      const workspaceId = header.conversation?.workspaceId ?? route.params.workspaceId;
-      const options = await fetchAssigneeOptions(workspaceId, channelId);
-      const match = options.find((member) => member.email.toLowerCase() === userEmail);
-      if (!match) {
-        Alert.alert('Unable to assign', 'Could not find your workspace member profile.');
-        return;
-      }
-      assignmentMutation.mutate(match.workspaceMemberId);
-    } catch (error) {
-      Alert.alert('Could not assign', error instanceof Error ? error.message : 'Please try again.');
-    }
-  };
-
   const onScroll = (event: any) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
     const atBottom = contentOffset.y < 120;
@@ -748,7 +737,7 @@ export function ConversationScreen() {
           >
             {header.unreadCount > 0 ? <Mail color={colors.textSecondary} size={19} /> : <MailOpen color={colors.textSecondary} size={19} />}
           </Pressable>
-          <Pressable onPress={() => setMenuOpen(true)} hitSlop={6}><UserRound color={colors.textSecondary} size={19} /></Pressable>
+          <Pressable onPress={() => setAssignmentOpen(true)} hitSlop={6}><UserRound color={colors.textSecondary} size={19} /></Pressable>
           <Pressable onPress={() => setDetailsOpen(true)} hitSlop={6}><MoreVertical color={colors.textSecondary} size={19} /></Pressable>
         </View>
       </View>
@@ -832,51 +821,31 @@ export function ConversationScreen() {
       />
       <MediaViewer images={gallery} index={galleryIndex} onClose={() => setGallery([])} onIndex={setGalleryIndex} />
       <VideoPlayerModal url={videoUrl} visible={Boolean(videoUrl)} onClose={() => setVideoUrl(null)} />
-      <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
-        <Pressable style={styles.menuOverlay} onPress={() => setMenuOpen(false)}>
-          <View style={[styles.menuCard, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.menuTitle, { color: colors.text }]}>{title}</Text>
-            <View style={styles.menuRow}>
-              <Text style={[styles.menuLabel, { color: colors.textSecondary }]}>Assigned to</Text>
-              <Text style={[styles.menuValue, { color: colors.text }]}>{assigneeLabel}</Text>
-            </View>
-            <View style={styles.menuRow}>
-              <Text style={[styles.menuLabel, { color: colors.textSecondary }]}>Status</Text>
-              <Text style={[styles.menuValue, { color: colors.text }, header.status === 'CLOSED' && styles.menuClosed, header.status === 'CLOSED' && { color: colors.error }]}>{header.status === 'CLOSED' ? 'Closed' : 'Open'}</Text>
-            </View>
-            <View style={[styles.menuDivider, { backgroundColor: colors.separator }]} />
-            <Pressable style={[styles.menuAction, { backgroundColor: colors.surfaceSecondary }]} onPress={assignToMe}>
-              <Text style={[styles.menuActionText, { color: colors.primary }]}>Assign to me</Text>
-            </Pressable>
-            {header.conversation?.assignee ? (
-              <Pressable style={[styles.menuAction, { backgroundColor: colors.surfaceSecondary }]} onPress={() => { setMenuOpen(false); assignmentMutation.mutate(null); }}>
-                <Text style={[styles.menuActionText, { color: colors.primary }]}>Unassign</Text>
-              </Pressable>
-            ) : null}
-            <Pressable
-              style={[styles.menuAction, { backgroundColor: colors.surfaceSecondary }]}
-              onPress={() => {
-                setMenuOpen(false);
-                if (readMutation.isPending || unreadMutation.isPending) return;
-                if (header.unreadCount > 0) {
-                  manualReadToggleRef.current = true;
-                  readMutation.mutate();
-                } else {
-                  unreadMutation.mutate();
-                }
-              }}
-            >
-              <Text style={[styles.menuActionText, { color: colors.primary }]}>{header.unreadCount > 0 ? 'Mark as read' : 'Mark as unread'}</Text>
-            </Pressable>
-            <Pressable style={[styles.menuAction, { backgroundColor: colors.surfaceSecondary }]} onPress={() => { setMenuOpen(false); statusMutation.mutate(header.status === 'CLOSED' ? 'OPEN' : 'CLOSED'); }}>
-              <Text style={[styles.menuActionText, { color: colors.primary }, header.status === 'CLOSED' && styles.menuClosed, header.status === 'CLOSED' && { color: colors.error }]}>{header.status === 'CLOSED' ? 'Reopen conversation' : 'Mark as closed'}</Text>
-            </Pressable>
-            <Pressable style={[styles.menuAction, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setMenuOpen(false)}>
-              <Text style={[styles.menuCancel, { color: colors.textMuted }]}>Cancel</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
+      <ConversationAssignmentSheet
+        visible={assignmentOpen}
+        onClose={() => setAssignmentOpen(false)}
+        title={title}
+        workspaceId={header.conversation?.workspaceId ?? route.params.workspaceId}
+        channelId={channelId}
+        assignee={header.conversation?.assignee ?? null}
+        status={header.status}
+        unreadCount={header.unreadCount}
+        isUpdating={assignmentMutation.isPending}
+        isUpdatingRead={readMutation.isPending || unreadMutation.isPending}
+        isUpdatingStatus={statusMutation.isPending}
+        errorMessage={assignmentMutation.error instanceof Error ? assignmentMutation.error.message : null}
+        onAssign={(member) => assignmentMutation.mutate(member)}
+        onToggleRead={() => {
+          if (readMutation.isPending || unreadMutation.isPending) return;
+          if (header.unreadCount > 0) {
+            manualReadToggleRef.current = true;
+            readMutation.mutate();
+          } else {
+            unreadMutation.mutate();
+          }
+        }}
+        onToggleStatus={() => statusMutation.mutate(header.status === 'CLOSED' ? 'OPEN' : 'CLOSED')}
+      />
       {header.conversation ? (
         <ContactDetailsPanel
           visible={detailsOpen}
@@ -978,17 +947,6 @@ const styles = StyleSheet.create({
   dayDivider: { alignSelf: 'center', backgroundColor: '#e8eef7', borderRadius: 999, color: '#526987', fontSize: 12, fontWeight: '600', marginVertical: 8, overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 6 },
   olderPill: { alignSelf: 'center', color: '#64748b', fontSize: 12, marginVertical: 6 },
   fab: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 22, bottom: 16, elevation: 3, height: 44, justifyContent: 'center', position: 'absolute', right: 16, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 5, width: 44 },
-  menuOverlay: { alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'center', padding: 24 },
-  menuCard: { backgroundColor: '#fff', borderRadius: 16, maxWidth: 380, padding: 18, width: '100%' },
-  menuTitle: { color: '#0f172a', fontSize: 16, fontWeight: '800', marginBottom: 10 },
-  menuRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  menuLabel: { color: '#64748b', fontSize: 13 },
-  menuValue: { color: '#0f172a', fontSize: 13, fontWeight: '700' },
-  menuClosed: { color: '#dc2626' },
-  menuDivider: { backgroundColor: '#e2e8f0', height: StyleSheet.hairlineWidth, marginVertical: 10 },
-  menuAction: { alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 10, marginTop: 6, paddingVertical: 12 },
-  menuActionText: { color: '#2563eb', fontSize: 14, fontWeight: '700' },
-  menuCancel: { color: '#94a3b8', fontSize: 14, fontWeight: '600' },
   replyAction: { alignItems: 'center', justifyContent: 'center', marginVertical: 3, width: 56 },
   replyIconCircle: {
     alignItems: 'center',
