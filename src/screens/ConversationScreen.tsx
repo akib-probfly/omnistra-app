@@ -52,6 +52,58 @@ function timelineKeyExtractor(row: TimelineRow) {
 function TimelineSeparator() {
   return <View style={{ height: 10 }} />;
 }
+
+const TimelineRowItem = memo(function TimelineRowItem({
+  row,
+  highlighted,
+  channelName,
+  replyTarget,
+  reactions,
+  dayLabelBg,
+  dayLabelColor,
+  onReply,
+  onReact,
+  onImage,
+  onVideo,
+  onJumpToMessage,
+}: {
+  row: TimelineRow;
+  highlighted: boolean;
+  channelName?: string | null;
+  replyTarget: Message | null;
+  reactions?: Array<{ emoji: string; count: number }>;
+  dayLabelBg: string;
+  dayLabelColor: string;
+  onReply: (message: Message) => void;
+  onReact: (message: Message) => void;
+  onImage: (attachId: string) => void;
+  onVideo: (attachment: any) => void;
+  onJumpToMessage: (messageId: string) => void;
+}) {
+  const { entry, showDivider } = row;
+  return (
+    <View style={[styles.timelineRow, highlighted ? styles.highlightRow : undefined]}>
+      {showDivider ? <Text style={[styles.dayDivider, { backgroundColor: dayLabelBg, color: dayLabelColor }]}>{formatTimelineDayLabel(new Date(entry.timestamp))}</Text> : null}
+      {entry.kind === 'call' ? (
+        <CallHistoryItem session={entry.session} />
+      ) : entry.kind === 'assignment' ? (
+        <AssignmentHistoryItem event={entry.event} />
+      ) : (
+        <SwipeableMessage
+          message={entry.message}
+          channelName={channelName}
+          setReplyTo={onReply}
+          setReactTarget={onReact}
+          onImage={onImage}
+          onVideo={onVideo}
+          replyTarget={replyTarget}
+          reactions={reactions}
+          onJumpToMessage={onJumpToMessage}
+        />
+      )}
+    </View>
+  );
+});
 const apiUrl = (value: string | null) => {
   if (!value) return null;
   const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.omnistra.ai/api/v1';
@@ -714,14 +766,31 @@ export function ConversationScreen() {
     return () => clearTimeout(timeout);
   }, [messages.data, route.params.conversationId]);
 
-  const onScroll = (event: any) => {
+  const channelName = header.conversation?.channel?.channelName ?? null;
+  const onScroll = useCallback((event: any) => {
     const nextAtBottom = Math.abs(event.nativeEvent.contentOffset.y) <= 96;
     isAtBottomRef.current = nextAtBottom;
     setAtBottom((current) => (current === nextAtBottom ? current : nextAtBottom));
-  };
-
-  const channelName = header.conversation?.channel?.channelName ?? null;
-  const renderMessage = ({ item }: { item: Message }) => <SwipeableMessage message={item} channelName={channelName} setReplyTo={setReplyTo} setReactTarget={setReactTarget} onImage={openImage} onVideo={openVideo} replyTarget={messageById.get(item.replyToMessageId ?? '') ?? null} reactions={reactionGroups[item.id]} onJumpToMessage={jumpToMessage} />;
+  }, []);
+  const renderTimelineItem = useCallback(({ item }: { item: TimelineRow }) => {
+    const message = item.entry.kind === 'message' ? item.entry.message : null;
+    return (
+      <TimelineRowItem
+        row={item}
+        highlighted={Boolean(message && message.id === highlightedMessageId)}
+        channelName={channelName}
+        replyTarget={message ? (messageById.get(message.replyToMessageId ?? '') ?? null) : null}
+        reactions={message ? reactionGroups[message.id] : undefined}
+        dayLabelBg={colors.surfaceSecondary}
+        dayLabelColor={colors.textSecondary}
+        onReply={setReplyTo}
+        onReact={setReactTarget}
+        onImage={openImage}
+        onVideo={openVideo}
+        onJumpToMessage={jumpToMessage}
+      />
+    );
+  }, [channelName, colors.surfaceSecondary, colors.textSecondary, highlightedMessageId, jumpToMessage, messageById, openImage, openVideo, reactionGroups]);
 
   return (
     <KeyboardAvoidingView style={[styles.screen, { backgroundColor: colors.background, flex: 1 }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -792,10 +861,11 @@ export function ConversationScreen() {
                 contentContainerStyle={styles.listContent}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="none"
-                initialNumToRender={24}
-                maxToRenderPerBatch={16}
-                windowSize={12}
-                removeClippedSubviews={false}
+                initialNumToRender={10}
+                maxToRenderPerBatch={8}
+                updateCellsBatchingPeriod={50}
+                windowSize={7}
+                removeClippedSubviews={Platform.OS === 'android'}
                 onScroll={onScroll}
                 scrollEventThrottle={16}
                 onEndReached={() => {
@@ -804,22 +874,7 @@ export function ConversationScreen() {
                 }}
                 onEndReachedThreshold={0.3}
                 ListFooterComponent={loadingOlder ? <Text style={[styles.olderPill, { color: colors.textSecondary }]}>Loading older messages...</Text> : null}
-                renderItem={({ item }) => {
-                  const { entry, showDivider } = item;
-                  const highlighted = entry.kind === 'message' && entry.message.id === highlightedMessageId;
-                  return (
-                    <View style={[styles.timelineRow, highlighted ? styles.highlightRow : undefined]}>
-                      {showDivider ? <Text style={[styles.dayDivider, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{formatTimelineDayLabel(new Date(entry.timestamp))}</Text> : null}
-                      {entry.kind === 'call' ? (
-                        <CallHistoryItem session={entry.session} />
-                      ) : entry.kind === 'assignment' ? (
-                        <AssignmentHistoryItem event={entry.event} />
-                      ) : (
-                        renderMessage({ item: entry.message })
-                      )}
-                    </View>
-                  );
-                }}
+                renderItem={renderTimelineItem}
             />
           ) : (
             <ConversationSkeleton />
