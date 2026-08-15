@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { Check, CheckCheck, FileText, ExternalLink, ChevronDown, ChevronUp, Megaphone, Sparkles } from 'lucide-react-native';
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AuthenticatedImage } from './AuthenticatedImage';
 import { VideoThumb } from './VideoThumb';
@@ -68,6 +68,10 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
   const failedReason = outgoing && statusMeta?.showFailed ? getMessageFailureReason(message) : null;
   const [expanded, setExpanded] = useState(false);
   const [canExpand, setCanExpand] = useState(false);
+  useEffect(() => {
+    setExpanded(false);
+    setCanExpand(false);
+  }, [message.id]);
 
   function renderBody() {
     if (!body) return null;
@@ -243,6 +247,9 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
             ))}
           </View>
         ) : null}
+        {!showBody && !templateDisplay && !imageAttachments.length && !videoAttachments.length && !voiceAttachments.length && !documentAttachments.length && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(mediaType) ? (
+          <Text style={[styles.missingMedia, outgoing && styles.outgoingMuted, !outgoing && { color: colors.textMuted }]}>Attachment</Text>
+        ) : null}
         {showBody ? renderBody() : null}
         {showLinkPreview ? <LinkPreviewCard url={firstUrl} outgoing={outgoing} /> : null}
         <View style={styles.metaRow}>
@@ -405,6 +412,7 @@ const styles = StyleSheet.create({
   docList: { gap: 6 },
   file: { alignItems: 'center', flexDirection: 'row', gap: 10, paddingVertical: 2 },
   fileName: { color: '#17233a', flex: 1, fontSize: 14 },
+  missingMedia: { color: '#94a3b8', fontSize: 13, fontStyle: 'italic' },
   metaRow: { alignItems: 'center', flexDirection: 'row', gap: 6, marginTop: 6 },
   metaRight: { alignItems: 'center', flexDirection: 'row', gap: 6, marginLeft: 'auto' },
   status: { color: '#dbeafe', fontSize: 11 },

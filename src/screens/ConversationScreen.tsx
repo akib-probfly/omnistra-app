@@ -7,7 +7,7 @@ import { ConversationAssignmentSheet } from '../components/ConversationAssignmen
 import { ContactDetailsPanel, formatPhoneNumberDisplay, formatUsernameDisplay } from '../components/ContactDetailsPanel';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { FlatList } from 'react-native-gesture-handler';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useIsFocused, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -44,6 +44,27 @@ type Attachment = { id: string; messageId?: string | null; mediaType: string; mi
 type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBOUND'; senderType?: string | null; sender?: { userName?: string | null; userEmail?: string | null } | null; type: string; text: string | null; deliveryStatus?: string; failureReason?: string | null; campaignId?: string | null; campaignName?: string | null; replyToMessageId?: string | null; replyTo?: { sender?: { userName?: string | null } | null; text?: string | null } | null; sentAt?: string | null; createdAt?: string; metadata?: any; attachments?: Attachment[] };
 type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT' };
 type MediaItem = { attachId: string; src: string; mediaType: string };
+type TimelineRow = { entry: ConversationTimelineEntry; showDivider: boolean };
+
+const THREAD_LIST_POSITION = {
+  startRenderingFromBottom: true,
+  autoscrollToBottomThreshold: 0.08,
+  animateAutoScrollToBottom: false,
+} as const;
+
+function timelineKeyExtractor(row: TimelineRow) {
+  return `${row.entry.kind}:${row.entry.id}`;
+}
+
+function timelineItemType(row: TimelineRow) {
+  if (row.entry.kind !== 'message') return row.entry.kind;
+  const message = row.entry.message;
+  return `message:${message.direction}:${message.type ?? 'TEXT'}:${message.attachments?.length ? 'media' : 'plain'}`;
+}
+
+function TimelineSeparator() {
+  return <View style={{ height: 10 }} />;
+}
 const apiUrl = (value: string | null) => {
   if (!value) return null;
   const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.omnistra.ai/api/v1';
@@ -66,7 +87,7 @@ export function ConversationScreen() {
   const { session } = useAuth();
   const { colors } = useTheme();
   const callController = useCallController();
-  const listRef = useRef<FlatList>(null);
+  const listRef = useRef<FlashListRef<TimelineRow>>(null);
   const [draft, setDraft] = useState(''); const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [attachments, setAttachments] = useState<SendAttachment[]>([]);
   const [gallery, setGallery] = useState<MediaItem[]>([]); const [galleryIndex, setGalleryIndex] = useState(0);
@@ -76,6 +97,7 @@ export function ConversationScreen() {
   const [olderCursor, setOlderCursor] = useState<string | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [atBottom, setAtBottom] = useState(true);
+  const [listVisible, setListVisible] = useState(false);
   const [assignmentOpen, setAssignmentOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [header, setHeader] = useState({ isStarred: false, unreadCount: 0, status: 'OPEN' as string, conversation: null as any });
@@ -85,6 +107,8 @@ export function ConversationScreen() {
   const initializedMessengerModeConversationIdRef = useRef<string | null>(null);
   const hasMoreRef = useRef(false);
   const loadOlderRef = useRef<() => Promise<void>>(async () => {});
+  const loadingOlderRef = useRef(false);
+  const listReadyRef = useRef(false);
   const timelineRef = useRef<ConversationTimelineEntry[]>([]);
   const isAtBottomRef = useRef(true);
 
@@ -148,7 +172,7 @@ export function ConversationScreen() {
       return { items, nextCursor: page.pageInfo?.nextCursor ?? null, hasMore: page.pageInfo?.hasMore ?? false, conversation: page.conversation ?? null };
     },
     enabled: isFocused,
-    staleTime: 0,
+    staleTime: 15_000,
     // Realtime updates the open thread; keep a slow poll as a safety net for zombie sockets.
     // Briefly poll faster after send for delivery receipts.
     refetchInterval: () => {
@@ -173,6 +197,11 @@ export function ConversationScreen() {
     deliveryPollUntilRef.current = 0;
     setOlderMessages([]);
     setOlderCursor(null);
+    loadingOlderRef.current = false;
+    listReadyRef.current = false;
+    isAtBottomRef.current = true;
+    setAtBottom(true);
+    setListVisible(false);
   }, [route.params.conversationId]);
 
   useEffect(() => {
@@ -278,7 +307,7 @@ export function ConversationScreen() {
         if (!current || !Array.isArray(current.items)) return current;
         return { ...current, items: [...current.items, optimistic] };
       });
-      setTimeout(() => listRef.current?.scrollToOffset({ offset: 0, animated: true }), 100);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
       return {
         tempId,
         clientKey,
@@ -478,13 +507,18 @@ export function ConversationScreen() {
   useEffect(() => { if (olderCursor && !messages.data?.hasMore && olderMessages.length === 0) setOlderCursor(null); }, [olderCursor, messages.data?.hasMore, olderMessages.length]);
 
   const loadOlder = useCallback(async () => {
-    if (loadingOlder || !olderCursor || messages.data?.hasMore === false) return;
+    if (loadingOlderRef.current || !olderCursor || messages.data?.hasMore === false) return;
+    loadingOlderRef.current = true;
     setLoadingOlder(true);
     try {
       const page = await fetchMessagesPage(route.params.conversationId, olderCursor, 50);
-      const files = await apiFetch<{ items: Attachment[] }>(`/conversations/${route.params.conversationId}/attachments?limit=100`);
-      const grouped = new Map<string, Attachment[]>();
-      files.items.forEach((file) => file.messageId && grouped.set(file.messageId, [...(grouped.get(file.messageId) ?? []), file]));
+      let grouped = new Map<string, Attachment[]>();
+      try {
+        const files = await apiFetch<{ items: Attachment[] }>(`/conversations/${route.params.conversationId}/attachments?limit=100`);
+        files.items.forEach((file) => file.messageId && grouped.set(file.messageId, [...(grouped.get(file.messageId) ?? []), file]));
+      } catch (error) {
+        console.warn('[conversation] older attachments unavailable', error);
+      }
       const items = page.items.map((message: any) => {
         const messageAttachments = message.attachments?.length ? message.attachments : grouped.get(message.id) ?? [];
         const mediaOnly = messageAttachments.length > 0 && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(message.type);
@@ -499,9 +533,10 @@ export function ConversationScreen() {
     } catch (error) {
       console.error('[conversation] load older failed', error);
     } finally {
+      loadingOlderRef.current = false;
       setLoadingOlder(false);
     }
-  }, [loadingOlder, olderCursor, messages.data?.hasMore, route.params.conversationId]);
+  }, [olderCursor, messages.data?.hasMore, route.params.conversationId]);
 
   loadOlderRef.current = loadOlder;
 
@@ -523,10 +558,9 @@ export function ConversationScreen() {
 
   const jumpToMessage = useCallback((messageId: string) => {
     const scrollToTarget = () => {
-      const chronologicalIndex = timelineRef.current.findIndex((entry) => entry.kind === 'message' && entry.message.id === messageId);
-      if (chronologicalIndex < 0) return false;
-      const index = timelineRef.current.length - 1 - chronologicalIndex;
-      listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
+      const index = timelineRef.current.findIndex((entry) => entry.kind === 'message' && entry.message.id === messageId);
+      if (index < 0) return false;
+      void listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
       highlightMessage(messageId);
       return true;
     };
@@ -672,21 +706,31 @@ export function ConversationScreen() {
     [allMessages, callSessions, assignmentEvents],
   );
   timelineRef.current = timeline;
-  const displayEntries = useMemo(() => {
-    const reversed = [...timeline].reverse();
-    return reversed.map((entry, index) => {
-      const previous = timeline[timeline.length - 1 - index - 1];
+  const displayEntries = useMemo<TimelineRow[]>(() => (
+    timeline.map((entry, index) => {
+      const previous = timeline[index - 1];
       const showDivider = !previous || new Date(previous.timestamp).toDateString() !== new Date(entry.timestamp).toDateString();
       return { entry, showDivider };
-    });
-  }, [timeline]);
+    })
+  ), [timeline]);
+  const threadBootstrapReady =
+    Boolean(messages.data) &&
+    !assignmentHistoryQuery.isPending &&
+    (!isWhatsAppConversation || !callsQuery.isEnabled || !callsQuery.isPending);
+  const initialScrollIndex = Math.max(0, displayEntries.length - 1);
+
+  useEffect(() => {
+    if (!threadBootstrapReady || listVisible) return undefined;
+    const timeout = setTimeout(() => setListVisible(true), 700);
+    return () => clearTimeout(timeout);
+  }, [threadBootstrapReady, listVisible, route.params.conversationId]);
 
   const onScroll = (event: any) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const atBottom = contentOffset.y < 120;
-    isAtBottomRef.current = atBottom;
-    setAtBottom(atBottom);
-    if (contentOffset.y > contentSize.height - layoutMeasurement.height - 120) loadOlder();
+    const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
+    const nextAtBottom = distanceFromBottom <= 96;
+    isAtBottomRef.current = nextAtBottom;
+    setAtBottom((current) => (current === nextAtBottom ? current : nextAtBottom));
   };
 
   const channelName = header.conversation?.channel?.channelName ?? null;
@@ -744,26 +788,44 @@ export function ConversationScreen() {
       <View style={styles.body}>
         <InboxPatternBackground pattern={inboxPattern} />
         <View style={styles.listWrap}>
-          {messages.isLoading ? <ConversationSkeleton /> : (
-            <>
-              <FlatList
+          {threadBootstrapReady ? (
+            <FlashList
                 ref={listRef}
-                style={styles.list}
+                key={route.params.conversationId}
+                style={[styles.list, !listVisible && styles.listHidden]}
                 data={displayEntries}
-                extraData={allMessages.map((message) => `${message.id}:${message.deliveryStatus ?? ''}`).join('|')}
-                inverted
-                keyExtractor={(entry) => `${entry.entry.kind}:${entry.entry.id}`}
+                extraData={highlightedMessageId}
+                keyExtractor={timelineKeyExtractor}
+                getItemType={timelineItemType}
+                ItemSeparatorComponent={TimelineSeparator}
                 contentContainerStyle={styles.listContent}
+                drawDistance={500}
+                initialScrollIndex={initialScrollIndex}
+                maintainVisibleContentPosition={THREAD_LIST_POSITION}
                 keyboardShouldPersistTaps="handled"
                 onScroll={onScroll}
-                scrollEventThrottle={120}
-                onContentSizeChange={() => { if (isAtBottomRef.current) listRef.current?.scrollToOffset({ offset: 0, animated: false }); }}
-                ListFooterComponent={loadingOlder ? <Text style={[styles.olderPill, { color: colors.textSecondary }]}>Loading older messages...</Text> : null}
+                scrollEventThrottle={16}
+                onLoad={() => {
+                  listRef.current?.scrollToEnd({ animated: false });
+                  requestAnimationFrame(() => {
+                    listRef.current?.scrollToEnd({ animated: false });
+                    setListVisible(true);
+                    setTimeout(() => {
+                      listReadyRef.current = true;
+                    }, 300);
+                  });
+                }}
+                onStartReached={() => {
+                  if (!listReadyRef.current) return;
+                  void loadOlder();
+                }}
+                onStartReachedThreshold={0.2}
+                ListHeaderComponent={listVisible && loadingOlder ? <Text style={[styles.olderPill, { color: colors.textSecondary }]}>Loading older messages...</Text> : null}
                 renderItem={({ item }) => {
                   const { entry, showDivider } = item;
                   const highlighted = entry.kind === 'message' && entry.message.id === highlightedMessageId;
                   return (
-                    <View style={highlighted ? styles.highlightRow : undefined}>
+                    <View style={[styles.timelineRow, highlighted ? styles.highlightRow : undefined]}>
                       {showDivider ? <Text style={[styles.dayDivider, { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary }]}>{formatTimelineDayLabel(new Date(entry.timestamp))}</Text> : null}
                       {entry.kind === 'call' ? (
                         <CallHistoryItem session={entry.session} />
@@ -775,20 +837,16 @@ export function ConversationScreen() {
                     </View>
                   );
                 }}
-                onScrollToIndexFailed={({ index, averageItemLength }) => {
-                  listRef.current?.scrollToOffset({ offset: Math.max(0, index * averageItemLength), animated: false });
-                  setTimeout(() => {
-                    listRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
-                    const entry = displayEntries[index]?.entry;
-                    if (entry?.kind === 'message') highlightMessage(entry.message.id);
-                  }, 120);
-                }}
-              />
-              {!atBottom ? (
-                <Pressable style={[styles.fab, { backgroundColor: colors.primary }]} onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}><ChevronDown color="#fff" size={22} /></Pressable>
-              ) : null}
-            </>
-          )}
+            />
+          ) : null}
+          {!listVisible ? (
+            <View style={[styles.listCover, { backgroundColor: colors.background }]}>
+              <ConversationSkeleton />
+            </View>
+          ) : null}
+          {listVisible && !atBottom ? (
+            <Pressable style={[styles.fab, { backgroundColor: colors.primary }]} onPress={() => listRef.current?.scrollToEnd({ animated: true })}><ChevronDown color="#fff" size={22} /></Pressable>
+          ) : null}
         </View>
         {messages.isError ? <Text style={[styles.error, { color: colors.error }]}>{messages.error instanceof Error ? messages.error.message : 'Unable to load messages.'}</Text> : null}
         <ConversationComposer
@@ -938,14 +996,19 @@ const styles = StyleSheet.create({
   contactSubtitle: { color: '#64748b', fontSize: 12, fontWeight: '500', marginTop: 1, width: '100%' },
   headerActions: { alignItems: 'center', flexDirection: 'row', flexShrink: 0, gap: 8 },
   list: { backgroundColor: 'transparent', flex: 1 },
+  listHidden: { opacity: 0 },
   listWrap: { backgroundColor: 'transparent', flex: 1, minHeight: 0 },
+  listCover: { ...StyleSheet.absoluteFillObject, backgroundColor: 'transparent' },
   error: { backgroundColor: 'transparent', color: '#dc2626', padding: 14, textAlign: 'center' },
-  listContent: { gap: 10, padding: 14 },
+  listContent: { paddingHorizontal: 14, paddingVertical: 14 },
+  rowGap: { height: 10 },
+  timelineRow: { paddingBottom: 2 },
   highlightRow: { backgroundColor: 'rgba(50,102,246,0.10)', borderRadius: 14, paddingVertical: 2 },
   group: { alignItems: 'flex-start', gap: 6 },
   outgoingGroup: { alignItems: 'flex-end' },
   dayDivider: { alignSelf: 'center', backgroundColor: '#e8eef7', borderRadius: 999, color: '#526987', fontSize: 12, fontWeight: '600', marginVertical: 8, overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 6 },
   olderPill: { alignSelf: 'center', color: '#64748b', fontSize: 12, marginVertical: 6 },
+  olderSpacer: { height: 28 },
   fab: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 22, bottom: 16, elevation: 3, height: 44, justifyContent: 'center', position: 'absolute', right: 16, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 5, width: 44 },
   replyAction: { alignItems: 'center', justifyContent: 'center', marginVertical: 3, width: 56 },
   replyIconCircle: {
