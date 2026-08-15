@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreVertical, Phone, Reply, Star, UserRound } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
-import { ContactDetailsPanel } from '../components/ContactDetailsPanel';
+import { ContactDetailsPanel, formatPhoneNumberDisplay, formatUsernameDisplay } from '../components/ContactDetailsPanel';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { FlatList } from 'react-native-gesture-handler';
@@ -31,7 +31,7 @@ import { AssignmentHistoryItem } from '../components/AssignmentHistoryItem';
 import { ReactionPicker } from '../components/ReactionPicker';
 import { fetchAssigneeOptions, fetchConversationAssignmentEvents, fetchConversationCallSessions, fetchMessagesPage, markConversationRead, markConversationUnread, sendReaction, sendTemplateMessage, updateConversationAssignment, updateConversationStar, updateConversationStatus, type ConversationCallSession } from '../api/inbox';
 import type { InboxStackParamList } from '../navigation/InboxStack';
-import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getConversationTitle, getConversationWindowLabel, getMessengerMessagingAvailability, getVoiceCallButtonState, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
+import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getConversationTitle, getMessengerMessagingAvailability, getVoiceCallButtonState, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
 import { CallHistoryItem } from '../components/CallHistoryItem';
 import { useCallController } from '../providers/CallControllerProvider';
 import { isWhatsappCallSupported } from '../lib/whatsapp-calling';
@@ -567,7 +567,9 @@ export function ConversationScreen() {
   const canSendFreeform = isMessengerConversation
     ? canSendSelectedMessengerMode
     : header.conversation?.messaging?.canSendFreeformMessage;
-  const windowInfo = getConversationWindowLabel(header.conversation, messengerMessagingMode);
+  const contactSubtitle =
+    formatPhoneNumberDisplay(header.conversation?.contact?.primaryPhone) ??
+    formatUsernameDisplay(header.conversation?.contact?.username);
   const title = getConversationTitle(header.conversation, route.params.contactName);
 
   useEffect(() => {
@@ -715,35 +717,40 @@ export function ConversationScreen() {
         </View>
         <View style={styles.titleBlock}>
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{title}</Text>
-          <Text style={[styles.window, windowInfo.tone === 'expired' && styles.windowExpired, windowInfo.tone === 'expired' && { color: colors.error }]}>{windowInfo.label}</Text>
-          <Text style={[styles.assignee, { color: colors.textMuted }]} numberOfLines={1}>{assigneeLabel}</Text>
+          {contactSubtitle ? (
+            <Text style={[styles.contactSubtitle, { color: colors.textMuted }]}>
+              {contactSubtitle}
+            </Text>
+          ) : null}
         </View>
-        {isWhatsAppConversation ? (
+        <View style={styles.headerActions}>
+          {isWhatsAppConversation ? (
+            <Pressable
+              onPress={startVoiceCall}
+              hitSlop={6}
+              style={!voiceCallButton.canStartVoiceCall || callController.isBusy ? { opacity: 0.35 } : undefined}
+            >
+              <Phone color={voiceCallButton.canStartVoiceCall && !callController.isBusy ? colors.primary : colors.textMuted} size={19} />
+            </Pressable>
+          ) : null}
+          <Pressable onPress={() => starMutation.mutate(!header.isStarred)} hitSlop={6}><Star color={header.isStarred ? '#f59e0b' : colors.textMuted} fill={header.isStarred ? '#f59e0b' : 'none'} size={19} /></Pressable>
           <Pressable
-            onPress={startVoiceCall}
-            hitSlop={8}
-            style={!voiceCallButton.canStartVoiceCall || callController.isBusy ? { opacity: 0.35 } : undefined}
+            onPress={() => {
+              if (readMutation.isPending || unreadMutation.isPending) return;
+              if (header.unreadCount > 0) {
+                manualReadToggleRef.current = true;
+                readMutation.mutate();
+              } else {
+                unreadMutation.mutate();
+              }
+            }}
+            hitSlop={6}
           >
-            <Phone color={voiceCallButton.canStartVoiceCall && !callController.isBusy ? colors.primary : colors.textMuted} size={19} />
+            {header.unreadCount > 0 ? <Mail color={colors.textSecondary} size={19} /> : <MailOpen color={colors.textSecondary} size={19} />}
           </Pressable>
-        ) : null}
-        <Pressable onPress={() => starMutation.mutate(!header.isStarred)} hitSlop={8}><Star color={header.isStarred ? '#f59e0b' : colors.textMuted} fill={header.isStarred ? '#f59e0b' : 'none'} size={19} /></Pressable>
-        <Pressable
-          onPress={() => {
-            if (readMutation.isPending || unreadMutation.isPending) return;
-            if (header.unreadCount > 0) {
-              manualReadToggleRef.current = true;
-              readMutation.mutate();
-            } else {
-              unreadMutation.mutate();
-            }
-          }}
-          hitSlop={8}
-        >
-          {header.unreadCount > 0 ? <Mail color={colors.textSecondary} size={19} /> : <MailOpen color={colors.textSecondary} size={19} />}
-        </Pressable>
-        <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}><UserRound color={colors.textSecondary} size={19} /></Pressable>
-        <Pressable onPress={() => setDetailsOpen(true)} hitSlop={8}><MoreVertical color={colors.textSecondary} size={19} /></Pressable>
+          <Pressable onPress={() => setMenuOpen(true)} hitSlop={6}><UserRound color={colors.textSecondary} size={19} /></Pressable>
+          <Pressable onPress={() => setDetailsOpen(true)} hitSlop={6}><MoreVertical color={colors.textSecondary} size={19} /></Pressable>
+        </View>
       </View>
       <View style={styles.body}>
         <InboxPatternBackground pattern={inboxPattern} />
@@ -954,14 +961,13 @@ const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, 
 const styles = StyleSheet.create({
   screen: { backgroundColor: 'transparent', flex: 1 },
   body: { backgroundColor: 'transparent', flex: 1 },
-  header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#dbe4f1', borderBottomWidth: 1, flexDirection: 'row', gap: 12, paddingHorizontal: 14, paddingVertical: 9 },
-  avatarWrap: { position: 'relative' },
+  header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#dbe4f1', borderBottomWidth: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 10, paddingVertical: 9 },
+  avatarWrap: { flexShrink: 0, position: 'relative' },
   presence: { backgroundColor: '#22c55e', borderColor: '#fff', borderRadius: 6, borderWidth: 1.5, bottom: 1, height: 12, position: 'absolute', right: 1, width: 12 },
   titleBlock: { flex: 1, minWidth: 0 },
   name: { color: '#0f172a', fontWeight: '700' },
-  window: { color: '#55921c', fontSize: 11, marginTop: 1 },
-  windowExpired: { color: '#dc2626' },
-  assignee: { color: '#94a3b8', fontSize: 11, marginTop: 1 },
+  contactSubtitle: { color: '#64748b', fontSize: 12, fontWeight: '500', marginTop: 1, width: '100%' },
+  headerActions: { alignItems: 'center', flexDirection: 'row', flexShrink: 0, gap: 8 },
   list: { backgroundColor: 'transparent', flex: 1 },
   listWrap: { backgroundColor: 'transparent', flex: 1, minHeight: 0 },
   error: { backgroundColor: 'transparent', color: '#dc2626', padding: 14, textAlign: 'center' },

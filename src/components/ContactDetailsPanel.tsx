@@ -21,6 +21,13 @@ export function formatPhoneNumberDisplay(phone: string | null | undefined): stri
   return trimmed.startsWith('+') ? trimmed.slice(1).trimStart() : trimmed;
 }
 
+export function formatUsernameDisplay(username: string | null | undefined): string | null {
+  if (!username) return null;
+  const trimmed = username.trim();
+  if (!trimmed) return null;
+  return trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
+}
+
 export function formatAttachmentSize(sizeBytes: number | null | undefined): string | null {
   if (typeof sizeBytes !== 'number' || !Number.isFinite(sizeBytes) || sizeBytes <= 0) return null;
   if (sizeBytes < 1024) return `${sizeBytes} B`;

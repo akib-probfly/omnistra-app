@@ -89,7 +89,7 @@ export type ConversationListItem = {
   createdAt?: string;
   updatedAt?: string;
   lastInteraction?: ConversationLastInteraction | null;
-  contact: { id: string; displayName: string | null; avatarUrl: string | null; primaryPhone?: string | null };
+  contact: { id: string; displayName: string | null; avatarUrl: string | null; primaryPhone?: string | null; username?: string | null };
   channel: { channelId: string; channelType: string; channelName: string; displayPhoneNumber: string | null };
   assignee?: { workspaceMemberId: string; userName: string | null; userEmail: string; avatarUrl: string | null } | null;
   messaging?: ConversationMessaging | null;
