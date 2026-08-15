@@ -131,14 +131,11 @@ export function ConversationScreen() {
   const messages = useQuery({
     queryKey: ['messages', route.params.conversationId],
     queryFn: async () => {
-      const [page, files] = await Promise.all([
-        apiFetch<{ items: Message[]; pageInfo?: { nextCursor?: string | null; hasMore?: boolean }; conversation?: any }>(`/conversations/${route.params.conversationId}/messages?limit=50`),
-        apiFetch<{ items: Attachment[] }>(`/conversations/${route.params.conversationId}/attachments?limit=100`),
-      ]);
-      const grouped = new Map<string, Attachment[]>();
-      files.items.forEach((file) => file.messageId && grouped.set(file.messageId, [...(grouped.get(file.messageId) ?? []), file]));
+      // The messages endpoint includes each message's attachments. Avoid the broad
+      // conversation attachment request here; it was duplicating every page load.
+      const page = await apiFetch<{ items: Message[]; pageInfo?: { nextCursor?: string | null; hasMore?: boolean }; conversation?: any }>(`/conversations/${route.params.conversationId}/messages?limit=50`);
       const items = page.items.map((message) => {
-        const messageAttachments = message.attachments?.length ? message.attachments : grouped.get(message.id) ?? [];
+        const messageAttachments = message.attachments ?? [];
         const mediaOnly = messageAttachments.length > 0 && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(message.type);
         return { ...message, text: mediaOnly ? null : message.text, attachments: messageAttachments };
       });
@@ -512,15 +509,8 @@ export function ConversationScreen() {
     setLoadingOlder(true);
     try {
       const page = await fetchMessagesPage(route.params.conversationId, olderCursor, 50);
-      let grouped = new Map<string, Attachment[]>();
-      try {
-        const files = await apiFetch<{ items: Attachment[] }>(`/conversations/${route.params.conversationId}/attachments?limit=100`);
-        files.items.forEach((file) => file.messageId && grouped.set(file.messageId, [...(grouped.get(file.messageId) ?? []), file]));
-      } catch (error) {
-        console.warn('[conversation] older attachments unavailable', error);
-      }
       const items = page.items.map((message: any) => {
-        const messageAttachments = message.attachments?.length ? message.attachments : grouped.get(message.id) ?? [];
+        const messageAttachments = message.attachments ?? [];
         const mediaOnly = messageAttachments.length > 0 && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(message.type);
         return { ...message, text: mediaOnly ? null : message.text, attachments: messageAttachments };
       });

@@ -29,17 +29,9 @@ type MessagesQueryData = {
   conversation: unknown;
 };
 
-function mergeAttachments(messages: Message[], files: Attachment[]) {
-  const grouped = new Map<string, Attachment[]>();
-  files.forEach((file) => {
-    if (!file.messageId) return;
-    grouped.set(file.messageId, [...(grouped.get(file.messageId) ?? []), file]);
-  });
-
+function normalizeMessageAttachments(messages: Message[]) {
   return messages.map((message) => {
-    const messageAttachments = message.attachments?.length
-      ? message.attachments
-      : grouped.get(message.id) ?? [];
+    const messageAttachments = message.attachments ?? [];
     const mediaOnly =
       messageAttachments.length > 0
       && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(message.type);
@@ -88,17 +80,16 @@ export async function refreshConversationMessagesPage(
   const current = queryClient.getQueryData<MessagesQueryData>(queryKey);
 
   try {
-    const [page, files] = await Promise.all([
-      apiFetch<{
-        items: Message[];
-        pageInfo?: { nextCursor?: string | null; hasMore?: boolean };
-        conversation?: unknown;
-      }>(`/conversations/${conversationId}/messages?limit=50`),
-      apiFetch<{ items: Attachment[] }>(`/conversations/${conversationId}/attachments?limit=100`),
-    ]);
+    // Message responses already include attachment metadata, so refreshing the
+    // active page must not also fetch a broad attachment list.
+    const page = await apiFetch<{
+      items: Message[];
+      pageInfo?: { nextCursor?: string | null; hasMore?: boolean };
+      conversation?: unknown;
+    }>(`/conversations/${conversationId}/messages?limit=50`);
 
     const items = preserveOptimisticMessages(
-      mergeAttachments(page.items ?? [], files.items ?? []),
+      normalizeMessageAttachments(page.items ?? []),
       current?.items,
     );
 
