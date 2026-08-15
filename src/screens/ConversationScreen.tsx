@@ -95,6 +95,7 @@ export function ConversationScreen() {
   const [reactTarget, setReactTarget] = useState<Message | null>(null);
   const [olderMessages, setOlderMessages] = useState<Message[]>([]);
   const [olderCursor, setOlderCursor] = useState<string | null>(null);
+  const [hasMoreOlder, setHasMoreOlder] = useState(true);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [atBottom, setAtBottom] = useState(true);
   const [listVisible, setListVisible] = useState(false);
@@ -194,6 +195,7 @@ export function ConversationScreen() {
     deliveryPollUntilRef.current = 0;
     setOlderMessages([]);
     setOlderCursor(null);
+    setHasMoreOlder(true);
     loadingOlderRef.current = false;
     listReadyRef.current = false;
     isAtBottomRef.current = true;
@@ -501,10 +503,8 @@ export function ConversationScreen() {
 
   useEffect(() => () => { if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current); }, []);
 
-  useEffect(() => { if (olderCursor && !messages.data?.hasMore && olderMessages.length === 0) setOlderCursor(null); }, [olderCursor, messages.data?.hasMore, olderMessages.length]);
-
   const loadOlder = useCallback(async () => {
-    if (loadingOlderRef.current || !olderCursor || messages.data?.hasMore === false) return;
+    if (loadingOlderRef.current || !hasMoreOlder || !olderCursor) return;
     loadingOlderRef.current = true;
     setLoadingOlder(true);
     try {
@@ -519,14 +519,16 @@ export function ConversationScreen() {
         const fresh = items.filter((message) => !existing.has(message.id));
         return [...fresh, ...current];
       });
-      setOlderCursor(page.pageInfo?.nextCursor ?? null);
+      const nextHasMore = Boolean(page.pageInfo?.hasMore && page.pageInfo?.nextCursor) && items.length > 0;
+      setOlderCursor(nextHasMore ? (page.pageInfo?.nextCursor ?? null) : null);
+      setHasMoreOlder(nextHasMore);
     } catch (error) {
       console.error('[conversation] load older failed', error);
     } finally {
       loadingOlderRef.current = false;
       setLoadingOlder(false);
     }
-  }, [olderCursor, messages.data?.hasMore, route.params.conversationId]);
+  }, [olderCursor, hasMoreOlder, route.params.conversationId]);
 
   loadOlderRef.current = loadOlder;
 
@@ -571,9 +573,15 @@ export function ConversationScreen() {
   }, [highlightMessage]);
 
   useEffect(() => {
-    if (messages.data && !messages.data.hasMore) return;
-    if (messages.data?.nextCursor && !olderCursor) setOlderCursor(messages.data.nextCursor);
-  }, [messages.data, olderCursor]);
+    if (!messages.data) return;
+    if (!messages.data.hasMore) {
+      setHasMoreOlder(false);
+      setOlderCursor(null);
+      return;
+    }
+    if (!hasMoreOlder) return;
+    if (messages.data.nextCursor && !olderCursor) setOlderCursor(messages.data.nextCursor);
+  }, [messages.data, olderCursor, hasMoreOlder]);
 
   const imageUrls = useMemo(() => allMessages.flatMap((message) => (message.attachments ?? []).filter((attachment) => ['IMAGE', 'STICKER'].includes(attachment.mediaType.toUpperCase()) || attachment.mimeType?.startsWith('image/')).map((attachment) => {
     const raw = attachment.downloadUrl || attachment.previewUrl || attachment.thumbnailUrl;
@@ -806,7 +814,7 @@ export function ConversationScreen() {
                   });
                 }}
                 onStartReached={() => {
-                  if (!listReadyRef.current) return;
+                  if (!listReadyRef.current || !hasMoreOlder || !olderCursor) return;
                   void loadOlder();
                 }}
                 onStartReachedThreshold={0.2}
