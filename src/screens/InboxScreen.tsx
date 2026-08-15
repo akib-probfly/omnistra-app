@@ -288,7 +288,7 @@ export function InboxScreen() {
       ) : (
         <>
           <View style={[styles.searchRow, { borderBottomColor: colors.separator }]}>
-            <View style={[styles.search, { backgroundColor: colors.surfaceSecondary }]}>
+            <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.inputBorder }]}>
               <Search color={colors.textMuted} size={16} />
               <TextInput value={search} onChangeText={onSearchChange} placeholder="Search..." placeholderTextColor={colors.textMuted} style={[styles.input, { color: colors.text }]} />
               {debouncedSearch ? <Pressable onPress={() => { setSearch(''); setDebouncedSearch(''); }}><Text style={[styles.clearSearch, { color: colors.textMuted }]}>✕</Text></Pressable> : null}
@@ -423,7 +423,7 @@ export function InboxScreen() {
 
               {filterLayer === 'tags' ? (
                 <>
-                  <View style={[styles.inlineSearch, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+                  <View style={[styles.inlineSearch, { backgroundColor: colors.surface, borderColor: colors.inputBorder }]}>
                     <Search color={colors.textMuted} size={16} />
                     <TextInput
                       value={tagTextInput}
@@ -457,7 +457,7 @@ export function InboxScreen() {
 
               {filterLayer === 'users' ? (
                 <>
-                  <View style={[styles.inlineSearch, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+                  <View style={[styles.inlineSearch, { backgroundColor: colors.surface, borderColor: colors.inputBorder }]}>
                     <Search color={colors.textMuted} size={16} />
                     <TextInput
                       value={userSearchInput}
@@ -791,7 +791,7 @@ const styles = StyleSheet.create({
   sidebarTabCount: { backgroundColor: '#f1f5f9', borderRadius: 999, color: '#64748b', fontSize: 10, fontWeight: '700', minWidth: 18, overflow: 'hidden', paddingHorizontal: 5, paddingVertical: 1, textAlign: 'center' },
   sidebarTabUnderline: { backgroundColor: '#2563eb', borderRadius: 999, bottom: 0, height: 2, left: 0, position: 'absolute', right: 0 },
   searchRow: { alignItems: 'center', borderBottomColor: '#eef2f7', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 8, paddingBottom: 8, paddingHorizontal: 12, paddingTop: 8 },
-  search: { alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 18, flex: 1, flexDirection: 'row', minWidth: 0, paddingHorizontal: 12 },
+  search: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#e2e8f0', borderRadius: 18, borderWidth: 1, flex: 1, flexDirection: 'row', minWidth: 0, paddingHorizontal: 12 },
   input: { color: '#17233a', flex: 1, height: 36, marginLeft: 6, paddingVertical: 0 },
   clearSearch: { color: '#94a3b8', fontSize: 14, padding: 4 },
   filtersRow: { alignItems: 'center', borderBottomColor: '#e2e8f0', borderBottomWidth: 1, flexDirection: 'row', gap: 8, paddingBottom: 8, paddingHorizontal: 12, paddingTop: 8 },
@@ -821,7 +821,7 @@ const styles = StyleSheet.create({
   filterLayerTabTextActive: { color: '#0f172a', fontWeight: '700' },
   filterLayerBody: { maxHeight: 360 },
   filterLayerContent: { paddingBottom: 8 },
-  inlineSearch: { alignItems: 'center', backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, flexDirection: 'row', marginBottom: 10, paddingHorizontal: 10 },
+  inlineSearch: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cbd5e1', borderRadius: 12, borderWidth: 1, flexDirection: 'row', marginBottom: 10, paddingHorizontal: 10 },
   inlineSearchInput: { color: '#17233a', flex: 1, height: 40, marginLeft: 8 },
   selectedCount: { color: '#64748b', fontSize: 12, marginBottom: 8 },
   optionList: { gap: 6 },

@@ -94,7 +94,7 @@ export function InboxCallsPane({ onOpenConversation }: Props) {
 
   return (
     <View style={[styles.pane, { backgroundColor: colors.background }]}>
-      <View style={[styles.search, { backgroundColor: colors.surfaceSecondary }]}>
+      <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.inputBorder }]}>
         <Search color={colors.textSecondary} size={18} />
         <TextInput
           value={search}
@@ -183,7 +183,7 @@ export function InboxCallsPane({ onOpenConversation }: Props) {
 
 const styles = StyleSheet.create({
   pane: { flex: 1 },
-  search: { alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 25, flexDirection: 'row', margin: 12, paddingHorizontal: 14 },
+  search: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#e2e8f0', borderRadius: 25, borderWidth: 1, flexDirection: 'row', margin: 12, paddingHorizontal: 14 },
   input: { color: '#17233a', flex: 1, height: 42, marginLeft: 8 },
   clearSearch: { color: '#94a3b8', fontSize: 14, padding: 4 },
   filters: { borderBottomColor: '#e2e8f0', borderBottomWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingBottom: 10, paddingHorizontal: 12 },
