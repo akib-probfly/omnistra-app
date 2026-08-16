@@ -1,3 +1,4 @@
+import { getCountryCodeFromPhone, getCountryNameFromCode } from '../lib/countryFromPhone';
 import { apiFetch } from './client';
 
 export type CrmContactOwner = {
@@ -108,6 +109,29 @@ export function getContactTitle(contact: Pick<CrmContactListItem, 'displayName' 
     || contact.primaryEmail?.trim()
     || 'Unnamed contact'
   );
+}
+
+export function resolveContactCountryCode(contact: Pick<CrmContactListItem, 'country' | 'primaryPhone'>): string {
+  return getCountryCodeFromPhone(contact.primaryPhone)
+    || (contact.country?.trim().length ? contact.country.trim().toUpperCase() : null)
+    || 'BD';
+}
+
+export function getCountryLabel(country: string | null | undefined): string {
+  const mapped = getCountryNameFromCode(country);
+  if (mapped) return mapped;
+
+  const countryCode = country?.trim().toUpperCase();
+  if (!countryCode) return 'Bangladesh';
+
+  try {
+    const label = new Intl.DisplayNames(['en'], { type: 'region' }).of(countryCode);
+    if (label && label.toUpperCase() !== countryCode) return label;
+  } catch {
+    // Hermes often lacks Intl.DisplayNames; fall through to the ISO code.
+  }
+
+  return countryCode;
 }
 
 export async function fetchCrmContacts(params: CrmContactsFilters = {}): Promise<CrmContactsListResponse> {

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowLeft, Mail, MessageSquareText, Phone, Plus, Search, Trash2, X } from 'lucide-react-native';
+import { AlertTriangle, ArrowLeft, Globe, Mail, MessageSquareText, Phone, Plus, Search, Trash2, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -22,6 +22,8 @@ import {
   fetchCrmContact,
   formatPhoneNumberDisplay,
   getContactTitle,
+  getCountryLabel,
+  resolveContactCountryCode,
   updateCrmContactDetail,
 } from '../api/contacts';
 import { createWorkspaceTag, fetchWorkspaceTags } from '../api/conversationDetails';
@@ -88,6 +90,8 @@ export function ContactDetailsScreen() {
   const contact = contactQuery.data;
   const title = contact ? getContactTitle(contact) : contactName;
   const phone = formatPhoneNumberDisplay(contact?.primaryPhone);
+  const countryCode = contact ? resolveContactCountryCode(contact) : 'BD';
+  const countryName = getCountryLabel(countryCode);
   const contactTags = useMemo(() => (contact?.tags ?? []).filter((tag) => !tag.isArchived), [contact?.tags]);
   const workspaceTags = useMemo(
     () => (workspaceTagsQuery.data?.items ?? []).filter((tag) => !tag.isArchived),
@@ -269,6 +273,10 @@ export function ContactDetailsScreen() {
                 <Mail color={colors.textSecondary} size={14} />
                 <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>{contact.primaryEmail?.trim() || 'No email'}</Text>
               </View>
+              <View style={[styles.metaChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+                <Globe color={colors.textSecondary} size={14} />
+                <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>{countryName}</Text>
+              </View>
             </View>
           </View>
 
@@ -293,6 +301,13 @@ export function ContactDetailsScreen() {
               style={[styles.fieldInput, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder, color: colors.text }]}
             />
             <Text style={[styles.helperText, { color: colors.textSecondary }]}>Phone: {phone ?? '-'}</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Country</Text>
+            <View style={[styles.countryRow, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+              <View style={[styles.countryCodeBadge, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+                <Text style={[styles.countryCodeText, { color: colors.textSecondary }]}>{countryCode}</Text>
+              </View>
+              <Text style={[styles.countryNameText, { color: colors.text }]} numberOfLines={1}>{countryName}</Text>
+            </View>
             <Text style={[styles.helperText, { color: colors.textSecondary }]}>Last active: {formatDateTime(contact.lastActivityAt)}</Text>
             <Text style={[styles.helperText, { color: colors.textSecondary }]}>Added: {formatDateTime(contact.createdAt)}</Text>
             {(nameDraft != null && nameDraft !== (contact.displayName ?? '')) || (emailDraft != null && emailDraft !== (contact.primaryEmail ?? '')) ? (
@@ -568,6 +583,10 @@ const styles = StyleSheet.create({
   fieldLabel: { color: '#64748b', fontSize: 12, fontWeight: '700', marginBottom: 6, marginTop: 8 },
   fieldInput: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, color: '#0f172a', paddingHorizontal: 12, paddingVertical: 11 },
   helperText: { color: '#64748b', fontSize: 12, marginTop: 8 },
+  countryRow: { alignItems: 'center', backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 10, paddingHorizontal: 12, paddingVertical: 10 },
+  countryCodeBadge: { backgroundColor: '#fff', borderColor: '#e2e8f0', borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
+  countryCodeText: { color: '#475569', fontSize: 11, fontWeight: '700' },
+  countryNameText: { color: '#0f172a', flex: 1, fontSize: 14, fontWeight: '600' },
   saveButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 12, marginTop: 12, paddingVertical: 12 },
   saveDisabled: { opacity: 0.55 },
   saveButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
