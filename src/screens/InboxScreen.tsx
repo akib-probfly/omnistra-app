@@ -739,6 +739,7 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
   const isWhatsAppCustomerWindow = conversation.channel?.channelType === 'WHATSAPP' && conversation.messaging?.policyType === 'CUSTOMER_WINDOW';
   const showWindowDot = isWhatsAppCustomerWindow && conversation.messaging?.windowState !== 'NOT_APPLICABLE';
   const windowExpired = conversation.messaging?.windowState === 'EXPIRED';
+  const isBlocked = Boolean(conversation.blockedAt ?? conversation.contact.blockedAt);
   const onPress = useCallback(() => {
     if (conversation.unreadCount > 0) {
       optimisticMarkConversationReadInCache(queryClient, conversation.id, conversation.unreadCount);
@@ -765,6 +766,11 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
         <View style={styles.copy}>
           <View style={styles.nameLine}>
             <Text style={[styles.name, { color: colors.text }, hasUnread && styles.nameUnread]} numberOfLines={1}>{conversation.contact.displayName ?? 'Unknown contact'}</Text>
+            {isBlocked ? (
+              <View style={styles.bannedBadge} accessibilityLabel="Banned customer">
+                <Ban color="#e11d48" size={10} />
+              </View>
+            ) : null}
             {showWindowDot ? <WindowPulseDot expired={windowExpired} /> : null}
           </View>
           <Text style={[styles.channel, { color: colors.textMuted }]} numberOfLines={1}>{conversation.channel?.channelName ?? ''}</Text>
@@ -896,9 +902,19 @@ const styles = StyleSheet.create({
   avatarText: { color: '#111827', fontSize: 18, fontWeight: '700' },
   channelBadgeWrap: { alignItems: 'center', borderColor: '#fff', borderRadius: 11, borderWidth: 2, bottom: -2, height: 22, justifyContent: 'center', overflow: 'hidden', position: 'absolute', right: -2, width: 22 },
   copy: { flex: 1, marginLeft: 12, minWidth: 0 },
-  nameLine: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  nameLine: { alignItems: 'center', flexDirection: 'row', gap: 6 },
   name: { color: '#111827', flexShrink: 1, fontSize: 15, fontWeight: '600' },
   nameUnread: { fontWeight: '800' },
+  bannedBadge: {
+    alignItems: 'center',
+    backgroundColor: '#fff1f2',
+    borderColor: '#fecdd3',
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 18,
+    justifyContent: 'center',
+    width: 18,
+  },
   windowDotWrap: { alignItems: 'center', height: 12, justifyContent: 'center', width: 12 },
   windowDotRing: { borderRadius: 6, height: 12, position: 'absolute', width: 12 },
   windowDot: { borderRadius: 4, elevation: 3, height: 8, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 5, width: 8 },
