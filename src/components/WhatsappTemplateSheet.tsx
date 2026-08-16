@@ -358,6 +358,9 @@ export function WhatsappTemplateSheet({
     });
   };
 
+  const validationError = useMemo(() => validateTemplateForm(form), [form]);
+  const canSubmit = !validationError && !isSaving;
+
   const handleSave = () => {
     const error = validateTemplateForm(form);
     if (error) {
@@ -724,9 +727,19 @@ export function WhatsappTemplateSheet({
 
           <View style={[styles.footer, { borderTopColor: colors.separator }]}>
             {editable ? (
-              <Pressable style={[styles.primaryButton, { backgroundColor: colors.primary }, isSaving && styles.buttonDisabled]} onPress={handleSave} disabled={isSaving}>
+              <Pressable
+                style={[
+                  styles.primaryButton,
+                  { backgroundColor: canSubmit ? colors.primary : colors.surfaceSecondary },
+                  !canSubmit && styles.buttonDisabled,
+                ]}
+                onPress={handleSave}
+                disabled={!canSubmit}
+              >
                 {isSaving ? <LoaderCircle color={colors.primaryText} size={16} /> : null}
-                <Text style={[styles.primaryButtonText, { color: colors.primaryText }]}>{mode === 'create' ? 'Submit for review' : 'Update template'}</Text>
+                <Text style={[styles.primaryButtonText, { color: canSubmit ? colors.primaryText : colors.textMuted }]}>
+                  {mode === 'create' ? 'Submit for review' : 'Update template'}
+                </Text>
               </Pressable>
             ) : (
               <Pressable style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={onEdit}>
