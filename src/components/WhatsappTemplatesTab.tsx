@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, FileText, LoaderCircle, Pencil, Plus, RefreshCw, Search, Trash2, Unlink } from 'lucide-react-native';
+import { Eye, FileText, LoaderCircle, Pencil, Plus, RefreshCw, Search, Trash2, Unlink, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Toast from 'react-native-toast-message';
@@ -41,10 +41,10 @@ const STATUS_FILTERS: Array<{ id: WhatsappTemplateStatus | 'ALL'; label: string 
 ];
 
 const CATEGORY_FILTERS: Array<{ id: WhatsappTemplateCategory | 'ALL'; label: string }> = [
-  { id: 'ALL', label: 'All categories' },
+  { id: 'ALL', label: 'Any category' },
   { id: 'MARKETING', label: 'Marketing' },
   { id: 'UTILITY', label: 'Utility' },
-  { id: 'AUTHENTICATION', label: 'Authentication' },
+  { id: 'AUTHENTICATION', label: 'Auth' },
 ];
 
 type SheetState =
@@ -150,86 +150,84 @@ export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={styles.controls}>
+      <View style={[styles.controls, { backgroundColor: colors.surface, borderBottomColor: colors.separator }]}>
         <View style={styles.toolbar}>
-          <Pressable style={[styles.syncButton, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, sync.isPending && styles.buttonDisabled]} onPress={() => sync.mutate()} disabled={sync.isPending}>
-            {sync.isPending ? <LoaderCircle color={colors.primary} size={15} /> : <RefreshCw color={colors.primary} size={15} />}
-            <Text style={styles.syncText}>Sync</Text>
+          <View style={[styles.search, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+            <Search color={colors.textMuted} size={15} />
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search templates…"
+              placeholderTextColor={colors.textMuted}
+              style={[styles.searchInput, { color: colors.text }]}
+            />
+            {search ? (
+              <Pressable onPress={() => setSearch('')} hitSlop={8}>
+                <X color={colors.textMuted} size={14} />
+              </Pressable>
+            ) : null}
+          </View>
+          <Pressable
+            accessibilityLabel="Sync templates"
+            style={[styles.iconButton, { backgroundColor: colors.background, borderColor: colors.cardBorder }, sync.isPending && styles.buttonDisabled]}
+            onPress={() => sync.mutate()}
+            disabled={sync.isPending}
+          >
+            {sync.isPending ? <LoaderCircle color={colors.primary} size={16} /> : <RefreshCw color={colors.primary} size={16} />}
           </Pressable>
-          <Pressable style={[styles.newButton, { backgroundColor: colors.primary }]} onPress={() => setSheet({ mode: 'create', form: makeDraftTemplate() })}>
+          <Pressable
+            accessibilityLabel="New template"
+            style={[styles.newButton, { backgroundColor: colors.primary }]}
+            onPress={() => setSheet({ mode: 'create', form: makeDraftTemplate() })}
+          >
             <Plus color={colors.surface} size={16} />
-            <Text style={styles.newButtonText}>New template</Text>
+            <Text style={[styles.newButtonText, { color: colors.surface }]}>New</Text>
           </Pressable>
         </View>
 
-        <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-          <Search color={colors.textMuted} size={16} />
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search templates…"
-            placeholderTextColor={colors.textMuted}
-            style={styles.searchInput}
-          />
-          {search ? (
-            <Pressable onPress={() => setSearch('')} hitSlop={8}>
-              <Text style={[styles.clearSearch, { color: colors.primary }]}>Clear</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          {STATUS_FILTERS.map((filter) => {
+            const active = statusFilter === filter.id;
+            return (
+              <Pressable
+                key={`status-${filter.id}`}
+                style={[styles.chip, { backgroundColor: colors.background, borderColor: colors.cardBorder }, active && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                onPress={() => setStatusFilter(filter.id)}
+              >
+                <Text style={[styles.chipText, { color: colors.textSecondary }, active && { color: colors.surface }]} numberOfLines={1}>
+                  {filter.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+          <View style={[styles.chipDivider, { backgroundColor: colors.cardBorder }]} />
+          {CATEGORY_FILTERS.map((filter) => {
+            const active = categoryFilter === filter.id;
+            return (
+              <Pressable
+                key={`category-${filter.id}`}
+                style={[styles.chip, { backgroundColor: colors.background, borderColor: colors.cardBorder }, active && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                onPress={() => setCategoryFilter(filter.id)}
+              >
+                <Text style={[styles.chipText, { color: colors.textSecondary }, active && { color: colors.surface }]} numberOfLines={1}>
+                  {filter.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+          {filtersActive ? (
+            <Pressable
+              style={styles.resetChip}
+              onPress={() => {
+                setSearch('');
+                setStatusFilter('ALL');
+                setCategoryFilter('ALL');
+              }}
+            >
+              <Text style={[styles.resetChipText, { color: colors.error }]}>Reset</Text>
             </Pressable>
           ) : null}
-        </View>
-
-        <View style={styles.filterBlock}>
-          <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Status</Text>
-          <View style={[styles.statusSegment, { backgroundColor: colors.surfaceSecondary }]}>
-            {STATUS_FILTERS.map((filter) => {
-              const active = statusFilter === filter.id;
-              return (
-                <Pressable
-                  key={filter.id}
-                  style={[styles.statusOption, active && { backgroundColor: colors.primary }]}
-                  onPress={() => setStatusFilter(filter.id)}
-                >
-                   <Text style={[styles.statusOptionText, active && { color: colors.surface }]} numberOfLines={1}>
-                    {filter.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        <View style={styles.filterBlock}>
-          <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Category</Text>
-          <View style={styles.categoryWrap}>
-            {CATEGORY_FILTERS.map((filter) => {
-              const active = categoryFilter === filter.id;
-              return (
-                <Pressable
-                  key={filter.id}
-                   style={[styles.categoryChip, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, active && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                  onPress={() => setCategoryFilter(filter.id)}
-                >
-                   <Text style={[styles.categoryChipText, active && { color: colors.surface }]} numberOfLines={1}>
-                    {filter.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        {filtersActive ? (
-          <Pressable
-            style={styles.resetFilters}
-            onPress={() => {
-              setSearch('');
-              setStatusFilter('ALL');
-              setCategoryFilter('ALL');
-            }}
-          >
-            <Text style={[styles.resetFiltersText, { color: colors.error }]}>Reset filters</Text>
-          </Pressable>
-        ) : null}
+        </ScrollView>
       </View>
 
       {templates.isLoading ? (
@@ -339,94 +337,53 @@ export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
 const styles = StyleSheet.create({
   screen: { backgroundColor: '#f4f7fb', flex: 1 },
   controls: {
-    backgroundColor: '#fff',
-    borderBottomColor: '#e8eef7',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 12,
-    paddingBottom: 14,
+    gap: 10,
+    paddingBottom: 10,
     paddingHorizontal: 16,
-    paddingTop: 14,
+    paddingTop: 10,
   },
-  toolbar: { flexDirection: 'row', gap: 10 },
-  syncButton: {
+  toolbar: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  iconButton: {
     alignItems: 'center',
-    backgroundColor: '#fff9ef',
-    borderColor: '#f3e0b8',
     borderRadius: 999,
     borderWidth: 1,
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
+    height: 38,
+    justifyContent: 'center',
+    width: 38,
   },
-  syncText: { color: '#0f172a', fontSize: 13, fontWeight: '700' },
   newButton: {
     alignItems: 'center',
-    backgroundColor: '#315efb',
     borderRadius: 999,
-    flex: 1,
     flexDirection: 'row',
-    gap: 6,
+    gap: 4,
+    height: 38,
     justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 11,
+    paddingHorizontal: 12,
   },
-  newButtonText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  newButtonText: { fontSize: 13, fontWeight: '700' },
   buttonDisabled: { opacity: 0.6 },
   search: {
     alignItems: 'center',
-    backgroundColor: '#fff9ef',
-    borderColor: '#cfe1ff',
     borderRadius: 999,
     borderWidth: 1,
-    flexDirection: 'row',
-    paddingHorizontal: 14,
-  },
-  searchInput: { color: '#0f172a', flex: 1, fontSize: 14, height: 44, marginLeft: 8 },
-  clearSearch: { color: '#315efb', fontSize: 12, fontWeight: '700', paddingHorizontal: 4 },
-  filterBlock: { gap: 8 },
-  filterLabel: {
-    color: '#64748b',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-  },
-  statusSegment: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 14,
-    flexDirection: 'row',
-    gap: 4,
-    padding: 4,
-  },
-  statusOption: {
-    alignItems: 'center',
-    borderRadius: 11,
     flex: 1,
-    justifyContent: 'center',
-    minWidth: 0,
-    paddingHorizontal: 4,
-    paddingVertical: 9,
+    flexDirection: 'row',
+    height: 38,
+    paddingHorizontal: 12,
   },
-  statusOptionActive: {
-    backgroundColor: '#315efb',
-  },
-  statusOptionText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
-  statusOptionTextActive: { color: '#fff', fontWeight: '700' },
-  categoryWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  categoryChip: {
-    backgroundColor: '#fff',
-    borderColor: '#cfe1ff',
+  searchInput: { flex: 1, fontSize: 14, height: 38, marginLeft: 8, paddingVertical: 0 },
+  chipRow: { alignItems: 'center', gap: 6, paddingRight: 8 },
+  chip: {
     borderRadius: 999,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
   },
-  categoryChipActive: { backgroundColor: '#315efb', borderColor: '#315efb' },
-  categoryChipText: { color: '#475569', fontSize: 12, fontWeight: '600' },
-  categoryChipTextActive: { color: '#fff', fontWeight: '700' },
-  resetFilters: { alignSelf: 'flex-start', paddingVertical: 2 },
-  resetFiltersText: { color: '#dc2626', fontSize: 12, fontWeight: '700' },
+  chipText: { fontSize: 12, fontWeight: '600' },
+  chipDivider: { borderRadius: 1, height: 16, marginHorizontal: 2, width: 1 },
+  resetChip: { paddingHorizontal: 8, paddingVertical: 6 },
+  resetChipText: { fontSize: 12, fontWeight: '700' },
   list: { gap: 12, padding: 16, paddingBottom: 40 },
   card: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, padding: 14 },
   cardHead: { borderBottomColor: '#e8eef7', borderBottomWidth: 1, paddingBottom: 10 },
