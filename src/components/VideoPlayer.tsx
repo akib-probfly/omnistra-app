@@ -7,7 +7,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export function VideoPlayerModal({ url, visible, onClose }: { url: string | null; visible: boolean; onClose: () => void }) {
   const insets = useSafeAreaInsets();
-  const [token, setToken] = useState<string | null>(null);
   const [source, setSource] = useState<{ uri: string; headers: Record<string, string> } | null>(null);
 
   useEffect(() => {
@@ -16,7 +15,6 @@ export function VideoPlayerModal({ url, visible, onClose }: { url: string | null
     SecureStore.getItemAsync('access-token')
       .then((value) => {
         if (!active) return;
-        setToken(value);
         setSource({ uri: url, headers: value ? { Authorization: `Bearer ${value}` } : {} });
       })
       .catch(() => {});

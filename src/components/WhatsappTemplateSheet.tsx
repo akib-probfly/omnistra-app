@@ -51,6 +51,7 @@ import {
   validateTemplateForm,
 } from '../lib/whatsapp-template-utils';
 import { useTheme } from '../theme/ThemeContext';
+import { AppSegmentedControl } from '../ui';
 
 export type TemplateSheetMode = 'view' | 'edit' | 'create';
 
@@ -70,6 +71,11 @@ const CATEGORIES: Array<{ value: WhatsappTemplateCategory; label: string }> = [
   { value: 'UTILITY', label: 'Utility' },
   { value: 'AUTHENTICATION', label: 'Authentication' },
 ];
+
+const AUTH_DELIVERY_METHODS = [
+  { value: 'COPY_CODE', label: 'Copy code' },
+  { value: 'ONE_TAP', label: 'One tap' },
+] as const;
 
 const LANGUAGES = [
   { value: 'en_US', label: 'English (US)' },
@@ -428,17 +434,7 @@ export function WhatsappTemplateSheet({
                 />
 
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Category</Text>
-                <View style={[styles.segment, { backgroundColor: colors.surfaceSecondary }]}>
-                  {CATEGORIES.map((option) => (
-                    <Pressable
-                      key={option.value}
-                      onPress={() => setCategory(option.value)}
-                      style={[styles.segmentOption, form.category === option.value && { backgroundColor: colors.surface }]}
-                    >
-                      <Text style={[styles.segmentText, { color: colors.textSecondary }, form.category === option.value && { color: colors.primary }]}>{option.label}</Text>
-                    </Pressable>
-                  ))}
-                </View>
+                <AppSegmentedControl options={CATEGORIES} value={form.category} onChange={setCategory} />
 
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Language</Text>
                 <View style={styles.chipWrap}>
@@ -457,19 +453,11 @@ export function WhatsappTemplateSheet({
                   <>
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>Authentication</Text>
                     <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Code delivery</Text>
-                    <View style={[styles.segment, { backgroundColor: colors.surfaceSecondary }]}>
-                      {(['COPY_CODE', 'ONE_TAP'] as const).map((method) => (
-                        <Pressable
-                          key={method}
-                          onPress={() => updateAuth({ authCodeDeliveryMethod: method })}
-                          style={[styles.segmentOption, form.authCodeDeliveryMethod === method && { backgroundColor: colors.surface }]}
-                        >
-                          <Text style={[styles.segmentText, { color: colors.textSecondary }, form.authCodeDeliveryMethod === method && { color: colors.primary }]}>
-                            {method === 'COPY_CODE' ? 'Copy code' : 'One tap'}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
+                    <AppSegmentedControl
+                      options={AUTH_DELIVERY_METHODS}
+                      value={form.authCodeDeliveryMethod}
+                      onChange={(authCodeDeliveryMethod) => updateAuth({ authCodeDeliveryMethod })}
+                    />
                     <View style={styles.toggleRow}>
                       <Text style={[styles.toggleLabel, { color: colors.text }]}>Security recommendation</Text>
                       <AppToggle
@@ -842,18 +830,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     textAlignVertical: 'top',
   },
-  segment: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
-    flexDirection: 'row',
-    gap: 3,
-    marginTop: 6,
-    padding: 3,
-  },
-  segmentOption: { alignItems: 'center', borderRadius: 9, flex: 1, paddingVertical: 9 },
-  segmentOptionActive: { backgroundColor: '#fff' },
-  segmentText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
-  segmentTextActive: { color: '#2563eb' },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   chip: {
     borderColor: '#dbeafe',

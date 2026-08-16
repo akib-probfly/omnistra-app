@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowLeft, CalendarDays, Check, CreditCard, Package, Receipt, Sparkles } from 'lucide-react-native';
+import { AlertTriangle, CalendarDays, Check, CreditCard, Package, Receipt, Sparkles } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
@@ -14,6 +14,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import { ScreenHeader } from '../ui';
 import {
   confirmReturnedPipraPayPayment,
   fetchBillingPlans,
@@ -233,15 +234,11 @@ export function BillingSettingsScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.backButton}>
-          <ArrowLeft color={colors.text} size={22} />
-        </Pressable>
-        <View style={styles.headerCopy}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Billing</Text>
-          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Plans, invoices, and subscription history</Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Billing"
+        subtitle="Plans, invoices, and subscription history"
+        onBack={() => navigation.goBack()}
+      />
 
       <View style={[styles.tabs, { backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         {TABS.map((item) => {
@@ -689,11 +686,6 @@ function HistoryRow({ item }: { item: SubscriptionView }) {
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: '#f8fafc', flex: 1 },
-  header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e8eef7', borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingBottom: 12, paddingHorizontal: 14 },
-  backButton: { alignItems: 'center', height: 36, justifyContent: 'center', width: 36 },
-  headerCopy: { flex: 1, minWidth: 0 },
-  headerTitle: { color: '#0f172a', fontSize: 18, fontWeight: '800' },
-  headerSubtitle: { color: '#64748b', fontSize: 12, marginTop: 2 },
   tabs: { backgroundColor: '#fff', borderBottomColor: '#e8eef7', borderBottomWidth: 1, flexDirection: 'row', gap: 6, paddingHorizontal: 12, paddingVertical: 10 },
   tab: { backgroundColor: '#f1f5f9', borderRadius: 999, flex: 1, paddingHorizontal: 8, paddingVertical: 8 },
   tabActive: { backgroundColor: '#dbeafe' },

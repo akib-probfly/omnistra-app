@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, BadgeCheck, LoaderCircle } from 'lucide-react-native';
+import { BadgeCheck, LoaderCircle } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,6 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import { ScreenHeader } from '../ui';
 import {
   calculateProration,
   changePlan,
@@ -272,12 +273,7 @@ export function BillingPlanDetailsScreen() {
   if (plansQuery.isError || !plan) {
     return (
       <View style={[styles.screen, { backgroundColor: colors.background }]}>
-        <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
-          <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.backButton}>
-            <ArrowLeft color={colors.text} size={22} />
-          </Pressable>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Plan details</Text>
-        </View>
+        <ScreenHeader title="Plan details" onBack={() => navigation.goBack()} />
         <ErrorState
           message={plansQuery.error instanceof Error ? plansQuery.error.message : 'Unable to load this package.'}
           onRetry={() => plansQuery.refetch()}
@@ -288,17 +284,11 @@ export function BillingPlanDetailsScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.backButton}>
-          <ArrowLeft color={colors.text} size={22} />
-        </Pressable>
-        <View style={styles.headerCopy}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>{plan.name}</Text>
-          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-            {upgradeMode ? 'Upgrade' : isDowngrade ? 'Downgrade' : plan.badge ?? 'Subscription'}
-          </Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title={plan.name}
+        subtitle={upgradeMode ? 'Upgrade' : isDowngrade ? 'Downgrade' : plan.badge ?? 'Subscription'}
+        onBack={() => navigation.goBack()}
+      />
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}>
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
@@ -464,18 +454,6 @@ function SummaryLine({
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   centered: { alignItems: 'center', justifyContent: 'center' },
-  header: {
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    flexDirection: 'row',
-    gap: 10,
-    paddingBottom: 12,
-    paddingHorizontal: 14,
-  },
-  backButton: { alignItems: 'center', height: 36, justifyContent: 'center', width: 36 },
-  headerCopy: { flex: 1, minWidth: 0 },
-  headerTitle: { fontSize: 18, fontWeight: '800' },
-  headerSubtitle: { fontSize: 12, marginTop: 2 },
   content: { gap: 12, padding: 16 },
   card: {
     borderRadius: 24,

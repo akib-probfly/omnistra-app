@@ -3,7 +3,6 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Bell, CheckCheck, MessageSquare, PhoneCall, Trash2, UserMinus, UserRoundCheck } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { BottomSheet, SheetScrollView } from './BottomSheet';
 import {
@@ -99,7 +98,6 @@ function NotificationRow({ notification, onOpen, onMarkRead }: { notification: N
   const { colors } = useTheme();
   const appearance = getNotificationAppearance(notification.type);
   const copy = getNotificationRowCopy(notification);
-  const navigable = notification.type !== 'CONTACT_EXPORT_READY' && notification.type !== 'CAMPAIGN_EXPORT_READY';
 
   return (
       <Pressable

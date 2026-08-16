@@ -69,9 +69,9 @@ function CopyToast({ text1 }: { text1?: string }) {
 }
 
 function renderToast(type: Tone) {
-  return (props: ToastConfigParams<any>) => (
-    <ToastCard type={type} text1={props.text1} text2={props.text2} />
-  );
+  return function Toast(props: ToastConfigParams<any>) {
+    return <ToastCard type={type} text1={props.text1} text2={props.text2} />;
+  };
 }
 
 export function showNotice(text1: string, text2?: string) {

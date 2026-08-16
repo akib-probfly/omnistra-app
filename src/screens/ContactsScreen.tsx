@@ -34,7 +34,7 @@ import { ErrorState } from '../components/ErrorState';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 import { useTheme } from '../theme/ThemeContext';
 import type { ContactsStackParamList } from '../navigation/ContactsStack';
-import { AppSearchField } from '../ui';
+import { AppSearchField, EmptyState } from '../ui';
 
 type FilterLayer = 'channels' | 'labels' | 'users' | 'more';
 type AssignmentFilter = 'all' | 'assigned' | 'unassigned';
@@ -66,16 +66,6 @@ const FILTER_LAYERS: Array<{ id: FilterLayer; label: string }> = [
   { id: 'users', label: 'Users' },
   { id: 'more', label: 'More' },
 ];
-
-function getInitials(value: string) {
-  return value
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase() || '?';
-}
 
 function formatRelativeActivity(value: string | null) {
   if (!value) return 'No activity';
@@ -360,31 +350,34 @@ export function ContactsScreen() {
             }
           }}
           ListEmptyComponent={(
-            <View style={styles.empty}>
-              <ContactRound color={colors.textMuted} size={44} />
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>No contacts found</Text>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                {hasAdvancedFilters || debouncedSearch.trim()
+            <EmptyState
+              icon={ContactRound}
+              iconSize={44}
+              title="No contacts found"
+              message={
+                hasAdvancedFilters || debouncedSearch.trim()
                   ? 'Try adjusting your search or filters.'
-                  : 'Add a contact to start building your CRM list.'}
-              </Text>
-              {hasAdvancedFilters || debouncedSearch.trim() ? (
-                <Pressable
-                  style={[styles.emptyClearButton, { backgroundColor: colors.surfaceSecondary }]}
-                  onPress={() => {
-                    resetFilters();
-                    setSearch('');
-                    setDebouncedSearch('');
-                  }}
-                >
-                  <Text style={[styles.emptyClearButtonText, { color: colors.primary }]}>Clear filters</Text>
-                </Pressable>
-              ) : (
-                <Pressable style={[styles.emptyClearButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setAddOpen(true)}>
-                  <Text style={[styles.emptyClearButtonText, { color: colors.primary }]}>Add contact</Text>
-                </Pressable>
-              )}
-            </View>
+                  : 'Add a contact to start building your CRM list.'
+              }
+              action={
+                hasAdvancedFilters || debouncedSearch.trim() ? (
+                  <Pressable
+                    style={[styles.emptyClearButton, { backgroundColor: colors.surfaceSecondary }]}
+                    onPress={() => {
+                      resetFilters();
+                      setSearch('');
+                      setDebouncedSearch('');
+                    }}
+                  >
+                    <Text style={[styles.emptyClearButtonText, { color: colors.primary }]}>Clear filters</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable style={[styles.emptyClearButton, { backgroundColor: colors.surfaceSecondary }]} onPress={() => setAddOpen(true)}>
+                    <Text style={[styles.emptyClearButtonText, { color: colors.primary }]}>Add contact</Text>
+                  </Pressable>
+                )
+              }
+            />
           )}
           ListFooterComponent={contactsQuery.isFetchingNextPage ? <View style={{ alignItems: 'center', marginVertical: 16 }}><InlineSkeleton width={140} height={14} /></View> : null}
           renderItem={renderContactRow}
@@ -725,9 +718,6 @@ const styles = StyleSheet.create({
   tagChipText: { fontSize: 11, fontWeight: '600' },
   tagMore: { alignSelf: 'center', color: '#64748b', fontSize: 11, fontWeight: '600' },
   activity: { color: '#94a3b8', fontSize: 11, fontWeight: '600', marginTop: 2 },
-  empty: { alignItems: 'center', paddingTop: 48 },
-  emptyTitle: { color: '#0f172a', fontSize: 16, fontWeight: '700', marginTop: 14 },
-  emptyText: { color: '#64748b', fontSize: 13, marginTop: 5, maxWidth: 260, textAlign: 'center' },
   emptyClearButton: { backgroundColor: '#eff6ff', borderRadius: 12, marginTop: 14, paddingHorizontal: 14, paddingVertical: 10 },
   emptyClearButtonText: { color: '#2563eb', fontSize: 13, fontWeight: '700' },
   loader: { marginTop: 60 },

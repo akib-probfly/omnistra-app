@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowLeft, Ban, Globe, Mail, MessageSquareText, Phone, Plus, Search, Trash2, X } from 'lucide-react-native';
+import { AlertTriangle, Ban, Globe, Mail, MessageSquareText, Phone, Plus, Search, Trash2, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -33,18 +33,9 @@ import { ErrorState } from '../components/ErrorState';
 import { FormSkeleton } from '../components/Skeleton';
 import type { ContactsStackParamList } from '../navigation/ContactsStack';
 import { useTheme } from '../theme/ThemeContext';
+import { ScreenHeader } from '../ui';
 
 const TAG_COLOR_OPTIONS = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#64748b'];
-
-function getInitials(value: string) {
-  return value
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase() || '?';
-}
 
 function formatDateTime(value: string | null | undefined) {
   if (!value) return '-';
@@ -273,18 +264,17 @@ export function ContactDetailsScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.backButton}>
-          <ArrowLeft color={colors.text} size={22} />
-        </Pressable>
-        <View style={styles.headerCopy}>
-          <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>{title}</Text>
-          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Contact details</Text>
-        </View>
-        <Pressable style={[styles.messageButton, { backgroundColor: colors.surfaceSecondary }]} onPress={openLatestConversation}>
-          <MessageSquareText color={colors.primary} size={18} />
-        </Pressable>
-      </View>
+      <ScreenHeader
+        title={title}
+        titleNumberOfLines={1}
+        subtitle="Contact details"
+        onBack={() => navigation.goBack()}
+        right={
+          <Pressable style={[styles.messageButton, { backgroundColor: colors.surfaceSecondary }]} onPress={openLatestConversation}>
+            <MessageSquareText color={colors.primary} size={18} />
+          </Pressable>
+        }
+      />
 
       {contactQuery.isLoading ? (
         <FormSkeleton fields={6} />
@@ -645,11 +635,6 @@ export function ContactDetailsScreen() {
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: '#eef4fb', flex: 1 },
-  header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e8eef7', borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingBottom: 12, paddingHorizontal: 14 },
-  backButton: { alignItems: 'center', height: 36, justifyContent: 'center', width: 36 },
-  headerCopy: { flex: 1, minWidth: 0 },
-  headerTitle: { color: '#0f172a', fontSize: 18, fontWeight: '800' },
-  headerSubtitle: { color: '#64748b', fontSize: 12, marginTop: 2 },
   messageButton: { alignItems: 'center', backgroundColor: '#eff6ff', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   loader: { marginTop: 60 },
   content: { gap: 12, padding: 16 },

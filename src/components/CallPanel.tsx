@@ -320,7 +320,6 @@ export function CallPanel({
   onEndCall,
   onToggleMute,
 }: Props) {
-  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [expanded, setExpanded] = useState(false);
   const [incomingExpanded, setIncomingExpanded] = useState(true);

@@ -13,6 +13,7 @@ import {
   type ChannelType,
 } from '../api/channels';
 import { useTheme } from '../theme/ThemeContext';
+import { AppSegmentedControl } from '../ui';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 const FREQUENCIES = [
@@ -131,13 +132,11 @@ export function QuickAutomationTab({ channelId, channelType }: { channelId: stri
               style={[styles.inputMultiline, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]}
             />
             <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Send frequency</Text>
-            <View style={[styles.segment, { backgroundColor: colors.surfaceSecondary }]}>
-              {FREQUENCIES.map((option) => (
-                <Pressable key={option.value} onPress={() => setDraft({ ...draft, welcomeSendFrequency: option.value })} style={[styles.segmentOption, draft.welcomeSendFrequency === option.value && { backgroundColor: colors.surface }]}>
-                  <Text style={[styles.segmentText, { color: colors.textSecondary }, draft.welcomeSendFrequency === option.value && { color: colors.primary }]}>{option.label}</Text>
-                </Pressable>
-              ))}
-            </View>
+            <AppSegmentedControl
+              options={FREQUENCIES}
+              value={draft.welcomeSendFrequency}
+              onChange={(welcomeSendFrequency) => setDraft({ ...draft, welcomeSendFrequency })}
+            />
           </>
         ) : null}
       </View>
@@ -222,11 +221,6 @@ const styles = StyleSheet.create({
   toggleLabel: { color: '#0f172a', fontSize: 15, fontWeight: '600' },
   fieldLabel: { color: '#64748b', fontSize: 12, marginTop: 14 },
   inputMultiline: { backgroundColor: '#f8fbff', borderColor: '#cfe1ff', borderRadius: 14, borderWidth: 1, color: '#0f172a', fontSize: 14, minHeight: 88, paddingHorizontal: 14, paddingVertical: 12, marginTop: 6, textAlignVertical: 'top' },
-  segment: { backgroundColor: '#eef2fb', borderRadius: 12, flexDirection: 'row', marginTop: 6, padding: 3 },
-  segmentOption: { alignItems: 'center', borderRadius: 9, flex: 1, paddingVertical: 8 },
-  segmentOptionActive: { backgroundColor: '#fff', shadowColor: '#0f172a', shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 1 } },
-  segmentText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
-  segmentTextActive: { color: '#2563eb' },
   dayRow: { alignItems: 'center', flexDirection: 'row', gap: 10, marginTop: 12 },
   dayLabel: { color: '#334155', flex: 1, fontSize: 14, fontWeight: '600' },
   timeChip: { alignItems: 'center', backgroundColor: '#f8fbff', borderColor: '#cfe1ff', borderRadius: 10, borderWidth: 1, minWidth: 64, paddingHorizontal: 10, paddingVertical: 7 },

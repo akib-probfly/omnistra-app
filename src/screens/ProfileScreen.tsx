@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
-import { ArrowLeft, Camera, Check, Eye, EyeOff, LoaderCircle, Lock, Save, User } from 'lucide-react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { ArrowLeft, Camera, Eye, EyeOff, Lock, Save } from 'lucide-react-native';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { showNotice } from '../components/AppToast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

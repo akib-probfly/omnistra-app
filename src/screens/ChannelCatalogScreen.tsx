@@ -1,5 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, LoaderCircle, MessageCircle, Users } from 'lucide-react-native';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { ArrowLeft, MessageCircle, Users } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Toast from 'react-native-toast-message';
@@ -26,7 +26,6 @@ const FILTERS = ['All', 'Business Messaging', 'Calls', 'SMS', 'Email', 'Live Cha
 export function ChannelCatalogScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const queryClient = useQueryClient();
   const [activeFilter, setActiveFilter] = useState('All');
   const [query, setQuery] = useState('');
   const { colors, isDark } = useTheme();
@@ -161,10 +160,6 @@ export function ChannelCatalogScreen() {
       />
     </View>
   );
-}
-
-function ViewGlyph({ color }: { color: string }) {
-  return <Text style={{ color, fontSize: 22, fontWeight: '800' }}>w</Text>;
 }
 
 function ChannelGlyph({ id }: { id: string }) {

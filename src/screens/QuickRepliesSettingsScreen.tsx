@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import {
-  ArrowLeft,
   MessageSquareText,
   Paperclip,
   PencilLine,
@@ -25,6 +24,7 @@ import Toast from 'react-native-toast-message';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import { AppButton, ScreenHeader } from '../ui';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import {
   createQuickReply,
@@ -293,18 +293,16 @@ export function QuickRepliesSettingsScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.backButton}>
-          <ArrowLeft color={colors.text} size={22} />
-        </Pressable>
-        <View style={styles.headerCopy}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Quick Replies</Text>
-          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Saved snippets for faster replies</Text>
-        </View>
-        <Pressable style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={openCreate}>
-          <Plus color="#fff" size={18} />
-        </Pressable>
-      </View>
+      <ScreenHeader
+        title="Quick Replies"
+        subtitle="Saved snippets for faster replies"
+        onBack={() => navigation.goBack()}
+        right={
+          <Pressable style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={openCreate}>
+            <Plus color="#fff" size={18} />
+          </Pressable>
+        }
+      />
 
       {workspacesQuery.isLoading ? (
         <FormSkeleton fields={4} />
@@ -343,10 +341,7 @@ export function QuickRepliesSettingsScreen() {
                   <MessageSquareText color={colors.textMuted} size={28} />
                   <Text style={[styles.emptyTitle, { color: colors.text }]}>No quick replies yet</Text>
                   <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>Create a snippet to reuse across conversations.</Text>
-                  <Pressable style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={openCreate}>
-                    <Plus color="#fff" size={16} />
-                    <Text style={styles.primaryButtonText}>Add quick reply</Text>
-                  </Pressable>
+                  <AppButton block style={styles.primaryButtonSpacing} icon={Plus} label="Add quick reply" onPress={openCreate} />
                 </View>
               )}
               renderItem={({ item }) => (
@@ -442,17 +437,14 @@ export function QuickRepliesSettingsScreen() {
               </View>
             </SheetScrollView>
 
-            <Pressable
-              style={[styles.primaryButton, { backgroundColor: colors.primary }, (savingDisabled || createMutation.isPending || updateMutation.isPending) && styles.disabled]}
-              disabled={savingDisabled || createMutation.isPending || updateMutation.isPending}
+            <AppButton
+              block
+              style={styles.primaryButtonSpacing}
+              label={editing ? 'Save changes' : 'Create quick reply'}
+              loading={createMutation.isPending || updateMutation.isPending}
+              disabled={savingDisabled}
               onPress={() => void handleSave()}
-            >
-              {(createMutation.isPending || updateMutation.isPending) ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.primaryButtonText}>{editing ? 'Save changes' : 'Create quick reply'}</Text>
-              )}
-            </Pressable>
+            />
         </BottomSheet>
       <ConfirmDialog
         visible={Boolean(pendingDelete)}
@@ -476,11 +468,6 @@ export function QuickRepliesSettingsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  header: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingBottom: 12, paddingHorizontal: 14 },
-  backButton: { alignItems: 'center', height: 36, justifyContent: 'center', width: 36 },
-  headerCopy: { flex: 1, minWidth: 0 },
-  headerTitle: { fontSize: 18, fontWeight: '800' },
-  headerSubtitle: { fontSize: 12, marginTop: 2 },
   addButton: { alignItems: 'center', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   loader: { marginTop: 60 },
   searchWrap: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10 },
@@ -496,8 +483,7 @@ const styles = StyleSheet.create({
   itemBody: { fontSize: 12, marginTop: 2 },
   itemMeta: { fontSize: 11, marginTop: 4 },
   iconButton: { alignItems: 'center', height: 34, justifyContent: 'center', width: 34 },
-  primaryButton: { alignItems: 'center', borderRadius: 14, flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 12, paddingVertical: 14 },
-  primaryButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  primaryButtonSpacing: { marginTop: 12 },
   disabled: { opacity: 0.55 },
   sheetOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },
   sheetSurface: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 },

@@ -1,8 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Building2, Save } from 'lucide-react-native';
+import { Building2, Save } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,6 +13,7 @@ import { showNotice } from '../components/AppToast';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import { AppButton, ScreenHeader } from '../ui';
 import {
   fetchMyWorkspaces,
   fetchTimezones,
@@ -88,15 +88,11 @@ export function WorkspaceSettingsScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.backButton}>
-          <ArrowLeft color={colors.text} size={22} />
-        </Pressable>
-        <View style={styles.headerCopy}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Workspace</Text>
-          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Name, timezone, and workspace basics</Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Workspace"
+        subtitle="Name, timezone, and workspace basics"
+        onBack={() => navigation.goBack()}
+      />
 
       {workspacesQuery.isLoading ? (
         <FormSkeleton fields={4} />
@@ -123,18 +119,14 @@ export function WorkspaceSettingsScreen() {
             </Pressable>
           </View>
 
-          <Pressable
-            style={[styles.saveButton, { backgroundColor: colors.primary }, (!dirty || !name.trim() || saveMutation.isPending) && styles.saveDisabled]}
-            disabled={!dirty || !name.trim() || saveMutation.isPending}
+          <AppButton
+            block
+            icon={Save}
+            label="Save changes"
+            loading={saveMutation.isPending}
+            disabled={!dirty || !name.trim()}
             onPress={() => saveMutation.mutate()}
-          >
-            {saveMutation.isPending ? <ActivityIndicator color="#fff" /> : (
-              <>
-                <Save color="#fff" size={16} />
-                <Text style={styles.saveText}>Save changes</Text>
-              </>
-            )}
-          </Pressable>
+          />
         </ScrollView>
       )}
 
@@ -178,11 +170,6 @@ export function WorkspaceSettingsScreen() {
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: '#f8fafc', flex: 1 },
-  header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e8eef7', borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingBottom: 12, paddingHorizontal: 14 },
-  backButton: { alignItems: 'center', height: 36, justifyContent: 'center', width: 36 },
-  headerCopy: { flex: 1, minWidth: 0 },
-  headerTitle: { color: '#0f172a', fontSize: 18, fontWeight: '800' },
-  headerSubtitle: { color: '#64748b', fontSize: 12, marginTop: 2 },
   loader: { marginTop: 60 },
   content: { gap: 14, padding: 16 },
   card: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, padding: 16 },
@@ -193,7 +180,6 @@ const styles = StyleSheet.create({
   input: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, color: '#0f172a', paddingHorizontal: 12, paddingVertical: 12 },
   inputButton: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 14 },
   inputButtonText: { color: '#0f172a', fontSize: 14, fontWeight: '600' },
-  saveButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 14, flexDirection: 'row', gap: 8, justifyContent: 'center', paddingVertical: 14 },
   saveDisabled: { opacity: 0.5 },
   saveText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   sheetOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },

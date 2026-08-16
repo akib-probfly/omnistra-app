@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
 import {
-  ArrowLeft,
   Bell,
   Clock3,
   MessageSquareMore,
@@ -12,7 +11,6 @@ import {
 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import {
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,6 +20,7 @@ import { showNotice } from '../components/AppToast';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import { ScreenHeader } from '../ui';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   fetchNotificationPreferences,
@@ -155,17 +154,11 @@ export function NotificationSettingsScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.backButton}>
-          <ArrowLeft color={colors.text} size={22} />
-        </Pressable>
-        <View style={styles.headerCopy}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Notifications</Text>
-          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-            {preferencesQuery.isSuccess ? 'Preferences saved to workspace' : 'Loading workspace preferences'}
-          </Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Notifications"
+        subtitle={preferencesQuery.isSuccess ? 'Preferences saved to workspace' : 'Loading workspace preferences'}
+        onBack={() => navigation.goBack()}
+      />
 
       {workspacesQuery.isLoading || preferencesQuery.isLoading ? (
         <FormSkeleton fields={6} />
@@ -278,11 +271,6 @@ export function NotificationSettingsScreen() {
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: '#f8fafc', flex: 1 },
-  header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e8eef7', borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingBottom: 12, paddingHorizontal: 14 },
-  backButton: { alignItems: 'center', height: 36, justifyContent: 'center', width: 36 },
-  headerCopy: { flex: 1, minWidth: 0 },
-  headerTitle: { color: '#0f172a', fontSize: 18, fontWeight: '800' },
-  headerSubtitle: { color: '#64748b', fontSize: 12, marginTop: 2 },
   loader: { marginTop: 60 },
   content: { padding: 16 },
   sectionLabel: { color: '#0f172a', fontSize: 16, fontWeight: '800', marginBottom: 4, marginTop: 8 },

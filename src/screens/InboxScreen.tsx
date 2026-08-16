@@ -574,11 +574,6 @@ export function InboxScreen() {
   );
 }
 
-function getInitials(value?: string | null) {
-  const parts = (value ?? '?').split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]);
-  return (parts.join('') || '?').toUpperCase();
-}
-
 function WindowPulseDot({ expired }: { expired: boolean }) {
   const color = expired ? '#ef4444' : '#22c55e';
   const ringColor = expired ? 'rgba(239,68,68,0.35)' : 'rgba(34,197,94,0.35)';

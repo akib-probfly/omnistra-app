@@ -13,7 +13,7 @@ import { NotificationBell, NotificationCenter } from '../components/Notification
 import { ListSkeleton } from '../components/Skeleton';
 import type { ChannelsStackParamList } from '../navigation/ChannelsStack';
 import { useTheme } from '../theme/ThemeContext';
-import { AppSearchField } from '../ui';
+import { AppSearchField, EmptyState } from '../ui';
 
 type Channel = {
   id: string;
@@ -98,11 +98,11 @@ export function ChannelsScreen() {
           refreshControl={<RefreshControl refreshing={channels.isRefetching} onRefresh={() => channels.refetch()} tintColor={colors.primary} />}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <ChannelLogo box={52} glyph={26} radius={18} />
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>No channels connected</Text>
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Channels connected in the web workspace will appear here automatically.</Text>
-            </View>
+            <EmptyState
+              illustration={<ChannelLogo box={52} glyph={26} radius={18} />}
+              title="No channels connected"
+              message="Channels connected in the web workspace will appear here automatically."
+            />
           }
           renderItem={({ item }) => <ChannelRow channel={item} onPress={() => openDetails(item)} />}
         />
@@ -177,7 +177,4 @@ const styles = StyleSheet.create({
   metaLine: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'space-between', marginTop: 5 },
   idText: { color: '#94a3b8', flex: 1, fontSize: 11 },
   msg24h: { color: '#64748b', fontSize: 11, fontWeight: '600' },
-  empty: { alignItems: 'center', paddingTop: 48 },
-  emptyTitle: { color: '#0f172a', fontSize: 16, fontWeight: '700', marginTop: 14 },
-  emptyText: { color: '#64748b', fontSize: 13, marginTop: 5, maxWidth: 240, textAlign: 'center' },
 });

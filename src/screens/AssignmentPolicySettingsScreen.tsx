@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
-  ArrowLeft,
   Check,
   Hand,
   Save,
@@ -10,7 +9,6 @@ import {
 } from 'lucide-react-native';
 import { useDeferredValue, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,6 +20,7 @@ import { showNotice } from '../components/AppToast';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import { AppButton, ScreenHeader } from '../ui';
 import {
   fetchWorkspaceAssignmentPolicy,
   updateWorkspaceAssignmentPolicy,
@@ -193,15 +192,11 @@ function AssignmentPolicyForm({
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.backButton}>
-          <ArrowLeft color={colors.text} size={22} />
-        </Pressable>
-        <View style={styles.headerCopy}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Assignment Policy</Text>
-          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>How new conversations are assigned in {workspaceName}</Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Assignment Policy"
+        subtitle={`How new conversations are assigned in ${workspaceName}`}
+        onBack={() => navigation.goBack()}
+      />
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}>
         {!canUpdate ? (
@@ -340,20 +335,15 @@ function AssignmentPolicyForm({
           </View>
         </View>
 
-        <Pressable
-          style={[styles.saveButton, { backgroundColor: colors.primary }, disabled && styles.disabled]}
+        <AppButton
+          block
+          style={styles.saveButtonSpacing}
+          icon={Save}
+          label="Save settings"
+          loading={saveMutation.isPending}
           disabled={disabled}
           onPress={() => saveMutation.mutate()}
-        >
-          {saveMutation.isPending ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Save color="#fff" size={16} />
-              <Text style={styles.saveText}>Save settings</Text>
-            </>
-          )}
-        </Pressable>
+        />
       </ScrollView>
 
       <BottomSheet visible={ownerPickerOpen} onClose={() => setOwnerPickerOpen(false)} sheetStyle={styles.sheetSurface}>
@@ -460,11 +450,6 @@ export function AssignmentPolicySettingsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  header: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingBottom: 12, paddingHorizontal: 14 },
-  backButton: { alignItems: 'center', height: 36, justifyContent: 'center', width: 36 },
-  headerCopy: { flex: 1, minWidth: 0 },
-  headerTitle: { fontSize: 18, fontWeight: '800' },
-  headerSubtitle: { fontSize: 12, marginTop: 2 },
   loader: { marginTop: 80 },
   content: { gap: 12, padding: 16 },
   infoBanner: { alignItems: 'flex-start', backgroundColor: '#fff7ed', borderColor: '#fed7aa', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 8, padding: 12 },
@@ -496,8 +481,7 @@ const styles = StyleSheet.create({
   numberInput: { borderRadius: 12, borderWidth: 1, minWidth: 100, paddingHorizontal: 12, paddingVertical: 10, textAlign: 'center' },
   fallbackRow: { flexDirection: 'row', gap: 12, paddingTop: 14 },
   fallbackIcon: { alignItems: 'center', backgroundColor: '#fffbeb', borderRadius: 999, height: 32, justifyContent: 'center', width: 32 },
-  saveButton: { alignItems: 'center', borderRadius: 14, flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 4, paddingVertical: 14 },
-  saveText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  saveButtonSpacing: { marginTop: 4 },
   disabled: { opacity: 0.55 },
   sheetOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },
   sheetSurface: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 },

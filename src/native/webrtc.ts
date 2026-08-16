@@ -1,7 +1,5 @@
 import { NativeModules } from 'react-native';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 function loadWebRtc(): any {
   // Expo Go and any build without the native WebRTC binary stay on the stub.
   if (NativeModules.WebRTCModule == null) {
