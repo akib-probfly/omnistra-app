@@ -185,9 +185,8 @@ export function GlobalCallLayer() {
     refetchIntervalInBackground: false,
     refetchInterval: () => {
       if (appState !== 'active') return false;
-      // /calls/active often still returns workspace REQUESTED/PERMISSION rows.
-      // Those are "live" in the API sense and were forcing a 5s poll even when
-      // this device is idle. Poll only while this phone is actually in a call.
+      // Only poll while this device is in a call. Incoming rings are applied from
+      // call.session.updated + INCOMING_CALL notifications, not /calls/active.
       if (callController.isBusy) return 5000;
       return false;
     },

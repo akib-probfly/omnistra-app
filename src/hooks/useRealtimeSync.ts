@@ -21,6 +21,7 @@ import {
 } from '../lib/unread-count-override';
 import { playNotificationSound } from '../lib/notificationSound';
 import { writeIncomingCallPrompt } from '../lib/incoming-call-prompt';
+import { syncIncomingCallPromptFromSession, upsertActiveCallSessionCache, type CallSessionUpdatedEvent } from '../lib/active-call-cache';
 import { useNotificationPreferences } from './useNotificationPreferences';
 
 const REALTIME_READY_EVENT = 'realtime.ready';
@@ -42,7 +43,6 @@ type ConversationUpdatedEvent = {
   occurredAt: string;
 };
 type MessageCreatedEvent = { workspaceId: string; conversationId: string; messageId: string; createdAt: string };
-type CallSessionUpdatedEvent = { workspaceId: string; conversationId: string; callSessionId: string; status: string };
 type NotificationCreatedEvent = NotificationCreatedRealtimeEvent;
 
 const handledNotificationIds = new Set<string>();
@@ -440,6 +440,11 @@ export function useRealtimeSync(accessToken: string | null) {
     };
 
     const handleCallSessionUpdated = (payload: CallSessionUpdatedEvent) => {
+      upsertActiveCallSessionCache(queryClient, payload);
+      syncIncomingCallPromptFromSession(payload, {
+        incomingCallAlertsEnabled: preferencesRef.current.incomingCallAlertsEnabled,
+        currentUserId: queryClient.getQueryData<{ id?: string }>(['me-profile'])?.id,
+      });
       if (payload.conversationId) {
         schedule(`calls:${payload.conversationId}`, () => {
           void queryClient.invalidateQueries({ queryKey: ['conversation-calls', payload.conversationId], refetchType: 'active' });
@@ -448,7 +453,6 @@ export function useRealtimeSync(accessToken: string | null) {
       schedule('workspace-calls', () => {
         void queryClient.invalidateQueries({ queryKey: ['workspace-calls'], refetchType: 'active' });
         void queryClient.invalidateQueries({ queryKey: ['workspace-calls-summary'], refetchType: 'active' });
-        void queryClient.invalidateQueries({ queryKey: ['active-calls'], refetchType: 'active' });
       }, 500);
       invalidateInboxQueries(queryClient, 500);
       invalidateDashboardQueries(queryClient, 1000);
