@@ -274,11 +274,11 @@ export async function updateConversationStar(conversationId: string, isStarred: 
 }
 
 export async function markConversationRead(conversationId: string) {
-  return apiFetch(`/conversations/${conversationId}/read`, { method: 'PATCH' });
+  return apiFetch<{ unreadCount?: number }>(`/conversations/${conversationId}/read`, { method: 'PATCH' });
 }
 
 export async function markConversationUnread(conversationId: string) {
-  return apiFetch(`/conversations/${conversationId}/unread`, { method: 'PATCH' });
+  return apiFetch<{ unreadCount?: number }>(`/conversations/${conversationId}/unread`, { method: 'PATCH' });
 }
 
 export async function updateConversationStatus(conversationId: string, status: 'OPEN' | 'CLOSED') {

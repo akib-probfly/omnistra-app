@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LoaderCircle, RefreshCw, Sparkles } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -79,10 +78,9 @@ export function WhatsappCallingTab({ channelId, callingSetting, callDisabledReas
 
         <View style={styles.row}>
           <View style={styles.rowCopy}>
-            <Text style={[styles.rowTitle, { color: colors.text }]}>Enabled at</Text>
-            <Text style={[styles.rowSub, { color: colors.textSecondary }]}>{formatDateLabel(calling?.enabledAt)}</Text>
+            <Text style={[styles.rowTitle, { color: colors.text }]}>Last synced with Meta</Text>
+            <Text style={[styles.rowSub, { color: colors.textSecondary }]}>{formatDateLabel(calling?.whatsappCallingLastSyncedAt)}</Text>
           </View>
-          <Text style={[styles.lastChecked, { color: colors.textMuted }]}>Last checked {formatDateLabel(calling?.lastCheckedAt)}</Text>
         </View>
 
         {calling?.lastError ? (

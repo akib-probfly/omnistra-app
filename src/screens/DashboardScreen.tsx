@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Clock3,
@@ -30,7 +29,7 @@ type PresenceFilter = 'all' | 'online' | 'offline';
 
 const RANGE_LABELS: Record<RangePreset, string> = { today: 'Today', '7d': '7 Days', '30d': '30 Days' };
 const INITIAL_VISIBLE_CHANNELS = 6;
-const TONE_COLORS = { healthy: '#22c55e', degraded: '#f59e0b', warning: '#ef4444', offline: '#94a3b8' };
+const TONE_COLORS: Record<string, string> = { healthy: '#22c55e', degraded: '#f59e0b', warning: '#ef4444', offline: '#94a3b8' };
 
 function mixHex(hex: string, target: string, amount: number) {
   const parse = (value: string) => {
@@ -82,7 +81,7 @@ function formatDateRangeLabel(from: Date, to: Date) {
   return `${left} – ${right}, ${to.getFullYear()}`;
 }
 
-function formatNumber(value: number) {
+function formatNumber(value: number | null | undefined) {
   return new Intl.NumberFormat(undefined).format(value ?? 0);
 }
 

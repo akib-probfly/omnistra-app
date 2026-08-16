@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, FlatList, Image, Modal, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { showNotice } from './AppToast';
@@ -53,10 +52,10 @@ function ZoomableImage({ src, stageWidth, stageHeight }: { src: string; stageWid
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => lastScale.current > 1,
-      onMoveShouldSetPanResponder: (_, gesture) => (gesture.touches ?? []).length >= 2 || lastScale.current > 1,
+      onMoveShouldSetPanResponder: (event) => (event.nativeEvent.touches ?? []).length >= 2 || lastScale.current > 1,
       onPanResponderGrant: () => {},
-      onPanResponderMove: (_, gesture) => {
-        const touches = gesture.touches ?? [];
+      onPanResponderMove: (event, gesture) => {
+        const touches = event.nativeEvent.touches ?? [];
         if (touches.length >= 2) {
           const d = distance(touches);
           if (!pinchStart.current) {
@@ -82,7 +81,7 @@ function ZoomableImage({ src, stageWidth, stageHeight }: { src: string; stageWid
         translateY.setValue(next.y);
       },
       onPanResponderRelease: (_, gesture) => {
-        if (gesture.touches?.length >= 2) {
+        if (gesture.numberActiveTouches >= 2) {
           pinchStart.current = null;
           return;
         }

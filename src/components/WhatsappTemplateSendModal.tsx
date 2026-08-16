@@ -69,17 +69,17 @@ function TemplateSelectList({ templates, onSelect }: { templates: WhatsappTempla
       keyExtractor={(item) => item.id}
       style={styles.list}
       keyboardShouldPersistTaps="handled"
-      ListEmptyComponent={<Text style={styles.errorText}>No approved templates found</Text>}
+      ListEmptyComponent={<Text style={[styles.errorText, { color: colors.textSecondary }]}>No approved templates found</Text>}
       renderItem={({ item }) => (
         <Pressable style={[styles.row, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} onPress={() => onSelect(item)}>
           <View style={styles.nameRow}>
-            <Text style={styles.rowTitle} numberOfLines={1}>{item.name}</Text>
+            <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
             {item.category ? (
               <Text style={styles.category}>{String(item.category).toLowerCase()}</Text>
             ) : null}
           </View>
           {item.body ? (
-            <Text numberOfLines={2} style={styles.rowBody}>
+            <Text numberOfLines={2} style={[styles.rowBody, { color: colors.textSecondary }]}>
               {renderTemplateTextWithValues(item.body, {}, item.variables)}
             </Text>
           ) : null}

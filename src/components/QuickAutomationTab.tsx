@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LoaderCircle, Save, Zap } from 'lucide-react-native';
@@ -56,7 +55,7 @@ export function QuickAutomationTab({ channelId, channelType }: { channelId: stri
   const [draft, setDraft] = useState(() => ({
     welcomeEnabled: false,
     welcomeMessage: '',
-    welcomeSendFrequency: 'LIFETIME' as const,
+    welcomeSendFrequency: 'LIFETIME' as ChannelQuickAutomationSettings['welcomeSendFrequency'],
     offHourEnabled: false,
     offHourMessage: '',
     businessHours: DEFAULT_BUSINESS_HOURS,

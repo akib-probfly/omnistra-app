@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Mail, MessageCircle, Smartphone } from 'lucide-react-native';
 import { View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';

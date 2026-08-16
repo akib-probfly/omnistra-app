@@ -390,7 +390,8 @@ export function getReplyPreviewBody(message: MessageLike): string {
   const attachmentName = firstAttachment?.originalName?.trim() ?? null;
   const trimmedText = message.text?.trim() ?? null;
   const hasMeaningfulTextBody =
-    Boolean(trimmedText)
+    trimmedText !== null
+    && trimmedText !== ''
     && (!attachmentName || trimmedText.toLowerCase() !== attachmentName.toLowerCase());
   const replyPreviewAttachmentType = (firstAttachment?.mediaType ?? message.type ?? '').toUpperCase();
 
@@ -804,8 +805,8 @@ export function getCallHistoryToneStyles(tone: CallHistoryTone): { text: string;
   return CALL_TONE_STYLES[tone] ?? CALL_TONE_STYLES.requested;
 }
 
-export type ConversationTimelineEntry =
-  | { kind: 'message'; id: string; timestamp: number; message: MessageLike }
+export type ConversationTimelineEntry<TMessage extends MessageLike = MessageLike> =
+  | { kind: 'message'; id: string; timestamp: number; message: TMessage }
   | { kind: 'call'; id: string; timestamp: number; session: ConversationCallSession }
   | { kind: 'assignment'; id: string; timestamp: number; event: ConversationAssignmentEvent };
 
@@ -1031,12 +1032,12 @@ export function getMessageListKey(message: MessageLike & { metadata?: any }): st
   return clientKey || message.id;
 }
 
-export function buildConversationTimeline(
-  messages: MessageLike[],
+export function buildConversationTimeline<TMessage extends MessageLike>(
+  messages: TMessage[],
   callSessions: ConversationCallSession[],
   assignmentEvents: ConversationAssignmentEvent[] = [],
-): ConversationTimelineEntry[] {
-  const entries: ConversationTimelineEntry[] = [];
+): ConversationTimelineEntry<TMessage>[] {
+  const entries: ConversationTimelineEntry<TMessage>[] = [];
   for (const message of messages) {
     if (isInlineReactionMessage(message)) continue;
     const timestamp = new Date(message.sentAt ?? message.createdAt ?? '').getTime();

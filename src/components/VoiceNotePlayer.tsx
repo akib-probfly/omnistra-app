@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as SecureStore from 'expo-secure-store';
 import { Pause, Play, RotateCw } from 'lucide-react-native';
@@ -103,12 +102,12 @@ function PlayerShell({ url, token, outgoing, durationMs, autoRetries, onRetry }:
     };
   }, []);
 
-  const applySeek = useCallback((gesture: { locationX: number }) => {
+  const applySeek = useCallback((locationX: number) => {
     barWrap.current?.measure((_x, _y, width) => {
       const dur = durationRef.current;
       const target = playerRef.current;
       if (!width || dur <= 0 || !target) return;
-      const ratio = Math.min(1, Math.max(0, gesture.locationX / width));
+      const ratio = Math.min(1, Math.max(0, locationX / width));
       target.seekTo(ratio * dur).catch(() => {});
     });
   }, []);
@@ -117,8 +116,8 @@ function PlayerShell({ url, token, outgoing, durationMs, autoRetries, onRetry }:
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (_, gesture) => applySeek(gesture),
-      onPanResponderMove: (_, gesture) => applySeek(gesture),
+      onPanResponderGrant: (event) => applySeek(event.nativeEvent.locationX),
+      onPanResponderMove: (event) => applySeek(event.nativeEvent.locationX),
     }),
   ).current;
 
@@ -151,7 +150,7 @@ function PlayerShell({ url, token, outgoing, durationMs, autoRetries, onRetry }:
   function cycleRate() {
     const next = (rateIndex + 1) % PLAYBACK_RATES.length;
     setRateIndex(next);
-    playerRef.current?.setPlaybackRate(PLAYBACK_RATES[next], 0);
+    playerRef.current?.setPlaybackRate(PLAYBACK_RATES[next]);
   }
 
   const accent = outgoing ? '#cfe0ff' : '#3264f6';

@@ -1,16 +1,17 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import type { NavigatorScreenParams } from '@react-navigation/native';
 import { BarChart3, ContactRound, Inbox, Radio, Settings } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { ChannelsStack } from './ChannelsStack';
 import { ContactsStack } from './ContactsStack';
-import { InboxStack } from './InboxStack';
+import { InboxStack, type InboxStackParamList } from './InboxStack';
 import { SettingsStack } from './SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
 
 export type MainTabParamList = {
   Dashboard: undefined;
-  Inbox: undefined;
+  Inbox: NavigatorScreenParams<InboxStackParamList> | undefined;
   Channels: undefined;
   Contacts: undefined;
   Settings: undefined;

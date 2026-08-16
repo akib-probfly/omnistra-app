@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
-import { CheckCircle2, ChevronRight, CircleAlert, Pause, Search } from 'lucide-react-native';
+import { CheckCircle2, ChevronRight, CircleAlert, Pause } from 'lucide-react-native';
 import { useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { NotificationBell, NotificationCenter } from '../components/Notification
 import { ListSkeleton } from '../components/Skeleton';
 import type { ChannelsStackParamList } from '../navigation/ChannelsStack';
 import { useTheme } from '../theme/ThemeContext';
+import { AppSearchField } from '../ui';
 
 type Channel = {
   id: string;
@@ -82,9 +83,8 @@ export function ChannelsScreen() {
         ))}
       </View>
 
-      <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-        <Search color={colors.textMuted} size={18} />
-        <TextInput value={search} onChangeText={setSearch} placeholder="Search channels..." placeholderTextColor={colors.textMuted} style={[styles.searchInput, { color: colors.text }]} />
+      <View style={styles.searchRow}>
+        <AppSearchField value={search} onChangeText={setSearch} placeholder="Search channels..." />
       </View>
 
       {channels.isError ? (
@@ -166,8 +166,7 @@ const styles = StyleSheet.create({
   orb: { backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: 999, position: 'absolute' },
   orbA: { height: 72, right: -20, top: -24, width: 72 },
   orbB: { bottom: -22, height: 56, left: -16, width: 56 },
-  search: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 22, borderWidth: 1, flexDirection: 'row', margin: 16, marginBottom: 0, paddingHorizontal: 12 },
-  searchInput: { color: '#17233a', flex: 1, height: 44, marginLeft: 8 },
+  searchRow: { flexDirection: 'row', margin: 16, marginBottom: 0 },
   list: { gap: 10, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 },
   card: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, flexDirection: 'row', padding: 14 },
   copy: { flex: 1, marginLeft: 12 },

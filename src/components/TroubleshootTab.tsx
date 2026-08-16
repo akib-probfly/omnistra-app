@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { ArrowLeft, Pause, Play, RefreshCcw, Trash2 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';

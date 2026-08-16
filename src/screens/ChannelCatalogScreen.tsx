@@ -1,8 +1,7 @@
-// @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, LoaderCircle, MessageCircle, Search, Users } from 'lucide-react-native';
+import { ArrowLeft, LoaderCircle, MessageCircle, Users } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +9,7 @@ import { fetchChannels, startMessengerConnect, startWhatsAppConnect } from '../a
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CardGridSkeleton } from '../components/Skeleton';
 import { useTheme } from '../theme/ThemeContext';
+import { AppChip, AppSearchField } from '../ui';
 
 const CATALOG = [
   { id: 'whatsapp', name: 'WhatsApp Business Platform (API)', description: 'Connect WhatsApp Business API to enable seamless conversations.', category: 'Business Messaging', badge: 'Popular', tone: '#25D366', available: true },
@@ -34,7 +34,7 @@ export function ChannelCatalogScreen() {
   const channels = useQuery({ queryKey: ['channels'], queryFn: () => fetchChannels(), staleTime: 2 * 60 * 1000 });
   const existingChannels = channels.data?.items ?? [];
   const workspaceId = existingChannels[0]?.workspaceId;
-  const connectedTypes = new Set(existingChannels.map((channel) => channel.type));
+  const connectedTypes = new Set<string>(existingChannels.map((channel) => channel.type));
   const isChannelLimitReached = false;
 
   const connect = (id: string) => {
@@ -94,15 +94,17 @@ export function ChannelCatalogScreen() {
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
         {FILTERS.map((filter) => (
-          <Pressable key={filter} onPress={() => setActiveFilter(filter)} style={[styles.filterChip, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, activeFilter === filter && styles.filterChipActive, activeFilter === filter && { backgroundColor: isDark ? colors.primary : '#0f172a', borderColor: isDark ? colors.primary : '#0f172a' }]}>
-            <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive, { color: activeFilter === filter ? '#fff' : colors.textSecondary }]}>{filter}</Text>
-          </Pressable>
+          <AppChip
+            key={filter}
+            label={filter}
+            selected={activeFilter === filter}
+            onPress={() => setActiveFilter(filter)}
+          />
         ))}
       </ScrollView>
 
-      <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-        <Search color={colors.textMuted} size={18} />
-        <TextInput value={query} onChangeText={setQuery} placeholder="Search channel catalog..." placeholderTextColor={colors.textMuted} style={[styles.searchInput, { color: colors.text }]} />
+      <View style={styles.searchRow}>
+        <AppSearchField value={query} onChangeText={setQuery} placeholder="Search channel catalog..." />
       </View>
 
       {errorText ? <View style={[styles.banner, { backgroundColor: isDark ? colors.surface : '#fff1f2', borderColor: isDark ? colors.surfaceSecondary : '#fecdd3' }]}><Text style={[styles.bannerText, { color: colors.error }]}>{errorText}</Text></View> : null}
@@ -182,12 +184,7 @@ const styles = StyleSheet.create({
   headerTitle: { color: '#0f172a', fontSize: 20, fontWeight: '800' },
   headerSub: { color: '#64748b', fontSize: 12, marginTop: 2 },
   filters: { gap: 8, paddingHorizontal: 16, paddingVertical: 14 },
-  filterChip: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 20, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 8 },
-  filterChipActive: { backgroundColor: '#0f172a', borderColor: '#0f172a' },
-  filterText: { color: '#64748b', fontSize: 13, fontWeight: '600' },
-  filterTextActive: { color: '#fff' },
-  search: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d6e6ff', borderRadius: 22, borderWidth: 1, flexDirection: 'row', marginHorizontal: 16, marginBottom: 12, paddingHorizontal: 14 },
-  searchInput: { color: '#0f172a', flex: 1, height: 44, marginLeft: 8, fontSize: 14 },
+  searchRow: { flexDirection: 'row', marginBottom: 12, marginHorizontal: 16 },
   banner: { backgroundColor: '#fff1f2', borderColor: '#fecdd3', borderRadius: 12, borderWidth: 1, marginHorizontal: 16, marginBottom: 10, padding: 12 },
   bannerText: { color: '#be123c', fontSize: 13 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 16, paddingBottom: 30 },

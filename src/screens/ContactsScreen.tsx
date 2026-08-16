@@ -34,6 +34,7 @@ import { ErrorState } from '../components/ErrorState';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 import { useTheme } from '../theme/ThemeContext';
 import type { ContactsStackParamList } from '../navigation/ContactsStack';
+import { AppSearchField } from '../ui';
 
 type FilterLayer = 'channels' | 'labels' | 'users' | 'more';
 type AssignmentFilter = 'all' | 'assigned' | 'unassigned';
@@ -322,21 +323,12 @@ export function ContactsScreen() {
       </View>
 
       <View style={styles.searchRow}>
-        <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-          <Search color={colors.textMuted} size={18} />
-          <TextInput
-            value={search}
-            onChangeText={onSearchChange}
-            placeholder="Search by name, email, or phone..."
-            placeholderTextColor={colors.textMuted}
-            style={[styles.searchInput, { color: colors.text }]}
-          />
-          {search ? (
-            <Pressable onPress={() => { setSearch(''); setDebouncedSearch(''); }} hitSlop={8}>
-              <X color={colors.textMuted} size={16} />
-            </Pressable>
-          ) : null}
-        </View>
+        <AppSearchField
+          value={search}
+          onChangeText={onSearchChange}
+          onClear={() => setDebouncedSearch('')}
+          placeholder="Search by name, email, or phone..."
+        />
         <Pressable style={[styles.filterButton, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, hasAdvancedFilters && [styles.filterButtonActive, { borderColor: colors.primary }]]} onPress={() => setFilterOpen(true)}>
           <Filter color={hasAdvancedFilters ? colors.primary : colors.textSecondary} size={16} />
           {hasAdvancedFilters ? <View style={[styles.filterDot, { backgroundColor: colors.primary }]} /> : null}
@@ -711,8 +703,6 @@ const styles = StyleSheet.create({
   subtitle: { color: '#64748b', fontSize: 13, marginTop: 4 },
   addButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   searchRow: { alignItems: 'center', flexDirection: 'row', gap: 10, marginHorizontal: 16, marginTop: 16 },
-  search: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 22, borderWidth: 1, flex: 1, flexDirection: 'row', paddingHorizontal: 12 },
-  searchInput: { color: '#17233a', flex: 1, height: 44, marginLeft: 8 },
   filterButton: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 18, borderWidth: 1, height: 44, justifyContent: 'center', position: 'relative', width: 44 },
   filterButtonActive: { borderColor: '#2563eb' },
   filterDot: { backgroundColor: '#2563eb', borderRadius: 4, height: 8, position: 'absolute', right: 8, top: 8, width: 8 },

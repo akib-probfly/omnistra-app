@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { ArrowLeft, Camera, Check, Eye, EyeOff, LoaderCircle, Lock, Save, User } from 'lucide-react-native';
@@ -139,7 +138,7 @@ export function ProfileScreen() {
                 autoCapitalize="words"
               />
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Email</Text>
-              <View style={[styles.input, styles.inputDisabled, { backgroundColor: colors.surfaceSecondary, borderColor: colors.inputBorder, color: colors.text }]}>
+              <View style={[styles.input, styles.inputDisabled, { backgroundColor: colors.surfaceSecondary, borderColor: colors.inputBorder }]}>
                 <Text style={[styles.inputDisabledText, { color: colors.textSecondary }]} numberOfLines={1}>{email || 'Account'}</Text>
               </View>
             </View>

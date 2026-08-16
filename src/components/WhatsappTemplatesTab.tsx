@@ -1,8 +1,7 @@
-// @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, FileText, Pencil, Plus, RefreshCw, Trash2, Unlink } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { memo, useCallback, useMemo, useState } from 'react';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { AppButton, AppChip, AppIconButton, AppSearchField, EmptyState } from '../ui';
 import {
@@ -53,6 +52,60 @@ type SheetState =
   | { mode: 'edit'; template: WhatsappTemplate; form: WhatsappTemplateFormValues }
   | { mode: 'create'; form: WhatsappTemplateFormValues }
   | null;
+
+type TemplateCardProps = {
+  template: WhatsappTemplate;
+  onView: (template: WhatsappTemplate) => void;
+  onEdit: (template: WhatsappTemplate) => void;
+  onUnlink: (template: WhatsappTemplate) => void;
+  onDelete: (template: WhatsappTemplate) => void;
+};
+
+const TemplateCard = memo(function TemplateCard({ template, onView, onEdit, onUnlink, onDelete }: TemplateCardProps) {
+  const { colors } = useTheme();
+  const tone = STATUS_TONE[template.status] ?? STATUS_TONE.DRAFT;
+
+  return (
+    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+      <View style={[styles.cardHead, { borderBottomColor: colors.separator }]}>
+        <View style={styles.cardTitleWrap}>
+          <Text style={[styles.cardName, { color: colors.text }]} numberOfLines={1}>{template.name}</Text>
+          <View style={[styles.badge, { backgroundColor: tone.bg }]}>
+            <Text style={[styles.badgeText, { color: tone.fg }]}>{template.status}</Text>
+          </View>
+        </View>
+        <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>
+          {template.category} · {template.language} · Updated {formatTemplateUpdatedAt(template.updatedAt)}
+        </Text>
+      </View>
+      <Text style={[styles.cardBody, { color: colors.textSecondary }]} numberOfLines={2}>{template.body || 'No body content'}</Text>
+      {template.rejectionReason ? (
+        <Text style={[styles.rejection, { color: colors.error }]} numberOfLines={2}>Rejected: {template.rejectionReason}</Text>
+      ) : null}
+      <View style={styles.cardActions}>
+        <Pressable style={styles.actionButton} onPress={() => onView(template)}>
+          <Eye color={colors.primary} size={14} />
+          <Text style={[styles.actionText, { color: colors.primary }]}>View</Text>
+        </Pressable>
+        <Pressable style={styles.actionButton} onPress={() => onEdit(template)}>
+          <Pencil color={colors.primary} size={14} />
+          <Text style={[styles.actionText, { color: colors.primary }]}>Edit</Text>
+        </Pressable>
+        {template.source === 'remote' ? (
+          <Pressable style={styles.actionButton} onPress={() => onUnlink(template)}>
+            <Unlink color={colors.error} size={14} />
+            <Text style={[styles.actionText, { color: colors.error }]}>Unlink</Text>
+          </Pressable>
+        ) : (
+          <Pressable style={styles.actionButton} onPress={() => onDelete(template)}>
+            <Trash2 color={colors.error} size={14} />
+            <Text style={[styles.actionText, { color: colors.error }]}>Delete</Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+});
 
 export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
   const { colors } = useTheme();
@@ -142,8 +195,27 @@ export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
     });
   }, [templates.data?.items, search, statusFilter, categoryFilter]);
 
-  const confirmDelete = (template: WhatsappTemplate) => setPendingTemplate({ type: 'delete', template });
-  const confirmUnlink = (template: WhatsappTemplate) => setPendingTemplate({ type: 'unlink', template });
+  const confirmDelete = useCallback((template: WhatsappTemplate) => setPendingTemplate({ type: 'delete', template }), []);
+  const confirmUnlink = useCallback((template: WhatsappTemplate) => setPendingTemplate({ type: 'unlink', template }), []);
+  const openView = useCallback((template: WhatsappTemplate) => setSheet({ mode: 'view', template }), []);
+  const openEdit = useCallback(
+    (template: WhatsappTemplate) => setSheet({ mode: 'edit', template, form: mapTemplateToForm(template) }),
+    [],
+  );
+
+  const keyExtractor = useCallback((template: WhatsappTemplate) => template.id, []);
+  const renderTemplate = useCallback(
+    ({ item }: { item: WhatsappTemplate }) => (
+      <TemplateCard
+        template={item}
+        onView={openView}
+        onEdit={openEdit}
+        onUnlink={confirmUnlink}
+        onDelete={confirmDelete}
+      />
+    ),
+    [openView, openEdit, confirmUnlink, confirmDelete],
+  );
 
   const sheetMode: TemplateSheetMode = sheet?.mode ?? 'view';
 
@@ -153,7 +225,7 @@ export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={[styles.controls, { backgroundColor: colors.surface, borderBottomColor: colors.separator }]}>
         <View style={styles.toolbar}>
-          <AppSearchField value={search} onChangeText={setSearch} placeholder="Search templates…" />
+          <AppSearchField value={search} onChangeText={setSearch} placeholder="Search templates…" size="sm" tone="background" />
           <AppIconButton
             icon={RefreshCw}
             accessibilityLabel="Sync templates"
@@ -218,52 +290,14 @@ export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
           }
         />
       ) : (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.list}>
-          {items.map((template) => {
-            const tone = STATUS_TONE[template.status] ?? STATUS_TONE.DRAFT;
-            return (
-               <View key={template.id} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-                <View style={[styles.cardHead, { borderBottomColor: colors.separator }]}>
-                  <View style={styles.cardTitleWrap}>
-                    <Text style={styles.cardName} numberOfLines={1}>{template.name}</Text>
-                    <View style={[styles.badge, { backgroundColor: tone.bg }]}>
-                      <Text style={[styles.badgeText, { color: tone.fg }]}>{template.status}</Text>
-                    </View>
-                  </View>
-                  <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>
-                    {template.category} · {template.language} · Updated {formatTemplateUpdatedAt(template.updatedAt)}
-                  </Text>
-                </View>
-                <Text style={[styles.cardBody, { color: colors.textSecondary }]} numberOfLines={2}>{template.body || 'No body content'}</Text>
-                {template.rejectionReason ? <Text style={[styles.rejection, { color: colors.error }]} numberOfLines={2}>Rejected: {template.rejectionReason}</Text> : null}
-                <View style={styles.cardActions}>
-                  <Pressable style={styles.actionButton} onPress={() => setSheet({ mode: 'view', template })}>
-                    <Eye color={colors.primary} size={14} />
-                    <Text style={[styles.actionText, { color: colors.primary }]}>View</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.actionButton}
-                    onPress={() => setSheet({ mode: 'edit', template, form: mapTemplateToForm(template) })}
-                  >
-                    <Pencil color={colors.primary} size={14} />
-                    <Text style={[styles.actionText, { color: colors.primary }]}>Edit</Text>
-                  </Pressable>
-                  {template.source === 'remote' ? (
-                    <Pressable style={styles.actionButton} onPress={() => confirmUnlink(template)}>
-                      <Unlink color={colors.error} size={14} />
-                      <Text style={[styles.actionText, { color: colors.error }]}>Unlink</Text>
-                    </Pressable>
-                  ) : (
-                    <Pressable style={styles.actionButton} onPress={() => confirmDelete(template)}>
-                      <Trash2 color={colors.error} size={14} />
-                      <Text style={[styles.actionText, { color: colors.error }]}>Delete</Text>
-                    </Pressable>
-                  )}
-                </View>
-              </View>
-            );
-          })}
-        </ScrollView>
+        <FlatList
+          data={items}
+          keyExtractor={keyExtractor}
+          renderItem={renderTemplate}
+          style={styles.listFill}
+          contentContainerStyle={styles.list}
+          removeClippedSubviews
+        />
       )}
 
       <WhatsappTemplateSheet
@@ -316,6 +350,7 @@ const styles = StyleSheet.create({
   toolbar: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   chipRow: { alignItems: 'center', gap: 6, paddingRight: 8 },
   chipDivider: { borderRadius: 1, height: 16, marginHorizontal: 2, width: 1 },
+  listFill: { flex: 1 },
   list: { gap: 12, padding: 16, paddingBottom: 40 },
   card: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, padding: 14 },
   cardHead: { borderBottomColor: '#e8eef7', borderBottomWidth: 1, paddingBottom: 10 },

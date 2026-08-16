@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useQuery } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -46,19 +45,20 @@ function renderQuickReplyBody(body: string, context: Record<string, string>): st
 }
 
 function QuickRepliesList({ items, onInsert }: { items: any[]; onInsert: (body: string) => void }) {
+  const { colors } = useTheme();
   return (
     <SheetFlatList
       data={items}
       keyExtractor={(item) => item.id}
       style={styles.pickerList}
       keyboardShouldPersistTaps="handled"
-      ListEmptyComponent={<Text style={styles.pickerError}>No quick replies found</Text>}
+      ListEmptyComponent={<Text style={[styles.pickerError, { color: colors.textSecondary }]}>No quick replies found</Text>}
       renderItem={({ item }) => (
-        <Pressable style={styles.pickerRow} onPress={() => onInsert(item.body)}>
-          <Text style={styles.pickerRowTitle}># {item.title ?? 'Quick reply'}</Text>
+        <Pressable style={[styles.pickerRow, { borderBottomColor: colors.separator }]} onPress={() => onInsert(item.body)}>
+          <Text style={[styles.pickerRowTitle, { color: colors.text }]}># {item.title ?? 'Quick reply'}</Text>
           {item.category ? <Text style={styles.pickerRowCategory}>{item.category}</Text> : null}
           {item.shortcut ? <Text style={styles.pickerRowShortcut}>/{item.shortcut}</Text> : null}
-          <Text numberOfLines={2} style={styles.pickerRowBody}>{item.body}</Text>
+          <Text numberOfLines={2} style={[styles.pickerRowBody, { color: colors.textSecondary }]}>{item.body}</Text>
         </Pressable>
       )}
     />
@@ -479,18 +479,18 @@ export function ConversationComposer({
         <View style={styles.pickerPanel}>
           <View style={styles.pickerHeader}>
             <Zap color={colors.primary} size={16} />
-            <Text style={styles.pickerTitle}>Quick replies</Text>
+            <Text style={[styles.pickerTitle, { color: colors.text }]}>Quick replies</Text>
             <Text style={styles.pickerCount}>{quickReplies.data?.items?.length ?? 0}</Text>
             <View style={styles.spacer} />
           </View>
-          <TextInput autoFocus placeholder="Search by keyword, message" placeholderTextColor={colors.textMuted} value={quickQuery} onChangeText={setQuickQuery} style={styles.pickerSearch} />
-          {quickReplies.isLoading ? <PanelSkeleton rows={4} /> : quickReplies.isError ? <Text style={styles.pickerError}>Could not load quick replies.</Text> : (
+          <TextInput autoFocus placeholder="Search by keyword, message" placeholderTextColor={colors.textMuted} value={quickQuery} onChangeText={setQuickQuery} style={[styles.pickerSearch, { backgroundColor: colors.background, color: colors.text }]} />
+          {quickReplies.isLoading ? <PanelSkeleton rows={4} /> : quickReplies.isError ? <Text style={[styles.pickerError, { color: colors.textSecondary }]}>Could not load quick replies.</Text> : (
             <QuickRepliesList
               items={quickReplies.data?.items ?? []}
               onInsert={insertQuickReply}
             />
           )}
-          <Text style={styles.pickerHint}>Type / to filter · Click to insert</Text>
+          <Text style={[styles.pickerHint, { color: colors.textMuted }]}>Type / to filter · Click to insert</Text>
         </View>
       </BottomSheet>
 
@@ -647,9 +647,9 @@ export function ConversationComposer({
           {isWhatsAppChannel && channelId ? <Pressable onPress={() => { setEmojiOpen(false); setTemplateOpen(true); }}><PanelsTopLeft color="#16a34a" size={20} /></Pressable> : null}
           <View style={styles.spacer} />
           <Pressable
-            onPress={onSend}
+            onPress={() => onSend()}
             disabled={sending || !canComposeFreeform || (!value.trim() && !attachments.length)}
-            style={[styles.send, canComposeFreeform && (value.trim() || attachments.length) && styles.sendActive, (sending || !canComposeFreeform) && styles.sendDisabled]}
+            style={[styles.send, canComposeFreeform && Boolean(value.trim() || attachments.length) && styles.sendActive, (sending || !canComposeFreeform) && styles.sendDisabled]}
           >
             <Send color={colors.surface} size={18} />
           </Pressable>

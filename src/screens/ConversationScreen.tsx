@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreVertical, Phone, Reply, UserRound } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
@@ -31,7 +30,9 @@ import { MessageBubble } from '../components/MessageBubble';
 import { AssignmentHistoryItem } from '../components/AssignmentHistoryItem';
 import { ReactionPicker } from '../components/ReactionPicker';
 import { fetchConversationAssignmentEvents, fetchConversationCallSessions, fetchMessagesPage, markConversationRead, markConversationUnread, sendReaction, sendTemplateMessage, updateConversationAssignment, updateConversationStar, updateConversationStatus, type AssigneeFilterOption, type ConversationCallSession } from '../api/inbox';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { InboxStackParamList } from '../navigation/InboxStack';
+import type { MainTabParamList } from '../navigation/MainTabs';
 import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getConversationTitle, getMessengerMessagingAvailability, getReplyPreviewBody, getVoiceCallButtonState, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
 import { CallHistoryItem } from '../components/CallHistoryItem';
 import { useCallController } from '../providers/CallControllerProvider';
@@ -41,10 +42,10 @@ import { useInboxAppearance } from '../hooks/useInboxAppearance';
 import { useTheme } from '../theme/ThemeContext';
 
 type Attachment = { id: string; messageId?: string | null; mediaType: string; mimeType: string; originalName: string | null; downloadUrl: string; previewUrl: string | null; thumbnailUrl: string | null; durationMs: number | null };
-type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBOUND'; senderType?: string | null; sender?: { userName?: string | null; userEmail?: string | null } | null; type: string; text: string | null; deliveryStatus?: string; failureReason?: string | null; campaignId?: string | null; campaignName?: string | null; replyToMessageId?: string | null; replyTo?: { sender?: { userName?: string | null } | null; text?: string | null } | null; sentAt?: string | null; createdAt?: string; metadata?: any; attachments?: Attachment[] };
+type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBOUND'; senderType?: string | null; sender?: { userName?: string | null; userEmail?: string | null } | null; type: string; text: string | null; deliveryStatus?: string; failureReason?: string | null; campaignId?: string | null; campaignName?: string | null; replyToMessageId?: string | null; replyTo?: { id?: string; sender?: { userName?: string | null } | null; text?: string | null; type?: string; attachments?: Attachment[] } | null; sentAt?: string | null; createdAt?: string; metadata?: any; attachments?: Attachment[] };
 type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT' };
 type MediaItem = { attachId: string; src: string; mediaType: string };
-type TimelineRow = { entry: ConversationTimelineEntry; showDivider: boolean };
+type TimelineRow = { entry: ConversationTimelineEntry<Message>; showDivider: boolean };
 
 function timelineKeyExtractor(row: TimelineRow) {
   return `${row.entry.kind}:${row.entry.id}`;
@@ -121,7 +122,7 @@ const apiUrl = (value: string | null) => {
 };
 
 export function ConversationScreen() {
-  const insets = useSafeAreaInsets(); const navigation = useNavigation(); const route = useRoute<RouteProp<InboxStackParamList, 'Conversation'>>(); const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets(); const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>(); const route = useRoute<RouteProp<InboxStackParamList, 'Conversation'>>(); const queryClient = useQueryClient();
   const isFocused = useIsFocused();
   const realtimeStatus = useSyncExternalStore(subscribeRealtimeConnectionStatus, getRealtimeConnectionStatus);
   const { session } = useAuth();
@@ -149,7 +150,7 @@ export function ConversationScreen() {
   const loadOlderRef = useRef<() => Promise<void>>(async () => {});
   const loadingOlderRef = useRef(false);
   const listReadyRef = useRef(false);
-  const timelineRef = useRef<ConversationTimelineEntry[]>([]);
+  const timelineRef = useRef<ConversationTimelineEntry<Message>[]>([]);
   const isAtBottomRef = useRef(true);
 
   const pendingOptimisticRef = useRef<Map<string, Message>>(new Map());
@@ -174,7 +175,7 @@ export function ConversationScreen() {
       // The messages endpoint includes each message's attachments. Avoid the broad
       // conversation attachment request here; it was duplicating every page load.
       const page = await apiFetch<{ items: Message[]; pageInfo?: { nextCursor?: string | null; hasMore?: boolean }; conversation?: any }>(`/conversations/${route.params.conversationId}/messages?limit=50`);
-      const items = page.items.map((message) => {
+      const items: Message[] = page.items.map((message) => {
         const messageAttachments = message.attachments ?? [];
         const mediaOnly = messageAttachments.length > 0 && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(message.type);
         return { ...message, text: mediaOnly ? null : message.text, attachments: messageAttachments };
@@ -285,7 +286,7 @@ export function ConversationScreen() {
       if (!workspaceId && selectedAttachments.length) throw new Error('Workspace information is unavailable. Please reload the conversation.');
       const attachmentIds: string[] = [];
       for (const selected of selectedAttachments) {
-        const uploaded = await uploadFile('/files/upload', selected.uri, selected.name, selected.mimeType, { workspaceId });
+        const uploaded = await uploadFile('/files/upload', selected.uri, selected.name, selected.mimeType, workspaceId ? { workspaceId } : {});
         attachmentIds.push(uploaded.id);
       }
       const text = draftText.replace(/\u200B/g, '').trim() || undefined;
@@ -343,7 +344,7 @@ export function ConversationScreen() {
       };
       pendingOptimisticRef.current.set(tempId, optimistic);
       setDraft(''); setAttachments([]); setReplyTo(null);
-      queryClient.setQueryData<any>(['messages', route.params.conversationId], (current) => {
+      queryClient.setQueryData<any>(['messages', route.params.conversationId], (current: any) => {
         if (!current || !Array.isArray(current.items)) return current;
         return { ...current, items: [...current.items, optimistic] };
       });
@@ -378,7 +379,7 @@ export function ConversationScreen() {
           metadata: { ...confirmed.metadata, serverId: confirmed.id, clientKey },
         });
       }
-      queryClient.setQueryData<any>(['messages', route.params.conversationId], (current) => {
+      queryClient.setQueryData<any>(['messages', route.params.conversationId], (current: any) => {
         if (!current || !Array.isArray(current.items)) return current;
         let replaced = false;
         const items = current.items.map((item: any) => {
@@ -407,7 +408,7 @@ export function ConversationScreen() {
     },
     onError: (error, _vars, context) => {
       if (context?.tempId) pendingOptimisticRef.current.delete(context.tempId);
-      queryClient.setQueryData<any>(['messages', route.params.conversationId], (current) => {
+      queryClient.setQueryData<any>(['messages', route.params.conversationId], (current: any) => {
         if (!current || !Array.isArray(current.items)) return current;
         return {
           ...current,
@@ -744,7 +745,7 @@ export function ConversationScreen() {
     void queryClient.invalidateQueries({ queryKey: ['conversation-calls', route.params.conversationId] });
     void queryClient.invalidateQueries({ queryKey: ['active-calls'] });
   };
-  const timeline = useMemo<ConversationTimelineEntry[]>(
+  const timeline = useMemo<ConversationTimelineEntry<Message>[]>(
     () => buildConversationTimeline(allMessages, callSessions, assignmentEvents),
     [allMessages, callSessions, assignmentEvents],
   );

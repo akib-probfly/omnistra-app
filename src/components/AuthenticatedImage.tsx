@@ -1,4 +1,3 @@
-// @ts-nocheck
 import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useEffect, useMemo, useState } from 'react';

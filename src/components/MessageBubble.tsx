@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Check, CheckCheck, FileText, ExternalLink, ChevronDown, ChevronUp, Megaphone, Sparkles, Image as ImageIcon, Video, Mic } from 'lucide-react-native';
 import { useEffect, useState, useMemo } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -111,7 +110,7 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
   const showLinkPreview = !isTemplate && !referralPreview && firstUrl && !imageAttachments.length && !videoAttachments.length;
 
   const hasReactions = Boolean(reactions?.length);
-  const reactionItems = hasReactions ? reactions : [];
+  const reactionItems: Array<{ emoji: string; count: number }> = hasReactions ? reactions : [];
 
   return (
     <View style={[styles.wrap, outgoing && styles.wrapOutgoing, hasReactions && styles.wrapWithReactions]}>
@@ -168,7 +167,12 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
                 {templateDisplay.headerType === 'IMAGE' ? (
                   <AuthenticatedImage url={templateDisplay.headerMediaUrl} style={styles.templateHeaderImage} />
                 ) : templateDisplay.headerType === 'VIDEO' ? (
-                  <VideoThumb url={templateDisplay.headerMediaUrl} posterUrl={templateDisplay.headerMediaUrl} name="Video" />
+                  <VideoThumb
+                    url={templateDisplay.headerMediaUrl}
+                    posterUrl={templateDisplay.headerMediaUrl}
+                    name="Video"
+                    onPress={() => onVideo?.({ downloadUrl: templateDisplay.headerMediaUrl })}
+                  />
                 ) : templateDisplay.headerType === 'DOCUMENT' ? (
                   <View style={[styles.templateHeaderDoc, { borderBottomColor: colors.separator }]}>
                     <FileText color={colors.primary} size={20} />

@@ -6,24 +6,47 @@ type Props = {
   value: string;
   onChangeText: (value: string) => void;
   placeholder?: string;
+  /** `md` (44pt) suits full screens, `sm` (38pt) suits dense toolbars. */
+  size?: 'sm' | 'md';
+  /** Which surface the field sits on, so it stays readable in both themes. */
+  tone?: 'surface' | 'background';
+  showClear?: boolean;
+  /** Extra work to run when clearing, e.g. resetting a debounced value. */
+  onClear?: () => void;
 };
 
-export function AppSearchField({ value, onChangeText, placeholder = 'Search…' }: Props) {
+export function AppSearchField({
+  value,
+  onChangeText,
+  placeholder = 'Search…',
+  size = 'md',
+  tone = 'surface',
+  showClear = true,
+  onClear,
+}: Props) {
   const { colors } = useTheme();
+  const height = size === 'sm' ? 38 : 44;
+  const iconSize = size === 'sm' ? 15 : 18;
+  const background = tone === 'surface' ? colors.surface : colors.background;
+
+  const clear = () => {
+    onChangeText('');
+    onClear?.();
+  };
 
   return (
-    <View style={[styles.wrap, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
-      <Search color={colors.textMuted} size={15} />
+    <View style={[styles.wrap, { backgroundColor: background, borderColor: colors.cardBorder, height }]}>
+      <Search color={colors.textMuted} size={iconSize} />
       <TextInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={colors.textMuted}
-        style={[styles.input, { color: colors.text }]}
+        style={[styles.input, { color: colors.text, height }]}
       />
-      {value ? (
-        <Pressable onPress={() => onChangeText('')} hitSlop={8} accessibilityLabel="Clear search">
-          <X color={colors.textMuted} size={14} />
+      {showClear && value ? (
+        <Pressable onPress={clear} hitSlop={8} accessibilityLabel="Clear search">
+          <X color={colors.textMuted} size={iconSize - 2} />
         </Pressable>
       ) : null}
     </View>
@@ -37,8 +60,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flex: 1,
     flexDirection: 'row',
-    height: 38,
     paddingHorizontal: 12,
   },
-  input: { flex: 1, fontSize: 14, height: 38, marginLeft: 8, paddingVertical: 0 },
+  input: { flex: 1, fontSize: 14, marginLeft: 8, paddingVertical: 0 },
 });
