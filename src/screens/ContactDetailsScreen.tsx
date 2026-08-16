@@ -26,6 +26,7 @@ import {
   updateCrmContactDetail,
 } from '../api/contacts';
 import { banCrmContact, createWorkspaceTag, fetchWorkspaceTags, unbanCrmContact } from '../api/conversationDetails';
+import { ChannelLogo } from '../components/ChannelLogo';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ErrorState } from '../components/ErrorState';
