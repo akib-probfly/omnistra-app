@@ -374,6 +374,77 @@ export function getMessageBody(message: MessageLike): string {
   return fallbackMap[(message.type ?? '').toUpperCase()] ?? '';
 }
 
+const REPLY_PREVIEW_TYPE_LABELS: Record<string, string> = {
+  IMAGE: '[Image]',
+  VIDEO: '[Video]',
+  AUDIO: '[Audio]',
+  VOICE: '[Voice note]',
+  DOCUMENT: '[Document]',
+  STICKER: '[Sticker]',
+  FILE: '[Attachment]',
+};
+
+export function getReplyPreviewBody(message: MessageLike): string {
+  const body = getMessageBody(message);
+  const firstAttachment = message.attachments?.[0];
+  const attachmentName = firstAttachment?.originalName?.trim() ?? null;
+  const trimmedText = message.text?.trim() ?? null;
+  const hasMeaningfulTextBody =
+    Boolean(trimmedText)
+    && (!attachmentName || trimmedText.toLowerCase() !== attachmentName.toLowerCase());
+  const replyPreviewAttachmentType = (firstAttachment?.mediaType ?? message.type ?? '').toUpperCase();
+
+  if (hasMeaningfulTextBody || !attachmentName) {
+    return body;
+  }
+
+  if (body.trim().toLowerCase() === attachmentName.toLowerCase()) {
+    return REPLY_PREVIEW_TYPE_LABELS[replyPreviewAttachmentType] ?? '[Attachment]';
+  }
+
+  return body;
+}
+
+export type ReplyPreviewKind = 'photo' | 'video' | 'audio' | 'voice' | 'document' | 'sticker' | 'text';
+
+export function getReplyPreviewPresentation(body: string | null | undefined, mediaType?: string | null): { kind: ReplyPreviewKind; label: string } {
+  const trimmed = body?.trim() ?? '';
+  const normalized = trimmed.toLowerCase();
+  const type = (mediaType ?? '').toUpperCase();
+  const placeholderKind = (
+    normalized === '[image]' || normalized === 'image' || normalized === 'photo' ? 'photo'
+    : normalized === '[video]' || normalized === 'video' ? 'video'
+    : normalized === '[audio]' || normalized === 'audio' ? 'audio'
+    : normalized === '[voice note]' || normalized === 'voice' || normalized === 'voice note' ? 'voice'
+    : normalized === '[document]' || normalized === 'document' ? 'document'
+    : normalized === '[sticker]' || normalized === 'sticker' ? 'sticker'
+    : normalized === '[attachment]' || normalized === 'attachment' || !trimmed ? null
+    : 'text'
+  ) as ReplyPreviewKind | 'text' | null;
+
+  const typeKind: ReplyPreviewKind | null = (
+    type === 'IMAGE' ? 'photo'
+    : type === 'VIDEO' ? 'video'
+    : type === 'AUDIO' ? 'audio'
+    : type === 'VOICE' ? 'voice'
+    : type === 'DOCUMENT' || type === 'FILE' ? 'document'
+    : type === 'STICKER' ? 'sticker'
+    : null
+  );
+
+  const kind = placeholderKind === 'text' ? 'text' : (placeholderKind ?? typeKind ?? 'text');
+  const labels: Record<ReplyPreviewKind, string> = {
+    photo: 'Photo',
+    video: 'Video',
+    audio: 'Audio',
+    voice: 'Voice note',
+    document: 'Document',
+    sticker: 'Sticker',
+    text: trimmed || 'Message',
+  };
+  return { kind, label: labels[kind] };
+}
+
 // --- Call history ---
 
 export type CallHistoryTone = 'noAnswer' | 'permission' | 'permissionGranted' | 'permissionDenied' | 'permissionExpired' | 'ringing' | 'connected' | 'completed' | 'missed' | 'declined' | 'failed' | 'ended' | 'requested';

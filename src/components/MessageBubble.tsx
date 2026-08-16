@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { Check, CheckCheck, FileText, ExternalLink, ChevronDown, ChevronUp, Megaphone, Sparkles } from 'lucide-react-native';
+import { Check, CheckCheck, FileText, ExternalLink, ChevronDown, ChevronUp, Megaphone, Sparkles, Image as ImageIcon, Video, Mic } from 'lucide-react-native';
 import { useEffect, useState, useMemo } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AuthenticatedImage } from './AuthenticatedImage';
@@ -17,6 +17,7 @@ import {
   isMissedCall,
   formatMessageTime,
   getMessageReferralPreview,
+  getReplyPreviewPresentation,
 } from '../lib/inbox-utils';
 import { LinkPreviewCard } from './LinkPreviewCard';
 import { MessageReferralPreviewCard } from './MessageReferralPreviewCard';
@@ -139,7 +140,12 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
               <Text style={[styles.quotedName, !outgoing && styles.quotedNameIncoming, !outgoing && { color: colors.primary }]}>{replyPreview.name}</Text>
               <View style={styles.quotedRow}>
                 {replyPreview.imageUrl ? <AuthenticatedImage url={replyPreview.imageUrl} style={styles.quotedThumb} /> : null}
-                <Text numberOfLines={1} style={[styles.quotedText, !outgoing && styles.quotedTextIncoming, !outgoing && { color: colors.textSecondary }]}>{replyPreview.text ?? 'Attachment'}</Text>
+                <ReplyPreviewBody
+                  text={replyPreview.text}
+                  mediaType={replyPreview.mediaType ?? (replyPreview.imageUrl ? 'IMAGE' : null)}
+                  outgoing={outgoing}
+                  colors={colors}
+                />
               </View>
             </View>
           </Pressable>
@@ -290,6 +296,33 @@ export function MessageBubble({ message, outgoing, attachments, replyPreview, re
   );
 }
 
+function ReplyPreviewBody({ text, mediaType, outgoing, colors }: { text?: string | null; mediaType?: string | null; outgoing: boolean; colors: { textSecondary: string } }) {
+  const presentation = getReplyPreviewPresentation(text, mediaType);
+  const color = outgoing ? '#eef2ff' : colors.textSecondary;
+  const Icon = presentation.kind === 'photo' || presentation.kind === 'sticker' ? ImageIcon
+    : presentation.kind === 'video' ? Video
+    : presentation.kind === 'audio' || presentation.kind === 'voice' ? Mic
+    : presentation.kind === 'document' ? FileText
+    : null;
+
+  if (!Icon) {
+    return (
+      <Text numberOfLines={1} style={[styles.quotedText, !outgoing && styles.quotedTextIncoming, !outgoing && { color }]}>
+        {presentation.label}
+      </Text>
+    );
+  }
+
+  return (
+    <View style={styles.quotedType}>
+      <Icon color={color} size={14} />
+      <Text numberOfLines={1} style={[styles.quotedText, !outgoing && styles.quotedTextIncoming, !outgoing && { color }]}>
+        {presentation.label}
+      </Text>
+    </View>
+  );
+}
+
 function previewUrl(attachment: any): string {
   const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.omnistra.ai/api/v1';
   const value = attachment.previewUrl ?? attachment.thumbnailUrl ?? attachment.downloadUrl;
@@ -384,6 +417,7 @@ const styles = StyleSheet.create({
   quotedNameIncoming: { color: '#2563eb' },
   quotedRow: { alignItems: 'center', flexDirection: 'row', gap: 8, marginTop: 5 },
   quotedThumb: { borderRadius: 6, height: 40, width: 40 },
+  quotedType: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 6, minWidth: 0 },
   quotedText: { color: '#eef2ff', flex: 1, fontSize: 12 },
   quotedTextIncoming: { color: '#526987' },
   templateCard: { backgroundColor: '#fff', borderColor: '#d7e6fb', borderRadius: 14, borderWidth: 1, overflow: 'hidden' },

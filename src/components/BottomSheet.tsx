@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, forwardRef } from 'react';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 import { Keyboard, Modal, Platform, Pressable, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle, type ScrollViewProps, type FlatListProps } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
@@ -19,9 +19,9 @@ const BottomSheetContext = createContext<BottomSheetContextValue | null>(null);
  * drag pan and report the scroll offset back so the sheet only drags (and
  * dismisses) when the content is scrolled to the top.
  */
-export const SheetScrollView = forwardRef<Animated.ScrollView, ScrollViewProps>(function SheetScrollView(props, ref) {
+export function SheetScrollView(props: ScrollViewProps) {
   const ctx = useContext(BottomSheetContext);
-  const { onScroll, ...rest } = props;
+  const { onScroll, ref: _ref, ...rest } = props as ScrollViewProps & { ref?: unknown };
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event: any) => {
       if (ctx) ctx.contentOffsetY.value = event.contentOffset.y;
@@ -30,7 +30,6 @@ export const SheetScrollView = forwardRef<Animated.ScrollView, ScrollViewProps>(
   });
   const content = (
     <Animated.ScrollView
-      ref={ref}
       bounces={false}
       alwaysBounceVertical={false}
       overScrollMode="never"
@@ -40,7 +39,7 @@ export const SheetScrollView = forwardRef<Animated.ScrollView, ScrollViewProps>(
     />
   );
   return ctx ? <GestureDetector gesture={ctx.nativeScrollGesture}>{content}</GestureDetector> : content;
-});
+}
 
 export function SheetFlatList(props: FlatListProps<any>) {
   const ctx = useContext(BottomSheetContext);

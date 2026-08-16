@@ -124,7 +124,6 @@ export function ContactsScreen() {
   const [addChannelSearch, setAddChannelSearch] = useState('');
   const [addTagSearch, setAddTagSearch] = useState('');
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const addFormScrollRef = useRef<{ scrollToEnd: (options?: { animated?: boolean }) => void } | null>(null);
 
   useEffect(() => () => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
@@ -522,7 +521,6 @@ export function ContactsScreen() {
               <Text style={[styles.sheetTitle, { color: colors.text }]}>Add contact</Text>
             </View>
             <SheetScrollView
-              ref={addFormScrollRef}
               keyboardShouldPersistTaps="handled"
               style={styles.addFormScroll}
               contentContainerStyle={styles.addFormContent}
@@ -591,11 +589,6 @@ export function ContactsScreen() {
                   placeholder="Search tags"
                   placeholderTextColor={colors.textMuted}
                   style={[styles.inlineSearchInput, { color: colors.text }]}
-                  onFocus={() => {
-                    requestAnimationFrame(() => {
-                      addFormScrollRef.current?.scrollToEnd({ animated: true });
-                    });
-                  }}
                 />
               </View>
               {visibleAddTags.map((tag) => {

@@ -31,7 +31,7 @@ import { AssignmentHistoryItem } from '../components/AssignmentHistoryItem';
 import { ReactionPicker } from '../components/ReactionPicker';
 import { fetchConversationAssignmentEvents, fetchConversationCallSessions, fetchMessagesPage, markConversationRead, markConversationUnread, sendReaction, sendTemplateMessage, updateConversationAssignment, updateConversationStar, updateConversationStatus, type AssigneeFilterOption, type ConversationCallSession } from '../api/inbox';
 import type { InboxStackParamList } from '../navigation/InboxStack';
-import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getConversationTitle, getMessengerMessagingAvailability, getVoiceCallButtonState, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
+import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getConversationTitle, getMessengerMessagingAvailability, getReplyPreviewBody, getVoiceCallButtonState, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
 import { CallHistoryItem } from '../components/CallHistoryItem';
 import { useCallController } from '../providers/CallControllerProvider';
 import { isWhatsappCallSupported } from '../lib/whatsapp-calling';
@@ -891,7 +891,7 @@ export function ConversationScreen() {
           workspaceId={route.params.workspaceId ?? header.conversation?.workspaceId}
           channelId={channelId} channelType={channelType} contactName={title}
           onSendTemplate={(params) => sendTemplateMutation(route.params.conversationId, params, queryClient, setDraft)}
-          replyPreview={replyTo ? { name: replyTo.direction === 'INBOUND' ? title : 'You', text: replyTo.text ?? 'Attachment' } : null}
+          replyPreview={replyTo ? { name: replyTo.direction === 'INBOUND' ? title : 'You', text: getReplyPreviewBody(replyTo), mediaType: replyTo.attachments?.[0]?.mediaType ?? replyTo.type } : null}
           onCancelReply={() => setReplyTo(null)}
           onSend={(payload) => { if (!send.isPending) send.mutate(payload); }}
           canSendFreeform={canSendFreeform}
@@ -1003,9 +1003,19 @@ const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, 
   }, [onReply]);
   if (isInlineReactionMessage(message)) return null;
   const replyTargetId = message.replyToMessageId ?? replyTarget?.id ?? message.replyTo?.id ?? null;
-  const replyPreview = message.replyTo || replyTarget ? {
+  const quotedSource = replyTarget ?? message.replyTo;
+  const replyPreview = quotedSource ? {
     name: (message.replyTo?.sender?.userName ?? replyTarget?.sender?.userName) || (replyTarget?.direction === 'OUTBOUND' ? 'You' : 'Message'),
-    text: message.replyTo?.text ?? replyTarget?.text ?? 'Attachment',
+    text: getReplyPreviewBody({
+      id: quotedSource.id ?? message.id,
+      text: quotedSource.text,
+      type: replyTarget?.type ?? quotedSource.type,
+      attachments: replyTarget?.attachments ?? quotedSource.attachments,
+      metadata: replyTarget?.metadata,
+      campaignId: replyTarget?.campaignId,
+      campaignName: replyTarget?.campaignName,
+    }),
+    mediaType: replyTarget?.attachments?.[0]?.mediaType ?? replyTarget?.type ?? quotedSource.type,
     imageUrl: replyTarget ? apiUrl(replyTarget.attachments?.find((a: any) => a.mediaType === 'IMAGE' || a.mimeType?.startsWith('image/'))?.previewUrl ?? replyTarget.attachments?.find((a: any) => a.mediaType === 'IMAGE' || a.mimeType?.startsWith('image/'))?.thumbnailUrl ?? null) : null,
   } : null;
   return (

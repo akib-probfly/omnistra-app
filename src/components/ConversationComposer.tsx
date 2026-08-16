@@ -18,6 +18,7 @@ import {
   resolveAttachmentSizeBytes,
 } from '../lib/composer-attachments';
 import type { MessengerMessagingMode } from '../lib/inbox-utils';
+import { getReplyPreviewPresentation } from '../lib/inbox-utils';
 import { BottomSheet, SheetFlatList } from './BottomSheet';
 import { PanelSkeleton } from './Skeleton';
 import { WhatsappTemplateSendModal, type TemplateSendPayload } from './WhatsappTemplateSendModal';
@@ -28,7 +29,7 @@ export type ComposerSendPayload = { attachments?: SendAttachment[]; text?: strin
 type Props = {
   value: string; onChange: (value: string) => void; onSend: (payload?: ComposerSendPayload) => void; sending?: boolean;
   attachments?: SendAttachment[]; onAttachments?: (list: SendAttachment[]) => void;
-  replyPreview?: { name: string; text: string } | null; onCancelReply?: () => void;
+  replyPreview?: { name: string; text: string; mediaType?: string | null } | null; onCancelReply?: () => void;
   workspaceId?: string; channelId?: string; channelType?: string; contactName?: string;
   onSendTemplate?: (params: TemplateSendPayload) => void;
   canSendFreeform?: boolean;
@@ -506,7 +507,27 @@ export function ConversationComposer({
 
       <View style={[styles.composer, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, emojiOpen && styles.composerWithEmoji]}>
         {replyPreview ? (
-           <View style={[styles.replyPreview, { backgroundColor: colors.surfaceSecondary, borderLeftColor: colors.primary }]}><View style={styles.replyAccent} /><View style={styles.replyCopy}><Text style={styles.replyName}>{replyPreview.name}</Text><Text numberOfLines={1} style={styles.replyText}>{replyPreview.text}</Text></View><Pressable onPress={onCancelReply}><Text style={styles.close}>×</Text></Pressable></View>
+           <View style={[styles.replyPreview, { backgroundColor: colors.surfaceSecondary, borderLeftColor: colors.primary }]}>
+            <View style={styles.replyAccent} />
+            <View style={styles.replyCopy}>
+              <Text style={styles.replyName}>{replyPreview.name}</Text>
+              {(() => {
+                const presentation = getReplyPreviewPresentation(replyPreview.text, replyPreview.mediaType);
+                const Icon = presentation.kind === 'photo' || presentation.kind === 'sticker' ? ImageIcon
+                  : presentation.kind === 'video' ? Film
+                  : presentation.kind === 'audio' || presentation.kind === 'voice' ? Mic
+                  : presentation.kind === 'document' ? FileText
+                  : null;
+                return (
+                  <View style={styles.replyTypeRow}>
+                    {Icon ? <Icon color="#64748b" size={13} /> : null}
+                    <Text numberOfLines={1} style={styles.replyText}>{presentation.label}</Text>
+                  </View>
+                );
+              })()}
+            </View>
+            <Pressable onPress={onCancelReply}><Text style={styles.close}>×</Text></Pressable>
+          </View>
         ) : null}
         {attachments.length ? (
           <ScrollView
@@ -932,7 +953,8 @@ const styles = StyleSheet.create({
   replyAccent: { width: 2 },
   replyCopy: { flex: 1, marginLeft: 6 },
   replyName: { color: '#7c3aed', fontSize: 12, fontWeight: '700' },
-  replyText: { color: '#64748b', fontSize: 12, marginTop: 2 },
+  replyTypeRow: { alignItems: 'center', flexDirection: 'row', gap: 6, marginTop: 2 },
+  replyText: { color: '#64748b', flex: 1, fontSize: 12 },
   blockedComposer: { borderRadius: 24, borderWidth: 1, borderColor: '#fecaca', margin: 12, overflow: 'hidden' },
   blockedGradient: { ...StyleSheet.absoluteFillObject },
   blockedContent: { padding: 16, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
