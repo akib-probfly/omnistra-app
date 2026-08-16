@@ -1,9 +1,10 @@
 // @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Eye, FileText, LoaderCircle, Pencil, Plus, RefreshCw, Search, Trash2, Unlink, X } from 'lucide-react-native';
+import { Eye, FileText, Pencil, Plus, RefreshCw, Trash2, Unlink } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Toast from 'react-native-toast-message';
+import { AppButton, AppChip, AppIconButton, AppSearchField, EmptyState } from '../ui';
 import {
   createWhatsappTemplate,
   deleteWhatsappTemplate,
@@ -152,80 +153,49 @@ export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <View style={[styles.controls, { backgroundColor: colors.surface, borderBottomColor: colors.separator }]}>
         <View style={styles.toolbar}>
-          <View style={[styles.search, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
-            <Search color={colors.textMuted} size={15} />
-            <TextInput
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search templates…"
-              placeholderTextColor={colors.textMuted}
-              style={[styles.searchInput, { color: colors.text }]}
-            />
-            {search ? (
-              <Pressable onPress={() => setSearch('')} hitSlop={8}>
-                <X color={colors.textMuted} size={14} />
-              </Pressable>
-            ) : null}
-          </View>
-          <Pressable
+          <AppSearchField value={search} onChangeText={setSearch} placeholder="Search templates…" />
+          <AppIconButton
+            icon={RefreshCw}
             accessibilityLabel="Sync templates"
-            style={[styles.iconButton, { backgroundColor: colors.background, borderColor: colors.cardBorder }, sync.isPending && styles.buttonDisabled]}
+            loading={sync.isPending}
             onPress={() => sync.mutate()}
-            disabled={sync.isPending}
-          >
-            {sync.isPending ? <LoaderCircle color={colors.primary} size={16} /> : <RefreshCw color={colors.primary} size={16} />}
-          </Pressable>
-          <Pressable
+          />
+          <AppButton
+            label="New"
+            icon={Plus}
             accessibilityLabel="New template"
-            style={[styles.newButton, { backgroundColor: colors.primary }]}
             onPress={() => setSheet({ mode: 'create', form: makeDraftTemplate() })}
-          >
-            <Plus color={colors.surface} size={16} />
-            <Text style={[styles.newButtonText, { color: colors.surface }]}>New</Text>
-          </Pressable>
+          />
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-          {STATUS_FILTERS.map((filter) => {
-            const active = statusFilter === filter.id;
-            return (
-              <Pressable
-                key={`status-${filter.id}`}
-                style={[styles.chip, { backgroundColor: colors.background, borderColor: colors.cardBorder }, active && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                onPress={() => setStatusFilter(filter.id)}
-              >
-                <Text style={[styles.chipText, { color: colors.textSecondary }, active && { color: colors.surface }]} numberOfLines={1}>
-                  {filter.label}
-                </Text>
-              </Pressable>
-            );
-          })}
+          {STATUS_FILTERS.map((filter) => (
+            <AppChip
+              key={`status-${filter.id}`}
+              label={filter.label}
+              selected={statusFilter === filter.id}
+              onPress={() => setStatusFilter(filter.id)}
+            />
+          ))}
           <View style={[styles.chipDivider, { backgroundColor: colors.cardBorder }]} />
-          {CATEGORY_FILTERS.map((filter) => {
-            const active = categoryFilter === filter.id;
-            return (
-              <Pressable
-                key={`category-${filter.id}`}
-                style={[styles.chip, { backgroundColor: colors.background, borderColor: colors.cardBorder }, active && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                onPress={() => setCategoryFilter(filter.id)}
-              >
-                <Text style={[styles.chipText, { color: colors.textSecondary }, active && { color: colors.surface }]} numberOfLines={1}>
-                  {filter.label}
-                </Text>
-              </Pressable>
-            );
-          })}
+          {CATEGORY_FILTERS.map((filter) => (
+            <AppChip
+              key={`category-${filter.id}`}
+              label={filter.label}
+              selected={categoryFilter === filter.id}
+              onPress={() => setCategoryFilter(filter.id)}
+            />
+          ))}
           {filtersActive ? (
-            <Pressable
-              style={styles.resetChip}
+            <AppChip
+              label="Reset"
+              tone="danger"
               onPress={() => {
                 setSearch('');
                 setStatusFilter('ALL');
                 setCategoryFilter('ALL');
               }}
-            >
-              <Text style={[styles.resetChipText, { color: colors.error }]}>Reset</Text>
-            </Pressable>
+            />
           ) : null}
         </ScrollView>
       </View>
@@ -233,20 +203,20 @@ export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
       {templates.isLoading ? (
         <ListSkeleton rows={6} avatar={false} />
       ) : templates.isError ? (
-        <View style={styles.empty}>
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>Could not load templates</Text>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{templates.error instanceof Error ? templates.error.message : 'Please try again.'}</Text>
-        </View>
+        <EmptyState
+          title="Could not load templates"
+          message={templates.error instanceof Error ? templates.error.message : 'Please try again.'}
+        />
       ) : items.length === 0 ? (
-        <View style={styles.empty}>
-          <FileText color={colors.textMuted} size={30} />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>No templates found</Text>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            {search || statusFilter !== 'ALL' || categoryFilter !== 'ALL'
+        <EmptyState
+          icon={FileText}
+          title="No templates found"
+          message={
+            search || statusFilter !== 'ALL' || categoryFilter !== 'ALL'
               ? 'Try adjusting filters or search.'
-              : 'Create a template or sync with Meta to pull existing ones.'}
-          </Text>
-        </View>
+              : 'Create a template or sync with Meta to pull existing ones.'
+          }
+        />
       ) : (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.list}>
           {items.map((template) => {
@@ -344,46 +314,8 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   toolbar: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  iconButton: {
-    alignItems: 'center',
-    borderRadius: 999,
-    borderWidth: 1,
-    height: 38,
-    justifyContent: 'center',
-    width: 38,
-  },
-  newButton: {
-    alignItems: 'center',
-    borderRadius: 999,
-    flexDirection: 'row',
-    gap: 4,
-    height: 38,
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  newButtonText: { fontSize: 13, fontWeight: '700' },
-  buttonDisabled: { opacity: 0.6 },
-  search: {
-    alignItems: 'center',
-    borderRadius: 999,
-    borderWidth: 1,
-    flex: 1,
-    flexDirection: 'row',
-    height: 38,
-    paddingHorizontal: 12,
-  },
-  searchInput: { flex: 1, fontSize: 14, height: 38, marginLeft: 8, paddingVertical: 0 },
   chipRow: { alignItems: 'center', gap: 6, paddingRight: 8 },
-  chip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-  },
-  chipText: { fontSize: 12, fontWeight: '600' },
   chipDivider: { borderRadius: 1, height: 16, marginHorizontal: 2, width: 1 },
-  resetChip: { paddingHorizontal: 8, paddingVertical: 6 },
-  resetChipText: { fontSize: 12, fontWeight: '700' },
   list: { gap: 12, padding: 16, paddingBottom: 40 },
   card: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, padding: 14 },
   cardHead: { borderBottomColor: '#e8eef7', borderBottomWidth: 1, paddingBottom: 10 },
@@ -397,7 +329,4 @@ const styles = StyleSheet.create({
   cardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   actionButton: { alignItems: 'center', flexDirection: 'row', gap: 5, paddingRight: 10, paddingVertical: 6 },
   actionText: { color: '#2563eb', fontSize: 13, fontWeight: '600' },
-  empty: { alignItems: 'center', paddingHorizontal: 32, paddingTop: 48 },
-  emptyTitle: { color: '#0f172a', fontSize: 16, fontWeight: '700', marginTop: 12 },
-  emptyText: { color: '#64748b', fontSize: 13, marginTop: 5, textAlign: 'center' },
 });
