@@ -116,9 +116,15 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
   const { width: winW, height: winH } = useWindowDimensions();
   const listRef = useRef<FlatList<MediaGalleryItem>>(null);
   const [saving, setSaving] = useState(false);
+  const [stage, setStage] = useState({ width: winW, height: winH });
   const visible = images.length > 0 && index >= 0 && index < images.length;
-  const stageHeight = winH - insets.top - insets.bottom;
   const current = visible ? images[index] : null;
+  const stageW = stage.width || winW;
+  const stageH = stage.height || winH;
+
+  useEffect(() => {
+    setStage({ width: winW, height: winH });
+  }, [winW, winH]);
 
   useEffect(() => {
     if (!visible || !listRef.current) return;
@@ -152,14 +158,45 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
   if (!visible) return null;
 
   const onMomentumScrollEnd = (event: any) => {
-    const nextIndex = Math.round(event.nativeEvent.contentOffset.x / winW);
+    const nextIndex = Math.round(event.nativeEvent.contentOffset.x / Math.max(stageW, 1));
     if (nextIndex >= 0 && nextIndex < images.length && nextIndex !== index) onIndex(nextIndex);
   };
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose} presentationStyle="overFullScreen">
-      <View style={styles.backdrop}>
-        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+    <Modal
+      visible
+      animationType="fade"
+      onRequestClose={onClose}
+      presentationStyle="fullScreen"
+      statusBarTranslucent
+    >
+      <View
+        style={styles.backdrop}
+        onLayout={(event) => {
+          const { width, height } = event.nativeEvent.layout;
+          if (width > 0 && height > 0 && (width !== stage.width || height !== stage.height)) {
+            setStage({ width, height });
+          }
+        }}
+      >
+        <FlatList
+          ref={listRef}
+          data={images}
+          keyExtractor={(media) => media.attachId}
+          horizontal
+          pagingEnabled
+          style={styles.pager}
+          showsHorizontalScrollIndicator={false}
+          getItemLayout={(_, i) => ({ length: stageW, offset: stageW * i, index: i })}
+          initialScrollIndex={index}
+          onMomentumScrollEnd={onMomentumScrollEnd}
+          renderItem={({ item: media }) => (
+            <View style={[styles.slide, { width: stageW, height: stageH }]}>
+              <MainAsset src={media.src} stageWidth={stageW} stageHeight={stageH} />
+            </View>
+          )}
+        />
+        <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 12) + 8 }]} pointerEvents="box-none">
           <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn}><Text style={styles.closeText}>✕</Text></Pressable>
           <Text style={styles.counter}>{index + 1} of {images.length}</Text>
           <Pressable
@@ -173,25 +210,6 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
             {saving ? <ActivityIndicator color="#fff" size="small" /> : <Download color="#fff" size={18} />}
           </Pressable>
         </View>
-        <View style={styles.centerFill}>
-          <FlatList
-            ref={listRef}
-            data={images}
-            keyExtractor={(media) => media.attachId}
-            horizontal
-            pagingEnabled
-            style={styles.pager}
-            showsHorizontalScrollIndicator={false}
-            getItemLayout={(_, i) => ({ length: winW, offset: winW * i, index: i })}
-            initialScrollIndex={index}
-            onMomentumScrollEnd={onMomentumScrollEnd}
-            renderItem={({ item: media }) => (
-              <View style={{ width: winW, height: stageHeight }}>
-                <MainAsset src={media.src} stageWidth={winW} stageHeight={stageHeight} />
-              </View>
-            )}
-          />
-        </View>
       </View>
     </Modal>
   );
@@ -199,18 +217,25 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
 
 function MainAsset({ src, stageWidth, stageHeight }: { src: string; stageWidth: number; stageHeight: number }) {
   const modified = useLocalAsset(src);
-  if (!modified) return <ActivityIndicator color="#fff" size="large" />;
+  if (!modified) {
+    return (
+      <View style={[styles.loader, { width: stageWidth, height: stageHeight }]}>
+        <ActivityIndicator color="#fff" size="large" />
+      </View>
+    );
+  }
   return <ZoomableImage src={modified} stageWidth={stageWidth} stageHeight={stageHeight} />;
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: '#050505' },
-  pager: { flex: 1, width: '100%' },
-  centerFill: { flex: 1, alignItems: 'center', backgroundColor: '#050505', justifyContent: 'center' },
+  backdrop: { backgroundColor: '#050505', flex: 1 },
+  pager: { flex: 1 },
+  slide: { alignItems: 'center', justifyContent: 'center' },
+  loader: { alignItems: 'center', justifyContent: 'center' },
   zoomStage: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   zoomFill: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  topBar: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', left: 0, paddingBottom: 12, paddingHorizontal: 16, position: 'absolute', right: 0, top: 0, zIndex: 2 },
-  closeBtn: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.14)', borderRadius: 20, height: 36, justifyContent: 'center', width: 36 },
+  topBar: { alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.35)', flexDirection: 'row', justifyContent: 'space-between', left: 0, paddingBottom: 12, paddingHorizontal: 16, position: 'absolute', right: 0, top: 0, zIndex: 2 },
+  closeBtn: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 20, height: 36, justifyContent: 'center', width: 36 },
   closeText: { color: '#fff', fontSize: 18, lineHeight: 20 },
   counter: { color: '#fff', fontSize: 14, fontWeight: '600' },
   actionDisabled: { opacity: 0.6 },

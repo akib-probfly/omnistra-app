@@ -793,7 +793,8 @@ export function ConversationScreen() {
   }, [channelName, colors.surfaceSecondary, colors.textSecondary, highlightedMessageId, jumpToMessage, messageById, openImage, openVideo, reactionGroups]);
 
   return (
-    <KeyboardAvoidingView style={[styles.screen, { backgroundColor: colors.background, flex: 1 }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <View style={[styles.screen, { backgroundColor: colors.background, flex: 1 }]}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <Pressable onPress={() => navigation.navigate('Inbox', { screen: 'InboxList' })}><ArrowLeft color={colors.textSecondary} size={23} /></Pressable>
         <Pressable
@@ -905,6 +906,7 @@ export function ConversationScreen() {
           <ComposerSkeleton />
         )}
       </View>
+    </KeyboardAvoidingView>
       <ReactionPicker
         visible={Boolean(reactTarget)}
         onClose={() => setReactTarget(null)}
@@ -956,7 +958,7 @@ export function ConversationScreen() {
           onToggleStatus={() => statusMutation.mutate(header.status === 'CLOSED' ? 'OPEN' : 'CLOSED')}
         />
       ) : null}
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
