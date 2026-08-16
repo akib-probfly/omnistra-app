@@ -111,6 +111,7 @@ export type ConversationsFilters = {
   channelTypes?: string[];
   assigneeWorkspaceMemberIds?: string[];
   includeEmpty?: boolean;
+  blockedStatus?: 'blocked' | 'unblocked';
   cursor?: string;
   limit?: number;
 };
@@ -147,6 +148,7 @@ export async function fetchConversations(params: ConversationsFilters = {}): Pro
     channelTypes: params.channelTypes,
     assigneeWorkspaceMemberIds: params.assigneeWorkspaceMemberIds,
     includeEmpty: params.includeEmpty,
+    blockedStatus: params.blockedStatus,
     cursor: params.cursor,
     limit: params.limit ?? 25,
   })}`);
@@ -166,6 +168,7 @@ export async function fetchConversationCount(params: Omit<ConversationsFilters, 
     channelTypes: params.channelTypes,
     assigneeWorkspaceMemberIds: params.assigneeWorkspaceMemberIds,
     includeEmpty: params.includeEmpty,
+    blockedStatus: params.blockedStatus,
   })}`);
   if (typeof response === 'number') return response;
   return response?.count ?? response?.total ?? 0;
@@ -181,6 +184,7 @@ export async function fetchConversationUnreadCount(params: Omit<ConversationsFil
     assignment: params.assignment,
     channelTypes: params.channelTypes,
     assigneeWorkspaceMemberIds: params.assigneeWorkspaceMemberIds,
+    blockedStatus: params.blockedStatus,
   })}`);
   if (typeof response === 'number') return response;
   return response?.count ?? response?.unreadCount ?? response?.total ?? 0;

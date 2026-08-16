@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDownLeft, ArrowUpRight, Filter, Image as ImageIcon, Inbox, Mail, MessageSquareText, Mic, Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Search, Star, Video } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Ban, CheckCircle2, CircleSlash, Filter, Image as ImageIcon, Inbox, Mail, MessageSquareText, Mic, Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Search, Star, Video } from 'lucide-react-native';
 import { Animated, Easing, FlatList, Pressable, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -30,6 +30,7 @@ type SidebarTab = 'chats' | 'calls';
 type Tab = 'all' | 'unread' | 'closed';
 type FilterLayer = 'channels' | 'tags' | 'users' | 'more';
 type AssignmentFilter = 'any' | 'assigned' | 'unassigned';
+type BanStatusFilter = 'all' | 'blocked' | 'unblocked';
 
 const CHANNEL_TYPES = ['WHATSAPP', 'MESSENGER', 'INSTAGRAM', 'EMAIL', 'WEBCHAT', 'SMS', 'TELEGRAM', 'TIKTOK'] as const;
 const FILTER_LAYERS: Array<{ id: FilterLayer; label: string }> = [
@@ -59,6 +60,7 @@ export function InboxScreen() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterLayer, setFilterLayer] = useState<FilterLayer>('channels');
   const [assignment, setAssignment] = useState<AssignmentFilter>('any');
+  const [blockedStatus, setBlockedStatus] = useState<BanStatusFilter>('all');
   const [channelTypes, setChannelTypes] = useState<string[]>([]);
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
@@ -76,6 +78,7 @@ export function InboxScreen() {
     || channelTypes.length
     || assigneeIds.length
     || assignment !== 'any'
+    || blockedStatus !== 'all'
     || starredOnly
     || unrepliedOnly,
   );
@@ -92,7 +95,8 @@ export function InboxScreen() {
     tagText: debouncedTagText.trim() || undefined,
     search: debouncedSearch.trim() || undefined,
     includeEmpty: includeEmpty || undefined,
-  }), [tab, unrepliedOnly, starredOnly, debouncedSearch, assignment, channelTypes, assigneeIds, selectedTagIds, debouncedTagText, includeEmpty]);
+    blockedStatus: blockedStatus === 'all' ? undefined : blockedStatus,
+  }), [tab, unrepliedOnly, starredOnly, debouncedSearch, assignment, channelTypes, assigneeIds, selectedTagIds, debouncedTagText, includeEmpty, blockedStatus]);
 
   const advancedFilterParams = useMemo(() => ({
     search: debouncedSearch.trim() || undefined,
@@ -102,7 +106,8 @@ export function InboxScreen() {
     assigneeWorkspaceMemberIds: assigneeIds.length ? assigneeIds : undefined,
     assignment: assignment === 'any' ? undefined : assignment,
     starredOnly: starredOnly || undefined,
-  }), [debouncedSearch, selectedTagIds, debouncedTagText, channelTypes, assigneeIds, assignment, starredOnly]);
+    blockedStatus: blockedStatus === 'all' ? undefined : blockedStatus,
+  }), [debouncedSearch, selectedTagIds, debouncedTagText, channelTypes, assigneeIds, assignment, starredOnly, blockedStatus]);
 
   const assigneesQuery = useQuery({
     queryKey: ['assignee-filter-options'],
@@ -136,7 +141,7 @@ export function InboxScreen() {
   }, [workspaceTags, selectedTagIds, tagTextInput]);
 
   const hasTagFilters = selectedTagIds.length > 0 || debouncedTagText.trim().length > 0;
-  const hasAdvancedFilters = hasTagFilters || channelTypes.length > 0 || assigneeIds.length > 0 || assignment !== 'any' || starredOnly;
+  const hasAdvancedFilters = hasTagFilters || channelTypes.length > 0 || assigneeIds.length > 0 || assignment !== 'any' || starredOnly || blockedStatus !== 'all';
   const canClearFilters = hasAdvancedFilters || unrepliedOnly;
 
   const resetFilters = () => {
@@ -149,6 +154,7 @@ export function InboxScreen() {
     setUserSearchInput('');
     setStarredOnly(false);
     setUnrepliedOnly(false);
+    setBlockedStatus('all');
   };
 
   const onSearchChange = (value: string) => {
@@ -500,6 +506,32 @@ export function InboxScreen() {
                     ))}
                   </View>
 
+                  <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Ban status</Text>
+                  <View style={styles.banRow}>
+                    {([
+                      { id: 'all' as const, label: 'All', Icon: CircleSlash },
+                      { id: 'blocked' as const, label: 'Banned', Icon: Ban },
+                      { id: 'unblocked' as const, label: 'Unbanned', Icon: CheckCircle2 },
+                    ]).map((option) => {
+                      const active = blockedStatus === option.id;
+                      const Icon = option.Icon;
+                      return (
+                        <Pressable
+                          key={option.id}
+                          style={[
+                            styles.banOption,
+                            { borderColor: colors.cardBorder, backgroundColor: colors.surface },
+                            active && { borderColor: colors.primary, backgroundColor: `${colors.primary}14` },
+                          ]}
+                          onPress={() => setBlockedStatus(option.id)}
+                        >
+                          <Icon color={active ? colors.primary : colors.textSecondary} size={14} />
+                          <Text style={[styles.banOptionText, { color: active ? colors.primary : colors.textSecondary }]}>{option.label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+
                   <Pressable
                     style={[styles.switchRow, { borderColor: colors.cardBorder }]}
                     onPress={() => setStarredOnly((value) => !value)}
@@ -842,6 +874,9 @@ const styles = StyleSheet.create({
   assignmentOption: { alignItems: 'center', borderRadius: 16, flex: 1, paddingVertical: 8 },
   assignmentOptionActive: { backgroundColor: '#fff', elevation: 1, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4 },
   assignmentOptionText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
+  banRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  banOption: { alignItems: 'center', borderColor: '#e2e8f0', borderRadius: 999, borderWidth: 1, flex: 1, flexDirection: 'row', gap: 5, justifyContent: 'center', paddingHorizontal: 8, paddingVertical: 9 },
+  banOptionText: { fontSize: 12, fontWeight: '700' },
   assignmentOptionTextActive: { color: '#0f172a', fontWeight: '700' },
   switchRow: { alignItems: 'center', borderColor: '#dbeafe', borderRadius: 16, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 12, paddingVertical: 10 },
   switchRowCopy: { alignItems: 'center', flexDirection: 'row', gap: 8 },
