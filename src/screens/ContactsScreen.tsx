@@ -3,7 +3,6 @@ import { ContactRound, Filter, Mail, Phone, Plus, Search, X } from 'lucide-react
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Pressable,
   RefreshControl,
@@ -12,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { showNotice } from '../components/AppToast';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -299,7 +299,7 @@ export function ContactsScreen() {
         contactName: getContactTitle(contact),
       });
     },
-    onError: (error: Error) => Alert.alert('Could not create contact', error.message),
+    onError: (error: Error) => showNotice('Could not create contact', error.message),
   });
 
   const onRefresh = useCallback(async () => {

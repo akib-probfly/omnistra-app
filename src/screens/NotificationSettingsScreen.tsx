@@ -12,13 +12,13 @@ import {
 } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { showNotice } from '../components/AppToast';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
@@ -108,7 +108,7 @@ export function NotificationSettingsScreen() {
       if (workspaceId && context?.previous) {
         queryClient.setQueryData(notificationQueryKeys.preferences(workspaceId), context.previous);
       }
-      Alert.alert('Could not save preferences', error instanceof Error ? error.message : 'Please try again.');
+      showNotice('Could not save preferences', error instanceof Error ? error.message : 'Please try again.');
     },
     onSuccess: (next) => {
       if (!workspaceId) return;
@@ -143,7 +143,7 @@ export function NotificationSettingsScreen() {
           status = requested.status;
         }
         if (status !== 'granted') {
-          Alert.alert('Permission required', 'Enable notifications for Omnistra in your device settings to receive push alerts.');
+          showNotice('Permission required', 'Enable notifications for Omnistra in your device settings to receive push alerts.');
           return;
         }
       } finally {

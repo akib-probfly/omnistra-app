@@ -2,7 +2,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, FileText, LoaderCircle, Pencil, Plus, RefreshCw, Search, Trash2, Unlink } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import Toast from 'react-native-toast-message';
 import {
   createWhatsappTemplate,
   deleteWhatsappTemplate,
@@ -16,6 +17,7 @@ import {
   type WhatsappTemplateStatus,
 } from '../api/whatsappTemplates';
 import { formatTemplateUpdatedAt, makeDraftTemplate, mapTemplateToForm } from '../lib/whatsapp-template-utils';
+import { ConfirmDialog } from './ConfirmDialog';
 import { ListSkeleton } from './Skeleton';
 import { WhatsappTemplateSheet, type TemplateSheetMode } from './WhatsappTemplateSheet';
 import { useTheme } from '../theme/ThemeContext';
@@ -64,6 +66,7 @@ export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
   const [statusFilter, setStatusFilter] = useState<WhatsappTemplateStatus | 'ALL'>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<WhatsappTemplateCategory | 'ALL'>('ALL');
   const [sheet, setSheet] = useState<SheetState>(null);
+  const [pendingTemplate, setPendingTemplate] = useState<{ type: 'delete' | 'unlink'; template: WhatsappTemplate } | null>(null);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['whatsapp-templates', channelId] });
@@ -74,27 +77,29 @@ export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
     mutationFn: () => syncWhatsappTemplates(channelId),
     onSuccess: (result) => {
       invalidate();
-      Alert.alert('Templates synced', `Synced ${result.fetchedCount} templates from Meta (${result.approvedCount} approved, ${result.rejectedCount} rejected).`);
+      Toast.show({ type: 'success', text1: 'Templates synced', text2: `Synced ${result.fetchedCount} templates from Meta (${result.approvedCount} approved, ${result.rejectedCount} rejected).` });
     },
-    onError: (error) => Alert.alert('Sync failed', error instanceof Error ? error.message : undefined),
+    onError: (error) => Toast.show({ type: 'error', text1: 'Sync failed', text2: error instanceof Error ? error.message : undefined }),
   });
 
   const del = useMutation({
     mutationFn: ({ templateId }: { templateId: string }) => deleteWhatsappTemplate(channelId, templateId),
     onSuccess: () => {
+      setPendingTemplate(null);
       invalidate();
-      Alert.alert('Template deleted', 'The template was deleted.');
+      Toast.show({ type: 'success', text1: 'Template deleted', text2: 'The template was deleted.' });
     },
-    onError: (error) => Alert.alert('Delete failed', error instanceof Error ? error.message : undefined),
+    onError: (error) => Toast.show({ type: 'error', text1: 'Delete failed', text2: error instanceof Error ? error.message : undefined }),
   });
 
   const unlink = useMutation({
     mutationFn: ({ templateId }: { templateId: string }) => unlinkWhatsappTemplate(channelId, templateId),
     onSuccess: () => {
+      setPendingTemplate(null);
       invalidate();
-      Alert.alert('Template unlinked', 'The template was unlinked from this workspace.');
+      Toast.show({ type: 'success', text1: 'Template unlinked', text2: 'The template was unlinked from this workspace.' });
     },
-    onError: (error) => Alert.alert('Unlink failed', error instanceof Error ? error.message : undefined),
+    onError: (error) => Toast.show({ type: 'error', text1: 'Unlink failed', text2: error instanceof Error ? error.message : undefined }),
   });
 
   const save = useMutation({
@@ -106,12 +111,13 @@ export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
       const wasCreate = sheet?.mode === 'create';
       invalidate();
       setSheet(null);
-      Alert.alert(
-        wasCreate ? 'Template submitted' : 'Template updated',
-        wasCreate ? 'Your template was submitted to WhatsApp for review.' : 'Your template changes were submitted.',
-      );
+      Toast.show({
+        type: 'success',
+        text1: wasCreate ? 'Template submitted' : 'Template updated',
+        text2: wasCreate ? 'Your template was submitted to WhatsApp for review.' : 'Your template changes were submitted.',
+      });
     },
-    onError: (error) => Alert.alert('Save failed', error instanceof Error ? error.message : undefined),
+    onError: (error) => Toast.show({ type: 'error', text1: 'Save failed', text2: error instanceof Error ? error.message : undefined }),
   });
 
   const items = useMemo(() => {
@@ -135,19 +141,8 @@ export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
     });
   }, [templates.data?.items, search, statusFilter, categoryFilter]);
 
-  const confirmDelete = (template: WhatsappTemplate) => {
-    Alert.alert('Delete template?', `"${template.name}" will be deleted from Meta and this workspace.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => del.mutate({ templateId: template.id }) },
-    ]);
-  };
-
-  const confirmUnlink = (template: WhatsappTemplate) => {
-    Alert.alert('Unlink template?', `"${template.name}" will be removed from this workspace but kept in Meta.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Unlink', style: 'destructive', onPress: () => unlink.mutate({ templateId: template.id }) },
-    ]);
-  };
+  const confirmDelete = (template: WhatsappTemplate) => setPendingTemplate({ type: 'delete', template });
+  const confirmUnlink = (template: WhatsappTemplate) => setPendingTemplate({ type: 'unlink', template });
 
   const sheetMode: TemplateSheetMode = sheet?.mode ?? 'view';
 
@@ -316,6 +311,26 @@ export function WhatsappTemplatesTab({ channelId }: { channelId: string }) {
           }
         }}
         onSave={(form) => save.mutate(form)}
+      />
+      <ConfirmDialog
+        visible={pendingTemplate?.type === 'delete'}
+        title="Delete template?"
+        body={pendingTemplate ? `"${pendingTemplate.template.name}" will be deleted from Meta and this workspace.` : ''}
+        confirmLabel="Delete"
+        destructive
+        loading={del.isPending}
+        onClose={() => setPendingTemplate(null)}
+        onConfirm={() => pendingTemplate && del.mutate({ templateId: pendingTemplate.template.id })}
+      />
+      <ConfirmDialog
+        visible={pendingTemplate?.type === 'unlink'}
+        title="Unlink template?"
+        body={pendingTemplate ? `"${pendingTemplate.template.name}" will be removed from this workspace but kept in Meta.` : ''}
+        confirmLabel="Unlink"
+        destructive
+        loading={unlink.isPending}
+        onClose={() => setPendingTemplate(null)}
+        onConfirm={() => pendingTemplate && unlink.mutate({ templateId: pendingTemplate.template.id })}
       />
     </View>
   );

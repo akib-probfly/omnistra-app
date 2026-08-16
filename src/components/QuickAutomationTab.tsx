@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { LoaderCircle, Save, Zap } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { showNotice } from './AppToast';
 import { AppToggle } from './AppToggle';
 import {
   fetchChannelQuickAutomationSettings,
@@ -89,9 +90,9 @@ export function QuickAutomationTab({ channelId, channelType }: { channelId: stri
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['channel-automation', channelId] });
-      Alert.alert('Automation saved', 'Your quick automation settings were updated.');
+      showNotice('Automation saved', 'Your quick automation settings were updated.');
     },
-    onError: (error) => Alert.alert('Could not save', error instanceof Error ? error.message : undefined),
+    onError: (error) => showNotice('Could not save', error instanceof Error ? error.message : undefined),
   });
 
   const setHour = (day: (typeof DAYS)[number], slot: 'from' | 'to', time: string) => {

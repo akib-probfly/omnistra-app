@@ -14,7 +14,6 @@ import {
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Pressable,
   StyleSheet,
@@ -22,9 +21,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import {
   createQuickReply,
   deleteQuickReply,
@@ -76,6 +77,7 @@ export function QuickRepliesSettingsScreen() {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [uploading, setUploading] = useState(false);
   const [newAttachmentIds, setNewAttachmentIds] = useState<string[]>([]);
+  const [pendingDelete, setPendingDelete] = useState<QuickReplySnippet | null>(null);
 
   const workspacesQuery = useQuery({
     queryKey: ['workspaces', 'mine'],
@@ -152,7 +154,7 @@ export function QuickRepliesSettingsScreen() {
     if (!workspaceId) return;
     const remaining = Math.max(0, MAX_ATTACHMENTS - form.attachments.length);
     if (remaining === 0) {
-      Alert.alert('Attachment limit', `Quick replies can include up to ${MAX_ATTACHMENTS} attachments.`);
+      Toast.show({ type: 'info', text1: 'Attachment limit', text2: `Quick replies can include up to ${MAX_ATTACHMENTS} attachments.` });
       return;
     }
 
@@ -160,7 +162,7 @@ export function QuickRepliesSettingsScreen() {
     if (source === 'image') {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Permission required', 'Allow photo library access to attach images.');
+        Toast.show({ type: 'info', text1: 'Permission required', text2: 'Allow photo library access to attach images.' });
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -193,7 +195,7 @@ export function QuickRepliesSettingsScreen() {
     const uploadable = files.filter((file) => (file.size ?? 0) <= MAX_ATTACHMENT_BYTES || file.size == null);
     const oversized = files.length - uploadable.length;
     if (oversized > 0) {
-      Alert.alert('Some files are too large', 'Quick reply attachments must be 5 MB or smaller.');
+      Toast.show({ type: 'info', text1: 'Some files are too large', text2: 'Quick reply attachments must be 5 MB or smaller.' });
     }
     if (uploadable.length === 0) return;
 
@@ -208,7 +210,7 @@ export function QuickRepliesSettingsScreen() {
         }));
       }
     } catch (error) {
-      Alert.alert('Upload failed', error instanceof Error ? error.message : 'Could not upload attachment.');
+      Toast.show({ type: 'error', text1: 'Upload failed', text2: error instanceof Error ? error.message : 'Could not upload attachment.' });
     } finally {
       setUploading(false);
     }
@@ -230,18 +232,19 @@ export function QuickRepliesSettingsScreen() {
     const title = form.title.trim();
     const body = form.body.trim();
     if (!title || !body) {
-      Alert.alert('Missing fields', 'Title and message are required.');
+      Toast.show({ type: 'info', text1: 'Missing fields', text2: 'Title and message are required.' });
       return;
     }
     if (unsupportedVars.length > 0) {
-      Alert.alert(
-        'Unsupported variable',
-        `${unsupportedVars.join(', ')} ${unsupportedVars.length > 1 ? 'are' : 'is'} not supported. Supported: {{name}}.`,
-      );
+      Toast.show({
+        type: 'info',
+        text1: 'Unsupported variable',
+        text2: `${unsupportedVars.join(', ')} ${unsupportedVars.length > 1 ? 'are' : 'is'} not supported. Supported: {{name}}.`,
+      });
       return;
     }
     if (uploading) {
-      Alert.alert('Still uploading', 'Wait for attachments to finish uploading.');
+      Toast.show({ type: 'info', text1: 'Still uploading', text2: 'Wait for attachments to finish uploading.' });
       return;
     }
 
@@ -269,29 +272,17 @@ export function QuickRepliesSettingsScreen() {
       setEditorOpen(false);
       setEditing(null);
       setForm(emptyForm());
-      Alert.alert(editing ? 'Quick reply updated' : 'Quick reply created');
+      Toast.show({ type: 'success', text1: editing ? 'Quick reply updated' : 'Quick reply created' });
     } catch (error) {
-      Alert.alert(
-        editing ? 'Could not update quick reply' : 'Could not create quick reply',
-        error instanceof Error ? error.message : 'Please try again.',
-      );
+      Toast.show({
+        type: 'error',
+        text1: editing ? 'Could not update quick reply' : 'Could not create quick reply',
+        text2: error instanceof Error ? error.message : 'Please try again.',
+      });
     }
   };
 
-  const confirmDelete = (snippet: QuickReplySnippet) => {
-    Alert.alert('Delete quick reply', `Delete “${snippet.title}”? This cannot be undone.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          void deleteMutation.mutateAsync({ id: snippet.id }).catch((error: Error) => {
-            Alert.alert('Could not delete', error.message);
-          });
-        },
-      },
-    ]);
-  };
+  const confirmDelete = (snippet: QuickReplySnippet) => setPendingDelete(snippet);
 
   const insertNameVariable = () => {
     setForm((current) => ({
@@ -463,6 +454,22 @@ export function QuickRepliesSettingsScreen() {
               )}
             </Pressable>
         </BottomSheet>
+      <ConfirmDialog
+        visible={Boolean(pendingDelete)}
+        title="Delete quick reply"
+        body={pendingDelete ? `Delete “${pendingDelete.title}”? This cannot be undone.` : ''}
+        confirmLabel="Delete"
+        destructive
+        loading={deleteMutation.isPending}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          void deleteMutation.mutateAsync({ id: pendingDelete.id }).then(
+            () => setPendingDelete(null),
+            (error: Error) => Toast.show({ type: 'error', text1: 'Could not delete', text2: error.message }),
+          );
+        }}
+      />
     </View>
   );
 }

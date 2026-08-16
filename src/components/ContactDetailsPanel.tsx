@@ -1,8 +1,8 @@
 // @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Ban, Check, ChevronDown, ChevronUp, Download, File, FileText, Film, Music, Pencil, Plus, RotateCcw, Sparkles, X } from 'lucide-react-native';
+import { Ban, Check, ChevronDown, ChevronUp, Download, File, FileText, Film, Music, Pencil, Plus, RotateCcw, Sparkles } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SecureStore from 'expo-secure-store';
@@ -11,6 +11,7 @@ import { apiUrl } from '../api/client';
 import { attachConversationTag, banCrmContact, createConversationNote, createConversationTag, deleteConversationNote, detachConversationTag, fetchConversationAttachments, fetchConversationNotes, fetchConversationTags, fetchWorkspaceTags, unbanCrmContact, updateConversationNote, updateCrmContact, type ConversationAttachment, type ConversationNote, type ConversationTag } from '../api/conversationDetails';
 import { AuthenticatedImage } from './AuthenticatedImage';
 import { BottomSheet, SheetScrollView } from './BottomSheet';
+import { ConfirmDialog } from './ConfirmDialog';
 import { ColorfulAvatar } from './ColorfulAvatar';
 import { PanelSkeleton } from './Skeleton';
 import { useTheme } from '../theme/ThemeContext';
@@ -76,6 +77,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   const [selectedColor, setSelectedColor] = useState(TAG_COLOR_OPTIONS[0]);
   const [optimisticBlockedAt, setOptimisticBlockedAt] = useState<string | null | undefined>(undefined);
   const [banOpen, setBanOpen] = useState(false);
+  const [pendingDeleteNoteId, setPendingDeleteNoteId] = useState<string | null>(null);
 
   // Only fetch sidebar data when the panel is open (matches web: notes/files load on expand).
   const conversationTagsQuery = useQuery({
@@ -129,21 +131,21 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   const phoneMutation = useMutation({
     mutationFn: (primaryPhone: string) => updateCrmContact(conversation.contact.id, { primaryPhone }),
     onSuccess: () => { setEditingPhone(false); setPhoneDraft(''); invalidateAll(); },
-    onError: (error: Error) => Alert.alert('Could not update phone', error.message),
+    onError: (error: Error) => Toast.show({ type: 'error', text1: 'Could not update phone', text2: error.message }),
   });
   const emailMutation = useMutation({
     mutationFn: (primaryEmail: string) => updateCrmContact(conversation.contact.id, { primaryEmail }),
     onSuccess: () => { setEditingEmail(false); setEmailDraft(''); invalidateAll(); },
-    onError: (error: Error) => Alert.alert('Could not update email', error.message),
+    onError: (error: Error) => Toast.show({ type: 'error', text1: 'Could not update email', text2: error.message }),
   });
 
   const attachMutation = useMutation({ mutationFn: (tagId: string) => attachConversationTag(conversation.id, tagId), onSuccess: invalidateAll });
   const detachMutation = useMutation({ mutationFn: (tagId: string) => detachConversationTag(conversation.id, tagId), onSuccess: invalidateAll });
-  const createTagMutation = useMutation({ mutationFn: () => createConversationTag(conversation.id, { text: tagInput.trim(), color: selectedColor }), onSuccess: () => { setTagInput(''); invalidateAll(); }, onError: (error: Error) => Alert.alert('Could not create tag', error.message) });
+  const createTagMutation = useMutation({ mutationFn: () => createConversationTag(conversation.id, { text: tagInput.trim(), color: selectedColor }), onSuccess: () => { setTagInput(''); invalidateAll(); }, onError: (error: Error) => Toast.show({ type: 'error', text1: 'Could not create tag', text2: error.message }) });
 
-  const createNoteMutation = useMutation({ mutationFn: (content: string) => createConversationNote(conversation.id, content), onSuccess: () => { setNoteDraft(''); void queryClient.invalidateQueries({ queryKey: ['conversation-notes', conversation.id] }); }, onError: (error: Error) => Alert.alert('Could not add note', error.message) });
-  const updateNoteMutation = useMutation({ mutationFn: ({ noteId, content }: { noteId: string; content: string }) => updateConversationNote(conversation.id, noteId, content), onSuccess: () => { setEditingNoteId(null); setEditingNoteDraft(''); void queryClient.invalidateQueries({ queryKey: ['conversation-notes', conversation.id] }); }, onError: (error: Error) => Alert.alert('Could not update note', error.message) });
-  const deleteNoteMutation = useMutation({ mutationFn: (noteId: string) => deleteConversationNote(conversation.id, noteId), onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ['conversation-notes', conversation.id] }); }, onError: (error: Error) => Alert.alert('Could not delete note', error.message) });
+  const createNoteMutation = useMutation({ mutationFn: (content: string) => createConversationNote(conversation.id, content), onSuccess: () => { setNoteDraft(''); void queryClient.invalidateQueries({ queryKey: ['conversation-notes', conversation.id] }); }, onError: (error: Error) => Toast.show({ type: 'error', text1: 'Could not add note', text2: error.message }) });
+  const updateNoteMutation = useMutation({ mutationFn: ({ noteId, content }: { noteId: string; content: string }) => updateConversationNote(conversation.id, noteId, content), onSuccess: () => { setEditingNoteId(null); setEditingNoteDraft(''); void queryClient.invalidateQueries({ queryKey: ['conversation-notes', conversation.id] }); }, onError: (error: Error) => Toast.show({ type: 'error', text1: 'Could not update note', text2: error.message }) });
+  const deleteNoteMutation = useMutation({ mutationFn: (noteId: string) => deleteConversationNote(conversation.id, noteId), onSuccess: () => { setPendingDeleteNoteId(null); void queryClient.invalidateQueries({ queryKey: ['conversation-notes', conversation.id] }); }, onError: (error: Error) => Toast.show({ type: 'error', text1: 'Could not delete note', text2: error.message }) });
 
   const patchBlockedState = useCallback((blockedAt: string | null) => {
     queryClient.setQueryData(['messages', conversation.id], (current: any) => {
@@ -233,10 +235,10 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
       const name = attachment.originalName ?? 'attachment';
       const target = `${FileSystem.cacheDirectory}${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
       const result = await FileSystem.downloadAsync(apiUrl(attachment.downloadUrl) ?? '', target, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-      if (result.status === 200) Alert.alert('Downloaded', `Saved to:\n${result.uri}`);
-      else Alert.alert('Download failed', `Status ${result.status}`);
+      if (result.status === 200) Toast.show({ type: 'success', text1: 'Downloaded', text2: `Saved to:\n${result.uri}` });
+      else Toast.show({ type: 'error', text1: 'Download failed', text2: `Status ${result.status}` });
     } catch (error) {
-      Alert.alert('Download failed', error instanceof Error ? error.message : 'Please try again.');
+      Toast.show({ type: 'error', text1: 'Download failed', text2: error instanceof Error ? error.message : 'Please try again.' });
     } finally {
       setDownloadingId(null);
     }
@@ -247,6 +249,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
     setTagInput(''); setNoteDraft(''); setEditingNoteId(null); setEditingPhone(false); setEditingEmail(false); setLightbox(null); setDownloadingId(null);
     setOptimisticBlockedAt(undefined);
     setBanOpen(false);
+    setPendingDeleteNoteId(null);
   };
   useEffect(() => { if (visible) resetState(); }, [visible]);
 
@@ -412,7 +415,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
                               <Text style={[styles.noteMeta, { color: colors.textMuted }]}>{note.author?.userName ?? note.author?.userEmail ?? 'Unknown'}</Text>
                               <View style={styles.noteMetaActions}>
                                 <Pressable onPress={() => { setEditingNoteId(note.id); setEditingNoteDraft(note.content); }} hitSlop={8}><Pencil color={colors.textMuted} size={13} /></Pressable>
-                                <Pressable onPress={() => Alert.alert('Delete note', 'Are you sure?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => deleteNoteMutation.mutate(note.id) }])} hitSlop={8}><Text style={[styles.noteDelete, { color: colors.error }]}>×</Text></Pressable>
+                                <Pressable onPress={() => setPendingDeleteNoteId(note.id)} hitSlop={8}><Text style={[styles.noteDelete, { color: colors.error }]}>×</Text></Pressable>
                               </View>
                             </View>
                           </>
@@ -491,49 +494,27 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
           </Pressable>
         </View>
       </BottomSheet>
-      <Modal visible={banOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => !banMutation.isPending && setBanOpen(false)}>
-        <View style={styles.banModalOverlay}>
-          <View style={[styles.banModalCard, { backgroundColor: colors.surface }]}>
-            <Pressable
-              style={styles.banModalClose}
-              onPress={() => {
-                if (banMutation.isPending) return;
-                setBanOpen(false);
-              }}
-              hitSlop={8}
-            >
-              <X color={colors.textMuted} size={20} />
-            </Pressable>
-            <View style={[styles.banModalIcon, { backgroundColor: isBlocked ? colors.surfaceSecondary : '#fff1f2' }]}>
-              <Ban color={isBlocked ? colors.textSecondary : '#e11d48'} size={28} />
-            </View>
-            <Text style={[styles.banModalTitle, { color: colors.text }]}>{isBlocked ? 'Unban User' : 'Ban User'}</Text>
-            <Text style={[styles.banModalBody, { color: colors.textSecondary }]}>
-              {isBlocked ? 'Allow this customer to message again?' : 'Stop this customer from messaging the business?'}
-            </Text>
-            <View style={styles.banModalActions}>
-              <Pressable
-                style={[styles.banCancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}
-                disabled={banMutation.isPending}
-                onPress={() => setBanOpen(false)}
-              >
-                <Text style={[styles.banCancelText, { color: colors.text }]}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.banConfirmButton, { backgroundColor: isBlocked ? colors.primary : '#e11d48' }, banMutation.isPending && styles.disabled]}
-                disabled={banMutation.isPending}
-                onPress={() => banMutation.mutate()}
-              >
-                {banMutation.isPending ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.banConfirmText}>{isBlocked ? 'Unban' : 'Ban'}</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <ConfirmDialog
+        visible={banOpen}
+        title={isBlocked ? 'Unban User' : 'Ban User'}
+        body={isBlocked ? 'Allow this customer to message again?' : 'Stop this customer from messaging the business?'}
+        confirmLabel={isBlocked ? 'Unban' : 'Ban'}
+        destructive={!isBlocked}
+        loading={banMutation.isPending}
+        icon={Ban}
+        onClose={() => setBanOpen(false)}
+        onConfirm={() => banMutation.mutate()}
+      />
+      <ConfirmDialog
+        visible={Boolean(pendingDeleteNoteId)}
+        title="Delete note"
+        body="Are you sure you want to delete this note?"
+        confirmLabel="Delete"
+        destructive
+        loading={deleteNoteMutation.isPending}
+        onClose={() => setPendingDeleteNoteId(null)}
+        onConfirm={() => pendingDeleteNoteId && deleteNoteMutation.mutate(pendingDeleteNoteId)}
+      />
       <Modal visible={Boolean(lightbox)} transparent animationType="fade" onRequestClose={() => setLightbox(null)}>
         <Pressable style={styles.lightbox} onPress={() => setLightbox(null)}>
           {lightbox ? <Image source={{ uri: lightbox }} resizeMode="contain" style={styles.lightboxImage} /> : null}

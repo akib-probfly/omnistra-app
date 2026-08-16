@@ -3,7 +3,6 @@ import { ArrowLeft, BadgeCheck, LoaderCircle } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Linking,
   Pressable,
   ScrollView,
@@ -11,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { showNotice } from '../components/AppToast';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
@@ -179,15 +179,15 @@ export function BillingPlanDetailsScreen() {
     setIsStartingCheckout(true);
     try {
       if (effectiveIntervalUnavailable || selectedIntervalUnavailable) {
-        Alert.alert('Billing cycle unavailable', 'This package is not available for the selected cycle.');
+        showNotice('Billing cycle unavailable', 'This package is not available for the selected cycle.');
         return;
       }
       if (hasScheduledDowngrade) {
-        Alert.alert('Plan change locked', 'A downgrade is already scheduled. Wait until it becomes active.');
+        showNotice('Plan change locked', 'A downgrade is already scheduled. Wait until it becomes active.');
         return;
       }
       if (isCurrentPlan && !isCurrentTrialPlan) {
-        Alert.alert('Already on this plan', 'This is your current subscription.');
+        showNotice('Already on this plan', 'This is your current subscription.');
         return;
       }
 
@@ -234,7 +234,7 @@ export function BillingPlanDetailsScreen() {
       Toast.show({ type: 'success', text1: 'Redirecting to payment', text2: 'Opening secure PipraPay checkout.' });
       await openCheckout(response.checkoutUrl);
     } catch (error) {
-      Alert.alert('Could not start payment', error instanceof Error ? error.message : 'Please try again.');
+      showNotice('Could not start payment', error instanceof Error ? error.message : 'Please try again.');
     } finally {
       setIsStartingCheckout(false);
     }

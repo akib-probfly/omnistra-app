@@ -2,7 +2,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, FileText, LoaderCircle, RefreshCw, RotateCcw } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -17,6 +18,7 @@ import {
   type ChannelDetails,
 } from '../api/channels';
 import { ChannelLogo } from '../components/ChannelLogo';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormSkeleton } from '../components/Skeleton';
 import { QuickAutomationTab } from '../components/QuickAutomationTab';
 import { TroubleshootTab } from '../components/TroubleshootTab';
@@ -71,6 +73,7 @@ export function ChannelDetailsScreen() {
   const queryClient = useQueryClient();
   const channelId = route.params.channelId;
   const [tab, setTab] = useState<string>('overview');
+  const [channelConfirm, setChannelConfirm] = useState<'remove' | 'pause' | 'resume' | null>(null);
   const { colors, isDark } = useTheme();
 
   const details = useQuery({
@@ -103,16 +106,16 @@ export function ChannelDetailsScreen() {
     queryClient.invalidateQueries({ queryKey: ['channels'], refetchType: 'active' });
   };
 
-  const pause = useMutation({ mutationFn: () => pauseChannel(channelId), onSuccess: () => { Alert.alert('Channel paused', 'App-side event handling is now turned off.'); invalidate(); } });
-  const resume = useMutation({ mutationFn: () => resumeChannel(channelId), onSuccess: () => { Alert.alert('Channel resumed', 'Event handling has been re-enabled.'); invalidate(); } });
+  const pause = useMutation({ mutationFn: () => pauseChannel(channelId), onSuccess: () => { setChannelConfirm(null); Toast.show({ type: 'success', text1: 'Channel paused', text2: 'App-side event handling is now turned off.' }); invalidate(); } });
+  const resume = useMutation({ mutationFn: () => resumeChannel(channelId), onSuccess: () => { setChannelConfirm(null); Toast.show({ type: 'success', text1: 'Channel resumed', text2: 'Event handling has been re-enabled.' }); invalidate(); } });
   const remove = useMutation({
     mutationFn: () => removeChannel(channelId),
-    onSuccess: () => { Alert.alert('Removal scheduled', 'This channel will be permanently deleted in about 1 hour unless you restore it.'); invalidate(); },
+    onSuccess: () => { setChannelConfirm(null); Toast.show({ type: 'success', text1: 'Removal scheduled', text2: 'This channel will be permanently deleted in about 1 hour unless you restore it.' }); invalidate(); },
   });
-  const restore = useMutation({ mutationFn: () => restoreChannel(channelId), onSuccess: () => { Alert.alert('Channel restored', 'The pending deletion has been canceled.'); invalidate(); } });
+  const restore = useMutation({ mutationFn: () => restoreChannel(channelId), onSuccess: () => { Toast.show({ type: 'success', text1: 'Channel restored', text2: 'The pending deletion has been canceled.' }); invalidate(); } });
   const sync = useMutation({
     mutationFn: () => syncWhatsappBusinessProfile(channelId),
-    onSuccess: () => { profile.refetch(); Alert.alert('Profile synced', 'The business profile was refreshed from WhatsApp.'); },
+    onSuccess: () => { profile.refetch(); Toast.show({ type: 'success', text1: 'Profile synced', text2: 'The business profile was refreshed from WhatsApp.' }); },
   });
 
   const [draft, setDraft] = useState({ about: '', address: '', description: '', email: '', websites: '', vertical: '' });
@@ -137,19 +140,15 @@ export function ChannelDetailsScreen() {
       vertical: draft.vertical.trim() ? draft.vertical.trim() : null,
       websites: draft.websites.split(/[\n,]/).map((item) => item.trim()).filter(Boolean),
     }),
-    onSuccess: () => { profile.refetch(); Alert.alert('Profile saved', 'Your WhatsApp business profile was updated.'); },
+    onSuccess: () => { profile.refetch(); Toast.show({ type: 'success', text1: 'Profile saved', text2: 'Your WhatsApp business profile was updated.' }); },
   });
 
   const [verticalPicker, setVerticalPicker] = useState(false);
   const isBusy = pause.isPending || resume.isPending || remove.isPending || restore.isPending || sync.isPending || save.isPending;
   const statusTone = STATUS_TONE[channel?.status ?? 'PENDING'] ?? STATUS_TONE.PENDING;
 
-  const confirmRemove = () => {
-    Alert.alert('Remove this channel?', 'This will schedule the channel for permanent deletion in about 1 hour. You can restore it before then.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Remove', style: 'destructive', onPress: () => remove.mutate() }]);
-  };
-  const confirmPauseOrResume = (action: 'pause' | 'resume') => {
-    Alert.alert(action === 'pause' ? 'Pause this channel?' : 'Resume this channel?', action === 'pause' ? 'Pausing stops app-side event handling while keeping the records intact.' : 'Resuming re-enables app-side event handling.', [{ text: 'Cancel', style: 'cancel' }, { text: action === 'pause' ? 'Pause' : 'Resume', onPress: () => (action === 'pause' ? pause.mutate() : resume.mutate()) }]);
-  };
+  const confirmRemove = () => setChannelConfirm('remove');
+  const confirmPauseOrResume = (action: 'pause' | 'resume') => setChannelConfirm(action);
 
   if (details.isLoading) {
     return (
@@ -377,6 +376,26 @@ export function ChannelDetailsScreen() {
           />
         ) : null}
       </View>
+
+      <ConfirmDialog
+        visible={channelConfirm === 'remove'}
+        title="Remove this channel?"
+        body="This will schedule the channel for permanent deletion in about 1 hour. You can restore it before then."
+        confirmLabel="Remove"
+        destructive
+        loading={remove.isPending}
+        onClose={() => setChannelConfirm(null)}
+        onConfirm={() => remove.mutate()}
+      />
+      <ConfirmDialog
+        visible={channelConfirm === 'pause' || channelConfirm === 'resume'}
+        title={channelConfirm === 'pause' ? 'Pause this channel?' : 'Resume this channel?'}
+        body={channelConfirm === 'pause' ? 'Pausing stops app-side event handling while keeping the records intact.' : 'Resuming re-enables app-side event handling.'}
+        confirmLabel={channelConfirm === 'pause' ? 'Pause' : 'Resume'}
+        loading={pause.isPending || resume.isPending}
+        onClose={() => setChannelConfirm(null)}
+        onConfirm={() => (channelConfirm === 'pause' ? pause.mutate() : resume.mutate())}
+      />
 
       <Modal visible={verticalPicker} transparent animationType="fade" onRequestClose={() => setVerticalPicker(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setVerticalPicker(false)}>

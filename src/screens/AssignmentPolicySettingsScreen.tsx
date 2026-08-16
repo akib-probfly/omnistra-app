@@ -11,7 +11,6 @@ import {
 import { useDeferredValue, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,6 +18,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { showNotice } from '../components/AppToast';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
@@ -182,10 +182,10 @@ function AssignmentPolicyForm({
     },
     onSuccess: async (result) => {
       await queryClient.setQueryData(['workspace-assignment-policy', workspaceId], result);
-      Alert.alert('Assignment policy saved');
+      showNotice('Assignment policy saved');
     },
     onError: (error: Error) => {
-      Alert.alert('Could not save assignment policy', error.message);
+      showNotice('Could not save assignment policy', error.message);
     },
   });
 

@@ -22,7 +22,6 @@ import {
 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -31,6 +30,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { showNotice } from './AppToast';
 import { BottomSheet, SheetScrollView } from './BottomSheet';
 import { AppToggle } from './AppToggle';
 import type {
@@ -361,7 +361,7 @@ export function WhatsappTemplateSheet({
   const handleSave = () => {
     const error = validateTemplateForm(form);
     if (error) {
-      Alert.alert('Fix template', error);
+      showNotice('Fix template', error);
       return;
     }
     onSave?.(form);

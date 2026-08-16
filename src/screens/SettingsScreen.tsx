@@ -17,11 +17,12 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react-native';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useAuth } from '../auth/AuthContext';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
@@ -74,6 +75,7 @@ export function SettingsScreen() {
   const { session, logout } = useAuth();
   const { mode, setMode, isDark } = useTheme();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
   /** Both groups start collapsed so Sign out stays visible. Only one group can be open. */
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const name = session?.user.name?.trim() || session?.user.email?.trim() || 'User';
@@ -87,12 +89,7 @@ export function SettingsScreen() {
 
   const themeLabel = mode === 'system' ? 'System' : mode === 'dark' ? 'Dark' : 'Light';
 
-  const handleSignOut = () => {
-    Alert.alert('Sign out', 'Are you sure you want to sign out of your account?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign out', style: 'destructive', onPress: () => void logout() },
-    ]);
-  };
+  const handleSignOut = () => setSignOutOpen(true);
 
   const onPressRow = (item: SettingsRow) => {
     if (item.kind === 'route') {
@@ -198,6 +195,19 @@ export function SettingsScreen() {
       </View>
 
       <NotificationCenter visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
+      <ConfirmDialog
+        visible={signOutOpen}
+        title="Sign out"
+        body="Are you sure you want to sign out of your account?"
+        confirmLabel="Sign out"
+        destructive
+        icon={LogOut}
+        onClose={() => setSignOutOpen(false)}
+        onConfirm={() => {
+          setSignOutOpen(false);
+          void logout();
+        }}
+      />
     </View>
   );
 }

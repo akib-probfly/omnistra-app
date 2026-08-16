@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, FlatList, Image, Modal, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Animated, FlatList, Image, Modal, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { showNotice } from './AppToast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as MediaLibrary from 'expo-media-library';
 import { Download } from 'lucide-react-native';
@@ -142,14 +143,14 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
       const localUri = await prepareLocalImageForLibrary(current.src);
       const permission = await MediaLibrary.requestPermissionsAsync(true);
       if (permission.status !== 'granted') {
-        Alert.alert('Permission required', 'Allow photo library access to save images.');
+        showNotice('Permission required', 'Allow photo library access to save images.');
         return;
       }
       await MediaLibrary.saveToLibraryAsync(localUri);
-      Alert.alert('Saved', 'Image saved to your photos.');
+      showNotice('Saved', 'Image saved to your photos.');
     } catch (error) {
       console.error('[media] save failed', current.src, error);
-      Alert.alert('Download failed', error instanceof Error ? error.message : 'Please try again.');
+      showNotice('Download failed', error instanceof Error ? error.message : 'Please try again.');
     } finally {
       setSaving(false);
     }

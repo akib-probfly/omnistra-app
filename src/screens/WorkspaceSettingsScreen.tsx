@@ -3,7 +3,6 @@ import { ArrowLeft, Building2, Save } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { showNotice } from '../components/AppToast';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
@@ -81,9 +81,9 @@ export function WorkspaceSettingsScreen() {
     }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['workspaces', 'mine'] });
-      Alert.alert('Workspace updated', 'Your workspace settings have been saved.');
+      showNotice('Workspace updated', 'Your workspace settings have been saved.');
     },
-    onError: (error: Error) => Alert.alert('Could not update workspace', error.message),
+    onError: (error: Error) => showNotice('Could not update workspace', error.message),
   });
 
   return (

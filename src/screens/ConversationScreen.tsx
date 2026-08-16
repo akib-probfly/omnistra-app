@@ -6,7 +6,8 @@ import Toast from 'react-native-toast-message';
 import { ConversationAssignmentSheet } from '../components/ConversationAssignmentSheet';
 import { ContactDetailsPanel, formatPhoneNumberDisplay, formatUsernameDisplay } from '../components/ContactDetailsPanel';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { showNotice } from '../components/AppToast';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useIsFocused, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -416,7 +417,7 @@ export function ConversationScreen() {
       if (context?.previousDraft) setDraft(context.previousDraft);
       if (context?.previousAttachments?.length) setAttachments(context.previousAttachments);
       if (context?.previousReplyTo) setReplyTo(context.previousReplyTo);
-      Alert.alert('Could not send message', error instanceof Error ? error.message : 'Please try again.');
+      showNotice('Could not send message', error instanceof Error ? error.message : 'Please try again.');
     },
   });
 
@@ -447,7 +448,7 @@ export function ConversationScreen() {
       adjustInboxUnreadConversationCount(queryClient, 0, previousUnreadCount);
       lastAutoMarkedReadSignatureRef.current = null;
       if (manualReadToggleRef.current) {
-        Alert.alert('Could not mark as read', error instanceof Error ? error.message : 'Please try again.');
+        showNotice('Could not mark as read', error instanceof Error ? error.message : 'Please try again.');
       }
       manualReadToggleRef.current = false;
     },
@@ -484,7 +485,7 @@ export function ConversationScreen() {
       setHeader((c) => ({ ...c, unreadCount: previousUnreadCount }));
       setConversationUnreadInCache(queryClient, route.params.conversationId, previousUnreadCount);
       adjustInboxUnreadConversationCount(queryClient, Math.max(1, previousUnreadCount), previousUnreadCount);
-      Alert.alert('Could not mark as unread', error instanceof Error ? error.message : 'Please try again.');
+      showNotice('Could not mark as unread', error instanceof Error ? error.message : 'Please try again.');
       manualReadToggleRef.current = false;
     },
     onSuccess: (updated) => {
@@ -517,7 +518,7 @@ export function ConversationScreen() {
       queryClient.invalidateQueries({ queryKey: ['conversations'] });
       void queryClient.invalidateQueries({ queryKey: ['assignment-events', route.params.conversationId], refetchType: 'all' });
     },
-    onError: (error: Error) => Alert.alert('Could not update assignment', error.message),
+    onError: (error: Error) => showNotice('Could not update assignment', error.message),
   });
 
   useEffect(() => {
@@ -975,7 +976,7 @@ async function sendTemplateMutation(conversationId: string, params: { templateNa
     queryClient.invalidateQueries({ queryKey: ['messages', conversationId], refetchType: 'active' });
     setDraft('');
   } catch (error) {
-    Alert.alert('Could not send template', error instanceof Error ? error.message : 'Please try again.');
+    showNotice('Could not send template', error instanceof Error ? error.message : 'Please try again.');
   }
 }
 

@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { ArrowLeft, Camera, Check, Eye, EyeOff, LoaderCircle, Lock, Save, User } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { showNotice } from '../components/AppToast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
@@ -67,24 +68,24 @@ export function ProfileScreen() {
       setConfirmPassword('');
       queryClient.setQueryData(['user-profile', 'me'], profile);
       await updateUser({ name: profile.name, avatarUrl: profile.avatarUrl });
-      Alert.alert('Profile updated', 'Your profile changes have been saved.');
+      showNotice('Profile updated', 'Your profile changes have been saved.');
     },
     onError: (error) => {
-      Alert.alert('Could not update profile', error instanceof Error ? error.message : 'Please review your details and try again.');
+      showNotice('Could not update profile', error instanceof Error ? error.message : 'Please review your details and try again.');
     },
   });
 
   const handlePickAvatar = useCallback(async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission needed', 'Allow access to your photo library to change your profile picture.');
+      showNotice('Permission needed', 'Allow access to your photo library to change your profile picture.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85, allowsEditing: true, aspect: [1, 1] });
     if (result.canceled || !result.assets?.length) return;
     const asset = result.assets[0];
     if (asset.fileSize && asset.fileSize > 5 * 1024 * 1024) {
-      Alert.alert('Image too large', 'Profile image must be 5 MB or smaller.');
+      showNotice('Image too large', 'Profile image must be 5 MB or smaller.');
       return;
     }
     const uri = asset.uri;

@@ -2,10 +2,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, LoaderCircle, MessageCircle, Search, Users } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchChannels, startMessengerConnect, startWhatsAppConnect } from '../api/channels';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CardGridSkeleton } from '../components/Skeleton';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -52,12 +54,9 @@ export function ChannelCatalogScreen() {
     onSuccess: ({ id, url }) => {
       setLaunchingId(null);
       if (url) {
-        Alert.alert('Open the setup page', 'A browser window will open where you can connect your account. Return here after you finish.', [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Open', onPress: () => { Linking.openURL(url).catch(() => Alert.alert('Could not open browser', url)); } },
-        ]);
+        setSetupUrl(url);
       } else {
-        Alert.alert('Setup link unavailable', 'Please connect this channel from the web workspace.');
+        Toast.show({ type: 'info', text1: 'Setup link unavailable', text2: 'Please connect this channel from the web workspace.' });
       }
     },
     onError: (error) => { setLaunchingId(null); setErrorText(error instanceof Error ? error.message : 'Connection failed.'); },
@@ -65,6 +64,7 @@ export function ChannelCatalogScreen() {
 
   const [launchingId, setLaunchingId] = useState<string | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [setupUrl, setSetupUrl] = useState<string | null>(null);
 
   const filteredItems = useMemo(() => {
     return CATALOG.filter((item) => {
@@ -144,6 +144,19 @@ export function ChannelCatalogScreen() {
           );
         })}
       </ScrollView>
+      <ConfirmDialog
+        visible={Boolean(setupUrl)}
+        title="Open the setup page"
+        body="A browser window will open where you can connect your account. Return here after you finish."
+        confirmLabel="Open"
+        onClose={() => setSetupUrl(null)}
+        onConfirm={() => {
+          const url = setupUrl;
+          setSetupUrl(null);
+          if (!url) return;
+          Linking.openURL(url).catch(() => Toast.show({ type: 'error', text1: 'Could not open browser', text2: url }));
+        }}
+      />
     </View>
   );
 }

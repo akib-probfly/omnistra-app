@@ -1,7 +1,8 @@
 // @ts-nocheck
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LoaderCircle, RefreshCw, Sparkles } from 'lucide-react-native';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { showNotice } from './AppToast';
 import { syncWhatsappChannelCallingSettings, updateWhatsappChannelCalling, type WhatsappCallingSetting } from '../api/channels';
 import { AppToggle } from './AppToggle';
 import { useTheme } from '../theme/ThemeContext';
@@ -27,18 +28,18 @@ export function WhatsappCallingTab({ channelId, callingSetting, callDisabledReas
     mutationFn: (nextEnabled: boolean) => updateWhatsappChannelCalling(channelId, nextEnabled),
     onSuccess: () => {
       invalidate();
-      Alert.alert('Calls updated', 'WhatsApp calling setting saved.');
+      showNotice('Calls updated', 'WhatsApp calling setting saved.');
     },
-    onError: (error) => Alert.alert('Could not update calls', error instanceof Error ? error.message : undefined),
+    onError: (error) => showNotice('Could not update calls', error instanceof Error ? error.message : undefined),
   });
 
   const sync = useMutation({
     mutationFn: () => syncWhatsappChannelCallingSettings(channelId),
     onSuccess: () => {
       invalidate();
-      Alert.alert('Calls synced', 'Calling settings were refreshed from Meta.');
+      showNotice('Calls synced', 'Calling settings were refreshed from Meta.');
     },
-    onError: (error) => Alert.alert('Sync failed', error instanceof Error ? error.message : undefined),
+    onError: (error) => showNotice('Sync failed', error instanceof Error ? error.message : undefined),
   });
 
   return (

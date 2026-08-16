@@ -3,7 +3,6 @@ import { AlertTriangle, ArrowLeft, Ban, Globe, Mail, MessageSquareText, Phone, P
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -27,7 +26,7 @@ import {
   updateCrmContactDetail,
 } from '../api/contacts';
 import { banCrmContact, createWorkspaceTag, fetchWorkspaceTags, unbanCrmContact } from '../api/conversationDetails';
-import { ChannelLogo } from '../components/ChannelLogo';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ErrorState } from '../components/ErrorState';
 import { FormSkeleton } from '../components/Skeleton';
@@ -163,7 +162,7 @@ export function ContactDetailsScreen() {
       await queryClient.invalidateQueries({ queryKey: ['crm-contact', contactId] });
       await queryClient.invalidateQueries({ queryKey: ['crm-contacts'] });
     },
-    onError: (error: Error) => Alert.alert('Could not update contact', error.message),
+    onError: (error: Error) => Toast.show({ type: 'error', text1: 'Could not update contact', text2: error.message }),
   });
 
   const createTagMutation = useMutation({
@@ -180,7 +179,7 @@ export function ContactDetailsScreen() {
       await queryClient.invalidateQueries({ queryKey: ['crm-contact', contactId] });
       await queryClient.invalidateQueries({ queryKey: ['crm-contacts'] });
     },
-    onError: (error: Error) => Alert.alert('Could not create tag', error.message),
+    onError: (error: Error) => Toast.show({ type: 'error', text1: 'Could not create tag', text2: error.message }),
   });
 
   const noteMutation = useMutation({
@@ -189,7 +188,7 @@ export function ContactDetailsScreen() {
       setNoteDraft('');
       await queryClient.invalidateQueries({ queryKey: ['crm-contact', contactId] });
     },
-    onError: (error: Error) => Alert.alert('Could not add note', error.message),
+    onError: (error: Error) => Toast.show({ type: 'error', text1: 'Could not add note', text2: error.message }),
   });
 
   const deleteMutation = useMutation({
@@ -211,7 +210,7 @@ export function ContactDetailsScreen() {
       Toast.show({ type: 'success', text1: 'Contact deleted' });
       navigation.goBack();
     },
-    onError: (error: Error) => Alert.alert('Could not delete contact', error.message),
+    onError: (error: Error) => Toast.show({ type: 'error', text1: 'Could not delete contact', text2: error.message }),
   });
 
   const banMutation = useMutation({
@@ -265,7 +264,7 @@ export function ContactDetailsScreen() {
   const openLatestConversation = () => {
     const latest = conversations[0];
     if (!latest) {
-      Alert.alert('No conversations', 'This contact does not have any conversations yet.');
+      Toast.show({ type: 'info', text1: 'No conversations', text2: 'This contact does not have any conversations yet.' });
       return;
     }
     openConversation(latest.id);
@@ -565,51 +564,17 @@ export function ContactDetailsScreen() {
         </ScrollView>
       )}
 
-      <Modal visible={banOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => !banMutation.isPending && setBanOpen(false)}>
-        <View style={styles.deleteModalOverlay}>
-          <View style={[styles.deleteModalCard, { backgroundColor: colors.surface }]}>
-            <Pressable
-              style={styles.deleteModalClose}
-              onPress={() => {
-                if (banMutation.isPending) return;
-                setBanOpen(false);
-              }}
-              hitSlop={8}
-            >
-              <X color={colors.textMuted} size={20} />
-            </Pressable>
-            <View style={[styles.deleteModalIcon, { backgroundColor: isBlocked ? colors.surfaceSecondary : '#fff1f2' }]}>
-              <Ban color={isBlocked ? colors.textSecondary : '#e11d48'} size={28} />
-            </View>
-            <Text style={[styles.deleteModalTitle, { color: colors.text }]}>{isBlocked ? 'Unban User' : 'Ban User'}</Text>
-            <Text style={[styles.deleteModalBody, { color: colors.textSecondary }]}>
-              {isBlocked
-                ? 'Allow this contact to message the business again?'
-                : 'Stop this contact from messaging the business?'}
-            </Text>
-            <View style={styles.deleteModalActions}>
-              <Pressable
-                style={[styles.deleteCancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}
-                disabled={banMutation.isPending}
-                onPress={() => setBanOpen(false)}
-              >
-                <Text style={[styles.deleteCancelText, { color: colors.text }]}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.deleteConfirmButton, { backgroundColor: isBlocked ? colors.primary : '#e11d48' }, banMutation.isPending && styles.saveDisabled]}
-                disabled={banMutation.isPending}
-                onPress={() => banMutation.mutate()}
-              >
-                {banMutation.isPending ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.deleteButtonText}>{isBlocked ? 'Unban' : 'Ban'}</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <ConfirmDialog
+        visible={banOpen}
+        title={isBlocked ? 'Unban User' : 'Ban User'}
+        body={isBlocked ? 'Allow this contact to message the business again?' : 'Stop this contact from messaging the business?'}
+        confirmLabel={isBlocked ? 'Unban' : 'Ban'}
+        destructive={!isBlocked}
+        loading={banMutation.isPending}
+        icon={Ban}
+        onClose={() => setBanOpen(false)}
+        onConfirm={() => banMutation.mutate()}
+      />
 
       <Modal visible={deleteOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => !deleteMutation.isPending && setDeleteOpen(false)}>
         <View style={styles.deleteModalOverlay}>

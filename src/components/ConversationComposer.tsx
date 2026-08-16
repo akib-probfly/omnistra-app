@@ -5,7 +5,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { requestRecordingPermissionsAsync, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { Camera, ChevronDown, Clock3, FileText, Film, Image as ImageIcon, Mic, Pause, Paperclip, Play, Send, Smile, Trash2, X, Zap, PanelsTopLeft } from 'lucide-react-native';
 import { useRef, useState } from 'react';
-import { Alert, Image, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { showNotice } from './AppToast';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EmojiKeyboard, type EmojiType } from 'rn-emoji-keyboard';
 import { fetchQuickReplies } from '../api/inbox';
@@ -127,7 +128,7 @@ export function ConversationComposer({
   ) {
     const remaining = Math.max(0, COMPOSER_MAX_ATTACHMENT_COUNT - attachments.length);
     if (remaining <= 0) {
-      Alert.alert('Attachment limit', `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once.`);
+      showNotice('Attachment limit', `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once.`);
       return;
     }
 
@@ -173,14 +174,14 @@ export function ConversationComposer({
         ...rejected.slice(0, 4),
         rejected.length > 4 ? `…and ${rejected.length - 4} more.` : null,
       ].filter(Boolean);
-      Alert.alert('Some files were skipped', lines.join('\n'));
+      showNotice('Some files were skipped', lines.join('\n'));
     }
   }
 
   function openAttachmentPicker() {
     if (canSendFreeform === false) return;
     if (remainingAttachmentSlots <= 0) {
-      Alert.alert('Attachment limit', `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once.`);
+      showNotice('Attachment limit', `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once.`);
       return;
     }
     Keyboard.dismiss();
@@ -198,11 +199,11 @@ export function ConversationComposer({
   async function chooseImage() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission required', 'Allow photo library access to attach images and videos.');
+      showNotice('Permission required', 'Allow photo library access to attach images and videos.');
       return;
     }
     if (remainingAttachmentSlots <= 0) {
-      Alert.alert('Attachment limit', `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once.`);
+      showNotice('Attachment limit', `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once.`);
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -230,11 +231,11 @@ export function ConversationComposer({
   async function chooseCamera() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission required', 'Allow camera access to take a photo or video.');
+      showNotice('Permission required', 'Allow camera access to take a photo or video.');
       return;
     }
     if (remainingAttachmentSlots <= 0) {
-      Alert.alert('Attachment limit', `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once.`);
+      showNotice('Attachment limit', `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once.`);
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -260,7 +261,7 @@ export function ConversationComposer({
 
   async function chooseDocument() {
     if (remainingAttachmentSlots <= 0) {
-      Alert.alert('Attachment limit', `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once.`);
+      showNotice('Attachment limit', `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once.`);
       return;
     }
     const result = await DocumentPicker.getDocumentAsync({
@@ -286,7 +287,7 @@ export function ConversationComposer({
   async function startRecording() {
     if (sending) return;
     const permission = await requestRecordingPermissionsAsync();
-    if (!permission.granted) { Alert.alert('Microphone permission', 'Permission to record your voice was denied.'); return; }
+    if (!permission.granted) { showNotice('Microphone permission', 'Permission to record your voice was denied.'); return; }
     try {
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       await recorder.prepareToRecordAsync();
@@ -295,7 +296,7 @@ export function ConversationComposer({
       setRecording(true);
     } catch (error) {
       console.error('[voice] record start failed', error);
-      Alert.alert('Recording failed', 'Could not start the recording. Please try again.');
+      showNotice('Recording failed', 'Could not start the recording. Please try again.');
     }
   }
   async function stopRecording(send: boolean) {
@@ -313,7 +314,7 @@ export function ConversationComposer({
         // ignore audio mode reset failures
       }
       if (send) {
-        Alert.alert('Recording failed', 'Could not finish the recording. Please try again.');
+        showNotice('Recording failed', 'Could not finish the recording. Please try again.');
       }
       return;
     }
@@ -327,7 +328,7 @@ export function ConversationComposer({
     const uri = recorder.uri;
     if (!send) return;
     if (!uri) {
-      Alert.alert('Recording failed', 'No audio was captured. Please try again.');
+      showNotice('Recording failed', 'No audio was captured. Please try again.');
       return;
     }
 
@@ -344,7 +345,7 @@ export function ConversationComposer({
       channelType: channelType ?? 'WHATSAPP',
     });
     if (validationError) {
-      Alert.alert('Could not send voice note', validationError);
+      showNotice('Could not send voice note', validationError);
       return;
     }
 

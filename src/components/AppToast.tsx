@@ -1,6 +1,6 @@
-import { AlertTriangle, Check, Info } from 'lucide-react-native';
+import { Check, Info, AlertTriangle } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
-import type { ToastConfig, ToastConfigParams } from 'react-native-toast-message';
+import Toast, { type ToastConfig, type ToastConfigParams } from 'react-native-toast-message';
 import { useTheme } from '../theme/ThemeContext';
 
 type Tone = 'success' | 'error' | 'info';
@@ -72,6 +72,27 @@ function renderToast(type: Tone) {
   return (props: ToastConfigParams<any>) => (
     <ToastCard type={type} text1={props.text1} text2={props.text2} />
   );
+}
+
+export function showNotice(text1: string, text2?: string) {
+  const lower = text1.toLowerCase();
+  const type =
+    lower.includes('fail')
+    || lower.includes('could not')
+    || lower.includes('permission')
+    || lower.includes('too large')
+    || lower.includes('unavailable')
+    || lower.includes('locked')
+    || lower.startsWith('fix')
+      ? 'error'
+      : lower.includes('saved')
+        || lower.includes('updated')
+        || lower.includes('synced')
+        || lower.includes('created')
+        || lower.includes('downloaded')
+        ? 'success'
+        : 'info';
+  Toast.show({ type, text1, text2: text2 || undefined });
 }
 
 export const toastConfig: ToastConfig = {
