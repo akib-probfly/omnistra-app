@@ -1,113 +1,126 @@
-import { Check } from 'lucide-react-native';
+import { AlertTriangle, Check, Info } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
-import { BaseToast, ErrorToast, type ToastConfig } from 'react-native-toast-message';
+import type { ToastConfig, ToastConfigParams } from 'react-native-toast-message';
 import { useTheme } from '../theme/ThemeContext';
 
-function SuccessToast(props: any) {
-  const { colors } = useTheme();
-  return (
-    <BaseToast
-      {...props}
-      style={[styles.toast, { borderLeftColor: '#22c55e', backgroundColor: colors.surface }]}
-      contentContainerStyle={styles.content}
-      text1Style={[styles.text1, { color: colors.text }]}
-      text2Style={[styles.text2, { color: colors.textSecondary }]}
-      text2NumberOfLines={2}
-    />
-  );
-}
+type Tone = 'success' | 'error' | 'info';
 
-function ErrorToastWrapper(props: any) {
-  const { colors } = useTheme();
-  return (
-    <ErrorToast
-      {...props}
-      style={[styles.toast, { borderLeftColor: colors.error, backgroundColor: colors.surface }]}
-      contentContainerStyle={styles.content}
-      text1Style={[styles.text1, { color: colors.text }]}
-      text2Style={[styles.text2, { color: colors.textSecondary }]}
-      text2NumberOfLines={2}
-    />
-  );
-}
+const TONE = {
+  success: { iconBg: '#dcfce7', icon: '#15803d', card: '#f0fdf4', border: '#bbf7d0' },
+  error: { iconBg: '#ffe4e6', icon: '#e11d48', card: '#fff1f2', border: '#fecdd3' },
+  info: { iconBg: '#dbeafe', icon: '#1d4ed8', card: '#eff6ff', border: '#bfdbfe' },
+} as const;
 
-function InfoToast(props: any) {
-  const { colors } = useTheme();
-  return (
-    <BaseToast
-      {...props}
-      style={[styles.toast, { borderLeftColor: colors.primary, backgroundColor: colors.surface }]}
-      contentContainerStyle={styles.content}
-      text1Style={[styles.text1, { color: colors.text }]}
-      text2Style={[styles.text2, { color: colors.textSecondary }]}
-      text2NumberOfLines={2}
-    />
-  );
-}
+function ToastCard({
+  type,
+  text1,
+  text2,
+}: {
+  type: Tone;
+  text1?: string;
+  text2?: string;
+}) {
+  const { colors, isDark } = useTheme();
+  const tone = TONE[type];
+  const Icon = type === 'success' ? Check : type === 'error' ? AlertTriangle : Info;
 
-function CopyToast({ text1 }: { text1?: string }) {
-  const { colors } = useTheme();
   return (
-    <View style={[styles.copyPill, { backgroundColor: colors.text, shadowColor: colors.text }]}>
-      <View style={styles.copyIcon}>
-        <Check color={colors.surface} size={14} strokeWidth={3} />
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: isDark ? colors.surface : tone.card,
+          borderColor: isDark ? colors.cardBorder : tone.border,
+          shadowColor: colors.text,
+        },
+      ]}
+    >
+      <View style={[styles.iconWrap, { backgroundColor: isDark ? colors.surfaceSecondary : tone.iconBg }]}>
+        <Icon color={tone.icon} size={16} strokeWidth={2.6} />
       </View>
-      <Text style={[styles.copyText, { color: colors.background }]}>{text1 ?? 'Copied'}</Text>
+      <View style={styles.copy}>
+        {text1 ? <Text style={[styles.title, { color: colors.text }]}>{text1}</Text> : null}
+        {text2 ? <Text style={[styles.body, { color: colors.textSecondary }]}>{text2}</Text> : null}
+      </View>
     </View>
   );
 }
 
+function CopyToast({ text1 }: { text1?: string }) {
+  const { colors, isDark } = useTheme();
+  return (
+    <View
+      style={[
+        styles.card,
+        styles.copyCard,
+        {
+          backgroundColor: isDark ? colors.surface : TONE.success.card,
+          borderColor: isDark ? colors.cardBorder : TONE.success.border,
+          shadowColor: colors.text,
+        },
+      ]}
+    >
+      <View style={[styles.iconWrap, { backgroundColor: isDark ? colors.surfaceSecondary : TONE.success.iconBg }]}>
+        <Check color={TONE.success.icon} size={16} strokeWidth={2.6} />
+      </View>
+      <Text style={[styles.title, { color: colors.text }]}>{text1 ?? 'Copied'}</Text>
+    </View>
+  );
+}
+
+function renderToast(type: Tone) {
+  return (props: ToastConfigParams<any>) => (
+    <ToastCard type={type} text1={props.text1} text2={props.text2} />
+  );
+}
+
 export const toastConfig: ToastConfig = {
-  success: (props) => <SuccessToast {...props} />,
-  error: (props) => <ErrorToastWrapper {...props} />,
-  info: (props) => <InfoToast {...props} />,
+  success: renderToast('success'),
+  error: renderToast('error'),
+  info: renderToast('info'),
   copy: ({ text1 }) => <CopyToast text1={text1} />,
 };
 
 const styles = StyleSheet.create({
-  toast: {
-    borderLeftWidth: 4,
-    borderRadius: 12,
-    height: 'auto',
-    minHeight: 56,
-    width: '92%',
-  },
-  content: {
+  card: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    borderRadius: 16,
+    borderWidth: 1,
+    elevation: 8,
+    flexDirection: 'row',
+    gap: 12,
+    maxWidth: 420,
     paddingHorizontal: 14,
     paddingVertical: 12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    width: '92%',
   },
-  text1: {
+  copyCard: {
+    alignSelf: 'center',
+    width: 'auto',
+  },
+  iconWrap: {
+    alignItems: 'center',
+    borderRadius: 999,
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
+  },
+  copy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  title: {
     fontSize: 14,
     fontWeight: '700',
   },
-  text2: {
+  body: {
     fontSize: 12,
     fontWeight: '500',
+    lineHeight: 17,
     marginTop: 2,
-  },
-  copyPill: {
-    alignItems: 'center',
-    alignSelf: 'center',
-    borderRadius: 999,
-    elevation: 6,
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-  },
-  copyIcon: {
-    alignItems: 'center',
-    backgroundColor: '#22c55e',
-    borderRadius: 999,
-    height: 22,
-    justifyContent: 'center',
-    width: 22,
-  },
-  copyText: {
-    fontSize: 14,
-    fontWeight: '600',
   },
 });

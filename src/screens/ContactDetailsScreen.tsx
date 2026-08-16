@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowLeft, Globe, Mail, MessageSquareText, Phone, Plus, Search, Trash2, X } from 'lucide-react-native';
+import { AlertTriangle, ArrowLeft, Ban, Globe, Mail, MessageSquareText, Phone, Plus, Search, Trash2, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -26,7 +26,7 @@ import {
   resolveContactCountryCode,
   updateCrmContactDetail,
 } from '../api/contacts';
-import { createWorkspaceTag, fetchWorkspaceTags } from '../api/conversationDetails';
+import { banCrmContact, createWorkspaceTag, fetchWorkspaceTags, unbanCrmContact } from '../api/conversationDetails';
 import { ChannelLogo } from '../components/ChannelLogo';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ErrorState } from '../components/ErrorState';
@@ -74,6 +74,7 @@ export function ContactDetailsScreen() {
   const [newTagColor, setNewTagColor] = useState(TAG_COLOR_OPTIONS[0]);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirmValue, setDeleteConfirmValue] = useState('');
+  const [banOpen, setBanOpen] = useState(false);
 
   const contactQuery = useQuery({
     queryKey: ['crm-contact', contactId],
@@ -143,6 +144,16 @@ export function ContactDetailsScreen() {
     () => [...(contact?.notes ?? [])].sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt)),
     [contact?.notes],
   );
+  const contactChannelTypes = useMemo(() => {
+    if (contact?.channelTypes?.length) return contact.channelTypes;
+    return contact?.channelType ? [contact.channelType] : [];
+  }, [contact?.channelTypes, contact?.channelType]);
+  const canToggleBan = contactChannelTypes.some((type) => {
+    const normalized = type.toLowerCase();
+    return normalized === 'whatsapp' || normalized === 'messenger';
+  });
+  const banConversationId = contact?.latestConversationId ?? conversations[0]?.id ?? null;
+  const isBlocked = Boolean(contact?.blockedAt ?? conversations[0]?.blockedAt);
 
   const updateMutation = useMutation({
     mutationFn: (input: { displayName?: string | null; primaryEmail?: string | null; tagIds?: string[] }) => updateCrmContactDetail(contactId, input),
@@ -202,6 +213,37 @@ export function ContactDetailsScreen() {
     },
     onError: (error: Error) => Alert.alert('Could not delete contact', error.message),
   });
+
+  const banMutation = useMutation({
+    mutationFn: async () => {
+      if (!banConversationId) throw new Error('No conversation available to ban for this contact.');
+      return isBlocked ? unbanCrmContact(banConversationId) : banCrmContact(banConversationId);
+    },
+    onSuccess: async () => {
+      setBanOpen(false);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['crm-contact', contactId] }),
+        queryClient.invalidateQueries({ queryKey: ['crm-contacts'] }),
+        queryClient.invalidateQueries({ queryKey: ['conversations'] }),
+      ]);
+      Toast.show({ type: 'success', text1: isBlocked ? 'Contact unbanned' : 'Contact banned' });
+    },
+    onError: (error: Error) => {
+      Toast.show({ type: 'error', text1: 'Could not update contact access', text2: error.message });
+    },
+  });
+
+  const confirmToggleBan = () => {
+    if (!canToggleBan) {
+      Toast.show({ type: 'info', text1: 'Only WhatsApp and Messenger contacts can be banned.' });
+      return;
+    }
+    if (!banConversationId) {
+      Toast.show({ type: 'info', text1: 'No conversation available to ban for this contact.' });
+      return;
+    }
+    setBanOpen(true);
+  };
 
   const canConfirmDelete = deleteConfirmValue.trim() === '1' && !deleteMutation.isPending;
 
@@ -263,6 +305,12 @@ export function ContactDetailsScreen() {
               ) : null}
             </View>
             <Text style={[styles.profileName, { color: colors.text }]}>{title}</Text>
+            {isBlocked ? (
+              <View style={styles.bannedBadge}>
+                <Ban color="#e11d48" size={12} />
+                <Text style={styles.bannedBadgeText}>Banned</Text>
+              </View>
+            ) : null}
             {contact.channelName ? <Text style={[styles.profileChannel, { color: colors.textSecondary }]}>{contact.channelName}</Text> : null}
             <View style={styles.profileMeta}>
               <View style={[styles.metaChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
@@ -473,6 +521,31 @@ export function ContactDetailsScreen() {
             )}
           </View>
 
+          <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Access</Text>
+            <Pressable
+              onPress={confirmToggleBan}
+              disabled={banMutation.isPending}
+              style={[styles.banAction, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }, banMutation.isPending && styles.saveDisabled]}
+            >
+              {banMutation.isPending ? (
+                <ActivityIndicator color={isBlocked ? colors.error : colors.textSecondary} />
+              ) : (
+                <Ban color={isBlocked ? colors.error : colors.textSecondary} size={18} />
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.banActionTitle, { color: isBlocked ? colors.error : colors.text }]}>
+                  {isBlocked ? 'Unban User' : 'Ban User'}
+                </Text>
+                <Text style={[styles.banActionHint, { color: colors.textMuted }]}>
+                  {canToggleBan
+                    ? (isBlocked ? 'Allow this contact to message the business again' : 'Stop this contact from messaging the business')
+                    : 'Only WhatsApp and Messenger contacts can be banned'}
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+
           <View style={[styles.dangerSection, { backgroundColor: colors.surface, borderColor: colors.error }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Danger zone</Text>
             <Text style={[styles.dangerHint, { color: colors.textSecondary }]}>
@@ -492,7 +565,53 @@ export function ContactDetailsScreen() {
         </ScrollView>
       )}
 
-      <Modal visible={deleteOpen} transparent animationType="fade" onRequestClose={() => !deleteMutation.isPending && setDeleteOpen(false)}>
+      <Modal visible={banOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => !banMutation.isPending && setBanOpen(false)}>
+        <View style={styles.deleteModalOverlay}>
+          <View style={[styles.deleteModalCard, { backgroundColor: colors.surface }]}>
+            <Pressable
+              style={styles.deleteModalClose}
+              onPress={() => {
+                if (banMutation.isPending) return;
+                setBanOpen(false);
+              }}
+              hitSlop={8}
+            >
+              <X color={colors.textMuted} size={20} />
+            </Pressable>
+            <View style={[styles.deleteModalIcon, { backgroundColor: isBlocked ? colors.surfaceSecondary : '#fff1f2' }]}>
+              <Ban color={isBlocked ? colors.textSecondary : '#e11d48'} size={28} />
+            </View>
+            <Text style={[styles.deleteModalTitle, { color: colors.text }]}>{isBlocked ? 'Unban User' : 'Ban User'}</Text>
+            <Text style={[styles.deleteModalBody, { color: colors.textSecondary }]}>
+              {isBlocked
+                ? 'Allow this contact to message the business again?'
+                : 'Stop this contact from messaging the business?'}
+            </Text>
+            <View style={styles.deleteModalActions}>
+              <Pressable
+                style={[styles.deleteCancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}
+                disabled={banMutation.isPending}
+                onPress={() => setBanOpen(false)}
+              >
+                <Text style={[styles.deleteCancelText, { color: colors.text }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.deleteConfirmButton, { backgroundColor: isBlocked ? colors.primary : '#e11d48' }, banMutation.isPending && styles.saveDisabled]}
+                disabled={banMutation.isPending}
+                onPress={() => banMutation.mutate()}
+              >
+                {banMutation.isPending ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.deleteButtonText}>{isBlocked ? 'Unban' : 'Ban'}</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={deleteOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => !deleteMutation.isPending && setDeleteOpen(false)}>
         <View style={styles.deleteModalOverlay}>
           <View style={[styles.deleteModalCard, { backgroundColor: colors.surface }]}>
             <Pressable
@@ -574,6 +693,8 @@ const styles = StyleSheet.create({
   avatarText: { color: '#1d4ed8', fontSize: 24, fontWeight: '700' },
   channelBadge: { borderColor: '#fff', borderRadius: 12, borderWidth: 2, bottom: -2, overflow: 'hidden', position: 'absolute', right: -2 },
   profileName: { color: '#0f172a', fontSize: 20, fontWeight: '800', marginTop: 12 },
+  bannedBadge: { alignItems: 'center', backgroundColor: '#fff1f2', borderColor: '#fecdd3', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 5, marginTop: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  bannedBadgeText: { color: '#e11d48', fontSize: 12, fontWeight: '700' },
   profileChannel: { color: '#64748b', fontSize: 13, marginTop: 4 },
   profileMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 14 },
   metaChip: { alignItems: 'center', backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 6, paddingHorizontal: 10, paddingVertical: 6 },
@@ -612,6 +733,9 @@ const styles = StyleSheet.create({
   conversationPreview: { color: '#334155', fontSize: 13, marginTop: 3 },
   conversationTime: { color: '#94a3b8', fontSize: 11, fontWeight: '600' },
   emptySection: { color: '#94a3b8', fontSize: 13 },
+  banAction: { alignItems: 'center', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 12, paddingHorizontal: 12, paddingVertical: 12 },
+  banActionTitle: { fontSize: 14, fontWeight: '700' },
+  banActionHint: { fontSize: 12, lineHeight: 17, marginTop: 2 },
   noteInput: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, color: '#0f172a', minHeight: 84, paddingHorizontal: 12, paddingVertical: 10, textAlignVertical: 'top' },
   noteCard: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, marginTop: 10, padding: 12 },
   noteBody: { color: '#0f172a', fontSize: 13, lineHeight: 18 },

@@ -133,7 +133,7 @@ export default function App() {
                   <RealtimeBridge />
                   <AppNavigator />
                   <AuthenticatedOverlays />
-                  <Toast config={toastConfig} />
+                  <Toast config={toastConfig} position="top" topOffset={56} visibilityTime={2600} />
                 </NavigationContainer>
               </SafeAreaProvider>
             </GestureHandlerRootView>

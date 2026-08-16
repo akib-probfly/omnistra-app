@@ -29,6 +29,9 @@ export type CrmContactListItem = {
   channelTypes?: string[];
   country?: string | null;
   ownerWorkspaceMemberId: string | null;
+  blockedAt?: string | null;
+  blockedReason?: string | null;
+  latestConversationId?: string | null;
   lastActivityAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -50,6 +53,8 @@ export type CrmContactConversation = {
   assignedWorkspaceMemberId: string | null;
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
+  blockedAt?: string | null;
+  blockedReason?: string | null;
   createdAt: string;
 };
 

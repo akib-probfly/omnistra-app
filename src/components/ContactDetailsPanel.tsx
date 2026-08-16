@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Ban, Check, ChevronDown, ChevronUp, Download, File, FileText, Film, Music, Pencil, Plus, RotateCcw, Sparkles } from 'lucide-react-native';
+import { Ban, Check, ChevronDown, ChevronUp, Download, File, FileText, Film, Music, Pencil, Plus, RotateCcw, Sparkles, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Toast from 'react-native-toast-message';
@@ -75,6 +75,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState(TAG_COLOR_OPTIONS[0]);
   const [optimisticBlockedAt, setOptimisticBlockedAt] = useState<string | null | undefined>(undefined);
+  const [banOpen, setBanOpen] = useState(false);
 
   // Only fetch sidebar data when the panel is open (matches web: notes/files load on expand).
   const conversationTagsQuery = useQuery({
@@ -189,6 +190,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
       return { previous };
     },
     onSuccess: (_data, _vars, context) => {
+      setBanOpen(false);
       const nextBlockedAt = context?.previous ? null : new Date().toISOString();
       setOptimisticBlockedAt(nextBlockedAt);
       patchBlockedState(nextBlockedAt);
@@ -199,7 +201,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
     onError: (error: Error, _vars, context) => {
       setOptimisticBlockedAt(context?.previous ?? null);
       patchBlockedState(context?.previous ?? null);
-      Alert.alert('Could not update customer access', error.message || 'Please try again.');
+      Toast.show({ type: 'error', text1: 'Could not update customer access', text2: error.message || 'Please try again.' });
     },
   });
 
@@ -210,14 +212,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
       }
       return;
     }
-    Alert.alert(
-      isBlocked ? 'Unban customer' : 'Ban customer',
-      isBlocked ? 'Allow this customer to message again?' : 'Stop this customer from messaging the business?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: isBlocked ? 'Unban' : 'Ban', style: isBlocked ? 'default' : 'destructive', onPress: () => banMutation.mutate() },
-      ],
-    );
+    setBanOpen(true);
   };
 
   const handleAttach = (tag: ConversationTag) => { if (!conversationTagIds.has(tag.id)) attachMutation.mutate(tag.id); };
@@ -251,6 +246,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
     setCustomerOpen(true); setTagsOpen(true); setNotesOpen(true); setFilesOpen(false);
     setTagInput(''); setNoteDraft(''); setEditingNoteId(null); setEditingPhone(false); setEditingEmail(false); setLightbox(null); setDownloadingId(null);
     setOptimisticBlockedAt(undefined);
+    setBanOpen(false);
   };
   useEffect(() => { if (visible) resetState(); }, [visible]);
 
@@ -495,6 +491,49 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
           </Pressable>
         </View>
       </BottomSheet>
+      <Modal visible={banOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => !banMutation.isPending && setBanOpen(false)}>
+        <View style={styles.banModalOverlay}>
+          <View style={[styles.banModalCard, { backgroundColor: colors.surface }]}>
+            <Pressable
+              style={styles.banModalClose}
+              onPress={() => {
+                if (banMutation.isPending) return;
+                setBanOpen(false);
+              }}
+              hitSlop={8}
+            >
+              <X color={colors.textMuted} size={20} />
+            </Pressable>
+            <View style={[styles.banModalIcon, { backgroundColor: isBlocked ? colors.surfaceSecondary : '#fff1f2' }]}>
+              <Ban color={isBlocked ? colors.textSecondary : '#e11d48'} size={28} />
+            </View>
+            <Text style={[styles.banModalTitle, { color: colors.text }]}>{isBlocked ? 'Unban User' : 'Ban User'}</Text>
+            <Text style={[styles.banModalBody, { color: colors.textSecondary }]}>
+              {isBlocked ? 'Allow this customer to message again?' : 'Stop this customer from messaging the business?'}
+            </Text>
+            <View style={styles.banModalActions}>
+              <Pressable
+                style={[styles.banCancelButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}
+                disabled={banMutation.isPending}
+                onPress={() => setBanOpen(false)}
+              >
+                <Text style={[styles.banCancelText, { color: colors.text }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.banConfirmButton, { backgroundColor: isBlocked ? colors.primary : '#e11d48' }, banMutation.isPending && styles.disabled]}
+                disabled={banMutation.isPending}
+                onPress={() => banMutation.mutate()}
+              >
+                {banMutation.isPending ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.banConfirmText}>{isBlocked ? 'Unban' : 'Ban'}</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
       <Modal visible={Boolean(lightbox)} transparent animationType="fade" onRequestClose={() => setLightbox(null)}>
         <Pressable style={styles.lightbox} onPress={() => setLightbox(null)}>
           {lightbox ? <Image source={{ uri: lightbox }} resizeMode="contain" style={styles.lightboxImage} /> : null}
@@ -599,4 +638,15 @@ const styles = StyleSheet.create({
   statusBtnTextClosed: { color: '#2563eb' },
   lightbox: { alignItems: 'center', backgroundColor: '#050505', flex: 1, justifyContent: 'center' },
   lightboxImage: { height: '100%', width: '100%' },
+  banModalOverlay: { alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'center', paddingHorizontal: 20 },
+  banModalCard: { backgroundColor: '#fff', borderRadius: 28, maxWidth: 420, paddingHorizontal: 22, paddingVertical: 24, width: '100%' },
+  banModalClose: { position: 'absolute', right: 14, top: 14, zIndex: 2 },
+  banModalIcon: { alignItems: 'center', alignSelf: 'center', backgroundColor: '#fff1f2', borderRadius: 28, height: 56, justifyContent: 'center', width: 56 },
+  banModalTitle: { fontSize: 22, fontWeight: '800', marginTop: 16, textAlign: 'center' },
+  banModalBody: { fontSize: 14, lineHeight: 21, marginTop: 10, textAlign: 'center' },
+  banModalActions: { flexDirection: 'row', gap: 10, marginTop: 18 },
+  banCancelButton: { alignItems: 'center', borderRadius: 999, borderWidth: 1, flex: 1, paddingVertical: 12 },
+  banCancelText: { fontSize: 14, fontWeight: '700' },
+  banConfirmButton: { alignItems: 'center', borderRadius: 999, flex: 1, paddingVertical: 12 },
+  banConfirmText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 });
