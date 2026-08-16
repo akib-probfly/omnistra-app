@@ -120,10 +120,11 @@ export function ContactsScreen() {
   const [addPhone, setAddPhone] = useState('');
   const [addEmail, setAddEmail] = useState('');
   const [addChannelAccountId, setAddChannelAccountId] = useState<string | null>(null);
-  const [addTags, setAddTags] = useState<string[]>([]);
+  const [addTags, setAddTags] = useState<Array<{ text: string; color?: string | null }>>([]);
   const [addChannelSearch, setAddChannelSearch] = useState('');
   const [addTagSearch, setAddTagSearch] = useState('');
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const addFormScrollRef = useRef<{ scrollToEnd: (options?: { animated?: boolean }) => void } | null>(null);
 
   useEffect(() => () => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
@@ -210,24 +211,29 @@ export function ContactsScreen() {
     return filtered.slice(0, 5);
   }, [whatsappAccountOptions, addChannelSearch]);
 
-  const existingTagTexts = useMemo(
-    () => (tagsQuery.data?.items ?? []).filter((tag) => !tag.isArchived).map((tag) => tag.text).sort((a, b) => a.localeCompare(b)),
+  const existingAddTags = useMemo(
+    () => (tagsQuery.data?.items ?? [])
+      .filter((tag) => !tag.isArchived)
+      .slice()
+      .sort((left, right) => left.text.localeCompare(right.text)),
     [tagsQuery.data?.items],
   );
 
   const visibleAddTags = useMemo(() => {
     const query = addTagSearch.trim().toLowerCase();
-    const available = existingTagTexts.filter((tag) => !addTags.includes(tag));
+    const selected = new Set(addTags.map((tag) => tag.text.toLowerCase()));
+    const available = existingAddTags.filter((tag) => !selected.has(tag.text.toLowerCase()));
     if (!query) return available.slice(0, 5);
-    return available.filter((tag) => tag.toLowerCase().includes(query)).slice(0, 5);
-  }, [existingTagTexts, addTags, addTagSearch]);
+    return available.filter((tag) => tag.text.toLowerCase().includes(query)).slice(0, 5);
+  }, [existingAddTags, addTags, addTagSearch]);
 
   const canCreateAddTag = useMemo(() => {
     const query = addTagSearch.trim();
     if (!query) return false;
     const normalized = query.toLowerCase();
-    return !existingTagTexts.some((tag) => tag.toLowerCase() === normalized) && !addTags.some((tag) => tag.toLowerCase() === normalized);
-  }, [addTagSearch, existingTagTexts, addTags]);
+    return !existingAddTags.some((tag) => tag.text.toLowerCase() === normalized)
+      && !addTags.some((tag) => tag.text.toLowerCase() === normalized);
+  }, [addTagSearch, existingAddTags, addTags]);
 
   const resolvedAddChannelIds = useMemo(() => {
     if (addChannelAccountId) return [addChannelAccountId];
@@ -282,7 +288,7 @@ export function ContactsScreen() {
       phoneNumber: addPhone.trim(),
       primaryEmail: addEmail.trim() || null,
       source: 'manual-create',
-      tags: addTags,
+      tags: addTags.map((tag) => tag.text),
       channels: resolvedAddChannelIds,
     }),
     onSuccess: async (contact) => {
@@ -515,7 +521,12 @@ export function ContactsScreen() {
             <View style={styles.sheetHeader}>
               <Text style={[styles.sheetTitle, { color: colors.text }]}>Add contact</Text>
             </View>
-            <SheetScrollView keyboardShouldPersistTaps="handled" style={styles.addFormScroll}>
+            <SheetScrollView
+              ref={addFormScrollRef}
+              keyboardShouldPersistTaps="handled"
+              style={styles.addFormScroll}
+              contentContainerStyle={styles.addFormContent}
+            >
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Name *</Text>
               <TextInput value={addName} onChangeText={setAddName} placeholder="Full name" placeholderTextColor={colors.textMuted} style={[styles.fieldInput, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder, color: colors.text }]} />
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Phone *</Text>
@@ -557,16 +568,19 @@ export function ContactsScreen() {
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Tags</Text>
               {addTags.length ? (
                 <View style={styles.addSelectedTags}>
-                  {addTags.map((tag) => (
-                    <Pressable
-                      key={tag}
-                      style={[styles.addSelectedTag, { backgroundColor: colors.surfaceSecondary }]}
-                      onPress={() => setAddTags((current) => current.filter((item) => item !== tag))}
-                    >
-                      <Text style={[styles.addSelectedTagText, { color: colors.primary }]}>{tag}</Text>
-                      <X color={colors.primary} size={12} />
-                    </Pressable>
-                  ))}
+                  {addTags.map((tag) => {
+                    const color = tag.color?.trim() || '#64748b';
+                    return (
+                      <Pressable
+                        key={tag.text}
+                        style={[styles.addSelectedTag, { backgroundColor: hexWithAlpha(color), borderColor: hexWithAlpha(color, '33') }]}
+                        onPress={() => setAddTags((current) => current.filter((item) => item.text !== tag.text))}
+                      >
+                        <Text style={[styles.addSelectedTagText, { color }]}>{tag.text}</Text>
+                        <X color={color} size={12} />
+                      </Pressable>
+                    );
+                  })}
                 </View>
               ) : null}
               <View style={[styles.inlineSearch, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
@@ -577,27 +591,44 @@ export function ContactsScreen() {
                   placeholder="Search tags"
                   placeholderTextColor={colors.textMuted}
                   style={[styles.inlineSearchInput, { color: colors.text }]}
+                  onFocus={() => {
+                    requestAnimationFrame(() => {
+                      addFormScrollRef.current?.scrollToEnd({ animated: true });
+                    });
+                  }}
                 />
               </View>
-              {visibleAddTags.map((tag) => (
-                <Pressable
-                  key={tag}
-                  style={styles.optionRow}
-                  onPress={() => {
-                    setAddTags((current) => (current.includes(tag) ? current : [...current, tag]));
-                    setAddTagSearch('');
-                  }}
-                >
-                  <Text style={[styles.optionText, { color: colors.textSecondary }]}>{tag}</Text>
-                  <Plus color={colors.primary} size={14} />
-                </Pressable>
-              ))}
+              {visibleAddTags.map((tag) => {
+                const color = tag.color?.trim() || '#64748b';
+                return (
+                  <Pressable
+                    key={tag.id}
+                    style={styles.optionRow}
+                    onPress={() => {
+                      setAddTags((current) => (
+                        current.some((item) => item.text.toLowerCase() === tag.text.toLowerCase())
+                          ? current
+                          : [...current, { text: tag.text, color: tag.color }]
+                      ));
+                      setAddTagSearch('');
+                    }}
+                  >
+                    <View style={[styles.tagDot, { backgroundColor: color }]} />
+                    <Text style={[styles.optionText, { color: colors.textSecondary }]} numberOfLines={1}>{tag.text}</Text>
+                    <Plus color={colors.primary} size={14} />
+                  </Pressable>
+                );
+              })}
               {canCreateAddTag ? (
                 <Pressable
                   style={[styles.createTagRow, { backgroundColor: colors.surfaceSecondary }]}
                   onPress={() => {
                     const next = addTagSearch.trim();
-                    setAddTags((current) => (current.includes(next) ? current : [...current, next]));
+                    setAddTags((current) => (
+                      current.some((item) => item.text.toLowerCase() === next.toLowerCase())
+                        ? current
+                        : [...current, { text: next, color: '#2563eb' }]
+                    ));
                     setAddTagSearch('');
                   }}
                 >
@@ -753,10 +784,11 @@ const styles = StyleSheet.create({
   fieldLabel: { color: '#334155', fontSize: 13, fontWeight: '600', marginBottom: 6, marginTop: 10 },
   fieldInput: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, color: '#0f172a', paddingHorizontal: 12, paddingVertical: 12 },
   addFormScroll: { maxHeight: 420 },
+  addFormContent: { paddingBottom: 24 },
   optionSubtext: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
   addSelectedTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  addSelectedTag: { alignItems: 'center', backgroundColor: '#dbeafe', borderRadius: 999, flexDirection: 'row', gap: 5, paddingHorizontal: 10, paddingVertical: 5 },
-  addSelectedTagText: { color: '#1d4ed8', fontSize: 12, fontWeight: '600' },
+  addSelectedTag: { alignItems: 'center', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 5, paddingHorizontal: 10, paddingVertical: 5 },
+  addSelectedTagText: { fontSize: 12, fontWeight: '600' },
   createTagRow: { alignItems: 'center', backgroundColor: '#eff6ff', borderRadius: 12, flexDirection: 'row', gap: 8, marginTop: 4, paddingHorizontal: 10, paddingVertical: 10 },
   createTagRowText: { color: '#2563eb', fontSize: 13, fontWeight: '700' },
 });

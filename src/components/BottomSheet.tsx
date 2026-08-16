@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useMemo } from 'react';
-import { Modal, Pressable, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle, type ScrollViewProps, type FlatListProps } from 'react-native';
+import { createContext, useContext, useEffect, useMemo, forwardRef } from 'react';
+import { Keyboard, Modal, Platform, Pressable, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle, type ScrollViewProps, type FlatListProps } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,7 +19,7 @@ const BottomSheetContext = createContext<BottomSheetContextValue | null>(null);
  * drag pan and report the scroll offset back so the sheet only drags (and
  * dismisses) when the content is scrolled to the top.
  */
-export function SheetScrollView(props: ScrollViewProps) {
+export const SheetScrollView = forwardRef<Animated.ScrollView, ScrollViewProps>(function SheetScrollView(props, ref) {
   const ctx = useContext(BottomSheetContext);
   const { onScroll, ...rest } = props;
   const scrollHandler = useAnimatedScrollHandler({
@@ -30,6 +30,7 @@ export function SheetScrollView(props: ScrollViewProps) {
   });
   const content = (
     <Animated.ScrollView
+      ref={ref}
       bounces={false}
       alwaysBounceVertical={false}
       overScrollMode="never"
@@ -39,7 +40,7 @@ export function SheetScrollView(props: ScrollViewProps) {
     />
   );
   return ctx ? <GestureDetector gesture={ctx.nativeScrollGesture}>{content}</GestureDetector> : content;
-}
+});
 
 export function SheetFlatList(props: FlatListProps<any>) {
   const ctx = useContext(BottomSheetContext);
@@ -83,6 +84,7 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
   const translateY = useSharedValue(windowHeight);
   const sheetHeight = useSharedValue(windowHeight);
   const contentOffsetY = useSharedValue(0);
+  const keyboardInset = useSharedValue(0);
   const nativeScrollGesture = useMemo(() => Gesture.Native(), []);
 
   const requestClose = () => {
@@ -96,8 +98,27 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
     if (visible) {
       contentOffsetY.value = 0;
       translateY.value = withTiming(0, { duration: 260 });
+    } else {
+      keyboardInset.value = 0;
     }
-  }, [visible, translateY, contentOffsetY]);
+  }, [visible, translateY, contentOffsetY, keyboardInset]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvent, (event) => {
+      if (!visible) return;
+      const next = Math.max(0, event.endCoordinates.height - insets.bottom);
+      keyboardInset.value = withTiming(next, { duration: Platform.OS === 'ios' ? 250 : 160 });
+    });
+    const hide = Keyboard.addListener(hideEvent, () => {
+      keyboardInset.value = withTiming(0, { duration: Platform.OS === 'ios' ? 250 : 160 });
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [visible, insets.bottom, keyboardInset]);
 
   const settleOrDismiss = (translationY: number, velocityY: number) => {
     'worklet';
@@ -138,7 +159,7 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
     });
 
   const sheetAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
+    transform: [{ translateY: translateY.value - keyboardInset.value }],
   }));
 
   return (
