@@ -1,6 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import { BarChart3, ContactRound, Inbox, Radio, Settings } from 'lucide-react-native';
+import { Pressable, type PressableProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { ChannelsStack } from './ChannelsStack';
@@ -19,6 +20,34 @@ export type MainTabParamList = {
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
+function TabBarButton({
+  children,
+  style,
+  onPress,
+  onLongPress,
+  ...rest
+}: PressableProps) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      {...rest}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      android_ripple={{ color: `${colors.primary}24`, foreground: true }}
+      style={(state) => [
+        typeof style === 'function' ? style(state) : style,
+        {
+          borderRadius: 12,
+          overflow: 'hidden',
+        },
+        state.pressed && { backgroundColor: `${colors.primary}18` },
+      ]}
+    >
+      {children}
+    </Pressable>
+  );
+}
+
 export function MainTabs() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
@@ -30,6 +59,12 @@ export function MainTabs() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
         headerShown: false,
+        tabBarButton: (props) => <TabBarButton {...props} />,
+        tabBarItemStyle: {
+          marginHorizontal: 4,
+          marginVertical: 2,
+          borderRadius: 12,
+        },
         tabBarStyle: {
           height: 54 + bottomPad,
           paddingBottom: bottomPad,
