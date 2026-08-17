@@ -83,6 +83,9 @@ export function createAuthStyles(colors: ThemeColors) {
     primaryPressed: {
       opacity: 0.88,
     },
+    primaryDisabled: {
+      opacity: 0.45,
+    },
     primaryText: {
       color: colors.primaryText,
       fontSize: 15,
@@ -99,6 +102,31 @@ export function createAuthStyles(colors: ThemeColors) {
     },
     linkBold: {
       color: colors.primary,
+      fontWeight: '600',
+    },
+    forgotLink: {
+      alignSelf: 'flex-end',
+      marginTop: 4,
+    },
+    footerRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      marginTop: 28,
+      rowGap: 12,
+    },
+    secondary: {
+      alignItems: 'center',
+      borderColor: colors.cardBorder,
+      borderRadius: 12,
+      borderWidth: 1,
+      height: 50,
+      justifyContent: 'center',
+      marginTop: 12,
+    },
+    secondaryText: {
+      color: colors.primary,
+      fontSize: 15,
       fontWeight: '600',
     },
   });

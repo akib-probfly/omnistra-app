@@ -15,7 +15,13 @@ import { useTheme } from '../theme/ThemeContext';
 import { AuthChrome, AuthWordmark } from '../components/AuthChrome';
 import { createAuthStyles } from './authStyles';
 
-export function LoginScreen({ onRegister }: { onRegister: () => void }) {
+export function LoginScreen({
+  onRegister,
+  onForgotPassword,
+}: {
+  onRegister: () => void;
+  onForgotPassword: () => void;
+}) {
   const { login } = useAuth();
   const { colors, isDark } = useTheme();
   const styles = createAuthStyles(colors);
@@ -92,7 +98,12 @@ export function LoginScreen({ onRegister }: { onRegister: () => void }) {
           </Pressable>
         </View>
 
-        <Pressable onPress={onRegister} style={styles.linkWrapper}>
+        <Pressable onPress={onForgotPassword} style={styles.linkWrapper}>
+          <Text style={styles.link}>
+            Forgot your password? <Text style={styles.linkBold}>Reset it</Text>
+          </Text>
+        </Pressable>
+        <Pressable onPress={onRegister} style={[styles.linkWrapper, { marginTop: 12 }]}>
           <Text style={styles.link}>
             New here? <Text style={styles.linkBold}>Create an account</Text>
           </Text>

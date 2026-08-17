@@ -38,22 +38,23 @@ export async function uploadFile(path: string, uri: string, name: string, mimeTy
   return (payload?.data ?? payload) as { id: string; mimeType?: string; mediaType?: string };
 }
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = await SecureStore.getItemAsync('access-token');
+export async function apiFetch<T>(path: string, init: RequestInit & { auth?: boolean } = {}): Promise<T> {
+  const { auth = true, ...fetchInit } = init;
+  const token = auth ? await SecureStore.getItemAsync('access-token') : null;
   latestAccessToken = token;
-  if (__DEV__) console.log(`[api] request ${init.method ?? 'GET'} ${path}`, { authenticated: Boolean(token) });
+  if (__DEV__) console.log(`[api] request ${fetchInit.method ?? 'GET'} ${path}`, { authenticated: Boolean(token) });
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
+    ...fetchInit,
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...init.headers,
+      ...fetchInit.headers,
     },
   });
 
-  const requestHeaders = new Headers(init.headers);
-  if (response.status === 401 && requestHeaders.get('x-mobile-retry') !== '1') {
+  const requestHeaders = new Headers(fetchInit.headers);
+  if (auth && response.status === 401 && requestHeaders.get('x-mobile-retry') !== '1') {
     const refreshToken = await SecureStore.getItemAsync('refresh-token');
     if (refreshToken) {
       const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
@@ -74,7 +75,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   }
 
   if (!response.ok) {
-    if (response.status === 401 && requestHeaders.get('x-mobile-retry') !== '1') {
+    if (auth && response.status === 401 && requestHeaders.get('x-mobile-retry') !== '1') {
       authExpiredHandler?.();
     }
     const raw = await response.text();
@@ -85,7 +86,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     } catch {
       if (raw && !raw.includes('\\n') && raw.length < 240) message = raw;
     }
-    if (__DEV__) console.error(`[api] ${init.method ?? 'GET'} ${path} -> ${response.status}`, message);
+    if (__DEV__) console.error(`[api] ${fetchInit.method ?? 'GET'} ${path} -> ${response.status}`, message);
     throw new Error(message);
   }
   const payload = await response.json() as T | { data?: T };
