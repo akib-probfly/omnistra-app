@@ -96,6 +96,7 @@ export function BroadcastCreateScreen() {
   const { colors } = useTheme();
 
   const [step, setStep] = useState<StepKey>('details');
+  const [furthestIndex, setFurthestIndex] = useState(0);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [channelId, setChannelId] = useState('');
@@ -209,19 +210,41 @@ export function BroadcastCreateScreen() {
 
   const textVars = useMemo(() => extractVariableNames(bodyText), [bodyText]);
   const mappingsValid = contentType === 'TEMPLATE'
-    ? selectedTemplates.length === selectedTemplateIds.length
+    ? selectedTemplates.length > 0
+      && selectedTemplates.length === selectedTemplateIds.length
       && areTemplateVariablesMapped(selectedTemplates, templateVarsMap)
       && areTemplateHeadersMapped(selectedTemplates, templateHeaderMediaMap)
     : textVars.every((variable) => hasMappedValue(textVariables[variable]));
   const hasMessage = contentType === 'TEXT' ? Boolean(bodyText.trim()) : selectedTemplateIds.length > 0;
   const detailsComplete = name.trim().length > 0 && Boolean(channelId);
-  const completed = {
+  const stepValid: Record<StepKey, boolean> = {
     details: detailsComplete,
     message: hasMessage,
-    mapping: mappingsValid,
-    audience: true,
-    review: hasMessage && mappingsValid && detailsComplete,
+    mapping: hasMessage && mappingsValid,
+    audience: hasMessage && mappingsValid,
+    review: detailsComplete && hasMessage && mappingsValid,
   };
+
+  useEffect(() => {
+    const firstInvalid = STEPS.findIndex((item) => !stepValid[item.key]);
+    const maxAllowed = firstInvalid === -1 ? STEPS.length - 1 : firstInvalid;
+    setFurthestIndex((current) => Math.min(current, maxAllowed));
+  }, [detailsComplete, hasMessage, mappingsValid]);
+
+  useEffect(() => {
+    const currentIndex = STEPS.findIndex((item) => item.key === step);
+    if (currentIndex > furthestIndex) setStep(STEPS[furthestIndex].key);
+  }, [furthestIndex, step]);
+
+  useEffect(() => {
+    if (!isEditing || !hydrated) return;
+    let unlocked = 0;
+    for (let index = 0; index < STEPS.length; index += 1) {
+      if (!stepValid[STEPS[index].key]) break;
+      unlocked = index;
+    }
+    setFurthestIndex(unlocked);
+  }, [isEditing, hydrated]);
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['broadcast'] });
@@ -278,15 +301,20 @@ export function BroadcastCreateScreen() {
     onError: (error: Error) => showNotice(error.message || 'Could not save campaign'),
   });
 
-  const goNext = () => {
-    const index = STEPS.findIndex((item) => item.key === step);
-    const next = STEPS[index + 1];
-    if (next) setStep(next.key);
-  };
   const canContinue = step === 'details' ? detailsComplete
     : step === 'message' ? hasMessage
       : step === 'mapping' ? mappingsValid
-        : true;
+        : step === 'audience' ? stepValid.audience
+          : false;
+  const canOpenStep = (index: number) => index <= furthestIndex && STEPS.slice(0, index).every((entry) => stepValid[entry.key]);
+  const goNext = () => {
+    const index = STEPS.findIndex((item) => item.key === step);
+    if (!canContinue) return;
+    const next = STEPS[index + 1];
+    if (!next) return;
+    setFurthestIndex((current) => Math.max(current, index + 1));
+    setStep(next.key);
+  };
 
   const toggleTemplate = (template: WhatsappTemplate) => {
     setSelectedTemplateIds((current) => {
@@ -401,16 +429,21 @@ export function BroadcastCreateScreen() {
       <View style={[styles.progress, { borderBottomColor: colors.cardBorder }]}>
         {STEPS.map((item, index) => {
           const active = item.key === step;
-          const done = completed[item.key] && !active;
+          const unlocked = canOpenStep(index);
+          const done = !active && index < furthestIndex && stepValid[item.key];
           return (
-            <Pressable key={item.key} style={styles.progressItem} onPress={() => {
-              const allowed = STEPS.slice(0, index).every((entry) => completed[entry.key]);
-              if (allowed) setStep(item.key);
-            }}>
+            <Pressable
+              key={item.key}
+              style={[styles.progressItem, !unlocked && styles.progressLocked]}
+              disabled={!unlocked}
+              onPress={() => {
+                if (unlocked) setStep(item.key);
+              }}
+            >
               <View style={[styles.progressDot, { backgroundColor: active || done ? colors.primary : colors.surfaceSecondary }]}>
-                <Text style={styles.progressIndex}>{index + 1}</Text>
+                <Text style={[styles.progressIndex, { color: active || done ? colors.primaryText : colors.textSecondary }]}>{index + 1}</Text>
               </View>
-              <Text style={[styles.progressLabel, { color: active ? colors.primary : colors.textMuted }]}>{item.label}</Text>
+              <Text style={[styles.progressLabel, { color: active ? colors.primary : done ? colors.text : colors.textMuted }]}>{item.label}</Text>
             </Pressable>
           );
         })}
@@ -455,19 +488,16 @@ export function BroadcastCreateScreen() {
               onChange={(value) => setContentType(value)}
               options={[
                 { value: 'TEMPLATE', label: 'Template' },
-                { value: 'TEXT', label: 'Session text' },
+                { value: 'TEXT', label: 'Text message' },
               ]}
             />
             {contentType === 'TEXT' ? (
               <>
-                <Text style={[styles.hint, { color: colors.textSecondary }]}>
-                  Session messages only reach contacts whose 24-hour WhatsApp window is open.
-                </Text>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>Message</Text>
+                <Text style={[styles.label, { color: colors.textSecondary }]}>Message body</Text>
                 <TextInput
                   value={bodyText}
                   onChangeText={setBodyText}
-                  placeholder="Hi {{1}}, thanks for chatting with us."
+                  placeholder="Type your message here..."
                   placeholderTextColor={colors.textMuted}
                   style={[styles.input, styles.textArea, { backgroundColor: colors.background, borderColor: colors.inputBorder, color: colors.text }]}
                   multiline
@@ -513,7 +543,7 @@ export function BroadcastCreateScreen() {
             {contentType === 'TEMPLATE' && selectedTemplates.length === 0 ? (
               <Text style={[styles.hint, { color: colors.textSecondary }]}>Select a template first.</Text>
             ) : contentType === 'TEXT' && textVars.length === 0 ? (
-              <Text style={[styles.hint, { color: colors.textSecondary }]}>No variables detected. Use {'{{variable}}'} in the message to map values.</Text>
+              <Text style={[styles.hint, { color: colors.textSecondary }]}>No variables detected. Use {'{{variableName}}'} in your message body to create mappings.</Text>
             ) : (
               (contentType === 'TEMPLATE' ? selectedTemplates : [null]).map((template) => {
                 const vars = template ? getTemplateVariableNames(template) : textVars;
@@ -678,7 +708,7 @@ export function BroadcastCreateScreen() {
               icon={Plus}
               label={scheduleType === 'schedule' ? 'Schedule campaign' : 'Publish campaign'}
               loading={publishMutation.isPending}
-              disabled={publishMutation.isPending || !completed.review}
+              disabled={publishMutation.isPending || !stepValid.review}
               onPress={() => void publishMutation.mutateAsync(false)}
             />
           </View>
@@ -915,8 +945,9 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   progress: { borderBottomWidth: 1, flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 10 },
   progressItem: { alignItems: 'center', flex: 1, gap: 4 },
+  progressLocked: { opacity: 0.7 },
   progressDot: { alignItems: 'center', borderRadius: 11, height: 22, justifyContent: 'center', width: 22 },
-  progressIndex: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  progressIndex: { fontSize: 11, fontWeight: '800' },
   progressLabel: { fontSize: 10, fontWeight: '700' },
   content: { gap: 12, padding: 16 },
   card: { borderRadius: 18, borderWidth: 1, padding: 16 },
