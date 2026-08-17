@@ -9,7 +9,46 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  useEffect(() => { let active = true; console.log('[auth] restoring session'); const timeout = setTimeout(() => { if (active) { console.warn('[auth] restore timeout; opening login'); setLoading(false); } }, 4000); (async () => { try { const [value, accessToken] = await Promise.all([SecureStore.getItemAsync('session'), SecureStore.getItemAsync('access-token')]); console.log('[auth] storage read', { hasSession: Boolean(value), hasAccessToken: Boolean(accessToken) }); if (!active || !value || !accessToken) return; const parsed = JSON.parse(value) as { user?: Session['user'] }; if (parsed.user) { console.log('[auth] valid session found'); setSession({ user: parsed.user, accessToken }); } else throw new Error('Invalid stored session'); } catch (error) { console.warn('[auth] session restore failed', error); await Promise.all([SecureStore.deleteItemAsync('session'), SecureStore.deleteItemAsync('access-token'), SecureStore.deleteItemAsync('refresh-token')]); if (active) setSession(null); } finally { if (active) { console.log('[auth] restore complete'); setLoading(false); } } })(); return () => { active = false; clearTimeout(timeout); }; }, []);
+  useEffect(() => {
+    let active = true;
+    const timeout = setTimeout(() => {
+      if (!active) return;
+      setLoading(false);
+    }, 4000);
+
+    (async () => {
+      try {
+        const [value, accessToken] = await Promise.all([
+          SecureStore.getItemAsync('session'),
+          SecureStore.getItemAsync('access-token'),
+        ]);
+        if (!active) return;
+        if (!value || !accessToken) {
+          setSession(null);
+          return;
+        }
+        const parsed = JSON.parse(value) as { user?: Session['user'] };
+        if (!parsed.user) throw new Error('Invalid stored session');
+        setSession({ user: parsed.user, accessToken });
+      } catch (error) {
+        console.warn('[auth] session restore failed', error);
+        await Promise.all([
+          SecureStore.deleteItemAsync('session'),
+          SecureStore.deleteItemAsync('access-token'),
+          SecureStore.deleteItemAsync('refresh-token'),
+        ]);
+        if (active) setSession(null);
+      } finally {
+        clearTimeout(timeout);
+        if (active) setLoading(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+      clearTimeout(timeout);
+    };
+  }, []);
   useEffect(() => { const clearExpiredSession = () => { setSession(null); void Promise.all([SecureStore.deleteItemAsync('session'), SecureStore.deleteItemAsync('access-token'), SecureStore.deleteItemAsync('refresh-token')]); }; setAuthExpiredHandler(clearExpiredSession); return () => setAuthExpiredHandler(null); }, []);
   async function save(next: Session) { setSession(next); await SecureStore.setItemAsync('session', JSON.stringify({ user: next.user })); await SecureStore.setItemAsync('access-token', next.accessToken); if (next.refreshToken) await SecureStore.setItemAsync('refresh-token', next.refreshToken); }
   async function updateUser(update: Partial<Session['user']>) { const current = session; if (!current) return; const next = { ...current, user: { ...current.user, ...update } }; setSession(next); await SecureStore.setItemAsync('session', JSON.stringify({ user: next.user })); }

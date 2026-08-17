@@ -1,6 +1,7 @@
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
+import { useCallback, useState } from 'react';
 import { Linking } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -11,6 +12,7 @@ import { useRealtimeSync } from './src/hooks/useRealtimeSync';
 import { CallControllerProvider } from './src/providers/CallControllerProvider';
 import { GlobalCallLayer } from './src/components/GlobalCallLayer';
 import { toastConfig } from './src/components/AppToast';
+import { SplashScreen } from './src/screens/SplashScreen';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 
 const queryClient = new QueryClient({
@@ -120,23 +122,52 @@ function ThemedStatusBar() {
   );
 }
 
+const ROOT_BG = '#f4f7fb';
+
+function RootApp() {
+  const { loading } = useAuth();
+  const [splashDone, setSplashDone] = useState(false);
+  const finishSplash = useCallback(() => setSplashDone(true), []);
+  const showSplash = !splashDone || loading;
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: ROOT_BG }}>
+      <SafeAreaProvider>
+        {showSplash ? (
+          <SplashScreen
+            iconSource={require('./assets/icon.png')}
+            wordmarkSource={require('./assets/logo-wordmark.png')}
+            tagline="OMNICHANNEL INBOX"
+            backgroundColor={ROOT_BG}
+            onFinish={finishSplash}
+          />
+        ) : (
+          <NavigationContainer
+            linking={linking as never}
+            theme={{
+              ...DefaultTheme,
+              colors: { ...DefaultTheme.colors, background: ROOT_BG },
+            }}
+          >
+            <ThemedStatusBar />
+            <RealtimeBridge />
+            <AppNavigator />
+            <AuthenticatedOverlays />
+            <Toast config={toastConfig} position="top" topOffset={56} visibilityTime={2600} />
+          </NavigationContainer>
+        )}
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
+  );
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <CallControllerProvider>
           <ThemeProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <SafeAreaProvider>
-                <NavigationContainer linking={linking as never}>
-                  <ThemedStatusBar />
-                  <RealtimeBridge />
-                  <AppNavigator />
-                  <AuthenticatedOverlays />
-                  <Toast config={toastConfig} position="top" topOffset={56} visibilityTime={2600} />
-                </NavigationContainer>
-              </SafeAreaProvider>
-            </GestureHandlerRootView>
+            <RootApp />
           </ThemeProvider>
         </CallControllerProvider>
       </AuthProvider>

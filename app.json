@@ -1,12 +1,26 @@
 {
   "expo": {
-    "name": "osaas-mobile",
+    "name": "Zurvis",
     "slug": "osaas-mobile",
     "version": "1.0.0",
     "scheme": "osaas",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "backgroundColor": "#f4f7fb",
+    "androidStatusBar": {
+      "backgroundColor": "#f4f7fb",
+      "barStyle": "dark-content"
+    },
+    "androidNavigationBar": {
+      "backgroundColor": "#f4f7fb",
+      "barStyle": "dark-content"
+    },
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f4f7fb"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.osaas.mobile",
@@ -16,11 +30,12 @@
       }
     },
     "android": {
+      "backgroundColor": "#f4f7fb",
       "package": "com.osaas.mobile",
       "versionCode": 2,
       "predictiveBackGestureEnabled": false,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#f4f7fb",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -40,6 +55,15 @@
     },
     "plugins": [
       "expo-dev-client",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#f4f7fb",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain"
+        }
+      ],
       "expo-secure-store",
       "@react-native-community/datetimepicker",
       "expo-audio",
