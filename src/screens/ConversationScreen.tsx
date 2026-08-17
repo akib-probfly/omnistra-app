@@ -33,7 +33,7 @@ import { fetchConversationAssignmentEvents, fetchConversationCallSessions, fetch
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { InboxStackParamList } from '../navigation/InboxStack';
 import type { MainTabParamList } from '../navigation/MainTabs';
-import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getConversationTitle, getMessengerMessagingAvailability, getReplyPreviewBody, getVoiceCallButtonState, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
+import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getCallSessionTimelineTimestamp, getConversationTitle, getMessengerMessagingAvailability, getReplyPreviewBody, getVoiceCallButtonState, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
 import { CallHistoryItem } from '../components/CallHistoryItem';
 import { useCallController } from '../providers/CallControllerProvider';
 import { isWhatsappCallSupported } from '../lib/whatsapp-calling';
@@ -152,6 +152,9 @@ export function ConversationScreen() {
   const listReadyRef = useRef(false);
   const timelineRef = useRef<ConversationTimelineEntry<Message>[]>([]);
   const isAtBottomRef = useRef(true);
+  const olderLoadLockOffsetRef = useRef<number | null>(null);
+  const lastScrollOffsetRef = useRef(0);
+  const latestMessageIdsRef = useRef<Set<string>>(new Set());
 
   const pendingOptimisticRef = useRef<Map<string, Message>>(new Map());
   const awaitingDeliveryRef = useRef(false);
@@ -242,6 +245,8 @@ export function ConversationScreen() {
     loadingOlderRef.current = false;
     listReadyRef.current = false;
     isAtBottomRef.current = true;
+    olderLoadLockOffsetRef.current = null;
+    lastScrollOffsetRef.current = 0;
     setAtBottom(true);
   }, [route.params.conversationId]);
 
@@ -273,6 +278,7 @@ export function ConversationScreen() {
     });
     return merged;
   }, [olderMessages, messages.data?.items]);
+  latestMessageIdsRef.current = new Set((messages.data?.items ?? []).map((message) => message.id));
   hasMoreRef.current = messages.data?.hasMore ?? false;
   const reactionGroups = useMemo(() => buildReactionGroups(allMessages), [allMessages]);
 
@@ -548,9 +554,11 @@ export function ConversationScreen() {
   const loadOlder = useCallback(async () => {
     if (loadingOlderRef.current || !hasMoreOlder || !olderCursor) return;
     loadingOlderRef.current = true;
+    olderLoadLockOffsetRef.current = lastScrollOffsetRef.current;
     setLoadingOlder(true);
     try {
       const page = await fetchMessagesPage(route.params.conversationId, olderCursor, 50);
+      const latestIds = latestMessageIdsRef.current;
       const items = page.items.map((message: any) => {
         const messageAttachments = message.attachments ?? [];
         const mediaOnly = messageAttachments.length > 0 && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(message.type);
@@ -558,7 +566,7 @@ export function ConversationScreen() {
       });
       setOlderMessages((current) => {
         const existing = new Set(current.map((message) => message.id));
-        const fresh = items.filter((message) => !existing.has(message.id));
+        const fresh = items.filter((message) => !existing.has(message.id) && !latestIds.has(message.id));
         return [...fresh, ...current];
       });
       const nextHasMore = Boolean(page.pageInfo?.hasMore && page.pageInfo?.nextCursor) && items.length > 0;
@@ -566,6 +574,7 @@ export function ConversationScreen() {
       setHasMoreOlder(nextHasMore);
     } catch (error) {
       console.error('[conversation] load older failed', error);
+      olderLoadLockOffsetRef.current = null;
     } finally {
       loadingOlderRef.current = false;
       setLoadingOlder(false);
@@ -745,10 +754,20 @@ export function ConversationScreen() {
     void queryClient.invalidateQueries({ queryKey: ['conversation-calls', route.params.conversationId] });
     void queryClient.invalidateQueries({ queryKey: ['active-calls'] });
   };
-  const timeline = useMemo<ConversationTimelineEntry<Message>[]>(
-    () => buildConversationTimeline(allMessages, callSessions, assignmentEvents),
-    [allMessages, callSessions, assignmentEvents],
-  );
+  const timeline = useMemo<ConversationTimelineEntry<Message>[]>(() => {
+    const times = allMessages.map((message) => new Date(message.sentAt ?? message.createdAt ?? '').getTime()).filter((value) => Number.isFinite(value));
+    const minTs = times.length ? Math.min(...times) : 0;
+    const maxTs = times.length ? Math.max(...times) : Date.now();
+    const boundedCalls = callSessions.filter((session) => {
+      const timestamp = new Date(getCallSessionTimelineTimestamp(session)).getTime();
+      return Number.isFinite(timestamp) && timestamp >= minTs && timestamp <= maxTs;
+    });
+    const boundedAssignments = assignmentEvents.filter((event) => {
+      const timestamp = new Date(event.createdAt).getTime();
+      return Number.isFinite(timestamp) && timestamp >= minTs && timestamp <= maxTs;
+    });
+    return buildConversationTimeline(allMessages, boundedCalls, boundedAssignments);
+  }, [allMessages, callSessions, assignmentEvents]);
   timelineRef.current = timeline;
   const displayEntries = useMemo<TimelineRow[]>(() => {
     const chronological = timeline.map((entry, index) => {
@@ -770,9 +789,15 @@ export function ConversationScreen() {
 
   const channelName = header.conversation?.channel?.channelName ?? null;
   const onScroll = useCallback((event: any) => {
-    const nextAtBottom = Math.abs(event.nativeEvent.contentOffset.y) <= 96;
+    const offsetY = event.nativeEvent.contentOffset.y;
+    lastScrollOffsetRef.current = offsetY;
+    const nextAtBottom = Math.abs(offsetY) <= 96;
     isAtBottomRef.current = nextAtBottom;
     setAtBottom((current) => (current === nextAtBottom ? current : nextAtBottom));
+    const lockedAt = olderLoadLockOffsetRef.current;
+    if (lockedAt != null && Math.abs(offsetY - lockedAt) > 140) {
+      olderLoadLockOffsetRef.current = null;
+    }
   }, []);
   const renderTimelineItem = useCallback(({ item }: { item: TimelineRow }) => {
     const message = item.entry.kind === 'message' ? item.entry.message : null;
@@ -869,14 +894,19 @@ export function ConversationScreen() {
                 updateCellsBatchingPeriod={50}
                 windowSize={13}
                 removeClippedSubviews={false}
+                maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
                 onScroll={onScroll}
                 scrollEventThrottle={16}
                 onEndReached={() => {
-                  if (!listReadyRef.current || !hasMoreOlder || !olderCursor) return;
+                  if (!listReadyRef.current || loadingOlderRef.current || olderLoadLockOffsetRef.current != null || !hasMoreOlder || !olderCursor) return;
                   void loadOlder();
                 }}
-                onEndReachedThreshold={0.3}
-                ListFooterComponent={loadingOlder ? <Text style={[styles.olderPill, { color: colors.textSecondary }]}>Loading older messages...</Text> : null}
+                onEndReachedThreshold={0.08}
+                ListFooterComponent={(
+                  <View style={styles.olderSpacer}>
+                    {loadingOlder ? <Text style={[styles.olderPill, { color: colors.textSecondary }]}>Loading older messages...</Text> : null}
+                  </View>
+                )}
                 renderItem={renderTimelineItem}
             />
           ) : (
@@ -1063,8 +1093,8 @@ const styles = StyleSheet.create({
   group: { alignItems: 'flex-start', gap: 6 },
   outgoingGroup: { alignItems: 'flex-end' },
   dayDivider: { alignSelf: 'center', backgroundColor: '#e8eef7', borderRadius: 999, color: '#526987', fontSize: 12, fontWeight: '600', marginVertical: 8, overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 6 },
-  olderPill: { alignSelf: 'center', color: '#64748b', fontSize: 12, marginVertical: 6 },
-  olderSpacer: { height: 28 },
+  olderPill: { alignSelf: 'center', color: '#64748b', fontSize: 12 },
+  olderSpacer: { alignItems: 'center', height: 28, justifyContent: 'center' },
   fab: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 22, bottom: 16, elevation: 3, height: 44, justifyContent: 'center', position: 'absolute', right: 16, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 5, width: 44 },
   replyAction: { alignItems: 'center', justifyContent: 'center', marginVertical: 3, width: 56 },
   replyIconCircle: {
