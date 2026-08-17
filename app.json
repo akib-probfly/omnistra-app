@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Zurvis",
-    "slug": "osaas-mobile",
+    "slug": "Zurvis",
     "version": "1.0.0",
     "scheme": "osaas",
     "orientation": "portrait",
@@ -25,8 +25,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.osaas.mobile",
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "Allow osaas-mobile to use your microphone for WhatsApp voice calls and voice notes.",
-        "NSCameraUsageDescription": "Allow osaas-mobile to use your camera for WhatsApp calling if required by the device."
+        "CFBundleDisplayName": "Zurvis",
+        "CFBundleName": "Zurvis",
+        "NSMicrophoneUsageDescription": "Allow Zurvis to use your microphone for WhatsApp voice calls and voice notes.",
+        "NSCameraUsageDescription": "Allow Zurvis to use your camera for WhatsApp calling if required by the device."
       }
     },
     "android": {
@@ -70,15 +72,15 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow osaas-mobile to access your photos to share images and videos.",
-          "cameraPermission": "Allow osaas-mobile to access your camera to send photos and videos."
+          "photosPermission": "Allow Zurvis to access your photos to share images and videos.",
+          "cameraPermission": "Allow Zurvis to access your camera to send photos and videos."
         }
       ],
       [
         "expo-media-library",
         {
-          "photosPermission": "Allow osaas-mobile to access your photos.",
-          "savePhotosPermission": "Allow osaas-mobile to save images to your photo library.",
+          "photosPermission": "Allow Zurvis to access your photos.",
+          "savePhotosPermission": "Allow Zurvis to save images to your photo library.",
           "granularPermissions": ["photo", "video"]
         }
       ],
