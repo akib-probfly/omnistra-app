@@ -119,3 +119,14 @@ export function getCountryNameFromCode(countryCode: string | null | undefined): 
   if (!iso) return null;
   return ISO_TO_NAME[iso] ?? null;
 }
+
+export function listCountryCallingCodes() {
+  const seen = new Set<string>();
+  const items: Array<{ dialCode: string; isoCode: string; name: string }> = [];
+  for (const [dialCode, isoCode] of CALLING_CODE_TO_ISO) {
+    if (seen.has(dialCode)) continue;
+    seen.add(dialCode);
+    items.push({ dialCode, isoCode, name: ISO_TO_NAME[isoCode] ?? isoCode });
+  }
+  return items.sort((left, right) => left.name.localeCompare(right.name));
+}

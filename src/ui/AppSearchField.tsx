@@ -13,6 +13,8 @@ type Props = {
   showClear?: boolean;
   /** Extra work to run when clearing, e.g. resetting a debounced value. */
   onClear?: () => void;
+  /** Fill remaining space in a toolbar row. Turn off inside column layouts like sheets. */
+  fill?: boolean;
 };
 
 export function AppSearchField({
@@ -23,6 +25,7 @@ export function AppSearchField({
   tone = 'surface',
   showClear = true,
   onClear,
+  fill = true,
 }: Props) {
   const { colors } = useTheme();
   const height = size === 'sm' ? 38 : 44;
@@ -35,7 +38,7 @@ export function AppSearchField({
   };
 
   return (
-    <View style={[styles.wrap, { backgroundColor: background, borderColor: colors.cardBorder, height }]}>
+    <View style={[styles.wrap, !fill && styles.wrapFlush, { backgroundColor: background, borderColor: colors.cardBorder, height }]}>
       <Search color={colors.textMuted} size={iconSize} />
       <TextInput
         value={value}
@@ -62,5 +65,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 12,
   },
+  wrapFlush: { flex: 0, alignSelf: 'stretch' },
   input: { flex: 1, fontSize: 14, marginLeft: 8, paddingVertical: 0 },
 });

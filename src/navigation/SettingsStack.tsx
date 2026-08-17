@@ -8,6 +8,9 @@ import { NotificationSettingsScreen } from '../screens/NotificationSettingsScree
 import { QuickRepliesSettingsScreen } from '../screens/QuickRepliesSettingsScreen';
 import { AssignmentPolicySettingsScreen } from '../screens/AssignmentPolicySettingsScreen';
 import { InboxAppearanceSettingsScreen } from '../screens/InboxAppearanceSettingsScreen';
+import { BroadcastSettingsScreen } from '../screens/BroadcastSettingsScreen';
+import { BroadcastCampaignScreen } from '../screens/BroadcastCampaignScreen';
+import { BroadcastCreateScreen } from '../screens/BroadcastCreateScreen';
 import type { BillingInterval } from '../api/billing';
 
 export type SettingsStackParamList = {
@@ -18,6 +21,9 @@ export type SettingsStackParamList = {
   InboxAppearance: undefined;
   QuickReplies: undefined;
   AssignmentPolicy: undefined;
+  Broadcast: undefined;
+  BroadcastCampaign: { campaignId: string };
+  BroadcastCreate: { campaignId?: string } | undefined;
   Billing: {
     tab?: 'current' | 'packages' | 'invoices' | 'history';
     checkout?: 'success' | 'cancel';
@@ -43,6 +49,9 @@ export function SettingsStack() {
       <Stack.Screen name="InboxAppearance" component={InboxAppearanceSettingsScreen} />
       <Stack.Screen name="QuickReplies" component={QuickRepliesSettingsScreen} />
       <Stack.Screen name="AssignmentPolicy" component={AssignmentPolicySettingsScreen} />
+      <Stack.Screen name="Broadcast" component={BroadcastSettingsScreen} />
+      <Stack.Screen name="BroadcastCampaign" component={BroadcastCampaignScreen} />
+      <Stack.Screen name="BroadcastCreate" component={BroadcastCreateScreen} />
       <Stack.Screen name="Billing" component={BillingSettingsScreen} />
       <Stack.Screen name="BillingPlanDetails" component={BillingPlanDetailsScreen} />
     </Stack.Navigator>

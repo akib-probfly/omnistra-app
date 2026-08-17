@@ -7,9 +7,11 @@ import {
   FileText,
   LogOut,
   Mail,
+  Megaphone,
   Moon,
   Package,
   Palette,
+  Plus,
   Receipt,
   Sun,
   UserRound,
@@ -18,18 +20,21 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useAuth } from '../auth/AuthContext';
+import { fetchMyWorkspaces } from '../api/workspaces';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
+import { canViewBroadcast } from '../lib/broadcast-access';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
 
 type BillingTab = 'current' | 'packages' | 'invoices' | 'history';
 
-type GeneralRoute = 'Profile' | 'Workspace' | 'Notifications' | 'InboxAppearance' | 'QuickReplies' | 'AssignmentPolicy' | '__appearance__';
+type GeneralRoute = 'Profile' | 'Workspace' | 'Notifications' | 'InboxAppearance' | 'QuickReplies' | 'AssignmentPolicy' | 'Broadcast' | 'BroadcastCreate' | '__appearance__';
 
 type SettingsRow =
   | { kind: 'route'; id: string; label: string; description: string; icon: LucideIcon; iconBg: string; iconColor: string; route: GeneralRoute; badge?: string }
@@ -54,6 +59,13 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     ],
   },
   {
+    label: 'Broadcast',
+    items: [
+      { kind: 'route', id: 'broadcast-campaigns', label: 'Campaigns', description: 'Run, schedule, and analyze campaigns', icon: Megaphone, iconBg: '#fff7ed', iconColor: '#ea580c', route: 'Broadcast', badge: 'BETA' },
+      { kind: 'route', id: 'broadcast-create', label: 'Create Campaign', description: 'Start a new WhatsApp broadcast', icon: Plus, iconBg: '#eff6ff', iconColor: '#2563eb', route: 'BroadcastCreate' },
+    ],
+  },
+  {
     label: 'Billing',
     items: [
       { kind: 'billing', id: 'billing-current', label: 'Current Plan', description: 'Active plan and usage', icon: CreditCard, iconBg: '#eff6ff', iconColor: '#2563eb', tab: 'current' },
@@ -74,9 +86,24 @@ export function SettingsScreen() {
   const navigation = useNavigation<NavigationProp<SettingsStackParamList>>();
   const { session, logout } = useAuth();
   const { mode, setMode, isDark } = useTheme();
+  const workspacesQuery = useQuery({
+    queryKey: ['workspaces', 'mine'],
+    queryFn: fetchMyWorkspaces,
+    staleTime: 30_000,
+  });
+  const showBroadcast = canViewBroadcast(workspacesQuery.data?.items?.[0]);
+  const visibleGroups = useMemo(
+    () => SETTINGS_GROUPS
+      .map((group) => ({
+        ...group,
+        items: group.label === 'Broadcast' && !showBroadcast ? [] : group.items,
+      }))
+      .filter((group) => group.items.length > 0),
+    [showBroadcast],
+  );
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
-  /** Both groups start collapsed so Sign out stays visible. Only one group can be open. */
+  /** Groups start collapsed so Sign out stays visible. Only one group can be open. */
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const name = session?.user.name?.trim() || session?.user.email?.trim() || 'User';
   const email = session?.user.email?.trim() || '';
@@ -114,7 +141,9 @@ export function SettingsScreen() {
       <View style={[styles.topbar, { paddingTop: insets.top + 10, backgroundColor: colors.background, borderBottomColor: colors.cardBorder }]}>
         <View style={styles.topbarCopy}>
           <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>General settings and billing</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            {showBroadcast ? 'General settings, broadcast, and billing' : 'General settings and billing'}
+          </Text>
         </View>
         <NotificationBell onOpen={() => setNotificationsOpen(true)} />
       </View>
@@ -137,7 +166,7 @@ export function SettingsScreen() {
           </View>
         </View>
 
-        {SETTINGS_GROUPS.map((group) => {
+        {visibleGroups.map((group) => {
           const isOpen = openGroup === group.label;
           return (
             <View key={group.label} style={styles.group}>
