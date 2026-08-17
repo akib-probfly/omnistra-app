@@ -1,13 +1,14 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   CheckCircle2,
+  ChevronRight,
+  CircleAlert,
   Clock,
-  Eye,
   Megaphone,
+  Pause,
   Plus,
-  Reply,
   Send,
-  XCircle,
   type LucideIcon,
 } from 'lucide-react-native';
 import { useDeferredValue, useMemo, useState } from 'react';
@@ -23,20 +24,16 @@ import {
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
-import { showNotice } from '../components/AppToast';
-import { ConfirmDialog } from '../components/ConfirmDialog';
+import { ChannelLogo } from '../components/ChannelLogo';
 import { ErrorState } from '../components/ErrorState';
 import { CardGridSkeleton, ListSkeleton } from '../components/Skeleton';
 import {
   campaignUnreachedCount,
-  cancelCampaign,
-  deleteCampaign,
   fetchBroadcastAnalytics,
   fetchCampaigns,
   formatCampaignDate,
   getCampaignStatusLabel,
   getCampaignStatusTone,
-  sendCampaignNow,
   type Campaign,
   type CampaignStatus,
 } from '../api/broadcast';
@@ -55,47 +52,84 @@ const STATUS_FILTERS: Array<{ value: CampaignStatus | 'ALL'; label: string }> = 
   { value: 'FAILED', label: 'Failed' },
 ];
 
-function percent(value: number, total: number) {
-  return total > 0 ? Math.min(100, Math.round((value / total) * 100)) : 0;
+const METRIC_TONES: Array<{ label: string; key: keyof ReturnType<typeof buildMetrics>; colors: [string, string] }> = [
+  { label: 'Total sent', key: 'sent', colors: ['#1d4ed8', '#60a5fa'] },
+  { label: 'Delivered', key: 'delivered', colors: ['#047857', '#34d399'] },
+  { label: 'Read', key: 'read', colors: ['#4338ca', '#818cf8'] },
+  { label: 'Replied', key: 'replied', colors: ['#c2410c', '#fb923c'] },
+  { label: 'Failed', key: 'failed', colors: ['#b91c1c', '#f87171'] },
+  { label: 'Unreached', key: 'unreached', colors: ['#b45309', '#fbbf24'] },
+];
+
+function buildMetrics(analytics: { totalSent: number; totalDelivered: number; totalRead: number; totalReplied: number; totalFailed: number }) {
+  return {
+    sent: analytics.totalSent,
+    delivered: analytics.totalDelivered,
+    read: analytics.totalRead,
+    replied: analytics.totalReplied,
+    failed: analytics.totalFailed,
+    unreached: Math.max(0, analytics.totalSent - analytics.totalDelivered - analytics.totalFailed),
+  };
 }
 
-function AnalyticsCard({
-  label,
-  value,
-  icon: Icon,
-  tone,
-  share,
-}: {
-  label: string;
-  value: number;
-  icon: LucideIcon;
-  tone: string;
-  share?: number;
-}) {
+function campaignStatusIcon(status: CampaignStatus): LucideIcon {
+  switch (status) {
+    case 'SENT':
+      return CheckCircle2;
+    case 'SENDING':
+      return Send;
+    case 'FAILED':
+      return CircleAlert;
+    case 'CANCELLED':
+      return Pause;
+    default:
+      return Clock;
+  }
+}
+
+function CampaignRow({ campaign, onPress }: { campaign: Campaign; onPress: () => void }) {
   const { colors } = useTheme();
+  const tone = getCampaignStatusTone(campaign.status);
+  const StatusIcon = campaignStatusIcon(campaign.status);
+  const message = campaign.messages?.[0];
+  const contentLabel = message?.contentType === 'TEXT' ? 'Text message' : 'Template message';
+  const createdBy = campaign.createdBy?.name ?? campaign.createdBy?.email ?? 'Unknown';
+  const when = formatCampaignDate(campaign.scheduledAt ?? campaign.sentAt ?? campaign.createdAt);
+  const unreached = campaignUnreachedCount(campaign);
+
   return (
-    <View style={[styles.metricCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-      <View style={[styles.metricIcon, { backgroundColor: `${tone}18` }]}>
-        <Icon color={tone} size={16} />
+    <Pressable onPress={onPress} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+      <ChannelLogo type="WHATSAPP" box={48} glyph={24} radius={14} />
+      <View style={styles.copy}>
+        <View style={styles.nameLine}>
+          <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{campaign.name}</Text>
+          <View style={[styles.badge, { backgroundColor: tone.bg }]}>
+            <StatusIcon color={tone.text} size={12} />
+            <Text style={{ color: tone.text, fontSize: 11, fontWeight: '600' }}>{getCampaignStatusLabel(campaign.status)}</Text>
+          </View>
+        </View>
+        <Text style={[styles.detail, { color: colors.textSecondary }]} numberOfLines={1}>
+          {createdBy} · {when}
+        </Text>
+        <View style={styles.metaLine}>
+          <Text style={[styles.idText, { color: colors.textMuted }]} numberOfLines={1}>{contentLabel}</Text>
+          <Text style={[styles.msg24h, { color: colors.textSecondary }]}>
+            {campaign.totalDelivered.toLocaleString()} delivered · {unreached.toLocaleString()} unreached
+          </Text>
+        </View>
       </View>
-      <Text style={[styles.metricValue, { color: colors.text }]}>{value.toLocaleString()}</Text>
-      <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>{label}</Text>
-      {share != null ? (
-        <Text style={[styles.metricShare, { color: tone }]}>{share}%</Text>
-      ) : null}
-    </View>
+      <ChevronRight color={colors.textMuted} size={20} />
+    </Pressable>
   );
 }
 
 export function BroadcastSettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<SettingsStackParamList>>();
-  const queryClient = useQueryClient();
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search.trim());
   const [status, setStatus] = useState<CampaignStatus | 'ALL'>('ALL');
-  const [pendingDelete, setPendingDelete] = useState<Campaign | null>(null);
 
   const workspacesQuery = useQuery({
     queryKey: ['workspaces', 'mine'],
@@ -133,43 +167,7 @@ export function BroadcastSettingsScreen() {
     () => listQuery.data?.pages.flatMap((page) => page.items) ?? [],
     [listQuery.data],
   );
-  const analytics = analyticsQuery.data;
-  const unreached = analytics
-    ? Math.max(0, analytics.totalSent - analytics.totalDelivered - analytics.totalFailed)
-    : 0;
-
-  const invalidate = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['broadcast'] }),
-    ]);
-  };
-
-  const sendMutation = useMutation({
-    mutationFn: sendCampaignNow,
-    onSuccess: async () => {
-      await invalidate();
-      showNotice('Campaign sent');
-    },
-    onError: (error: Error) => showNotice('Could not send campaign', error.message),
-  });
-  const cancelMutation = useMutation({
-    mutationFn: cancelCampaign,
-    onSuccess: async () => {
-      await invalidate();
-      showNotice('Campaign cancelled');
-    },
-    onError: (error: Error) => showNotice('Could not cancel campaign', error.message),
-  });
-  const deleteMutation = useMutation({
-    mutationFn: deleteCampaign,
-    onSuccess: async () => {
-      await invalidate();
-      setPendingDelete(null);
-      showNotice('Campaign deleted');
-    },
-    onError: (error: Error) => showNotice('Could not delete campaign', error.message),
-  });
-
+  const metrics = analyticsQuery.data ? buildMetrics(analyticsQuery.data) : null;
   const refreshing = listQuery.isRefetching || analyticsQuery.isRefetching;
 
   if (workspacesQuery.isLoading) {
@@ -177,7 +175,7 @@ export function BroadcastSettingsScreen() {
       <View style={[styles.screen, { backgroundColor: colors.background }]}>
         <ScreenHeader title="Broadcast" subtitle="Campaigns and delivery insights" onBack={() => navigation.goBack()} />
         <CardGridSkeleton cards={3} />
-        <ListSkeleton rows={5} avatar={false} />
+        <ListSkeleton rows={5} />
       </View>
     );
   }
@@ -231,14 +229,28 @@ export function BroadcastSettingsScreen() {
           )}
           ListHeaderComponent={(
             <View style={styles.headerBlock}>
-              {analytics ? (
-                <View style={styles.metricsGrid}>
-                  <AnalyticsCard label="Total sent" value={analytics.totalSent} icon={Send} tone="#2563eb" />
-                  <AnalyticsCard label="Delivered" value={analytics.totalDelivered} icon={CheckCircle2} tone="#16a34a" share={percent(analytics.totalDelivered, analytics.totalSent)} />
-                  <AnalyticsCard label="Read" value={analytics.totalRead} icon={Eye} tone="#4f46e5" share={percent(analytics.totalRead, analytics.totalSent)} />
-                  <AnalyticsCard label="Replied" value={analytics.totalReplied} icon={Reply} tone="#d97706" share={percent(analytics.totalReplied, analytics.totalSent)} />
-                  <AnalyticsCard label="Failed" value={analytics.totalFailed} icon={XCircle} tone="#dc2626" share={percent(analytics.totalFailed, analytics.totalSent)} />
-                  <AnalyticsCard label="Unreached" value={unreached} icon={Clock} tone="#f59e0b" share={percent(unreached, analytics.totalSent)} />
+              {metrics ? (
+                <View style={styles.metricsWrap}>
+                  {[METRIC_TONES.slice(0, 3), METRIC_TONES.slice(3)].map((row, index) => (
+                    <View key={index} style={styles.metrics}>
+                      {row.map((metric) => (
+                        <LinearGradient
+                          key={metric.key}
+                          colors={metric.colors}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.metricCard}
+                        >
+                          <View style={[styles.orb, styles.orbA]} />
+                          <View style={[styles.orb, styles.orbB]} />
+                          <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                            {metrics[metric.key].toLocaleString()}
+                          </Text>
+                          <Text style={styles.metricLabel}>{metric.label}</Text>
+                        </LinearGradient>
+                      ))}
+                    </View>
+                  ))}
                 </View>
               ) : analyticsQuery.isLoading ? (
                 <CardGridSkeleton cards={3} />
@@ -248,9 +260,7 @@ export function BroadcastSettingsScreen() {
                 <AppSearchField
                   value={search}
                   onChangeText={setSearch}
-                  placeholder="Search campaigns"
-                  size="sm"
-                  tone="background"
+                  placeholder="Search campaigns..."
                 />
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
@@ -267,7 +277,7 @@ export function BroadcastSettingsScreen() {
           )}
           ListEmptyComponent={
             listQuery.isLoading ? (
-              <ListSkeleton rows={5} avatar={false} />
+              <ListSkeleton rows={5} />
             ) : (
               <EmptyState
                 icon={Megaphone}
@@ -288,82 +298,18 @@ export function BroadcastSettingsScreen() {
               />
             ) : null
           }
-          renderItem={({ item }) => {
-            const tone = getCampaignStatusTone(item.status);
-            const canSend = item.status === 'DRAFT' || item.status === 'SCHEDULED';
-            const canCancel = item.status === 'DRAFT' || item.status === 'SCHEDULED' || item.status === 'SENDING';
-            const busy = sendMutation.isPending || cancelMutation.isPending;
-            return (
-              <Pressable
-                style={[styles.campaignCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}
-                onPress={() => navigation.navigate('BroadcastCampaign', { campaignId: item.id })}
-              >
-                <View style={styles.campaignTop}>
-                  <Text style={[styles.campaignName, { color: colors.primary }]} numberOfLines={1}>{item.name}</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: tone.bg }]}>
-                    <Text style={[styles.statusText, { color: tone.text }]}>{getCampaignStatusLabel(item.status)}</Text>
-                  </View>
-                </View>
-                <Text style={[styles.campaignMeta, { color: colors.textSecondary }]} numberOfLines={1}>
-                  {item.createdBy?.name ?? item.createdBy?.email ?? 'Unknown'} · {formatCampaignDate(item.scheduledAt ?? item.sentAt ?? item.createdAt)}
-                </Text>
-                <View style={styles.progressRow}>
-                  <Text style={[styles.progressLabel, { color: colors.textMuted }]}>
-                    {item.totalDelivered.toLocaleString()} delivered · {campaignUnreachedCount(item).toLocaleString()} unreached
-                  </Text>
-                </View>
-                <View style={styles.campaignActions}>
-                  {canSend ? (
-                    <AppButton
-                      variant="secondary"
-                      icon={Send}
-                      label="Send now"
-                      disabled={busy}
-                      onPress={() => void sendMutation.mutateAsync(item.id)}
-                    />
-                  ) : null}
-                  {canCancel ? (
-                    <AppButton
-                      variant="ghost"
-                      label="Cancel"
-                      disabled={busy}
-                      onPress={() => void cancelMutation.mutateAsync(item.id)}
-                    />
-                  ) : null}
-                  <AppButton
-                    variant="ghost"
-                    label="Delete"
-                    disabled={item.status === 'SENDING' || busy}
-                    onPress={() => setPendingDelete(item)}
-                  />
-                </View>
-              </Pressable>
-            );
-          }}
+          renderItem={({ item }) => (
+            <CampaignRow
+              campaign={item}
+              onPress={() => navigation.navigate('BroadcastCampaign', { campaignId: item.id })}
+            />
+          )}
         />
       )}
 
       {listQuery.isFetching && !listQuery.isLoading && !listQuery.isFetchingNextPage ? (
         <ActivityIndicator color={colors.primary} style={styles.inlineLoader} />
       ) : null}
-
-      <ConfirmDialog
-        visible={Boolean(pendingDelete)}
-        title="Delete campaign?"
-        body={
-          pendingDelete
-            ? `${pendingDelete.name} and its analytics, audience, and campaign media will be permanently deleted. Messages already sent will remain in conversations.`
-            : ''
-        }
-        confirmLabel="Delete campaign"
-        destructive
-        loading={deleteMutation.isPending}
-        onClose={() => setPendingDelete(null)}
-        onConfirm={() => {
-          if (!pendingDelete || pendingDelete.status === 'SENDING') return;
-          void deleteMutation.mutateAsync(pendingDelete.id);
-        }}
-      />
     </View>
   );
 }
@@ -372,23 +318,40 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   addButton: { alignItems: 'center', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   headerBlock: { paddingBottom: 8, paddingTop: 12 },
-  metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16 },
-  metricCard: { borderRadius: 16, borderWidth: 1, padding: 12, width: '31.5%' },
-  metricIcon: { alignItems: 'center', borderRadius: 10, height: 28, justifyContent: 'center', width: 28 },
-  metricValue: { fontSize: 18, fontVariant: ['tabular-nums'], fontWeight: '800', marginTop: 8 },
-  metricLabel: { fontSize: 11, marginTop: 2 },
-  metricShare: { fontSize: 11, fontWeight: '700', marginTop: 4 },
-  searchRow: { paddingHorizontal: 16, paddingTop: 14 },
+  metricsWrap: { gap: 10, paddingHorizontal: 16 },
+  metrics: { flexDirection: 'row', gap: 10 },
+  metricCard: {
+    borderRadius: 14,
+    flex: 1,
+    gap: 4,
+    minWidth: 0,
+    overflow: 'hidden',
+    padding: 12,
+  },
+  metricValue: { color: '#fff', fontSize: 22, fontWeight: '800' },
+  metricLabel: { color: 'rgba(255,255,255,0.88)', fontSize: 11, fontWeight: '600', marginTop: 3 },
+  orb: { backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: 999, position: 'absolute' },
+  orbA: { height: 72, right: -20, top: -24, width: 72 },
+  orbB: { bottom: -22, height: 56, left: -16, width: 56 },
+  searchRow: { marginHorizontal: 16, marginTop: 16 },
   chipRow: { gap: 8, paddingHorizontal: 16, paddingVertical: 12 },
-  campaignCard: { borderRadius: 18, borderWidth: 1, marginHorizontal: 16, marginTop: 10, padding: 14 },
-  campaignTop: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  campaignName: { flex: 1, fontSize: 15, fontWeight: '800' },
-  statusBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
-  statusText: { fontSize: 11, fontWeight: '800' },
-  campaignMeta: { fontSize: 12, marginTop: 4 },
-  progressRow: { marginTop: 8 },
-  progressLabel: { fontSize: 12 },
-  campaignActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  card: {
+    alignItems: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginTop: 10,
+    padding: 14,
+  },
+  copy: { flex: 1, marginLeft: 12, minWidth: 0 },
+  nameLine: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  name: { flexShrink: 1, fontSize: 15, fontWeight: '700' },
+  badge: { alignItems: 'center', borderRadius: 10, flexDirection: 'row', gap: 3, paddingHorizontal: 8, paddingVertical: 3 },
+  detail: { fontSize: 13, marginTop: 3 },
+  metaLine: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'space-between', marginTop: 5 },
+  idText: { flex: 1, fontSize: 11 },
+  msg24h: { fontSize: 11, fontWeight: '600' },
   loadMore: { alignSelf: 'center', marginTop: 16 },
   inlineLoader: { position: 'absolute', right: 18, top: 12 },
 });
