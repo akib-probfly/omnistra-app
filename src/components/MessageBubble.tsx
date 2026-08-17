@@ -17,6 +17,7 @@ import {
   formatMessageTime,
   getMessageReferralPreview,
   getReplyPreviewPresentation,
+  ATTACHMENT_ONLY_PLACEHOLDERS,
 } from '../lib/inbox-utils';
 import { LinkPreviewCard } from './LinkPreviewCard';
 import { MessageReferralPreviewCard } from './MessageReferralPreviewCard';
@@ -59,18 +60,33 @@ export function MessageBubble(props: any) {
 function StandardMessageBubble({ message, outgoing, attachments, replyPreview, reactions, onImage, onVideo, onLongPress, onReplyPress, channelName }: any) {
   const { colors } = useTheme();
   const mediaType = (message.type ?? '').toUpperCase();
-  const imageAttachments = (attachments ?? []).filter((a: any) => a.mediaType === 'IMAGE' || a.mediaType === 'STICKER' || (a.mimeType ?? '').startsWith('image/'));
+  const templateDisplay = isTemplateLikeMessage(message) ? getTemplateMessageDisplay(message) : null;
+  const templateHeaderUrl = templateDisplay?.headerMediaUrl ?? null;
+  const isTemplateHeaderAttachment = (attachment: any) => {
+    if (!templateDisplay) return false;
+    const attachmentMediaType = (attachment.mediaType ?? '').toUpperCase();
+    if (!['IMAGE', 'VIDEO', 'DOCUMENT', 'STICKER'].includes(attachmentMediaType) && !(attachment.mimeType ?? '').startsWith('image/') && !(attachment.mimeType ?? '').startsWith('video/')) {
+      return false;
+    }
+    if (!templateHeaderUrl) return false;
+    const rawUrls = [attachment.previewUrl, attachment.thumbnailUrl, attachment.downloadUrl].filter(Boolean) as string[];
+    if (rawUrls.includes(templateHeaderUrl)) return true;
+    const urls = rawUrls.map((value) => resolveMediaUrl(process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.omnistra.ai/api/v1', value));
+    return urls.includes(templateHeaderUrl);
+  };
+  const imageAttachments = (attachments ?? []).filter((a: any) => (a.mediaType === 'IMAGE' || a.mediaType === 'STICKER' || (a.mimeType ?? '').startsWith('image/')) && !isTemplateHeaderAttachment(a));
   const voiceAttachments = (attachments ?? []).filter((a: any) => a.mediaType === 'VOICE' || a.mediaType === 'AUDIO');
-  const videoAttachments = (attachments ?? []).filter((a: any) => a.mediaType === 'VIDEO' || (a.mimeType ?? '').startsWith('video/'));
-  const documentAttachments = (attachments ?? []).filter((a: any) => !imageAttachments.includes(a) && !voiceAttachments.includes(a) && !videoAttachments.includes(a));
+  const videoAttachments = (attachments ?? []).filter((a: any) => (a.mediaType === 'VIDEO' || (a.mimeType ?? '').startsWith('video/')) && !isTemplateHeaderAttachment(a));
+  const documentAttachments = (attachments ?? []).filter((a: any) => !imageAttachments.includes(a) && !voiceAttachments.includes(a) && !videoAttachments.includes(a) && !isTemplateHeaderAttachment(a));
 
   const referralPreview = useMemo(
     () => getMessageReferralPreview(message, channelName),
     [message, channelName],
   );
-  const templateDisplay = isTemplateLikeMessage(message) ? getTemplateMessageDisplay(message) : null;
   const body = (message.text ?? '').trim();
-  const showBody = templateDisplay ? false : body.length > 0;
+  const showBody = templateDisplay
+    ? false
+    : body.length > 0 && !ATTACHMENT_ONLY_PLACEHOLDERS.has(body.toLowerCase());
   const statusMeta = outgoing ? getOutboundStatusMeta(message.deliveryStatus) : null;
   const edited = isMessageEdited(message);
   const failedReason = outgoing && statusMeta?.showFailed ? getMessageFailureReason(message) : null;
@@ -131,9 +147,9 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
           !outgoing && { backgroundColor: colors.surface, borderColor: colors.cardBorder },
         ]}>
         {message.campaignId ? (
-          <View style={styles.broadcastRow}>
-            <Megaphone color={outgoing ? '#cfe0ff' : colors.primary} size={12} />
-            <Text style={[styles.broadcastText, outgoing && styles.outgoingMuted, !outgoing && { color: colors.primary }]}>{message.campaignName || 'Broadcast'}</Text>
+          <View style={styles.broadcastBadge}>
+            <Megaphone color="#fff" size={11} />
+            <Text style={styles.broadcastBadgeText}>Broadcast</Text>
           </View>
         ) : null}
         {referralPreview ? (
@@ -199,7 +215,13 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
             ) : null}
             {templateDisplay.bodyText ? (
               <View style={styles.templateBodyWrap}>
-                <Text style={[styles.templateBodyText, { color: colors.textSecondary }]}>{templateDisplay.bodyText}</Text>
+                <Text selectable style={[styles.templateBodyText, { color: colors.text }]}>
+                  {parseMessageTextParts(templateDisplay.bodyText).map((part, index) => part.type === 'url' ? (
+                    <Text key={index} style={[styles.link, { color: colors.primary }]} onPress={() => openLink(part.href)}>{part.value}</Text>
+                  ) : (
+                    <Text key={index}>{part.value}</Text>
+                  ))}
+                </Text>
               </View>
             ) : null}
             {templateDisplay.footerText ? (
@@ -417,8 +439,8 @@ const styles = StyleSheet.create({
   outgoingLink: { color: '#eaf1ff' },
   readMore: { color: '#2563eb', fontSize: 12, fontWeight: '600' },
   readMoreRow: { alignItems: 'center', flexDirection: 'row', gap: 3, marginTop: 4 },
-  broadcastRow: { alignItems: 'center', flexDirection: 'row', gap: 4, marginBottom: 4 },
-  broadcastText: { color: '#2563eb', fontSize: 11, fontWeight: '700' },
+  broadcastBadge: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: '#315efb', borderRadius: 6, flexDirection: 'row', gap: 4, marginBottom: 6, paddingHorizontal: 6, paddingVertical: 3 },
+  broadcastBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
   referralWrap: { width: '100%' },
   referralWrapWithBody: { marginBottom: 10 },
   outgoingMuted: { color: '#dbeafe' },

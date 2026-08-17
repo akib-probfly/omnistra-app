@@ -24,7 +24,7 @@ import { PanelSkeleton } from './Skeleton';
 import { WhatsappTemplateSendModal, type TemplateSendPayload } from './WhatsappTemplateSendModal';
 import { useTheme } from '../theme/ThemeContext';
 
-type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT'; sizeBytes?: number | null };
+type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT'; sizeBytes?: number | null; durationMs?: number | null };
 export type ComposerSendPayload = { attachments?: SendAttachment[]; text?: string };
 type Props = {
   value: string; onChange: (value: string) => void; onSend: (payload?: ComposerSendPayload) => void; sending?: boolean;
@@ -301,6 +301,7 @@ export function ConversationComposer({
   }
   async function stopRecording(send: boolean) {
     if (sending) return;
+    const recordedDurationMs = recorderState.durationMillis > 0 ? recorderState.durationMillis : null;
     try {
       if (paused) recorder.record();
       await recorder.stop();
@@ -337,6 +338,7 @@ export function ConversationComposer({
       name: `voice-note-${Date.now()}.m4a`,
       mimeType: 'audio/mp4',
       type: 'VOICE',
+      durationMs: recordedDurationMs,
     };
     const sizeBytes = await resolveAttachmentSizeBytes(uri);
     const validationError = await getComposerAttachmentValidationError({

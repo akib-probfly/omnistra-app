@@ -1,90 +1,189 @@
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as SecureStore from 'expo-secure-store';
 import { Pause, Play, RotateCw } from 'lucide-react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { parseAudioDurationSeconds } from '../lib/audio-duration';
 import { useTheme } from '../theme/ThemeContext';
 
 const PLAYBACK_RATES = [1, 1.5, 2];
 const LOAD_TIMEOUT_MS = 8000;
+const DURATION_RESOLVE_DELAY_MS = 350;
 let currentPlayer: any = null;
+let cachedAccessToken: string | null | undefined;
+
+const durationByUrl = new Map<string, number>();
+const inflightDuration = new Map<string, Promise<number | null>>();
+
+function rememberDuration(url: string, seconds: number | null | undefined) {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) return;
+  const normalized = seconds > 3600 && seconds <= 3_600_000 ? seconds / 1000 : seconds;
+  if (normalized <= 0 || normalized > 3600) return;
+  durationByUrl.set(url, normalized);
+}
+
+function cachedDuration(url: string, durationMs?: number | null): number | null {
+  const remembered = durationByUrl.get(url);
+  if (remembered) return remembered;
+  return normalizeDurationMs(durationMs);
+}
 
 function useAuthToken(): string | null {
-  const [token, setToken] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(cachedAccessToken ?? null);
   useEffect(() => {
+    if (cachedAccessToken !== undefined) {
+      setToken(cachedAccessToken);
+      return;
+    }
     let active = true;
     SecureStore.getItemAsync('access-token')
-      .then((value) => { if (active) setToken(value); })
-      .catch(() => {});
-    return () => { active = false; };
+      .then((value) => {
+        cachedAccessToken = value;
+        if (active) setToken(value);
+      })
+      .catch(() => {
+        cachedAccessToken = null;
+      });
+    return () => {
+      active = false;
+    };
   }, []);
   return token;
 }
 
 const BAR_PATTERN = [0.32, 0.55, 0.85, 0.4, 1, 0.6, 0.75, 0.45, 0.9, 0.5, 0.7, 0.35, 0.62, 0.82, 0.48, 0.95, 0.55, 0.72, 0.4, 0.88, 0.58, 0.78, 0.5, 0.66, 0.92, 0.44, 0.6, 0.34];
 
-function formatClock(seconds: number | null): string {
-  if (seconds == null || !Number.isFinite(seconds)) return '0:00';
+function positiveSeconds(value: number | null | undefined): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return null;
+  return value;
+}
+
+function formatElapsed(seconds: number | null): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return '0:00';
   const total = Math.max(0, Math.floor(seconds));
   const minutes = Math.floor(total / 60);
   const secs = total % 60;
   return `${minutes}:${String(secs).padStart(2, '0')}`;
 }
 
-function PlayerShell({ url, token, outgoing, durationMs, autoRetries, onRetry }: { url: string; token: string | null; outgoing: boolean; durationMs: number | null; autoRetries: number; onRetry: () => void }) {
+function formatDuration(seconds: number | null): string {
+  const value = positiveSeconds(seconds);
+  if (value == null) return '0:00';
+  const total = Math.max(1, Math.round(value));
+  const minutes = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${minutes}:${String(secs).padStart(2, '0')}`;
+}
+
+function normalizeDurationMs(durationMs: number | null | undefined): number | null {
+  if (typeof durationMs !== 'number' || !Number.isFinite(durationMs) || durationMs <= 0) return null;
+  if (durationMs < 1000) return durationMs;
+  return durationMs / 1000;
+}
+
+async function resolveRemoteDuration(url: string, token: string | null): Promise<number | null> {
+  const existing = durationByUrl.get(url);
+  if (existing) return existing;
+  const pending = inflightDuration.get(url);
+  if (pending) return pending;
+
+  const work = (async () => {
+    const response = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) return null;
+    const seconds = parseAudioDurationSeconds(new Uint8Array(await response.arrayBuffer()));
+    rememberDuration(url, seconds);
+    return seconds;
+  })();
+
+  inflightDuration.set(url, work);
+  try {
+    return await work;
+  } finally {
+    inflightDuration.delete(url);
+  }
+}
+
+function PlayerShell({
+  url,
+  source,
+  outgoing,
+  durationMs,
+  parsedDurationSeconds,
+  autoRetries,
+  onRetry,
+}: {
+  url: string;
+  source: { uri: string; headers?: Record<string, string> } | null;
+  outgoing: boolean;
+  durationMs: number | null;
+  parsedDurationSeconds: number | null;
+  autoRetries: number;
+  onRetry: () => void;
+}) {
   const { colors } = useTheme();
-  const source = url && token ? { uri: url, headers: { Authorization: `Bearer ${token}` } } : null;
-  const player = useAudioPlayer(source);
+  const player = useAudioPlayer(source, { updateInterval: 250 });
   const status = useAudioPlayerStatus(player);
   const [rateIndex, setRateIndex] = useState(0);
   const [failed, setFailed] = useState(false);
-  const duration = status.duration > 0 ? status.duration : durationMs != null ? durationMs / 1000 : null;
-  const progress = status.duration > 0 ? Math.min(1, Math.max(0, status.currentTime / status.duration)) : 0;
+  const [observedDuration, setObservedDuration] = useState(() => cachedDuration(url, durationMs) ?? 0);
+  const fallbackDuration = parsedDurationSeconds ?? cachedDuration(url, durationMs);
+  const rawPlayerDuration = positiveSeconds(status.duration) ?? positiveSeconds((player as { duration?: number } | null)?.duration);
+  const playerDuration = rawPlayerDuration && rawPlayerDuration > 3600 && rawPlayerDuration <= 3_600_000
+    ? rawPlayerDuration / 1000
+    : rawPlayerDuration;
+  const duration = playerDuration ?? fallbackDuration ?? positiveSeconds(observedDuration);
+  const progress = duration && duration > 0 ? Math.min(1, Math.max(0, status.currentTime / duration)) : 0;
   const filledCount = Math.round(BAR_PATTERN.length * progress);
   const barWrap = useRef<View>(null);
-  const loaded = status.isLoaded || status.duration > 0;
 
   const playerRef = useRef(player);
   playerRef.current = player;
   const durationRef = useRef(duration ?? 0);
   durationRef.current = duration ?? 0;
+  const onRetryRef = useRef(onRetry);
+  onRetryRef.current = onRetry;
 
   useEffect(() => {
     setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
   }, []);
 
   useEffect(() => {
-    if (loaded) {
-      setFailed(false);
-      console.log('[voice] loaded', { url, duration: status.duration, isLoaded: status.isLoaded, state: status.playbackState });
-    }
-  }, [loaded, status.duration, status.isLoaded, status.playbackState]);
+    rememberDuration(url, playerDuration ?? fallbackDuration ?? observedDuration);
+  }, [url, playerDuration, fallbackDuration, observedDuration]);
 
   useEffect(() => {
-    if (!source || loaded) return;
-    const timer = setTimeout(async () => {
-      console.warn('[voice] load timeout', { url, state: status.playbackState, isLoaded: status.isLoaded, duration: status.duration });
-      try {
-        const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-        const buf = await res.arrayBuffer();
-        const magic = Array.from(new Uint8Array(buf.slice(0, 16))).map((b) => b.toString(16).padStart(2, '0')).join(' ');
-        console.warn('[voice] probe', { status: res.status, type: res.headers.get('content-type'), length: res.headers.get('content-length'), bytes: buf.byteLength, magic });
-      } catch (error) {
-        console.warn('[voice] probe failed', url, error);
-      }
+    const current = positiveSeconds(status.currentTime);
+    if (!current) return;
+    setObservedDuration((value) => (current > value ? current : value));
+  }, [status.currentTime]);
+
+  useEffect(() => {
+    if (!status.didJustFinish) return;
+    const finishedAt = positiveSeconds(status.currentTime);
+    if (finishedAt) setObservedDuration((value) => Math.max(value, finishedAt));
+  }, [status.didJustFinish, status.currentTime]);
+
+  useEffect(() => {
+    if (status.isLoaded || status.playing) setFailed(false);
+  }, [status.isLoaded, status.playing]);
+
+  useEffect(() => {
+    if (!source || status.isLoaded || fallbackDuration) return;
+    const timer = setTimeout(() => {
       if (autoRetries === 0) {
-        onRetry();
+        onRetryRef.current();
       } else {
         setFailed(true);
       }
     }, LOAD_TIMEOUT_MS);
     return () => clearTimeout(timer);
-  }, [source, loaded, status.playbackState, status.isLoaded, status.duration, autoRetries]);
+  }, [source, status.isLoaded, fallbackDuration, autoRetries]);
 
   useEffect(() => {
     const target = playerRef.current;
     if (!target) return;
-    // Ensure voice notes never loop; seek-to-0 on finish can restart playback on some devices.
     try { target.loop = false; } catch {}
   }, [player]);
 
@@ -92,7 +191,6 @@ function PlayerShell({ url, token, outgoing, durationMs, autoRetries, onRetry }:
     if (!status.didJustFinish) return;
     const target = playerRef.current;
     if (currentPlayer === target) currentPlayer = null;
-    // Stay paused at the end. Replay only when the user taps play again.
     try { target?.pause(); } catch {}
   }, [status.didJustFinish]);
 
@@ -123,7 +221,7 @@ function PlayerShell({ url, token, outgoing, durationMs, autoRetries, onRetry }:
 
   function togglePlay() {
     const target = playerRef.current;
-    if (!target) return;
+    if (!target || !source) return;
     if (status.playing) {
       target.pause();
       return;
@@ -158,10 +256,6 @@ function PlayerShell({ url, token, outgoing, durationMs, autoRetries, onRetry }:
   const barBg = outgoing ? 'rgba(255,255,255,0.28)' : 'rgba(50,100,246,0.18)';
   const fillBg = outgoing ? 'rgba(255,255,255,0.85)' : '#3264f6';
 
-  if (!source) {
-    return <View style={[styles.row, { justifyContent: 'center', paddingVertical: 14 }, !outgoing && { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><ActivityIndicator color={accent} size="small" /></View>;
-  }
-
   if (failed) {
     return (
       <View style={[styles.row, outgoing && styles.outgoingRow, !outgoing && { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
@@ -176,10 +270,6 @@ function PlayerShell({ url, token, outgoing, durationMs, autoRetries, onRetry }:
     );
   }
 
-  if (!loaded) {
-    return <View style={[styles.row, { justifyContent: 'center', paddingVertical: 14 }, !outgoing && { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><ActivityIndicator color={accent} size="small" /></View>;
-  }
-
   return (
     <View style={[styles.row, outgoing && styles.outgoingRow, !outgoing && { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
       <Pressable onPress={togglePlay} style={[styles.playButton, { backgroundColor: accent }]}>
@@ -192,7 +282,7 @@ function PlayerShell({ url, token, outgoing, durationMs, autoRetries, onRetry }:
           ))}
         </View>
         <View style={styles.metaRow}>
-          <Text style={[styles.time, { color: tint }]}>{formatClock(status.currentTime)} / {formatClock(duration)}</Text>
+          <Text style={[styles.time, { color: tint, fontVariant: ['tabular-nums'] }]}>{formatElapsed(status.currentTime)} / {formatDuration(duration)}</Text>
           <Pressable onPress={cycleRate} hitSlop={8}>
             <Text style={[styles.time, { color: tint, fontWeight: '700' }]}>{PLAYBACK_RATES[rateIndex]}x</Text>
           </Pressable>
@@ -202,15 +292,52 @@ function PlayerShell({ url, token, outgoing, durationMs, autoRetries, onRetry }:
   );
 }
 
-function VoiceInner({ url, outgoing, durationMs, retryTick, onRetry }: { url: string; outgoing: boolean; durationMs: number | null; retryTick: number; onRetry: () => void }) {
+export function VoiceNotePlayer({ url, outgoing = false, durationMs = null }: { url: string; outgoing?: boolean; durationMs?: number | null; audio?: boolean }) {
   const token = useAuthToken();
-  return <PlayerShell key={`${url}-${retryTick}`} url={url} token={token} outgoing={outgoing} durationMs={durationMs} autoRetries={retryTick} onRetry={onRetry} />;
-}
-
-export function VoiceNotePlayer({ url, outgoing = false, durationMs = null, audio = false }: { url: string; outgoing?: boolean; durationMs?: number | null; audio?: boolean }) {
   const [retryTick, setRetryTick] = useState(0);
+  const [parsedDuration, setParsedDuration] = useState(() => cachedDuration(url, durationMs));
+  const knownDuration = parsedDuration ?? cachedDuration(url, durationMs);
+
+  const source = useMemo(() => {
+    if (!url || !token) return null;
+    return { uri: url, headers: { Authorization: `Bearer ${token}` } };
+  }, [url, token]);
+
+  useEffect(() => {
+    rememberDuration(url, knownDuration);
+  }, [url, knownDuration]);
+
+  useEffect(() => {
+    if (!url || !token || knownDuration) return undefined;
+    let active = true;
+    const timer = setTimeout(() => {
+      resolveRemoteDuration(url, token)
+        .then((seconds) => {
+          if (!active || !seconds) return;
+          setParsedDuration(seconds);
+        })
+        .catch(() => {});
+    }, DURATION_RESOLVE_DELAY_MS);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [url, token, knownDuration, retryTick]);
+
   if (!url) return null;
-  return <VoiceInner key={url} url={url} outgoing={outgoing} durationMs={durationMs} retryTick={retryTick} onRetry={() => setRetryTick((t) => t + 1)} />;
+
+  return (
+    <PlayerShell
+      key={`${url}-${retryTick}`}
+      url={url}
+      source={source}
+      outgoing={outgoing}
+      durationMs={durationMs}
+      parsedDurationSeconds={knownDuration}
+      autoRetries={retryTick}
+      onRetry={() => setRetryTick((value) => value + 1)}
+    />
+  );
 }
 
 const styles = StyleSheet.create({

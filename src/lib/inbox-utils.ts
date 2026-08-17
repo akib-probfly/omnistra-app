@@ -12,6 +12,8 @@ export type MessageLike = {
   failureReason?: string | null;
   campaignId?: string | null;
   campaignName?: string | null;
+  templateName?: string | null;
+  templateComponentsJson?: unknown;
   replyToMessageId?: string | null;
   replyTo?: { sender?: { userName?: string | null; displayName?: string | null } | null; text?: string | null } | null;
   senderWorkspaceMemberId?: string | null;
@@ -129,35 +131,119 @@ export function buildReactionGroups(messages: MessageLike[]): Record<string, Rea
 export type TemplateMessageButton = { label: string; type: string; url?: string | null };
 export type TemplateMessageDisplay = { headerType?: string; headerText?: string; headerMediaUrl?: string | null; bodyText: string; footerText: string; buttons: TemplateMessageButton[]; category?: string | null; templateName?: string | null };
 
+function readTrimmedString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function readRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
 export function isTemplateLikeMessage(message: MessageLike): boolean {
-  return message.type === 'TEMPLATE' || Boolean(message.metadata?.templateSnapshot);
+  return (
+    message.type === 'TEMPLATE'
+    || Boolean(readRecord(message.metadata)?.templateSnapshot)
+    || Array.isArray(message.templateComponentsJson)
+  );
 }
 
 function extractTemplateButtons(buttonsJson: unknown): TemplateMessageButton[] {
   if (!Array.isArray(buttonsJson)) return [];
   const result: TemplateMessageButton[] = [];
   for (const group of buttonsJson) {
-    if (!group || !Array.isArray(group.buttons)) {
-      if (group && (group.text || group.label)) {
-        result.push({ label: group.text ?? group.label ?? '', type: group.type ?? null, url: group.url ?? null });
+    const record = readRecord(group);
+    if (!record || !Array.isArray(record.buttons)) {
+      if (record && (record.text || record.label)) {
+        result.push({
+          label: String(record.text ?? record.label ?? ''),
+          type: String(record.type ?? ''),
+          url: readTrimmedString(record.url),
+        });
       }
       continue;
     }
-    for (const button of group.buttons) {
-      if (!button) continue;
-      const label = button.text ?? button.label ?? button.payload;
+    for (const button of record.buttons) {
+      const buttonRecord = readRecord(button);
+      if (!buttonRecord) continue;
+      const label = readTrimmedString(buttonRecord.text) ?? readTrimmedString(buttonRecord.label) ?? readTrimmedString(buttonRecord.payload);
       if (label) {
-        result.push({ label, type: button.type ?? null, url: button.url ?? null });
+        result.push({
+          label,
+          type: readTrimmedString(buttonRecord.type) ?? '',
+          url: readTrimmedString(buttonRecord.url),
+        });
       }
     }
   }
   return result;
 }
 
+function extractHeaderMediaUrl(component: Record<string, unknown> | null): string | null {
+  if (!component) return null;
+  const params = Array.isArray(component.parameters) ? component.parameters : [];
+  for (const parameter of params) {
+    const record = readRecord(parameter);
+    if (!record) continue;
+    const parameterType = readTrimmedString(record.type)?.toLowerCase();
+    const mediaRecord =
+      readRecord(record.image)
+      ?? readRecord(record.video)
+      ?? readRecord(record.document)
+      ?? (parameterType === 'image' || parameterType === 'video' || parameterType === 'document' ? record : null);
+    if (!mediaRecord) continue;
+    const url =
+      readTrimmedString(mediaRecord.link)
+      ?? readTrimmedString(mediaRecord.url)
+      ?? readTrimmedString(mediaRecord.downloadUrl);
+    if (url) return url;
+  }
+  return null;
+}
+
+function extractComponentText(component: Record<string, unknown> | null): string {
+  if (!component) return '';
+  const direct = readTrimmedString(component.text);
+  if (direct) return direct;
+  const location = readRecord(component.location);
+  if (location) {
+    return [readTrimmedString(location.name), readTrimmedString(location.address)].filter(Boolean).join('\n');
+  }
+  const params = Array.isArray(component.parameters) ? component.parameters : [];
+  return params
+    .map((parameter) => {
+      const record = readRecord(parameter);
+      return readTrimmedString(record?.text) ?? readTrimmedString(record?.payload) ?? '';
+    })
+    .filter(Boolean)
+    .join(' ');
+}
+
+function templateComponentsSource(message: MessageLike): unknown[] {
+  const snapshot = readRecord(readRecord(message.metadata)?.templateSnapshot) ?? {};
+  if (Array.isArray(message.templateComponentsJson)) return message.templateComponentsJson;
+  if (Array.isArray(message.metadata?.templateComponents)) return message.metadata.templateComponents;
+  if (Array.isArray(snapshot.displayComponents)) return snapshot.displayComponents;
+  if (Array.isArray(snapshot.components)) return snapshot.components;
+  return [];
+}
+
+function attachmentHeaderMediaUrl(message: MessageLike): { headerType: string; url: string } | null {
+  const attachment = message.attachments?.find((item) => {
+    const mediaType = (item.mediaType ?? '').toUpperCase();
+    return mediaType === 'IMAGE' || mediaType === 'VIDEO' || mediaType === 'DOCUMENT';
+  });
+  if (!attachment) return null;
+  const url = attachment.previewUrl ?? attachment.downloadUrl ?? attachment.thumbnailUrl ?? null;
+  if (!url) return null;
+  return { headerType: (attachment.mediaType ?? '').toUpperCase(), url };
+}
+
 export function getTemplateMessageDisplay(message: MessageLike): TemplateMessageDisplay | null {
-  const snapshot = message.metadata?.templateSnapshot ?? {};
-  const componentsSource = message.metadata?.templateComponents ?? message.metadata?.templateSnapshot?.displayComponents ?? message.metadata?.templateSnapshot?.components ?? [];
-  const components = Array.isArray(componentsSource) ? componentsSource : [];
+  const snapshot = readRecord(readRecord(message.metadata)?.templateSnapshot) ?? {};
+  const components = templateComponentsSource(message);
   const buttons: TemplateMessageButton[] = [];
   let headerType = '';
   let headerText = '';
@@ -168,61 +254,88 @@ export function getTemplateMessageDisplay(message: MessageLike): TemplateMessage
   let buttonIndex = 0;
 
   for (const component of components) {
-    const type = (component?.type ?? '').toString().toLowerCase();
+    const record = readRecord(component);
+    if (!record) continue;
+    const type = readTrimmedString(record.type)?.toLowerCase();
     if (type === 'header') {
-      headerType = (component?.format ?? '').toString().toUpperCase();
-      const params = component?.parameters ?? [];
-      if (component?.location) {
-        headerText = `${component.location.name ?? ''} ${component.location.address ?? ''}`.trim();
-      } else {
-        headerText = params.filter((p: any) => typeof p?.text === 'string').map((p: any) => p.text).join(' ');
-      }
-      const mediaParam = params.find((p: any) => p?.image || p?.video || p?.document);
-      if (mediaParam) {
-        headerMediaUrl = mediaParam.image?.link ?? mediaParam.video?.link ?? mediaParam.document?.link ?? null;
-      }
+      headerType = (readTrimmedString(record.format) ?? headerType).toUpperCase();
+      headerText = extractComponentText(record);
+      headerMediaUrl = extractHeaderMediaUrl(record) ?? headerMediaUrl;
     } else if (type === 'body') {
-      const params = component?.parameters ?? [];
-      bodyText = params.filter((p: any) => typeof p?.text === 'string').map((p: any) => p.text).join('');
+      bodyText = extractComponentText(record);
     } else if (type === 'footer') {
-      const params = component?.parameters ?? [];
-      footerText = params.filter((p: any) => typeof p?.text === 'string').map((p: any) => p.text).join('');
+      footerText = extractComponentText(record);
     } else if (type === 'button') {
-      const buttonType = component?.sub_type ?? component?.buttonType ?? component?.button_type;
-      const params = Array.isArray(component?.parameters) ? component.parameters : [];
-      const labels = params.map((p: any) => p?.text ?? p?.label ?? p?.payload).filter(Boolean);
-      for (const label of labels) {
-        const snapBtn = snapshotButtons[buttonIndex] ?? null;
-        buttons.push({ label, type: buttonType ?? null, url: buttonType?.toString().toLowerCase() === 'url' ? (snapBtn?.url ?? null) : null });
-        buttonIndex += 1;
+      const buttonType = readTrimmedString(record.sub_type) ?? readTrimmedString(record.buttonType) ?? readTrimmedString(record.button_type);
+      const params = Array.isArray(record.parameters) ? record.parameters : [];
+      const labels = params
+        .map((parameter) => {
+          const parameterRecord = readRecord(parameter);
+          return readTrimmedString(parameterRecord?.text) ?? readTrimmedString(parameterRecord?.label) ?? readTrimmedString(parameterRecord?.payload);
+        })
+        .filter((label): label is string => Boolean(label));
+      const snapBtn = snapshotButtons[buttonIndex] ?? null;
+      if (labels.length > 0) {
+        for (const label of labels) {
+          buttons.push({
+            label,
+            type: buttonType ?? snapBtn?.type ?? '',
+            url: buttonType?.toLowerCase() === 'url' ? (snapBtn?.url ?? readTrimmedString(record.url) ?? null) : null,
+          });
+        }
+      } else if (snapBtn) {
+        buttons.push(snapBtn);
       }
+      buttonIndex += 1;
     } else if (type === 'buttons') {
-      const params = Array.isArray(component?.parameters) ? component.parameters : [];
-      params.forEach((p: any) => {
-        if (p?.type === 'button' && p?.button) {
-          buttons.push({ label: p.button.text ?? '', type: p.button.type ?? p.sub_type ?? 'QUICK_REPLY', url: p.button.url ?? null });
-        } else if (p?.text || p?.label) {
-          buttons.push({ label: p.text ?? p.label ?? '', type: p.sub_type ?? p.type ?? null, url: p.url ?? null });
+      const params = Array.isArray(record.parameters) ? record.parameters : [];
+      params.forEach((parameter) => {
+        const parameterRecord = readRecord(parameter);
+        const nested = readRecord(parameterRecord?.button);
+        if (nested) {
+          buttons.push({
+            label: readTrimmedString(nested.text) ?? '',
+            type: readTrimmedString(nested.type) ?? readTrimmedString(parameterRecord?.sub_type) ?? 'QUICK_REPLY',
+            url: readTrimmedString(nested.url),
+          });
+        } else if (parameterRecord?.text || parameterRecord?.label) {
+          buttons.push({
+            label: readTrimmedString(parameterRecord?.text) ?? readTrimmedString(parameterRecord?.label) ?? '',
+            type: readTrimmedString(parameterRecord?.sub_type) ?? readTrimmedString(parameterRecord?.type) ?? '',
+            url: readTrimmedString(parameterRecord?.url),
+          });
         }
       });
     }
   }
 
-  if (!bodyText && typeof snapshot.bodyText === 'string') bodyText = snapshot.bodyText;
-  if (!headerText && typeof snapshot.headerText === 'string') headerText = snapshot.headerText;
-  if (!footerText && typeof snapshot.footerText === 'string') footerText = snapshot.footerText;
-  if (!headerType && typeof snapshot.headerType === 'string') headerType = snapshot.headerType;
-  if (!headerMediaUrl && snapshot.headerMediaUrl) headerMediaUrl = snapshot.headerMediaUrl;
+  if (!bodyText) bodyText = readTrimmedString(snapshot.bodyText) ?? readTrimmedString(snapshot.displayText) ?? '';
+  if (!headerText) headerText = readTrimmedString(snapshot.headerText) ?? '';
+  if (!footerText) footerText = readTrimmedString(snapshot.footerText) ?? '';
+  if (!headerType) headerType = (readTrimmedString(snapshot.headerType) ?? '').toUpperCase();
+  if (!headerMediaUrl) headerMediaUrl = readTrimmedString(snapshot.headerMediaUrl);
+  if (!headerMediaUrl) {
+    const attachmentHeader = attachmentHeaderMediaUrl(message);
+    if (attachmentHeader) {
+      headerMediaUrl = attachmentHeader.url;
+      if (!headerType) headerType = attachmentHeader.headerType;
+    }
+  }
+  if (!bodyText) {
+    const messageText = readTrimmedString(message.text);
+    if (messageText && !ATTACHMENT_ONLY_PLACEHOLDERS.has(messageText.toLowerCase())) {
+      bodyText = messageText;
+    }
+  }
   if (!bodyText && !headerText && !footerText && !headerMediaUrl && buttons.length === 0) {
-    const fallback = extractTemplateButtons(snapshot.buttonsJson ?? snapshot.buttons ?? message.metadata?.templateSnapshot?.buttonsJson);
-    buttons.push(...fallback);
+    buttons.push(...extractTemplateButtons(snapshot.buttonsJson ?? snapshot.buttons));
   }
   if (buttons.length === 0 && snapshotButtons.length > 0) {
     buttons.push(...snapshotButtons);
   }
-  if (!bodyText && !headerText && !footerText && buttons.length === 0) return null;
-  const category = snapshot.category ?? message.metadata?.templateCategory ?? null;
-  const templateName = snapshot.templateName ?? message.metadata?.templateName ?? null;
+  if (!bodyText && !headerText && !footerText && !headerMediaUrl && buttons.length === 0) return null;
+  const category = readTrimmedString(snapshot.category) ?? readTrimmedString(snapshot.templateCategory) ?? readTrimmedString(message.metadata?.templateCategory) ?? null;
+  const templateName = readTrimmedString(snapshot.templateName) ?? readTrimmedString(snapshot.name) ?? readTrimmedString(message.templateName) ?? readTrimmedString(message.metadata?.templateName) ?? null;
   return { headerType, headerText, headerMediaUrl, bodyText, footerText, buttons, category, templateName };
 }
 
@@ -911,12 +1024,6 @@ export function getAssignmentEventPresentation(event: ConversationAssignmentEven
 function readMetadataRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object') return null;
   return value as Record<string, unknown>;
-}
-
-function readTrimmedString(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
 }
 
 const HTML_NAMED_ENTITIES: Record<string, string> = {

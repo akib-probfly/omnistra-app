@@ -42,8 +42,8 @@ import { useInboxAppearance } from '../hooks/useInboxAppearance';
 import { useTheme } from '../theme/ThemeContext';
 
 type Attachment = { id: string; messageId?: string | null; mediaType: string; mimeType: string; originalName: string | null; downloadUrl: string; previewUrl: string | null; thumbnailUrl: string | null; durationMs: number | null };
-type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBOUND'; senderType?: string | null; sender?: { userName?: string | null; userEmail?: string | null } | null; type: string; text: string | null; deliveryStatus?: string; failureReason?: string | null; campaignId?: string | null; campaignName?: string | null; replyToMessageId?: string | null; replyTo?: { id?: string; sender?: { userName?: string | null } | null; text?: string | null; type?: string; attachments?: Attachment[] } | null; sentAt?: string | null; createdAt?: string; metadata?: any; attachments?: Attachment[] };
-type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT' };
+type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBOUND'; senderType?: string | null; sender?: { userName?: string | null; userEmail?: string | null } | null; type: string; text: string | null; deliveryStatus?: string; failureReason?: string | null; campaignId?: string | null; campaignName?: string | null; templateName?: string | null; templateComponentsJson?: unknown; replyToMessageId?: string | null; replyTo?: { id?: string; sender?: { userName?: string | null } | null; text?: string | null; type?: string; attachments?: Attachment[] } | null; sentAt?: string | null; createdAt?: string; metadata?: any; attachments?: Attachment[] };
+type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT'; sizeBytes?: number | null; durationMs?: number | null };
 type MediaItem = { attachId: string; src: string; mediaType: string };
 type TimelineRow = { entry: ConversationTimelineEntry<Message>; showDivider: boolean };
 
@@ -339,7 +339,7 @@ export function ConversationScreen() {
           downloadUrl: selected.uri,
           previewUrl: selected.type === 'IMAGE' || selected.type === 'VIDEO' ? selected.uri : null,
           thumbnailUrl: selected.type === 'IMAGE' || selected.type === 'VIDEO' ? selected.uri : null,
-          durationMs: null,
+          durationMs: selected.durationMs ?? null,
         })),
       };
       pendingOptimisticRef.current.set(tempId, optimistic);
@@ -864,11 +864,11 @@ export function ConversationScreen() {
                 contentContainerStyle={styles.listContent}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="none"
-                initialNumToRender={10}
-                maxToRenderPerBatch={8}
+                initialNumToRender={14}
+                maxToRenderPerBatch={10}
                 updateCellsBatchingPeriod={50}
-                windowSize={7}
-                removeClippedSubviews={Platform.OS === 'android'}
+                windowSize={13}
+                removeClippedSubviews={false}
                 onScroll={onScroll}
                 scrollEventThrottle={16}
                 onEndReached={() => {
