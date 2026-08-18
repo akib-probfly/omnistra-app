@@ -40,23 +40,59 @@ export const ATTACHMENT_ONLY_PLACEHOLDERS = new Set(['[image]', '[video]', '[aud
 
 export type MessageTextPart = { type: 'text' | 'url'; value: string; href?: string };
 const URL_PATTERN = /(^|[^\w@])((?:https?:\/\/)?(?:www\.)?(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}(?::\d{2,5})?(?:\/[\w!#%&'()*+,./:;=?@~-]*)?)/gi;
+const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
+
+function tokenBounds(text: string, start: number, end: number) {
+  let tokenStart = start;
+  while (tokenStart > 0 && !/\s/.test(text[tokenStart - 1])) tokenStart -= 1;
+  const nextWhitespace = text.slice(end).search(/\s/);
+  const tokenEnd = nextWhitespace === -1 ? text.length : end + nextWhitespace;
+  return { tokenStart, tokenEnd, token: text.slice(tokenStart, tokenEnd) };
+}
 
 export function parseMessageTextParts(text: string): MessageTextPart[] {
-  const parts: MessageTextPart[] = [];
-  const regex = new RegExp(URL_PATTERN.source, 'gi');
-  let lastIndex = 0;
+  const markers: Array<{ start: number; end: number; part: MessageTextPart }> = [];
+
+  for (const match of text.matchAll(new RegExp(EMAIL_PATTERN.source, 'gi'))) {
+    const value = match[0];
+    const start = match.index ?? 0;
+    markers.push({
+      start,
+      end: start + value.length,
+      part: { type: 'url', value, href: `mailto:${value}` },
+    });
+  }
+
+  const urlRegex = new RegExp(URL_PATTERN.source, 'gi');
   let match: RegExpExecArray | null;
-  while ((match = regex.exec(text)) !== null) {
+  while ((match = urlRegex.exec(text)) !== null) {
     const leading = match[1] ?? '';
     const rawUrl = match[2];
-    if (!rawUrl) { lastIndex = regex.lastIndex; continue; }
+    if (!rawUrl) continue;
     const start = match.index + leading.length;
-    if (start > lastIndex) parts.push({ type: 'text', value: text.slice(lastIndex, start) });
-    if (leading) parts.push({ type: 'text', value: leading });
+    const end = start + rawUrl.length;
+    if (markers.some((marker) => start < marker.end && end > marker.start)) continue;
+
+    const { token } = tokenBounds(text, start, end);
+    // Dotted email local-parts (name.store@gmail.com) look like bare domains.
+    if (!/^https?:\/\//i.test(rawUrl) && token.includes('@')) continue;
+
     const hasScheme = /^https?:\/\//i.test(rawUrl);
-    const href = hasScheme ? rawUrl : `https://${rawUrl}`;
-    parts.push({ type: 'url', value: rawUrl, href });
-    lastIndex = regex.lastIndex;
+    markers.push({
+      start,
+      end,
+      part: { type: 'url', value: rawUrl, href: hasScheme ? rawUrl : `https://${rawUrl}` },
+    });
+  }
+
+  markers.sort((a, b) => a.start - b.start);
+  const parts: MessageTextPart[] = [];
+  let lastIndex = 0;
+  for (const marker of markers) {
+    if (marker.start < lastIndex) continue;
+    if (marker.start > lastIndex) parts.push({ type: 'text', value: text.slice(lastIndex, marker.start) });
+    parts.push(marker.part);
+    lastIndex = marker.end;
   }
   if (lastIndex < text.length) parts.push({ type: 'text', value: text.slice(lastIndex) });
   if (parts.length === 0) parts.push({ type: 'text', value: text });
