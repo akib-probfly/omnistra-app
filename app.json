@@ -35,12 +35,11 @@
       "softwareKeyboardLayoutMode": "resize",
       "backgroundColor": "#f4f7fb",
       "package": "com.osaas.mobile",
-      "versionCode": 2,
+      "versionCode": 3,
       "predictiveBackGestureEnabled": false,
       "adaptiveIcon": {
-        "backgroundColor": "#f4f7fb",
+        "backgroundColor": "#1d4ed8",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "permissions": [
