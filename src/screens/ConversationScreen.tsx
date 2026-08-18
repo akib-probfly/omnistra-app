@@ -107,7 +107,7 @@ const TimelineRowItem = memo(function TimelineRowItem({
 });
 const apiUrl = (value: string | null) => {
   if (!value) return null;
-  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.omnistra.ai/api/v1';
+  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.zurvis.io/api/v1';
   try {
     const parsed = new URL(value, `${base}/`);
     if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '0.0.0.0') {

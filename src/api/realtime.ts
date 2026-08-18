@@ -1,6 +1,6 @@
 import { io, type Socket } from 'socket.io-client';
 
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.omnistra.ai/api/v1').replace(/\/$/, '');
+const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.zurvis.io/api/v1').replace(/\/$/, '');
 const configuredSocketUrl = (process.env.EXPO_PUBLIC_SOCKET_URL ?? '').trim();
 const SOCKET_URL = (configuredSocketUrl || new URL(API_BASE_URL).origin).replace(/\/$/, '');
 

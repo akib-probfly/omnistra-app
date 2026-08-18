@@ -31,7 +31,7 @@ function shouldSendAuthHeader(url: string) {
       const apiHost = new URL(apiBase).hostname.toLowerCase();
       return host === apiHost || host.endsWith(`.${apiHost}`);
     }
-    return host.includes('omnistra') || host.includes('localhost') || host === '127.0.0.1';
+    return host.includes('zurvis') || host.includes('omnistra') || host.includes('localhost') || host === '127.0.0.1';
   } catch {
     return true;
   }

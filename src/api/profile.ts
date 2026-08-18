@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { apiFetch } from './client';
 
-const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.omnistra.ai/api/v1').replace(/\/$/, '');
+const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.zurvis.io/api/v1').replace(/\/$/, '');
 
 export type UserProfile = {
   id: string;

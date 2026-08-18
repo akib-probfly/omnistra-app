@@ -71,7 +71,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
     if (!templateHeaderUrl) return false;
     const rawUrls = [attachment.previewUrl, attachment.thumbnailUrl, attachment.downloadUrl].filter(Boolean) as string[];
     if (rawUrls.includes(templateHeaderUrl)) return true;
-    const urls = rawUrls.map((value) => resolveMediaUrl(process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.omnistra.ai/api/v1', value));
+    const urls = rawUrls.map((value) => resolveMediaUrl(process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.zurvis.io/api/v1', value));
     return urls.includes(templateHeaderUrl);
   };
   const imageAttachments = (attachments ?? []).filter((a: any) => (a.mediaType === 'IMAGE' || a.mediaType === 'STICKER' || (a.mimeType ?? '').startsWith('image/')) && !isTemplateHeaderAttachment(a));
@@ -358,24 +358,24 @@ function ReplyPreviewBody({ text, mediaType, outgoing, colors }: { text?: string
 }
 
 function previewUrl(attachment: any): string {
-  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.omnistra.ai/api/v1';
+  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.zurvis.io/api/v1';
   const value = attachment.previewUrl ?? attachment.thumbnailUrl ?? attachment.downloadUrl;
   return resolveMediaUrl(base, value);
 }
 
 function videoPosterUrl(attachment: any): string {
-  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.omnistra.ai/api/v1';
+  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.zurvis.io/api/v1';
   const value = attachment.previewUrl ?? attachment.thumbnailUrl;
   return resolveMediaUrl(base, value);
 }
 
 function audioUrl(attachment: any): string {
-  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.omnistra.ai/api/v1';
+  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.zurvis.io/api/v1';
   return resolveMediaUrl(base, attachment.downloadUrl ?? attachment.previewUrl ?? attachment.thumbnailUrl);
 }
 
 function videoUrl(attachment: any): string {
-  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.omnistra.ai/api/v1';
+  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.zurvis.io/api/v1';
   return resolveMediaUrl(base, attachment.downloadUrl ?? attachment.previewUrl ?? attachment.thumbnailUrl);
 }
 
