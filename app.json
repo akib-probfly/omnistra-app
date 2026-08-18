@@ -27,6 +27,7 @@
       "infoPlist": {
         "CFBundleDisplayName": "Zurvis",
         "CFBundleName": "Zurvis",
+        "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "Allow Zurvis to use your microphone for WhatsApp voice calls and voice notes.",
         "NSCameraUsageDescription": "Allow Zurvis to use your camera for WhatsApp calling if required by the device."
       }
