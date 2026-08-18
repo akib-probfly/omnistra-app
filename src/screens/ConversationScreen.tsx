@@ -928,6 +928,7 @@ export function ConversationScreen() {
         </View>
         {messages.isError ? <Text style={[styles.error, { color: colors.error }]}>{messages.error instanceof Error ? messages.error.message : 'Unable to load messages.'}</Text> : null}
         {(header.conversation || messages.data?.conversation) ? (
+        <View style={{ paddingBottom: insets.bottom }}>
         <ConversationComposer
           value={draft} onChange={setDraft} sending={send.isPending}
           attachments={attachments} onAttachments={setAttachments}
@@ -944,8 +945,11 @@ export function ConversationScreen() {
           canSendHumanAgentMessage={messengerAvailability.canSendHumanAgentMessage}
           messengerMessagingReady={messengerMessagingReady}
         />
+        </View>
         ) : (
-          <ComposerSkeleton />
+          <View style={{ paddingBottom: insets.bottom }}>
+            <ComposerSkeleton />
+          </View>
         )}
       </View>
     </KeyboardAvoidingView>

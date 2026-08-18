@@ -1,5 +1,5 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import type { NavigatorScreenParams } from '@react-navigation/native';
+import { getFocusedRouteNameFromRoute, type NavigatorScreenParams } from '@react-navigation/native';
 import { BarChart3, ContactRound, Inbox, Radio, Settings } from 'lucide-react-native';
 import { Pressable, type PressableProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -53,6 +53,14 @@ export function MainTabs() {
   const { colors } = useTheme();
   const bottomPad = Math.max(insets.bottom, 8) + 4;
 
+  const tabBarStyle = {
+    height: 54 + bottomPad,
+    paddingBottom: bottomPad,
+    paddingTop: 4,
+    backgroundColor: colors.surface,
+    borderTopColor: colors.cardBorder,
+  };
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -65,19 +73,23 @@ export function MainTabs() {
           marginVertical: 2,
           borderRadius: 12,
         },
-        tabBarStyle: {
-          height: 54 + bottomPad,
-          paddingBottom: bottomPad,
-          paddingTop: 4,
-          backgroundColor: colors.surface,
-          borderTopColor: colors.cardBorder,
-        },
+        tabBarStyle,
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
       }}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ tabBarIcon: ({ color, size }) => <BarChart3 color={color} size={size} /> }} />
       <Tab.Screen name="Channels" component={ChannelsStack} options={{ tabBarIcon: ({ color, size }) => <Radio color={color} size={size} /> }} />
-      <Tab.Screen name="Inbox" component={InboxStack} options={{ tabBarIcon: ({ color, size }) => <Inbox color={color} size={size} /> }} />
+      <Tab.Screen
+        name="Inbox"
+        component={InboxStack}
+        options={({ route }) => {
+          const focused = getFocusedRouteNameFromRoute(route) ?? 'InboxList';
+          return {
+            tabBarIcon: ({ color, size }) => <Inbox color={color} size={size} />,
+            tabBarStyle: focused === 'Conversation' ? { display: 'none' as const, height: 0 } : tabBarStyle,
+          };
+        }}
+      />
       <Tab.Screen name="Contacts" component={ContactsStack} options={{ tabBarIcon: ({ color, size }) => <ContactRound color={color} size={size} /> }} />
       <Tab.Screen name="Settings" component={SettingsStack} options={{ tabBarIcon: ({ color, size }) => <Settings color={color} size={size} /> }} />
     </Tab.Navigator>
