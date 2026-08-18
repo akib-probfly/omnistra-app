@@ -3,12 +3,10 @@ import { Ban, Check, ChevronDown, ChevronUp, Download, File, FileText, Film, Mus
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Toast from 'react-native-toast-message';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as SecureStore from 'expo-secure-store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiUrl } from '../api/client';
 import { attachConversationTag, banCrmContact, createConversationNote, createConversationTag, deleteConversationNote, detachConversationTag, fetchConversationAttachments, fetchConversationNotes, fetchConversationTags, fetchWorkspaceTags, unbanCrmContact, updateConversationNote, updateCrmContact, type ConversationAttachment, type ConversationTag } from '../api/conversationDetails';
-import { AuthenticatedImage } from './AuthenticatedImage';
+import { AuthenticatedImage, downloadMedia } from './AuthenticatedImage';
 import { BottomSheet, SheetScrollView } from './BottomSheet';
 import { ConfirmDialog } from './ConfirmDialog';
 import { ColorfulAvatar } from './ColorfulAvatar';
@@ -230,12 +228,8 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
     if (downloadingId) return;
     setDownloadingId(attachment.id);
     try {
-      const token = await SecureStore.getItemAsync('access-token');
-      const name = attachment.originalName ?? 'attachment';
-      const target = `${FileSystem.cacheDirectory}${name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-      const result = await FileSystem.downloadAsync(apiUrl(attachment.downloadUrl) ?? '', target, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-      if (result.status === 200) Toast.show({ type: 'success', text1: 'Downloaded', text2: `Saved to:\n${result.uri}` });
-      else Toast.show({ type: 'error', text1: 'Download failed', text2: `Status ${result.status}` });
+      const uri = await downloadMedia(apiUrl(attachment.downloadUrl) ?? '');
+      Toast.show({ type: 'success', text1: 'Downloaded', text2: `Saved to:\n${uri}` });
     } catch (error) {
       Toast.show({ type: 'error', text1: 'Download failed', text2: error instanceof Error ? error.message : 'Please try again.' });
     } finally {

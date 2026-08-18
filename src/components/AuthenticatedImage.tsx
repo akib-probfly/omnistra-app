@@ -2,6 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, View } from 'react-native';
+import { latestAccessToken } from '../api/client';
 import { useTheme } from '../theme/ThemeContext';
 
 const cache = new Map<string, string>();
@@ -25,16 +26,48 @@ function isPublicRemoteUrl(url: string) {
 function shouldSendAuthHeader(url: string) {
   if (isPublicRemoteUrl(url)) return false;
   try {
-    const host = new URL(url).hostname.toLowerCase();
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    if (host.includes('zurvis') || host.includes('omnistra') || host.includes('localhost') || host === '127.0.0.1') {
+      return true;
+    }
     const apiBase = process.env.EXPO_PUBLIC_API_BASE_URL;
     if (apiBase) {
       const apiHost = new URL(apiBase).hostname.toLowerCase();
       return host === apiHost || host.endsWith(`.${apiHost}`);
     }
-    return host.includes('zurvis') || host.includes('omnistra') || host.includes('localhost') || host === '127.0.0.1';
+    return /\/api\/v1\/files\//i.test(parsed.pathname);
   } catch {
     return true;
   }
+}
+
+function extensionFromContentType(contentType: string | null) {
+  const type = (contentType ?? '').split(';')[0].trim().toLowerCase();
+  if (type === 'image/jpeg' || type === 'image/jpg') return 'jpg';
+  if (type === 'image/png') return 'png';
+  if (type === 'image/webp') return 'webp';
+  if (type === 'image/gif') return 'gif';
+  if (type === 'image/heic' || type === 'image/heif') return 'heic';
+  if (type === 'image/bmp') return 'bmp';
+  if (type === 'video/mp4') return 'mp4';
+  if (type === 'video/webm') return 'webm';
+  if (type === 'video/quicktime') return 'mov';
+  if (type === 'audio/mpeg' || type === 'audio/mp3') return 'mp3';
+  if (type === 'audio/ogg' || type === 'audio/opus') return 'ogg';
+  if (type === 'audio/mp4' || type === 'audio/aac' || type === 'audio/x-m4a') return 'm4a';
+  if (type === 'audio/wav' || type === 'audio/x-wav' || type === 'audio/wave') return 'wav';
+  return null;
+}
+
+function uint8ToBase64(bytes: Uint8Array) {
+  let binary = '';
+  const chunkSize = 0x2000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
 }
 
 export async function downloadMedia(url: string): Promise<string> {
@@ -46,13 +79,29 @@ export async function downloadMedia(url: string): Promise<string> {
     cache.set(url, url);
     return url;
   }
-  const token = shouldSendAuthHeader(url) ? await SecureStore.getItemAsync('access-token') : null;
-  const extension = guessMediaExtension(url);
-  const target = `${FileSystem.cacheDirectory}media-${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
-  const result = await FileSystem.downloadAsync(url, target, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-  if (result.status !== 200) throw new Error(`Download failed with status ${result.status}`);
-  cache.set(url, result.uri);
-  return result.uri;
+  const token = shouldSendAuthHeader(url)
+    ? ((await SecureStore.getItemAsync('access-token')) ?? latestAccessToken)
+    : null;
+  const cacheDir = FileSystem.cacheDirectory;
+  if (!cacheDir) throw new Error('Media cache directory is unavailable');
+
+  // fetch follows cross-host redirects without forwarding Authorization.
+  // FileSystem.downloadAsync in release builds often keeps the Bearer header,
+  // so S3/R2 signed URLs return 403 and chat images render as blank tiles.
+  const response = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok) {
+    throw new Error(`Download failed with status ${response.status}`);
+  }
+  const extension = extensionFromContentType(response.headers.get('content-type')) ?? guessMediaExtension(url);
+  const target = `${cacheDir}media-${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  await FileSystem.writeAsStringAsync(target, uint8ToBase64(bytes), {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  cache.set(url, target);
+  return target;
 }
 
 function guessMediaExtension(url: string) {
@@ -65,8 +114,7 @@ function guessMediaExtension(url: string) {
         return ext === 'jpeg' ? 'jpg' : ext;
       }
     }
-    if (pathname.includes('/preview')) return 'jpg';
-    if (pathname.includes('/download')) return 'jpg';
+    if (pathname.includes('/preview') || pathname.includes('/thumbnail') || pathname.includes('/download')) return 'jpg';
   } catch {
     // fall through
   }

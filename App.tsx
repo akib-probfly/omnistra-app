@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 import { Linking } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import Toast from 'react-native-toast-message';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { AuthProvider, useAuth } from './src/auth/AuthContext';
@@ -132,6 +133,7 @@ function RootApp() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: ROOT_BG }}>
+      <KeyboardProvider>
       <SafeAreaProvider>
         {showSplash ? (
           <SplashScreen
@@ -157,6 +159,7 @@ function RootApp() {
           </NavigationContainer>
         )}
       </SafeAreaProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }

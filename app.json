@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Zurvis",
-    "slug": "Zurvis",
+    "slug": "osaas-mobile",
     "version": "1.0.0",
     "scheme": "osaas",
     "orientation": "portrait",
@@ -24,6 +24,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.osaas.mobile",
+      "buildNumber": "1",
       "infoPlist": {
         "CFBundleDisplayName": "Zurvis",
         "CFBundleName": "Zurvis",
@@ -36,7 +37,7 @@
       "softwareKeyboardLayoutMode": "resize",
       "backgroundColor": "#f4f7fb",
       "package": "com.osaas.mobile",
-      "versionCode": 3,
+      "versionCode": 4,
       "predictiveBackGestureEnabled": false,
       "adaptiveIcon": {
         "backgroundColor": "#1d4ed8",
