@@ -22,6 +22,7 @@ import type { CallConnectionState } from '../hooks/useWhatsappCallController';
 import { RTCView } from '../native/webrtc';
 import { ColorfulAvatar } from './ColorfulAvatar';
 import { useTheme } from '../theme/ThemeContext';
+import { useCallRingtone } from '../hooks/useCallRingtone';
 
 type Props = {
   conversation: ConversationCallConversation;
@@ -332,8 +333,7 @@ export function CallPanel({
     && activeCallSession.direction === 'INBOUND'
     && (activeCallSession.status === 'REQUESTED'
       || activeCallSession.status === 'PERMISSION_REQUESTED'
-      || activeCallSession.status === 'RINGING')
-    && !activeCallSession.claimedByUserId,
+      || activeCallSession.status === 'RINGING'),
   );
   const isTerminal = activeCallSession ? isCallSessionTerminal(activeCallSession.status) : false;
   const isOngoing = Boolean(activeCallSession) && !isTerminal && !isIncomingCall;
@@ -343,6 +343,7 @@ export function CallPanel({
   );
   const durationSeconds = useCallDurationSeconds(activeCallSession, isConnected);
   const durationLabel = useMemo(() => formatDuration(durationSeconds), [durationSeconds]);
+  const { play: playRingtone, stop: stopRingtone } = useCallRingtone();
 
   const statusLabel = activeCallSession
     ? getCallSessionStatusLabel(activeCallSession.status, activeCallSession.permissionStatus, activeCallSession.direction)
@@ -363,6 +364,17 @@ export function CallPanel({
       setIncomingExpanded(true);
     }
   }, [isIncomingCall, activeCallSession?.id]);
+
+  useEffect(() => {
+    if (!isIncomingCall) {
+      stopRingtone();
+      return;
+    }
+    void playRingtone('incoming');
+    return () => {
+      stopRingtone();
+    };
+  }, [isIncomingCall, playRingtone, stopRingtone]);
 
   useEffect(() => {
     if (!isOngoing) {

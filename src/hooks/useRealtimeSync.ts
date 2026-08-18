@@ -19,7 +19,6 @@ import {
   setPreviewOverride,
   setUnreadOverride,
 } from '../lib/unread-count-override';
-import { playNotificationSound } from '../lib/notificationSound';
 import { writeIncomingCallPrompt } from '../lib/incoming-call-prompt';
 import { syncIncomingCallPromptFromSession, upsertActiveCallSessionCache, type CallSessionUpdatedEvent } from '../lib/active-call-cache';
 import { useNotificationPreferences } from './useNotificationPreferences';
@@ -487,7 +486,6 @@ export function useRealtimeSync(accessToken: string | null) {
         if (preferences.incomingCallAlertsEnabled) {
           writeIncomingCallPrompt(payload as Parameters<typeof writeIncomingCallPrompt>[0]);
           void queryClient.invalidateQueries({ queryKey: ['active-calls'], refetchType: 'active' });
-          if (preferences.soundEnabled) void playNotificationSound(payload.type);
         }
         return;
       }
