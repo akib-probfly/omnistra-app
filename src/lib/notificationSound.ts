@@ -58,12 +58,13 @@ async function playTone(tone: ToneKey) {
 }
 
 export async function playNotificationSound(type: NotificationType | string = 'NEW_MESSAGE') {
-  await playTone(toneForNotificationType(type));
+  if (type !== 'INCOMING_CALL') return;
+  await playTone('call');
 }
 
-/** Soft confirmation when the agent successfully sends a message. */
+/** Outbound message tones are disabled; incoming calls use playNotificationSound. */
 export async function playMessageSentSound() {
-  await playTone('sent');
+  return;
 }
 
 /** @deprecated Prefer playNotificationSound(type) */

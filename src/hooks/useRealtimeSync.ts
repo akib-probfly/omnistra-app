@@ -482,6 +482,7 @@ export function useRealtimeSync(accessToken: string | null) {
       void queryClient.invalidateQueries({ queryKey: [...notificationQueryKeys.all, 'list'], refetchType: 'active' });
       void queryClient.invalidateQueries({ queryKey: notificationQueryKeys.unreadCount(), refetchType: 'active' });
 
+      // Only incoming calls play a ringtone. Inbound/outbound message tones stay silent.
       if (payload.type === 'INCOMING_CALL') {
         if (preferences.incomingCallAlertsEnabled) {
           writeIncomingCallPrompt(payload as Parameters<typeof writeIncomingCallPrompt>[0]);
@@ -489,11 +490,6 @@ export function useRealtimeSync(accessToken: string | null) {
           if (preferences.soundEnabled) void playNotificationSound(payload.type);
         }
         return;
-      }
-
-      // Match web: sound follows soundEnabled for all notification types.
-      if (preferences.soundEnabled) {
-        void playNotificationSound(payload.type);
       }
 
       if (!shouldSurfaceNotification(payload, preferences)) return;

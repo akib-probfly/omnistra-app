@@ -37,7 +37,6 @@ import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel,
 import { CallHistoryItem } from '../components/CallHistoryItem';
 import { useCallController } from '../providers/CallControllerProvider';
 import { isWhatsappCallSupported } from '../lib/whatsapp-calling';
-import { playMessageSentSound } from '../lib/notificationSound';
 import { useInboxAppearance } from '../hooks/useInboxAppearance';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -155,6 +154,7 @@ export function ConversationScreen() {
   const olderLoadLockOffsetRef = useRef<number | null>(null);
   const lastScrollOffsetRef = useRef(0);
   const latestMessageIdsRef = useRef<Set<string>>(new Set());
+  const pinToLatestRef = useRef(true);
 
   const pendingOptimisticRef = useRef<Map<string, Message>>(new Map());
   const awaitingDeliveryRef = useRef(false);
@@ -247,6 +247,7 @@ export function ConversationScreen() {
     isAtBottomRef.current = true;
     olderLoadLockOffsetRef.current = null;
     lastScrollOffsetRef.current = 0;
+    pinToLatestRef.current = true;
     setAtBottom(true);
   }, [route.params.conversationId]);
 
@@ -354,7 +355,12 @@ export function ConversationScreen() {
         if (!current || !Array.isArray(current.items)) return current;
         return { ...current, items: [...current.items, optimistic] };
       });
-      setTimeout(() => listRef.current?.scrollToOffset({ offset: 0, animated: true }), 100);
+      pinToLatestRef.current = true;
+      isAtBottomRef.current = true;
+      setAtBottom(true);
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToOffset({ offset: 0, animated: false });
+      });
       return {
         tempId,
         clientKey,
@@ -410,7 +416,6 @@ export function ConversationScreen() {
       });
       // Soft-refresh inbox list only — avoid wiping the thread cache (that caused the blink).
       void queryClient.invalidateQueries({ queryKey: ['conversations'], refetchType: 'active' });
-      void playMessageSentSound();
     },
     onError: (error, _vars, context) => {
       if (context?.tempId) pendingOptimisticRef.current.delete(context.tempId);
@@ -793,6 +798,7 @@ export function ConversationScreen() {
     lastScrollOffsetRef.current = offsetY;
     const nextAtBottom = Math.abs(offsetY) <= 96;
     isAtBottomRef.current = nextAtBottom;
+    pinToLatestRef.current = nextAtBottom;
     setAtBottom((current) => (current === nextAtBottom ? current : nextAtBottom));
     const lockedAt = olderLoadLockOffsetRef.current;
     if (lockedAt != null && Math.abs(offsetY - lockedAt) > 140) {
@@ -821,7 +827,7 @@ export function ConversationScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background, flex: 1 }]}>
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <Pressable onPress={() => navigation.navigate('Inbox', { screen: 'InboxList' })}><ArrowLeft color={colors.textSecondary} size={23} /></Pressable>
         <Pressable
@@ -894,7 +900,11 @@ export function ConversationScreen() {
                 updateCellsBatchingPeriod={50}
                 windowSize={13}
                 removeClippedSubviews={false}
-                maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
+                maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 140 }}
+                onContentSizeChange={() => {
+                  if (!pinToLatestRef.current) return;
+                  listRef.current?.scrollToOffset({ offset: 0, animated: false });
+                }}
                 onScroll={onScroll}
                 scrollEventThrottle={16}
                 onEndReached={() => {
