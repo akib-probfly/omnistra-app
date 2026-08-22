@@ -121,7 +121,10 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
 
   const settleOrDismiss = (translationY: number, velocityY: number) => {
     'worklet';
-    const shouldDismiss = translationY > 72 || translationY > sheetHeight.value * 0.12 || velocityY > 500;
+    const keyboardOpen = keyboardInset.value > 40;
+    const shouldDismiss = keyboardOpen
+      ? translationY > 180 || velocityY > 1200
+      : translationY > 88 || translationY > sheetHeight.value * 0.18 || velocityY > 700;
     if (shouldDismiss) {
       translateY.value = withTiming(sheetHeight.value + 60, { duration: 220 }, (finished) => {
         if (finished) runOnJS(onClose)();
@@ -133,7 +136,7 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
 
   const pan = Gesture.Pan()
     .simultaneousWithExternalGesture(nativeScrollGesture)
-    .activeOffsetY(10)
+    .activeOffsetY(16)
     .failOffsetX([-28, 28])
     .onUpdate((event) => {
       const draggingSheet = translateY.value > 0;

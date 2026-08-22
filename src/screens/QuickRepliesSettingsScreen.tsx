@@ -469,6 +469,7 @@ export function QuickRepliesSettingsScreen() {
 
             <SheetScrollView
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               style={styles.sheetScroll}
               contentContainerStyle={styles.sheetContent}
             >
@@ -701,10 +702,10 @@ const styles = StyleSheet.create({
   primaryButtonSpacing: { marginTop: 12 },
   disabled: { opacity: 0.55 },
   sheetOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },
-  sheetSurface: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 },
+  sheetSurface: { maxHeight: '100%', paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 },
   sheetHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   sheetTitle: { fontSize: 18, fontWeight: '800' },
-  sheetScroll: { maxHeight: 520 },
+  sheetScroll: { flexGrow: 1, flexShrink: 1 },
   sheetContent: { paddingBottom: 8 },
   label: { fontSize: 12, fontWeight: '700', marginBottom: 6, marginTop: 12 },
   labelInline: { fontSize: 12, fontWeight: '700' },
