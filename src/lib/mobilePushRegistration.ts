@@ -1,0 +1,229 @@
+import * as Application from "expo-application";
+import Constants, { ExecutionEnvironment } from "expo-constants";
+import * as Device from "expo-device";
+import * as Notifications from "expo-notifications";
+import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
+import {
+  registerMobilePushDevice,
+  revokeMobilePushDevice,
+  type MobilePushEnvironment,
+  type MobilePushProvider,
+} from "../api/notifications";
+
+const REGISTRATION_STORAGE_KEY = "mobile-push-device-registration";
+const DEFAULT_CHANNEL_ID = "default";
+const CALL_CHANNEL_ID = "calls";
+const NOTIFICATION_COLOR = "#1d4ed8";
+
+type StoredMobilePushRegistration = {
+  provider: MobilePushProvider;
+  token: string;
+};
+
+let registrationInFlight: Promise<boolean> | null = null;
+
+function isNativeMobilePlatform(): boolean {
+  return Platform.OS === "android" || Platform.OS === "ios";
+}
+
+function getProvider(): MobilePushProvider | null {
+  if (Platform.OS === "android") return "FCM";
+  if (Platform.OS === "ios") return "APNS";
+  return null;
+}
+
+async function getEnvironment(): Promise<MobilePushEnvironment> {
+  if (Platform.OS === "ios") {
+    try {
+      const environment =
+        await Application.getIosPushNotificationServiceEnvironmentAsync();
+      return environment === "development" ? "DEVELOPMENT" : "PRODUCTION";
+    } catch (error) {
+      console.warn("[mobile-push] APNs environment unavailable", error);
+    }
+  }
+
+  return __DEV__ ? "DEVELOPMENT" : "PRODUCTION";
+}
+
+function getAppVersion(): string | null {
+  return (
+    Application.nativeApplicationVersion ??
+    Constants.expoConfig?.version ??
+    null
+  );
+}
+
+function getBuildNumber(): string | null {
+  return Application.nativeBuildVersion ?? null;
+}
+
+async function getDeviceId(): Promise<string | null> {
+  try {
+    if (Platform.OS === "android") {
+      return Application.getAndroidId();
+    }
+
+    if (Platform.OS === "ios") {
+      return await Application.getIosIdForVendorAsync();
+    }
+  } catch (error) {
+    console.warn("[mobile-push] device id unavailable", error);
+  }
+
+  return null;
+}
+
+async function readStoredRegistration(): Promise<StoredMobilePushRegistration | null> {
+  try {
+    const value = await SecureStore.getItemAsync(REGISTRATION_STORAGE_KEY);
+    if (!value) return null;
+
+    const parsed = JSON.parse(value) as Partial<StoredMobilePushRegistration>;
+    if (
+      (parsed.provider !== "FCM" && parsed.provider !== "APNS") ||
+      typeof parsed.token !== "string" ||
+      parsed.token.length === 0
+    ) {
+      return null;
+    }
+
+    return { provider: parsed.provider, token: parsed.token };
+  } catch (error) {
+    console.warn("[mobile-push] stored registration read failed", error);
+    return null;
+  }
+}
+
+async function writeStoredRegistration(
+  registration: StoredMobilePushRegistration,
+): Promise<void> {
+  try {
+    await SecureStore.setItemAsync(
+      REGISTRATION_STORAGE_KEY,
+      JSON.stringify(registration),
+    );
+  } catch (error) {
+    console.warn("[mobile-push] stored registration write failed", error);
+  }
+}
+
+async function clearStoredRegistration(): Promise<void> {
+  try {
+    await SecureStore.deleteItemAsync(REGISTRATION_STORAGE_KEY);
+  } catch (error) {
+    console.warn("[mobile-push] stored registration cleanup failed", error);
+  }
+}
+
+async function configureAndroidChannels(): Promise<void> {
+  if (Platform.OS !== "android") return;
+
+  await Notifications.setNotificationChannelAsync(DEFAULT_CHANNEL_ID, {
+    name: "Messages",
+    importance: Notifications.AndroidImportance.HIGH,
+    sound: "message.wav",
+    vibrationPattern: [0, 250, 200, 250],
+    lightColor: NOTIFICATION_COLOR,
+  });
+  await Notifications.setNotificationChannelAsync(CALL_CHANNEL_ID, {
+    name: "Calls",
+    importance: Notifications.AndroidImportance.MAX,
+    sound: "call.wav",
+    vibrationPattern: [0, 500, 250, 500],
+    lightColor: NOTIFICATION_COLOR,
+  });
+}
+
+async function getNativeToken(): Promise<string | null> {
+  const token = await Notifications.getDevicePushTokenAsync();
+  return typeof token.data === "string" && token.data.length > 0
+    ? token.data
+    : null;
+}
+
+async function registerOnce(): Promise<boolean> {
+  if (!isNativeMobilePlatform() || !Device.isDevice) {
+    return false;
+  }
+
+  if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
+    return false;
+  }
+
+  const accessToken = await SecureStore.getItemAsync("access-token");
+  if (!accessToken) {
+    return false;
+  }
+
+  const permission = await Notifications.getPermissionsAsync();
+  if (permission.status !== "granted") {
+    return false;
+  }
+
+  const provider = getProvider();
+  if (!provider) return false;
+
+  await configureAndroidChannels();
+  const token = await getNativeToken();
+  if (!token) return false;
+
+  const previous = await readStoredRegistration();
+  await registerMobilePushDevice({
+    platform: Platform.OS === "android" ? "ANDROID" : "IOS",
+    provider,
+    token,
+    deviceId: await getDeviceId(),
+    appVersion: getAppVersion(),
+    buildNumber: getBuildNumber(),
+    environment: await getEnvironment(),
+  });
+
+  await writeStoredRegistration({ provider, token });
+
+  if (
+    previous &&
+    (previous.provider !== provider || previous.token !== token)
+  ) {
+    try {
+      await revokeMobilePushDevice(previous);
+    } catch (error) {
+      console.warn("[mobile-push] previous token revocation failed", error);
+    }
+  }
+
+  return true;
+}
+
+export function registerMobilePushDeviceIfPermitted(): Promise<boolean> {
+  if (!registrationInFlight) {
+    registrationInFlight = registerOnce()
+      .catch((error) => {
+        console.warn("[mobile-push] device registration failed", error);
+        return false;
+      })
+      .finally(() => {
+        registrationInFlight = null;
+      });
+  }
+
+  return registrationInFlight;
+}
+
+export async function revokeRegisteredMobilePushDevice(): Promise<void> {
+  if (registrationInFlight) {
+    await registrationInFlight;
+  }
+
+  const registration = await readStoredRegistration();
+  if (!registration) return;
+
+  try {
+    await revokeMobilePushDevice(registration);
+  } catch (error) {
+    console.warn("[mobile-push] device revocation failed", error);
+  } finally {
+    await clearStoredRegistration();
+  }
+}

@@ -1,19 +1,8 @@
 import { apiFetch } from './client';
 
-export type NotificationType =
-  | 'NEW_MESSAGE'
-  | 'CONVERSATION_ASSIGNED'
-  | 'CONVERSATION_UNASSIGNED'
-  | 'INCOMING_CALL'
-  | 'CONTACT_EXPORT_READY'
-  | 'CAMPAIGN_EXPORT_READY';
+export type NotificationType = 'NEW_MESSAGE' | 'CONVERSATION_ASSIGNED' | 'CONVERSATION_UNASSIGNED' | 'INCOMING_CALL' | 'CONTACT_EXPORT_READY' | 'CAMPAIGN_EXPORT_READY';
 
-export type NotificationEntityType =
-  | 'MESSAGE'
-  | 'CONVERSATION'
-  | 'CALL_SESSION'
-  | 'CONTACT_EXPORT'
-  | 'CAMPAIGN_EXPORT';
+export type NotificationEntityType = 'MESSAGE' | 'CONVERSATION' | 'CALL_SESSION' | 'CONTACT_EXPORT' | 'CAMPAIGN_EXPORT';
 
 export type NotificationMetadata = Record<string, unknown> | null;
 
@@ -75,6 +64,20 @@ export type NotificationPreferences = {
   dailySummaryDigestEnabled: boolean;
 };
 
+export type MobilePushPlatform = 'ANDROID' | 'IOS';
+export type MobilePushProvider = 'FCM' | 'APNS';
+export type MobilePushEnvironment = 'DEVELOPMENT' | 'STAGING' | 'PRODUCTION';
+
+export type RegisterMobilePushDeviceInput = {
+  platform: MobilePushPlatform;
+  provider: MobilePushProvider;
+  token: string;
+  deviceId?: string | null;
+  appVersion?: string | null;
+  buildNumber?: string | null;
+  environment: MobilePushEnvironment;
+};
+
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   soundEnabled: true,
   backgroundSoundEnabled: false,
@@ -88,8 +91,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
 
 export const notificationQueryKeys = {
   all: ['notifications'] as const,
-  list: (query: { unreadOnly?: boolean; page?: number; limit?: number }) =>
-    ['notifications', 'list', query] as const,
+  list: (query: { unreadOnly?: boolean; page?: number; limit?: number }) => ['notifications', 'list', query] as const,
   unreadCount: () => ['notifications', 'unread-count'] as const,
   preferences: (workspaceId: string) => ['notifications', 'preferences', workspaceId] as const,
 };
@@ -168,13 +170,11 @@ export function notificationFromRealtimeEvent(payload: NotificationCreatedRealti
 }
 
 export async function fetchNotifications(query: { unreadOnly?: boolean; page?: number; limit?: number } = {}) {
-  const response = await apiFetch<{ items?: RawNotificationRecord[]; meta: NotificationListResponse['meta'] }>(
-    `/notifications${buildNotificationQueryString(query)}`,
-    { method: 'GET' },
-  );
-  const items = (response.items ?? [])
-    .map((item) => toNotificationListItem(item))
-    .filter((item): item is NotificationListItem => Boolean(item));
+  const response = await apiFetch<{
+    items?: RawNotificationRecord[];
+    meta: NotificationListResponse['meta'];
+  }>(`/notifications${buildNotificationQueryString(query)}`, { method: 'GET' });
+  const items = (response.items ?? []).map((item) => toNotificationListItem(item)).filter((item): item is NotificationListItem => Boolean(item));
 
   return {
     items,
@@ -201,17 +201,26 @@ export async function deleteAllNotifications() {
 }
 
 export async function fetchNotificationPreferences(workspaceId: string) {
-  return apiFetch<NotificationPreferences>(
-    `/notifications/preferences?workspaceId=${encodeURIComponent(workspaceId)}`,
-  );
+  return apiFetch<NotificationPreferences>(`/notifications/preferences?workspaceId=${encodeURIComponent(workspaceId)}`);
 }
 
-export async function updateNotificationPreferences(
-  workspaceId: string,
-  preferences: NotificationPreferences,
-) {
+export async function updateNotificationPreferences(workspaceId: string, preferences: NotificationPreferences) {
   return apiFetch<NotificationPreferences>('/notifications/preferences', {
     method: 'POST',
     body: JSON.stringify({ workspaceId, ...preferences }),
+  });
+}
+
+export async function registerMobilePushDevice(input: RegisterMobilePushDeviceInput) {
+  return apiFetch<unknown>('/notifications/mobile-devices', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function revokeMobilePushDevice(input: { provider: MobilePushProvider; token: string }) {
+  return apiFetch<unknown>('/notifications/mobile-devices', {
+    method: 'DELETE',
+    body: JSON.stringify(input),
   });
 }

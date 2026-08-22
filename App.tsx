@@ -10,6 +10,7 @@ import Toast from 'react-native-toast-message';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { AuthProvider, useAuth } from './src/auth/AuthContext';
 import { useRealtimeSync } from './src/hooks/useRealtimeSync';
+import { useMobilePushRegistration } from './src/hooks/useMobilePushRegistration';
 import { CallControllerProvider } from './src/providers/CallControllerProvider';
 import { GlobalCallLayer } from './src/components/GlobalCallLayer';
 import { toastConfig } from './src/components/AppToast';
@@ -53,10 +54,7 @@ function parseBillingReturnUrl(url: string) {
                         tab: isSuccess ? 'current' : 'packages',
                         checkout: isSuccess ? 'success' : 'cancel',
                         planKey: parsed.searchParams.get('planKey') ?? undefined,
-                        reference:
-                          parsed.searchParams.get('reference')
-                          ?? parsed.searchParams.get('pp_reference')
-                          ?? undefined,
+                        reference: parsed.searchParams.get('reference') ?? parsed.searchParams.get('pp_reference') ?? undefined,
                       },
                     },
                   ],
@@ -103,6 +101,7 @@ const linking = {
 function RealtimeBridge() {
   const { session } = useAuth();
   useRealtimeSync(session?.accessToken ?? null);
+  useMobilePushRegistration();
   return null;
 }
 
@@ -114,13 +113,7 @@ function AuthenticatedOverlays() {
 
 function ThemedStatusBar() {
   const { isDark, colors } = useTheme();
-  return (
-    <StatusBar
-      style={isDark ? 'light' : 'dark'}
-      backgroundColor={colors.background}
-      translucent={false}
-    />
-  );
+  return <StatusBar style={isDark ? 'light' : 'dark'} backgroundColor={colors.background} translucent={false} />;
 }
 
 const ROOT_BG = '#f4f7fb';
@@ -134,31 +127,25 @@ function RootApp() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: ROOT_BG }}>
       <KeyboardProvider>
-      <SafeAreaProvider>
-        {showSplash ? (
-          <SplashScreen
-            iconSource={require('./assets/icon.png')}
-            wordmarkSource={require('./assets/logo-wordmark.png')}
-            tagline="OMNICHANNEL INBOX"
-            backgroundColor={ROOT_BG}
-            onFinish={finishSplash}
-          />
-        ) : (
-          <NavigationContainer
-            linking={linking as never}
-            theme={{
-              ...DefaultTheme,
-              colors: { ...DefaultTheme.colors, background: ROOT_BG },
-            }}
-          >
-            <ThemedStatusBar />
-            <RealtimeBridge />
-            <AppNavigator />
-            <AuthenticatedOverlays />
-            <Toast config={toastConfig} position="top" topOffset={56} visibilityTime={2600} />
-          </NavigationContainer>
-        )}
-      </SafeAreaProvider>
+        <SafeAreaProvider>
+          {showSplash ? (
+            <SplashScreen iconSource={require('./assets/icon.png')} wordmarkSource={require('./assets/logo-wordmark.png')} tagline="OMNICHANNEL INBOX" backgroundColor={ROOT_BG} onFinish={finishSplash} />
+          ) : (
+            <NavigationContainer
+              linking={linking as never}
+              theme={{
+                ...DefaultTheme,
+                colors: { ...DefaultTheme.colors, background: ROOT_BG },
+              }}
+            >
+              <ThemedStatusBar />
+              <RealtimeBridge />
+              <AppNavigator />
+              <AuthenticatedOverlays />
+              <Toast config={toastConfig} position="top" topOffset={56} visibilityTime={2600} />
+            </NavigationContainer>
+          )}
+        </SafeAreaProvider>
       </KeyboardProvider>
     </GestureHandlerRootView>
   );
