@@ -11,6 +11,7 @@ import { InboxAppearanceSettingsScreen } from '../screens/InboxAppearanceSetting
 import { BroadcastSettingsScreen } from '../screens/BroadcastSettingsScreen';
 import { BroadcastCampaignScreen } from '../screens/BroadcastCampaignScreen';
 import { BroadcastCreateScreen } from '../screens/BroadcastCreateScreen';
+import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
 import type { BillingInterval } from '../api/billing';
 
 export type SettingsStackParamList = {
@@ -35,6 +36,7 @@ export type SettingsStackParamList = {
     workspaceId: string;
     cycle: BillingInterval;
   };
+  PrivacyPolicy: undefined;
 };
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
@@ -54,6 +56,7 @@ export function SettingsStack() {
       <Stack.Screen name="BroadcastCreate" component={BroadcastCreateScreen} />
       <Stack.Screen name="Billing" component={BillingSettingsScreen} />
       <Stack.Screen name="BillingPlanDetails" component={BillingPlanDetailsScreen} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
     </Stack.Navigator>
   );
 }

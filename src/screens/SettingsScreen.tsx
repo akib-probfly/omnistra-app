@@ -217,6 +217,9 @@ export function SettingsScreen() {
       </ScrollView>
 
       <View style={[styles.signOutWrap, { paddingBottom: Math.max(insets.bottom, 16), backgroundColor: colors.background, borderTopColor: colors.cardBorder }]}>
+        <Pressable onPress={() => navigation.navigate('PrivacyPolicy')} style={styles.legalLink}>
+          <Text style={[styles.legalLinkText, { color: colors.primary }]}>Privacy Policy</Text>
+        </Pressable>
         <Pressable style={[styles.signOut, { backgroundColor: colors.surface, borderColor: isDark ? colors.surfaceSecondary : '#fecdd3' }]} onPress={handleSignOut}>
           <LogOut color={colors.error} size={20} />
           <Text style={[styles.signOutText, { color: colors.error }]}>Sign out</Text>
@@ -333,4 +336,6 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   signOutText: { color: '#dc2626', fontSize: 15, fontWeight: '700', marginLeft: 8 },
+  legalLink: { alignItems: 'center', marginBottom: 12, paddingVertical: 4 },
+  legalLinkText: { fontSize: 14, fontWeight: '700' },
 });

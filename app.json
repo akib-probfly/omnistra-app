@@ -37,7 +37,6 @@
       "softwareKeyboardLayoutMode": "resize",
       "backgroundColor": "#f4f7fb",
       "package": "com.zurvis.mobile",
-      "googleServicesFile": "./google-services.json",
       "versionCode": 5,
       "predictiveBackGestureEnabled": false,
       "adaptiveIcon": {
