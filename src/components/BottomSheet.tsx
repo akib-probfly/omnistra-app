@@ -157,9 +157,17 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
       settleOrDismiss(event.translationY, event.velocityY);
     });
 
-  const sheetAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value - keyboardInset.value }],
-  }));
+  const topGap = insets.top + 8;
+
+  const sheetAnimatedStyle = useAnimatedStyle(() => {
+    const kb = keyboardInset.value;
+    const available = Math.max(280, windowHeight - topGap - kb);
+    return {
+      maxHeight: available,
+      marginBottom: kb,
+      transform: [{ translateY: translateY.value }],
+    };
+  });
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={requestClose}>
@@ -187,7 +195,7 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
                 </GestureDetector>
               ) : null}
               <BottomSheetContext.Provider value={{ pan, nativeScrollGesture, contentOffsetY }}>
-                {children}
+                <View style={styles.body}>{children}</View>
               </BottomSheetContext.Provider>
             </Animated.View>
           </GestureDetector>
@@ -208,6 +216,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     overflow: 'hidden',
+    width: '100%',
   },
   handleHit: {
     alignItems: 'center',
@@ -219,5 +228,8 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     height: 4,
     width: 40,
+  },
+  body: {
+    flexShrink: 1,
   },
 });
