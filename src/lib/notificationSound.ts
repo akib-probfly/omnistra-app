@@ -5,7 +5,7 @@ const TONE_SOURCES = {
   message: require('../../assets/sounds/message.wav'),
   assignment: require('../../assets/sounds/assignment.wav'),
   unassignment: require('../../assets/sounds/unassignment.wav'),
-  call: require('../../assets/sounds/call.wav'),
+  call: require('../../assets/sounds/incoming.mp3'),
   export: require('../../assets/sounds/export.wav'),
   sent: require('../../assets/sounds/sent.wav'),
 } as const;

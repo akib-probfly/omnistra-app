@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 type RingtoneKind = 'incoming' | 'outgoing';
 
-const INCOMING_SOURCE = require('../../assets/sounds/call.wav');
+const INCOMING_SOURCE = require('../../assets/sounds/incoming.mp3');
 
 export function useCallRingtone() {
   const playerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
