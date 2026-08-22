@@ -55,8 +55,8 @@ const DELIVERY_ROWS: Array<{
     icon: PhoneIncoming,
   },
   {
-    key: 'browserNotificationsEnabled',
-    title: 'Push notifications',
+    key: 'mobilePushNotificationsEnabled',
+    title: 'Mobile push notifications',
     description: 'Deliver device alerts when Omnistra is in the background.',
     icon: Smartphone,
     push: true,

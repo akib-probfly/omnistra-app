@@ -329,6 +329,7 @@ export function useRealtimeSync(accessToken: string | null) {
         soundEnabled: notificationPreferences.soundEnabled,
         backgroundSoundEnabled: notificationPreferences.backgroundSoundEnabled,
         browserNotificationsEnabled: notificationPreferences.browserNotificationsEnabled,
+        mobilePushNotificationsEnabled: notificationPreferences.mobilePushNotificationsEnabled,
         newConversationAlertsEnabled: notificationPreferences.newConversationAlertsEnabled,
         incomingCallAlertsEnabled: notificationPreferences.incomingCallAlertsEnabled,
         mentionsAndAssignmentsOnly: notificationPreferences.mentionsAndAssignmentsOnly,
