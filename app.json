@@ -37,6 +37,7 @@
       "softwareKeyboardLayoutMode": "resize",
       "backgroundColor": "#f4f7fb",
       "package": "com.osaas.mobile",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 5,
       "predictiveBackGestureEnabled": false,
       "adaptiveIcon": {
@@ -59,6 +60,19 @@
     },
     "plugins": [
       "expo-dev-client",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#1d4ed8",
+          "defaultChannel": "default",
+          "sounds": [
+            "./assets/sounds/message.wav",
+            "./assets/sounds/call.wav"
+          ],
+          "enableBackgroundRemoteNotifications": true
+        }
+      ],
       [
         "expo-splash-screen",
         {
