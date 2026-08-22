@@ -23,7 +23,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.osaas.mobile",
+      "bundleIdentifier": "com.zurvis.mobile",
       "buildNumber": "1",
       "infoPlist": {
         "CFBundleDisplayName": "Zurvis",
@@ -36,7 +36,7 @@
     "android": {
       "softwareKeyboardLayoutMode": "resize",
       "backgroundColor": "#f4f7fb",
-      "package": "com.osaas.mobile",
+      "package": "com.zurvis.mobile",
       "googleServicesFile": "./google-services.json",
       "versionCode": 5,
       "predictiveBackGestureEnabled": false,
