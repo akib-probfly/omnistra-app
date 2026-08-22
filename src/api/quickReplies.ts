@@ -1,4 +1,4 @@
-import { apiFetch, uploadFile } from './client';
+import { apiFetch, apiUrl, uploadFile } from './client';
 
 export type QuickReplyAttachment = {
   id: string;
@@ -10,7 +10,20 @@ export type QuickReplyAttachment = {
   status?: string;
   downloadUrl?: string;
   previewUrl?: string | null;
+  thumbnailUrl?: string | null;
+  localUri?: string;
 };
+
+export type QuickReplyChannelScope =
+  | 'ALL'
+  | 'WHATSAPP'
+  | 'INSTAGRAM'
+  | 'MESSENGER'
+  | 'EMAIL'
+  | 'WEBCHAT'
+  | 'SMS'
+  | 'TELEGRAM'
+  | 'TIKTOK';
 
 export type QuickReplySnippet = {
   id: string;
@@ -19,7 +32,8 @@ export type QuickReplySnippet = {
   shortcut?: string;
   body: string;
   category?: string | null;
-  channelScope?: string;
+  channelScope?: QuickReplyChannelScope | string;
+  channelAccountIds?: string[];
   isActive: boolean;
   usageCount?: number;
   lastUsedAt?: string | null;
@@ -49,7 +63,38 @@ function normalizeSnippet(snippet: QuickReplySnippet): QuickReplySnippet {
   return {
     ...snippet,
     attachments: snippet.attachments ?? [],
+    channelAccountIds: snippet.channelAccountIds ?? [],
+    channelScope: snippet.channelScope ?? 'ALL',
   };
+}
+
+export function channelScopeFromAccountTypes(types: Array<string | null | undefined>): QuickReplyChannelScope {
+  const unique = [...new Set(types.map((type) => (type ?? '').toUpperCase()).filter(Boolean))];
+  if (unique.length === 1 && unique[0] !== 'ALL') {
+    return unique[0] as QuickReplyChannelScope;
+  }
+  return 'ALL';
+}
+
+export function formatQuickReplyChannelScope(scope?: string | null) {
+  if (!scope || scope === 'ALL') return 'All channels';
+  return scope.charAt(0) + scope.slice(1).toLowerCase();
+}
+
+export function isQuickReplyImageAttachment(attachment: QuickReplyAttachment) {
+  const media = (attachment.mediaType ?? '').toUpperCase();
+  const mime = (attachment.mimeType ?? '').toLowerCase();
+  return media === 'IMAGE' || media === 'STICKER' || mime.startsWith('image/');
+}
+
+export function quickReplyAttachmentPreviewUrl(attachment: QuickReplyAttachment): string {
+  if (attachment.localUri) return attachment.localUri;
+  const resolved = apiUrl(attachment.previewUrl ?? attachment.thumbnailUrl ?? attachment.downloadUrl ?? null);
+  if (resolved) return resolved;
+  if (attachment.id && isQuickReplyImageAttachment(attachment)) {
+    return apiUrl(`files/${attachment.id}/download`) ?? '';
+  }
+  return '';
 }
 
 export function getUnsupportedQuickReplyVariables(text: string) {
@@ -93,6 +138,8 @@ export async function createQuickReply(input: {
   body: string;
   isActive?: boolean;
   attachmentIds?: string[];
+  channelScope?: QuickReplyChannelScope;
+  channelAccountIds?: string[];
 }) {
   return apiFetch<QuickReplySnippet>('/quick-replies', {
     method: 'POST',
@@ -102,6 +149,7 @@ export async function createQuickReply(input: {
       body: input.body,
       isActive: input.isActive ?? true,
       attachmentIds: input.attachmentIds,
+      channelScope: input.channelScope ?? 'ALL',
     }),
   }).then(normalizeSnippet);
 }
@@ -113,6 +161,8 @@ export async function updateQuickReply(input: {
   body: string;
   isActive?: boolean;
   attachmentIds?: string[];
+  channelScope?: QuickReplyChannelScope;
+  channelAccountIds?: string[];
 }) {
   return apiFetch<QuickReplySnippet>(`/quick-replies/${input.quickReplyId}`, {
     method: 'PATCH',
@@ -122,8 +172,40 @@ export async function updateQuickReply(input: {
       body: input.body,
       isActive: input.isActive ?? true,
       attachmentIds: input.attachmentIds,
+      channelScope: input.channelScope ?? 'ALL',
     }),
   }).then(normalizeSnippet);
+}
+
+export async function fetchQuickReplyPicker(query: {
+  workspaceId?: string;
+  conversationId?: string;
+  channelType?: string;
+  search?: string;
+  limit?: number;
+}) {
+  const response = await apiFetch<{
+    recent?: QuickReplySnippet[];
+    mostUsed?: QuickReplySnippet[];
+    matching?: QuickReplySnippet[];
+  }>(`/quick-replies/picker${buildQuery({
+    workspaceId: query.workspaceId,
+    conversationId: query.conversationId,
+    channelType: query.channelType,
+    search: query.search,
+    limit: query.limit ?? 20,
+  })}`);
+
+  const seen = new Set<string>();
+  const items: QuickReplySnippet[] = [];
+  for (const group of [response.matching, response.recent, response.mostUsed]) {
+    for (const snippet of group ?? []) {
+      if (seen.has(snippet.id)) continue;
+      seen.add(snippet.id);
+      items.push(normalizeSnippet(snippet));
+    }
+  }
+  return { items };
 }
 
 export async function deleteQuickReply(quickReplyId: string, workspaceId: string) {

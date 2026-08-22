@@ -293,7 +293,13 @@ export function ConversationScreen() {
       const workspaceId = route.params.workspaceId ?? allMessages.find((message) => message.workspaceId)?.workspaceId;
       if (!workspaceId && selectedAttachments.length) throw new Error('Workspace information is unavailable. Please reload the conversation.');
       const attachmentIds: string[] = [];
+      let quickReplySnippetId: string | undefined;
       for (const selected of selectedAttachments) {
+        if (selected.fileId) {
+          attachmentIds.push(selected.fileId);
+          if (selected.quickReplySnippetId) quickReplySnippetId = selected.quickReplySnippetId;
+          continue;
+        }
         const uploaded = await uploadFile('/files/upload', selected.uri, selected.name, selected.mimeType, workspaceId ? { workspaceId } : {});
         attachmentIds.push(uploaded.id);
       }
@@ -306,6 +312,7 @@ export function ConversationScreen() {
           type,
           text,
           attachmentIds,
+          quickReplySnippetId,
           replyToMessageId: replyTo?.id,
           ...(channelTypeForSend === 'MESSENGER' ? { messengerMessagingMode } : {}),
         }),
@@ -934,7 +941,7 @@ export function ConversationScreen() {
           value={draft} onChange={setDraft} sending={send.isPending}
           attachments={attachments} onAttachments={setAttachments}
           workspaceId={route.params.workspaceId ?? header.conversation?.workspaceId}
-          channelId={channelId} channelType={channelType} contactName={title}
+          channelId={channelId} channelType={channelType} conversationId={route.params.conversationId} contactName={title}
           onSendTemplate={(params) => sendTemplateMutation(route.params.conversationId, params, queryClient, setDraft)}
           replyPreview={replyTo ? { name: replyTo.direction === 'INBOUND' ? title : 'You', text: getReplyPreviewBody(replyTo), mediaType: replyTo.attachments?.[0]?.mediaType ?? replyTo.type } : null}
           onCancelReply={() => setReplyTo(null)}

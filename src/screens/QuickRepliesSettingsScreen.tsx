@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import {
+  Check,
+  ChevronDown,
   MessageSquareText,
   Paperclip,
   PencilLine,
@@ -31,37 +33,64 @@ import {
   deleteQuickReply,
   deleteWorkspaceFile,
   fetchQuickRepliesList,
+  formatQuickReplyChannelScope,
+  channelScopeFromAccountTypes,
   getUnsupportedQuickReplyVariables,
+  isQuickReplyImageAttachment,
+  quickReplyAttachmentPreviewUrl,
   renderQuickReplyPreview,
   updateQuickReply,
   uploadQuickReplyAttachment,
   type QuickReplyAttachment,
   type QuickReplySnippet,
 } from '../api/quickReplies';
+import { fetchChannels, type ChannelType } from '../api/channels';
 import { fetchMyWorkspaces } from '../api/workspaces';
 import { ErrorState } from '../components/ErrorState';
-import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
+import { BottomSheet, SheetFlatList, SheetScrollView } from '../components/BottomSheet';
 import { FormSkeleton, ListSkeleton } from '../components/Skeleton';
+import { AuthenticatedImage } from '../components/AuthenticatedImage';
 
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 const MAX_ATTACHMENTS = 100;
+
+type ChannelAccountOption = {
+  id: string;
+  label: string;
+  description: string;
+  type: ChannelType;
+};
 
 type FormState = {
   title: string;
   body: string;
   attachments: QuickReplyAttachment[];
+  channelAccountIds: string[];
 };
 
 function emptyForm(): FormState {
-  return { title: '', body: '', attachments: [] };
+  return { title: '', body: '', attachments: [], channelAccountIds: [] };
 }
 
-function toForm(snippet: QuickReplySnippet | null): FormState {
+function selectedAccountIds(snippet: QuickReplySnippet, accounts: ChannelAccountOption[]) {
+  const savedIds = (snippet.channelAccountIds ?? []).filter(Boolean);
+  if (savedIds.length > 0) {
+    if (accounts.length === 0) return savedIds;
+    return savedIds.filter((id) => accounts.some((account) => account.id === id));
+  }
+
+  const scope = (snippet.channelScope ?? 'ALL').toUpperCase();
+  if (!scope || scope === 'ALL') return [];
+  return accounts.filter((account) => account.type === scope).map((account) => account.id);
+}
+
+function toForm(snippet: QuickReplySnippet | null, accounts: ChannelAccountOption[]): FormState {
   if (!snippet) return emptyForm();
   return {
     title: snippet.title ?? '',
     body: snippet.body ?? '',
     attachments: snippet.attachments ?? [],
+    channelAccountIds: selectedAccountIds(snippet, accounts),
   };
 }
 
@@ -78,6 +107,8 @@ export function QuickRepliesSettingsScreen() {
   const [uploading, setUploading] = useState(false);
   const [newAttachmentIds, setNewAttachmentIds] = useState<string[]>([]);
   const [pendingDelete, setPendingDelete] = useState<QuickReplySnippet | null>(null);
+  const [channelSearch, setChannelSearch] = useState('');
+  const [channelPickerOpen, setChannelPickerOpen] = useState(false);
 
   const workspacesQuery = useQuery({
     queryKey: ['workspaces', 'mine'],
@@ -85,6 +116,37 @@ export function QuickRepliesSettingsScreen() {
     staleTime: 30_000,
   });
   const workspaceId = workspacesQuery.data?.items?.[0]?.id;
+
+  const channelsQuery = useQuery({
+    queryKey: ['channels'],
+    queryFn: fetchChannels,
+    staleTime: 60_000,
+  });
+
+  const channelAccountOptions = useMemo<ChannelAccountOption[]>(
+    () => (channelsQuery.data?.items ?? []).flatMap((channel) =>
+      (channel.accounts ?? []).map((account) => ({
+        id: account.id,
+        label: account.displayName || account.pageName || account.displayPhoneNumber || channel.name,
+        description: `${channel.name} · ${channel.type}`,
+        type: channel.type,
+      })),
+    ),
+    [channelsQuery.data?.items],
+  );
+
+  const selectedChannelAccounts = useMemo(
+    () => channelAccountOptions.filter((account) => form.channelAccountIds.includes(account.id)),
+    [channelAccountOptions, form.channelAccountIds],
+  );
+
+  const visibleChannelAccounts = useMemo(() => {
+    const query = channelSearch.trim().toLowerCase();
+    if (!query) return channelAccountOptions;
+    return channelAccountOptions.filter((account) =>
+      `${account.label} ${account.description}`.toLowerCase().includes(query),
+    );
+  }, [channelAccountOptions, channelSearch]);
 
   const listQuery = useQuery({
     queryKey: ['quick-replies', 'settings', workspaceId, deferredSearch],
@@ -121,16 +183,30 @@ export function QuickRepliesSettingsScreen() {
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm());
+    setChannelSearch('');
+    setChannelPickerOpen(false);
     setNewAttachmentIds([]);
     setEditorOpen(true);
   };
 
   const openEdit = (snippet: QuickReplySnippet) => {
     setEditing(snippet);
-    setForm(toForm(snippet));
+    setForm(toForm(snippet, channelAccountOptions));
+    setChannelSearch('');
+    setChannelPickerOpen(false);
     setNewAttachmentIds([]);
     setEditorOpen(true);
   };
+
+  useEffect(() => {
+    if (!editorOpen || !editing || channelAccountOptions.length === 0) return;
+    setForm((current) => {
+      if (current.channelAccountIds.length > 0) return current;
+      const nextIds = selectedAccountIds(editing, channelAccountOptions);
+      if (nextIds.length === 0) return current;
+      return { ...current, channelAccountIds: nextIds };
+    });
+  }, [channelAccountOptions, editing, editorOpen]);
 
   const cleanupNewAttachments = async (ids: string[]) => {
     await Promise.all(ids.map((id) => deleteWorkspaceFile(id).catch(() => undefined)));
@@ -142,6 +218,8 @@ export function QuickRepliesSettingsScreen() {
     setEditing(null);
     setForm(emptyForm());
     setNewAttachmentIds([]);
+    setChannelSearch('');
+    setChannelPickerOpen(false);
     if (pending.length) void cleanupNewAttachments(pending);
   };
 
@@ -203,10 +281,16 @@ export function QuickRepliesSettingsScreen() {
     try {
       for (const file of uploadable) {
         const uploaded = await uploadQuickReplyAttachment(workspaceId, file.uri, file.name, file.mimeType);
+        const nextAttachment: QuickReplyAttachment = {
+          ...uploaded,
+          originalName: uploaded.originalName ?? file.name,
+          mimeType: uploaded.mimeType ?? file.mimeType,
+          localUri: file.uri,
+        };
         setNewAttachmentIds((current) => [...current, uploaded.id]);
         setForm((current) => ({
           ...current,
-          attachments: [...current.attachments.filter((item) => item.id !== uploaded.id), uploaded],
+          attachments: [...current.attachments.filter((item) => item.id !== uploaded.id), nextAttachment],
         }));
       }
     } catch (error) {
@@ -250,6 +334,10 @@ export function QuickRepliesSettingsScreen() {
 
     try {
       const attachmentIds = form.attachments.map((item) => item.id);
+      const selectedTypes = channelAccountOptions
+        .filter((account) => form.channelAccountIds.includes(account.id))
+        .map((account) => account.type);
+      const channelScope = channelScopeFromAccountTypes(selectedTypes);
       if (editing) {
         await updateMutation.mutateAsync({
           quickReplyId: editing.id,
@@ -258,6 +346,8 @@ export function QuickRepliesSettingsScreen() {
           body,
           isActive: true,
           attachmentIds,
+          channelScope,
+          channelAccountIds: form.channelAccountIds,
         });
       } else {
         await createMutation.mutateAsync({
@@ -266,6 +356,8 @@ export function QuickRepliesSettingsScreen() {
           body,
           isActive: true,
           attachmentIds,
+          channelScope,
+          channelAccountIds: form.channelAccountIds,
         });
       }
       setNewAttachmentIds([]);
@@ -352,9 +444,10 @@ export function QuickRepliesSettingsScreen() {
                   <View style={styles.itemCopy}>
                     <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{item.title}</Text>
                     <Text style={[styles.itemBody, { color: colors.textSecondary }]} numberOfLines={2}>{item.body}</Text>
-                    {(item.attachments?.length ?? 0) > 0 ? (
-                      <Text style={[styles.itemMeta, { color: colors.textMuted }]}>{item.attachments.length} attachment{item.attachments.length === 1 ? '' : 's'}</Text>
-                    ) : null}
+                    <Text style={[styles.itemMeta, { color: colors.textMuted }]}>
+                      {formatQuickReplyChannelScope(item.channelScope)}
+                      {(item.attachments?.length ?? 0) > 0 ? ` · ${item.attachments.length} attachment${item.attachments.length === 1 ? '' : 's'}` : ''}
+                    </Text>
                   </View>
                   <Pressable style={styles.iconButton} onPress={() => openEdit(item)} hitSlop={8}>
                     <PencilLine color={colors.primary} size={18} />
@@ -388,6 +481,54 @@ export function QuickRepliesSettingsScreen() {
                 style={[styles.input, { backgroundColor: colors.background, borderColor: colors.cardBorder, color: colors.text }]}
               />
 
+              <Text style={[styles.label, { color: colors.textSecondary }]}>Channels</Text>
+              <Text style={[styles.helpText, { color: colors.textMuted }]}>
+                Leave empty to make this quick reply available globally. Select one or more channel accounts to target it.
+              </Text>
+              <Pressable
+                onPress={() => setChannelPickerOpen(true)}
+                disabled={channelsQuery.isLoading || channelAccountOptions.length === 0}
+                style={[styles.select, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}
+              >
+                <Text
+                  style={[
+                    styles.selectText,
+                    { color: form.channelAccountIds.length ? colors.text : colors.textMuted },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {channelsQuery.isLoading
+                    ? 'Loading channel accounts...'
+                    : channelsQuery.isError
+                      ? 'Could not load channels'
+                      : channelAccountOptions.length === 0
+                        ? 'No connected channel accounts found'
+                        : form.channelAccountIds.length === 0
+                          ? 'Select channel accounts'
+                          : `${form.channelAccountIds.length} channel account${form.channelAccountIds.length === 1 ? '' : 's'} selected`}
+                </Text>
+                <ChevronDown color={colors.textMuted} size={18} />
+              </Pressable>
+              {selectedChannelAccounts.length > 0 ? (
+                <View style={styles.chipWrap}>
+                  {selectedChannelAccounts.map((account) => (
+                    <Pressable
+                      key={account.id}
+                      onPress={() => setForm((current) => ({
+                        ...current,
+                        channelAccountIds: current.channelAccountIds.filter((id) => id !== account.id),
+                      }))}
+                      style={[styles.selectedChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}
+                    >
+                      <Text style={[styles.selectedChipText, { color: colors.text }]} numberOfLines={1}>{account.label}</Text>
+                      <X color={colors.textMuted} size={12} />
+                    </Pressable>
+                  ))}
+                </View>
+              ) : (
+                <Text style={[styles.channelStatus, { color: colors.primary }]}>Global quick reply</Text>
+              )}
+
               <View style={styles.labelRow}>
                 <Text style={[styles.labelInline, { color: colors.textSecondary }]}>Message</Text>
                 <Pressable style={styles.variableChip} onPress={insertNameVariable}>
@@ -420,20 +561,43 @@ export function QuickRepliesSettingsScreen() {
                 </Pressable>
               </View>
               {uploading ? <ActivityIndicator color={colors.primary} style={{ marginTop: 10 }} /> : null}
-              {form.attachments.map((attachment) => (
-                <View key={attachment.id} style={[styles.attachmentRow, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
-                  <Text style={[styles.attachmentName, { color: colors.textSecondary }]} numberOfLines={1}>
-                    {attachment.originalName || attachment.id}
-                  </Text>
-                  <Pressable onPress={() => removeAttachment(attachment.id)} hitSlop={8}>
-                    <X color="#e11d48" size={16} />
-                  </Pressable>
-                </View>
-              ))}
+              {form.attachments.map((attachment) => {
+                const previewUrl = quickReplyAttachmentPreviewUrl(attachment);
+                const showImage = Boolean(previewUrl) && isQuickReplyImageAttachment(attachment);
+                return (
+                  <View key={attachment.id} style={[styles.attachmentRow, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+                    {showImage ? (
+                      <AuthenticatedImage url={previewUrl} style={styles.attachmentThumb} resizeMode="cover" />
+                    ) : (
+                      <View style={[styles.attachmentThumb, styles.attachmentThumbFallback, { backgroundColor: colors.surfaceSecondary }]}>
+                        <Paperclip color={colors.textMuted} size={14} />
+                      </View>
+                    )}
+                    <Text style={[styles.attachmentName, { color: colors.textSecondary }]} numberOfLines={1}>
+                      {attachment.originalName || attachment.id}
+                    </Text>
+                    <Pressable onPress={() => removeAttachment(attachment.id)} hitSlop={8}>
+                      <X color="#e11d48" size={16} />
+                    </Pressable>
+                  </View>
+                );
+              })}
 
               <Text style={[styles.label, { color: colors.textSecondary }]}>Preview</Text>
-              <View style={[styles.previewCard, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
-                <Text style={[styles.previewText, { color: colors.text }]}>{previewText || 'Your message preview will appear here.'}</Text>
+              <View style={[styles.previewCard, { backgroundColor: colors.primary }]}>
+                <Text style={styles.previewBubbleText}>{previewText || 'Your message preview will appear here.'}</Text>
+                {form.attachments.filter(isQuickReplyImageAttachment).slice(0, 4).map((attachment) => {
+                  const previewUrl = quickReplyAttachmentPreviewUrl(attachment);
+                  if (!previewUrl) return null;
+                  return (
+                    <AuthenticatedImage
+                      key={attachment.id}
+                      url={previewUrl}
+                      style={styles.previewImage}
+                      resizeMode="cover"
+                    />
+                  );
+                })}
               </View>
             </SheetScrollView>
 
@@ -446,6 +610,57 @@ export function QuickRepliesSettingsScreen() {
               onPress={() => void handleSave()}
             />
         </BottomSheet>
+      <BottomSheet
+        visible={channelPickerOpen}
+        onClose={() => setChannelPickerOpen(false)}
+        sheetStyle={styles.sheetSurface}
+      >
+        <Text style={[styles.sheetTitle, { color: colors.text }]}>Select channel accounts</Text>
+        <TextInput
+          value={channelSearch}
+          onChangeText={setChannelSearch}
+          placeholder="Search channel accounts"
+          placeholderTextColor={colors.textMuted}
+          style={[styles.input, { backgroundColor: colors.background, borderColor: colors.cardBorder, color: colors.text, marginTop: 12 }]}
+        />
+        <SheetFlatList
+          data={visibleChannelAccounts}
+          keyExtractor={(item) => item.id}
+          style={styles.channelList}
+          keyboardShouldPersistTaps="handled"
+          ListEmptyComponent={(
+            <Text style={[styles.helpText, { color: colors.textMuted, marginTop: 16 }]}>
+              {channelAccountOptions.length === 0 ? 'No connected channel accounts found' : 'No matching channel accounts'}
+            </Text>
+          )}
+          renderItem={({ item }) => {
+            const selected = form.channelAccountIds.includes(item.id);
+            return (
+              <Pressable
+                onPress={() => setForm((current) => ({
+                  ...current,
+                  channelAccountIds: selected
+                    ? current.channelAccountIds.filter((id) => id !== item.id)
+                    : [...current.channelAccountIds, item.id],
+                }))}
+                style={[styles.channelRow, { backgroundColor: selected ? colors.surfaceSecondary : colors.background, borderColor: selected ? colors.primary : colors.cardBorder }]}
+              >
+                <View style={styles.channelCopy}>
+                  <Text style={[styles.channelLabel, { color: colors.text }]} numberOfLines={1}>{item.label}</Text>
+                  <Text style={[styles.channelMeta, { color: colors.textMuted }]} numberOfLines={1}>{item.description}</Text>
+                </View>
+                {selected ? <Check color={colors.primary} size={16} /> : null}
+              </Pressable>
+            );
+          }}
+        />
+        <AppButton
+          block
+          style={styles.primaryButtonSpacing}
+          label="Done"
+          onPress={() => setChannelPickerOpen(false)}
+        />
+      </BottomSheet>
       <ConfirmDialog
         visible={Boolean(pendingDelete)}
         title="Delete quick reply"
@@ -489,7 +704,7 @@ const styles = StyleSheet.create({
   sheetSurface: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 },
   sheetHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   sheetTitle: { fontSize: 18, fontWeight: '800' },
-  sheetScroll: { maxHeight: 420 },
+  sheetScroll: { maxHeight: 520 },
   sheetContent: { paddingBottom: 8 },
   label: { fontSize: 12, fontWeight: '700', marginBottom: 6, marginTop: 12 },
   labelInline: { fontSize: 12, fontWeight: '700' },
@@ -498,12 +713,28 @@ const styles = StyleSheet.create({
   textArea: { minHeight: 110 },
   variableChip: { alignItems: 'center', backgroundColor: '#eff6ff', borderRadius: 999, flexDirection: 'row', gap: 4, paddingHorizontal: 10, paddingVertical: 6 },
   variableChipText: { fontSize: 12, fontWeight: '700' },
+  helpText: { fontSize: 12, lineHeight: 18, marginBottom: 8 },
+  select: { alignItems: 'center', borderRadius: 12, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 12 },
+  selectText: { flex: 1, fontSize: 14, marginRight: 8 },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  selectedChip: { alignItems: 'center', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 6, maxWidth: '100%', paddingHorizontal: 10, paddingVertical: 6 },
+  selectedChipText: { flexShrink: 1, fontSize: 12, fontWeight: '600' },
+  channelList: { flexGrow: 0, marginTop: 8, maxHeight: 360 },
+  channelRow: { alignItems: 'center', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 10, marginTop: 8, paddingHorizontal: 12, paddingVertical: 10 },
+  channelCopy: { flex: 1, minWidth: 0 },
+  channelLabel: { fontSize: 14, fontWeight: '700' },
+  channelMeta: { fontSize: 11, marginTop: 2 },
+  channelStatus: { fontSize: 12, fontWeight: '700', marginTop: 8 },
   errorText: { color: '#e11d48', fontSize: 12, marginTop: 6 },
   attachActions: { flexDirection: 'row', gap: 10 },
   secondaryButton: { alignItems: 'center', backgroundColor: '#eff6ff', borderRadius: 12, flexDirection: 'row', gap: 6, paddingHorizontal: 12, paddingVertical: 10 },
   secondaryButtonText: { fontSize: 13, fontWeight: '700' },
-  attachmentRow: { alignItems: 'center', borderRadius: 12, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, paddingHorizontal: 12, paddingVertical: 10 },
+  attachmentRow: { alignItems: 'center', borderRadius: 12, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, paddingHorizontal: 10, paddingVertical: 8 },
+  attachmentThumb: { borderRadius: 8, height: 44, marginRight: 10, width: 44 },
+  attachmentThumbFallback: { alignItems: 'center', justifyContent: 'center' },
   attachmentName: { flex: 1, fontSize: 13, marginRight: 8 },
-  previewCard: { borderRadius: 14, borderWidth: 1, marginBottom: 4, padding: 14 },
+  previewCard: { borderRadius: 18, marginBottom: 4, padding: 14 },
+  previewBubbleText: { color: '#fff', fontSize: 14, lineHeight: 20 },
+  previewImage: { borderRadius: 12, height: 140, marginTop: 10, width: '100%' },
   previewText: { fontSize: 14, lineHeight: 20 },
 });

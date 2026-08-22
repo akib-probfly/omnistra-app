@@ -70,12 +70,16 @@ function uint8ToBase64(bytes: Uint8Array) {
   return btoa(binary);
 }
 
+function isLocalMediaUri(url: string) {
+  return /^(file|content|ph|assets-library):/i.test(url);
+}
+
 export async function downloadMedia(url: string): Promise<string> {
   const existing = cache.get(url);
   if (existing) return existing;
   // Public CDNs (Facebook lookaside, etc.) often 404 when fetched via FileSystem.
   // Callers should render these with a remote Image uri instead.
-  if (isPublicRemoteUrl(url)) {
+  if (isPublicRemoteUrl(url) || isLocalMediaUri(url)) {
     cache.set(url, url);
     return url;
   }
@@ -207,7 +211,7 @@ export function AuthenticatedImage({
       return;
     }
 
-    if (isPublicRemoteUrl(url)) {
+    if (isPublicRemoteUrl(url) || isLocalMediaUri(url)) {
       setLocalUri(url);
       return;
     }

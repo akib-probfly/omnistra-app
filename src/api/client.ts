@@ -49,7 +49,16 @@ export async function uploadFile(path: string, uri: string, name: string, mimeTy
   });
   if (!response.ok) throw new Error(`File upload failed (${response.status})`);
   const payload = await response.json() as any;
-  return (payload?.data ?? payload) as { id: string; mimeType?: string; mediaType?: string };
+  return (payload?.data ?? payload) as {
+    id: string;
+    mimeType?: string;
+    mediaType?: string;
+    originalName?: string | null;
+    sizeBytes?: number | null;
+    downloadUrl?: string;
+    previewUrl?: string | null;
+    thumbnailUrl?: string | null;
+  };
 }
 
 export async function apiFetch<T>(path: string, init: RequestInit & { auth?: boolean } = {}): Promise<T> {

@@ -8,7 +8,8 @@ import { Image, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, TextIn
 import { showNotice } from './AppToast';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EmojiKeyboard, type EmojiType } from 'rn-emoji-keyboard';
-import { fetchQuickReplies } from '../api/inbox';
+import { fetchQuickReplyPicker, isQuickReplyImageAttachment, quickReplyAttachmentPreviewUrl, type QuickReplySnippet } from '../api/quickReplies';
+import { AuthenticatedImage, downloadMedia } from './AuthenticatedImage';
 import { fetchWhatsappTemplates } from '../api/whatsappTemplates';
 import {
   COMPOSER_MAX_ATTACHMENT_COUNT,
@@ -24,13 +25,22 @@ import { PanelSkeleton } from './Skeleton';
 import { WhatsappTemplateSendModal, type TemplateSendPayload } from './WhatsappTemplateSendModal';
 import { useTheme } from '../theme/ThemeContext';
 
-type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT'; sizeBytes?: number | null; durationMs?: number | null };
+type SendAttachment = {
+  uri: string;
+  name: string;
+  mimeType: string;
+  type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT';
+  sizeBytes?: number | null;
+  durationMs?: number | null;
+  fileId?: string;
+  quickReplySnippetId?: string;
+};
 export type ComposerSendPayload = { attachments?: SendAttachment[]; text?: string };
 type Props = {
   value: string; onChange: (value: string) => void; onSend: (payload?: ComposerSendPayload) => void; sending?: boolean;
   attachments?: SendAttachment[]; onAttachments?: (list: SendAttachment[]) => void;
   replyPreview?: { name: string; text: string; mediaType?: string | null } | null; onCancelReply?: () => void;
-  workspaceId?: string; channelId?: string; channelType?: string; contactName?: string;
+  workspaceId?: string; channelId?: string; channelType?: string; conversationId?: string; contactName?: string;
   onSendTemplate?: (params: TemplateSendPayload) => void;
   canSendFreeform?: boolean;
   messengerMessagingMode?: MessengerMessagingMode;
@@ -44,7 +54,7 @@ function renderQuickReplyBody(body: string, context: Record<string, string>): st
   return body.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (match, key) => context[key] ?? context[key.toLowerCase()] ?? match);
 }
 
-function QuickRepliesList({ items, onInsert }: { items: any[]; onInsert: (body: string) => void }) {
+function QuickRepliesList({ items, onInsert }: { items: QuickReplySnippet[]; onInsert: (snippet: QuickReplySnippet) => void }) {
   const { colors } = useTheme();
   return (
     <SheetFlatList
@@ -53,14 +63,21 @@ function QuickRepliesList({ items, onInsert }: { items: any[]; onInsert: (body: 
       style={styles.pickerList}
       keyboardShouldPersistTaps="handled"
       ListEmptyComponent={<Text style={[styles.pickerError, { color: colors.textSecondary }]}>No quick replies found</Text>}
-      renderItem={({ item }) => (
-        <Pressable style={[styles.pickerRow, { borderBottomColor: colors.separator }]} onPress={() => onInsert(item.body)}>
-          <Text style={[styles.pickerRowTitle, { color: colors.text }]}># {item.title ?? 'Quick reply'}</Text>
-          {item.category ? <Text style={styles.pickerRowCategory}>{item.category}</Text> : null}
-          {item.shortcut ? <Text style={styles.pickerRowShortcut}>/{item.shortcut}</Text> : null}
-          <Text numberOfLines={2} style={[styles.pickerRowBody, { color: colors.textSecondary }]}>{item.body}</Text>
-        </Pressable>
-      )}
+      renderItem={({ item }) => {
+        const previewAttachment = (item.attachments ?? []).find(isQuickReplyImageAttachment);
+        const previewUrl = previewAttachment ? quickReplyAttachmentPreviewUrl(previewAttachment) : '';
+        return (
+          <Pressable style={[styles.pickerRow, { borderBottomColor: colors.separator }]} onPress={() => onInsert(item)}>
+            <View style={styles.pickerRowMain}>
+              <Text style={[styles.pickerRowTitle, { color: colors.text }]}># {item.title ?? 'Quick reply'}</Text>
+              {item.category ? <Text style={styles.pickerRowCategory}>{item.category}</Text> : null}
+              {item.shortcut ? <Text style={styles.pickerRowShortcut}>/{item.shortcut}</Text> : null}
+              <Text numberOfLines={2} style={[styles.pickerRowBody, { color: colors.textSecondary }]}>{item.body}</Text>
+            </View>
+            {previewUrl ? <AuthenticatedImage url={previewUrl} style={styles.pickerThumb} resizeMode="cover" /> : null}
+          </Pressable>
+        );
+      }}
     />
   );
 }
@@ -77,6 +94,7 @@ export function ConversationComposer({
   workspaceId,
   channelId,
   channelType,
+  conversationId,
   contactName,
   onSendTemplate,
   canSendFreeform = true,
@@ -105,8 +123,14 @@ export function ConversationComposer({
   const isWhatsAppChannel = (channelType ?? '').toUpperCase() === 'WHATSAPP';
   const isMessengerChannel = (channelType ?? '').toUpperCase() === 'MESSENGER';
   const quickReplies = useQuery({
-    queryKey: ['quick-replies', workspaceId, quickQuery],
-    queryFn: () => fetchQuickReplies({ workspaceId, search: quickQuery || undefined, limit: 20 }),
+    queryKey: ['quick-replies', 'picker', workspaceId, conversationId, channelType, quickQuery],
+    queryFn: () => fetchQuickReplyPicker({
+      workspaceId,
+      conversationId,
+      channelType: channelType ? channelType.toUpperCase() : undefined,
+      search: quickQuery || undefined,
+      limit: 20,
+    }),
     enabled: quickOpen && Boolean(workspaceId),
   });
   const templates = useQuery({
@@ -369,13 +393,50 @@ export function ConversationComposer({
     }
   }
 
-  function insertQuickReply(body: string) {
+  function insertQuickReply(snippet: QuickReplySnippet) {
     const context = { name: contactName ?? 'there', user_name: contactName ?? 'there' };
-    const rendered = renderQuickReplyBody(body, context);
+    const rendered = renderQuickReplyBody(snippet.body, context);
     const withoutSlash = value.replace(/(^|\s)\/[^\s]*\s*$/, (match: string, pre: string) => (pre ? match.replace(/\/[^\s]*\s*$/, '') : ''));
     const next = withoutSlash.trim() ? `${withoutSlash.trim()}\n${rendered}` : rendered;
     onChange(next);
     setQuickOpen(false);
+
+    const snippetAttachments = snippet.attachments ?? [];
+    if (!onAttachments || snippetAttachments.length === 0) return;
+
+    void (async () => {
+      const staged: SendAttachment[] = [];
+      for (const attachment of snippetAttachments) {
+        const sourceUrl = quickReplyAttachmentPreviewUrl(attachment) || attachment.downloadUrl || `files/${attachment.id}/download`;
+        let uri = sourceUrl;
+        try {
+          if (sourceUrl && !/^(file|content|ph|assets-library):/i.test(sourceUrl)) {
+            uri = await downloadMedia(sourceUrl);
+          }
+        } catch (error) {
+          console.error('[quick-reply] attachment preview failed', attachment.id, error);
+        }
+        const mimeType = attachment.mimeType ?? 'application/octet-stream';
+        const media = (attachment.mediaType ?? '').toUpperCase();
+        const type: SendAttachment['type'] = media === 'VIDEO' || mimeType.startsWith('video/')
+          ? 'VIDEO'
+          : media === 'AUDIO' || media === 'VOICE' || mimeType.startsWith('audio/')
+            ? 'AUDIO'
+            : media === 'IMAGE' || media === 'STICKER' || mimeType.startsWith('image/')
+              ? 'IMAGE'
+              : 'DOCUMENT';
+        staged.push({
+          uri,
+          fileId: attachment.id,
+          quickReplySnippetId: snippet.id,
+          name: attachment.originalName ?? 'attachment',
+          mimeType,
+          type,
+          sizeBytes: attachment.sizeBytes ?? null,
+        });
+      }
+      if (staged.length) onAttachments([...attachments, ...staged].slice(0, COMPOSER_MAX_ATTACHMENT_COUNT));
+    })();
   }
 
   function handleSendTemplate(payload: TemplateSendPayload) {
@@ -944,7 +1005,9 @@ const styles = StyleSheet.create({
   pickerSearch: { backgroundColor: '#f5f5f5', borderRadius: 10, color: '#17233a', height: 42, marginTop: 12, paddingHorizontal: 12 },
   pickerList: { flexGrow: 0, marginTop: 6, maxHeight: 480 },
   pickerError: { color: '#64748b', fontSize: 13, paddingVertical: 18, textAlign: 'center' },
-  pickerRow: { borderBottomColor: '#eef2f7', borderBottomWidth: 1, paddingVertical: 10 },
+  pickerRow: { alignItems: 'center', borderBottomColor: '#eef2f7', borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingVertical: 10 },
+  pickerRowMain: { flex: 1, minWidth: 0 },
+  pickerThumb: { borderRadius: 10, height: 48, width: 48 },
   pickerRowTitle: { color: '#17233a', fontSize: 14, fontWeight: '700' },
   pickerRowCategory: { backgroundColor: '#eef4ff', borderRadius: 8, color: '#2563eb', fontSize: 10, marginLeft: 8, paddingHorizontal: 6, paddingVertical: 1 },
   pickerRowShortcut: { color: '#8b5cf6', fontSize: 11, fontWeight: '600', marginLeft: 8 },
