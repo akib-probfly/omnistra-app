@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState } from 'react-native';
 import {
@@ -20,6 +20,28 @@ import { useNotificationPreferences } from '../hooks/useNotificationPreferences'
 import { useCallController } from '../providers/CallControllerProvider';
 import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { CallPanel } from './CallPanel';
+import { getCallPartyHint, getCallUiRevision, isGenericCallLabel, subscribeCallChrome } from '../lib/call-chrome';
+
+function firstRealLabel(...values: Array<string | null | undefined>) {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed && !isGenericCallLabel(trimmed)) return trimmed;
+  }
+  return null;
+}
+
+function findCachedConversation(queryClient: ReturnType<typeof useQueryClient>, conversationId: string) {
+  const messages = queryClient.getQueryData(['messages', conversationId]) as { conversation?: any } | undefined;
+  if (messages?.conversation) return messages.conversation;
+  for (const [, data] of queryClient.getQueriesData({ queryKey: ['conversations'] })) {
+    const pages = (data as { pages?: Array<{ items?: any[] }> } | undefined)?.pages ?? [];
+    for (const page of pages) {
+      const item = (page.items ?? []).find((conversation) => conversation.id === conversationId);
+      if (item) return item;
+    }
+  }
+  return null;
+}
 
 function selectVisibleCallSession(sessions: ConversationCallSession[], currentUserId: string | undefined) {
   if (sessions.length === 0) return null;
@@ -157,6 +179,8 @@ function getBizOpaqueCallbackData(metadata: unknown) {
 
 export function GlobalCallLayer() {
   const { session } = useAuth();
+  const queryClient = useQueryClient();
+  useSyncExternalStore(subscribeCallChrome, getCallUiRevision);
   const callController = useCallController();
   useSyncExternalStore(subscribeRealtimeConnectionStatus, getRealtimeConnectionStatus);
   const appState = useSyncExternalStore(
@@ -268,8 +292,36 @@ export function GlobalCallLayer() {
 
   if (!activeCallSession && callController.connectionState === 'idle') return null;
 
-  const conversation = activeCallSession ? fallbackConversation(activeCallSession) : null;
+  const conversation = (() => {
+    if (!activeCallSession) return null;
+    const base = fallbackConversation(activeCallSession);
+    const cached = findCachedConversation(queryClient, base.id);
+    const hint = getCallPartyHint(base.id);
+    const displayName = firstRealLabel(
+      cached?.contact?.displayName,
+      hint?.label,
+      base.contact.displayName,
+      activeCallSession.recipientDisplayName,
+      cached?.contact?.primaryPhone,
+      cached?.contact?.username,
+      base.contact.primaryPhone,
+      activeCallSession.recipientIdentityValue,
+    );
+    return {
+      ...base,
+      contact: {
+        ...base.contact,
+        displayName: displayName ?? base.contact.displayName,
+        primaryPhone: cached?.contact?.primaryPhone ?? base.contact.primaryPhone,
+        avatarUrl: cached?.contact?.avatarUrl ?? hint?.avatarUrl ?? base.contact.avatarUrl,
+      },
+    };
+  })();
   if (!conversation || !activeCallSession) return null;
+
+  const conversationId = activeCallSession.conversationId;
+  const callSessionId = activeCallSession.id;
+  const callMetadata = activeCallSession.metadata;
 
   return (
     <CallPanel
@@ -284,24 +336,24 @@ export function GlobalCallLayer() {
       onAnswerCall={() => {
         if (!activeCallSignal) return;
         void callController.answerCall({
-          conversationId: activeCallSession.conversationId,
-          callSessionId: activeCallSession.id,
+          conversationId,
+          callSessionId,
           remoteOffer: activeCallSignal,
-          bizOpaqueCallbackData: getBizOpaqueCallbackData(activeCallSession.metadata),
+          bizOpaqueCallbackData: getBizOpaqueCallbackData(callMetadata),
         });
       }}
       onDeclineCall={() => {
         void callController.declineCall({
-          conversationId: activeCallSession.conversationId,
-          callSessionId: activeCallSession.id,
+          conversationId,
+          callSessionId,
         });
-        dismissedPromptSessionIdsRef.current.add(activeCallSession.id);
-        clearIncomingCallPrompt(activeCallSession.id);
+        dismissedPromptSessionIdsRef.current.add(callSessionId);
+        clearIncomingCallPrompt(callSessionId);
       }}
       onEndCall={() => {
         void callController.endCall({
-          conversationId: activeCallSession.conversationId,
-          callSessionId: activeCallSession.id,
+          conversationId,
+          callSessionId,
         });
       }}
       onToggleMute={() => callController.toggleMute()}

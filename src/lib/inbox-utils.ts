@@ -928,10 +928,15 @@ export function getCallOutcomeLabel(session: ConversationCallSession | null, ton
 
 export function getCallAgentLabel(session: ConversationCallSession | null): string | null {
   if (!session) return null;
-  if (session.direction === 'INBOUND') {
-    return session.claimedBy?.userName?.trim() ?? session.claimedBy?.userEmail?.trim() ?? session.initiatedBy?.userName?.trim() ?? session.initiatedBy?.userEmail?.trim() ?? null;
+  const inbound = session.direction === 'INBOUND';
+  const names = inbound
+    ? [session.claimedBy, session.initiatedBy, session.conversation?.assignee]
+    : [session.initiatedBy, session.claimedBy, session.conversation?.assignee];
+  for (const member of names) {
+    const label = member?.userName?.trim() || member?.userEmail?.trim() || '';
+    if (label) return label;
   }
-  return session.initiatedBy?.userName?.trim() ?? session.initiatedBy?.userEmail?.trim() ?? session.claimedBy?.userName?.trim() ?? session.claimedBy?.userEmail?.trim() ?? null;
+  return null;
 }
 
 const CALL_TONE_STYLES: Record<CallHistoryTone, { text: string; iconBg: string; iconColor: string }> = {
@@ -1187,7 +1192,6 @@ export function buildConversationTimeline<TMessage extends MessageLike>(
     entries.push({ kind: 'message', id: getMessageListKey(message), timestamp: Number.isNaN(timestamp) ? 0 : timestamp, message });
   }
   for (const session of callSessions) {
-    if (session.status === 'PERMISSION_REQUESTED') continue;
     const timestamp = new Date(getCallSessionTimelineTimestamp(session)).getTime();
     entries.push({ kind: 'call', id: session.id, timestamp: Number.isNaN(timestamp) ? 0 : timestamp, session });
   }

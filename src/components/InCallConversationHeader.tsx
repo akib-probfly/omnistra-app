@@ -2,9 +2,8 @@ import { ArrowLeft, Headphones, Mic, MicOff, Phone, PhoneOff } from 'lucide-reac
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { CallChromeSnapshot } from '../lib/call-chrome';
+import { useTheme } from '../theme/ThemeContext';
 import { ColorfulAvatar } from './ColorfulAvatar';
-
-const IN_CALL_GREEN = '#0f766e';
 
 type Props = {
   chrome: CallChromeSnapshot;
@@ -13,6 +12,7 @@ type Props = {
 
 export function InCallConversationHeader({ chrome, onBack }: Props) {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const subtitle = chrome.phase === 'incoming'
     ? (chrome.statusLabel || 'Incoming call')
     : chrome.isConnected
@@ -20,17 +20,17 @@ export function InCallConversationHeader({ chrome, onBack }: Props) {
       : chrome.statusLabel;
 
   return (
-    <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+    <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
       <Pressable onPress={onBack} hitSlop={8} style={styles.backHit} accessibilityLabel="Go back">
-        <ArrowLeft color="#fff" size={22} />
+        <ArrowLeft color={colors.textSecondary} size={22} />
       </Pressable>
       <Pressable style={styles.identity} onPress={chrome.onExpand} accessibilityLabel="Return to call">
         <ColorfulAvatar name={chrome.label} size={40} url={chrome.avatarUrl} />
         <View style={styles.copy}>
-          <Text style={styles.name} numberOfLines={1}>{chrome.label}</Text>
+          <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{chrome.label}</Text>
           <View style={styles.statusRow}>
-            <Headphones color="#ccfbf1" size={13} />
-            <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>
+            <Headphones color={colors.primary} size={13} />
+            <Text style={[styles.subtitle, { color: colors.primary }]} numberOfLines={1}>{subtitle}</Text>
           </View>
         </View>
       </Pressable>
@@ -56,12 +56,12 @@ export function InCallConversationHeader({ chrome, onBack }: Props) {
       ) : (
         <View style={styles.actions}>
           <Pressable
-            style={styles.roundMuted}
+            style={[styles.roundMuted, { backgroundColor: colors.surfaceSecondary }]}
             onPress={chrome.onToggleMute}
             disabled={!chrome.canToggleMute}
             accessibilityLabel={chrome.isMuted ? 'Unmute' : 'Mute'}
           >
-            {chrome.isMuted ? <MicOff color="#fff" size={18} /> : <Mic color="#fff" size={18} />}
+            {chrome.isMuted ? <MicOff color={colors.text} size={18} /> : <Mic color={colors.text} size={18} />}
           </Pressable>
           <Pressable
             style={[styles.round, styles.decline]}
@@ -80,7 +80,7 @@ export function InCallConversationHeader({ chrome, onBack }: Props) {
 const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
-    backgroundColor: IN_CALL_GREEN,
+    borderBottomWidth: 1,
     flexDirection: 'row',
     gap: 6,
     paddingBottom: 10,
@@ -89,12 +89,12 @@ const styles = StyleSheet.create({
   backHit: { alignItems: 'center', height: 36, justifyContent: 'center', width: 36 },
   identity: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 10, minWidth: 0 },
   copy: { flex: 1, minWidth: 0 },
-  name: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  name: { fontSize: 16, fontWeight: '700' },
   statusRow: { alignItems: 'center', flexDirection: 'row', gap: 4, marginTop: 2 },
-  subtitle: { color: '#ccfbf1', flex: 1, fontSize: 12, fontWeight: '600' },
+  subtitle: { flex: 1, fontSize: 12, fontWeight: '600' },
   actions: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   round: { alignItems: 'center', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
-  roundMuted: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
+  roundMuted: { alignItems: 'center', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   decline: { backgroundColor: '#e11d48' },
   answer: { backgroundColor: '#22c55e' },
   disabled: { opacity: 0.45 },

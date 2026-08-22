@@ -47,6 +47,8 @@ export function CallHistoryItem({ session }: { session: ConversationCallSession 
   const tone = getCallDisplayTone(session, presentation.tone, outcomeLabel);
   const toneStyles = getCallHistoryToneStyles(tone);
   const agentLabel = getCallAgentLabel(session);
+  const detailLabel = presentation.detail?.trim() || null;
+  const metaLabel = agentLabel ?? detailLabel;
 
   return (
     <View style={styles.row}>
@@ -61,7 +63,7 @@ export function CallHistoryItem({ session }: { session: ConversationCallSession 
           <Text style={[styles.sep, { color: colors.textMuted }]}>·</Text>
           <Text style={[styles.time, { color: colors.textMuted }]}>{timeLabel}</Text>
         </View>
-        {agentLabel ? <Text style={[styles.agent, { color: colors.textSecondary }]} numberOfLines={1}>{agentLabel}</Text> : null}
+        {metaLabel ? <Text style={[styles.agent, { color: colors.textSecondary }]} numberOfLines={1}>{metaLabel}</Text> : null}
       </View>
     </View>
   );

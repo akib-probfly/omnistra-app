@@ -38,7 +38,7 @@ import type { MainTabParamList } from '../navigation/MainTabs';
 import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getCallSessionTimelineTimestamp, getConversationTitle, getMessengerMessagingAvailability, getReplyPreviewBody, getVoiceCallButtonState, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
 import { CallHistoryItem } from '../components/CallHistoryItem';
 import { useCallController } from '../providers/CallControllerProvider';
-import { getCallChrome, setFocusedCallConversationId, subscribeCallChrome } from '../lib/call-chrome';
+import { getCallChrome, setFocusedCallConversationId, subscribeCallChrome, rememberCallParty, getCallUiRevision } from '../lib/call-chrome';
 import { isWhatsappCallSupported } from '../lib/whatsapp-calling';
 import { useInboxAppearance } from '../hooks/useInboxAppearance';
 import { useTheme } from '../theme/ThemeContext';
@@ -694,6 +694,14 @@ export function ConversationScreen() {
   const title = getConversationTitle(header.conversation, route.params.contactName);
 
   useEffect(() => {
+    rememberCallParty(
+      route.params.conversationId,
+      title,
+      header.conversation?.contact?.avatarUrl ?? null,
+    );
+  }, [header.conversation?.contact?.avatarUrl, route.params.conversationId, title]);
+
+  useEffect(() => {
     const conversationId = route.params.conversationId;
     if (!isMessengerConversation || !header.conversation) {
       initializedMessengerModeConversationIdRef.current = null;
@@ -726,10 +734,10 @@ export function ConversationScreen() {
   ]);
   const callsQuery = useQuery({
     queryKey: ['conversation-calls', route.params.conversationId],
-    queryFn: () => fetchConversationCallSessions({ conversationId: route.params.conversationId, limit: 10 }),
+    queryFn: () => fetchConversationCallSessions({ conversationId: route.params.conversationId, limit: 100 }),
     enabled: isWhatsAppConversation,
-    staleTime: 60_000,
-    refetchOnMount: false,
+    staleTime: 15_000,
+    refetchOnMount: 'always',
   });
   const callSessions: ConversationCallSession[] = callsQuery.data?.items ?? [];
   const assignmentHistoryQuery = useQuery({
@@ -779,18 +787,7 @@ export function ConversationScreen() {
     void queryClient.invalidateQueries({ queryKey: ['active-calls'] });
   };
   const timeline = useMemo<ConversationTimelineEntry<Message>[]>(() => {
-    const times = allMessages.map((message) => new Date(message.sentAt ?? message.createdAt ?? '').getTime()).filter((value) => Number.isFinite(value));
-    const minTs = times.length ? Math.min(...times) : 0;
-    const maxTs = times.length ? Math.max(...times) : Date.now();
-    const boundedCalls = callSessions.filter((session) => {
-      const timestamp = new Date(getCallSessionTimelineTimestamp(session)).getTime();
-      return Number.isFinite(timestamp) && timestamp >= minTs && timestamp <= maxTs;
-    });
-    const boundedAssignments = assignmentEvents.filter((event) => {
-      const timestamp = new Date(event.createdAt).getTime();
-      return Number.isFinite(timestamp) && timestamp >= minTs && timestamp <= maxTs;
-    });
-    return buildConversationTimeline(allMessages, boundedCalls, boundedAssignments);
+    return buildConversationTimeline(allMessages, callSessions, assignmentEvents);
   }, [allMessages, callSessions, assignmentEvents]);
   timelineRef.current = timeline;
   const displayEntries = useMemo<TimelineRow[]>(() => {
@@ -812,7 +809,8 @@ export function ConversationScreen() {
   }, [messages.data, route.params.conversationId]);
 
   const channelName = header.conversation?.channel?.channelName ?? null;
-  const callChrome = useSyncExternalStore(subscribeCallChrome, getCallChrome);
+  useSyncExternalStore(subscribeCallChrome, getCallUiRevision);
+  const callChrome = getCallChrome();
   const showInCallHeader = Boolean(
     callChrome && callChrome.conversationId === route.params.conversationId,
   );

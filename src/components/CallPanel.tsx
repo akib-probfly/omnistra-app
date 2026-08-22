@@ -23,7 +23,7 @@ import { RTCView } from '../native/webrtc';
 import { ColorfulAvatar } from './ColorfulAvatar';
 import { useTheme } from '../theme/ThemeContext';
 import { useCallRingtone } from '../hooks/useCallRingtone';
-import { setCallChrome, getFocusedCallConversationId, subscribeCallChrome } from '../lib/call-chrome';
+import { setCallChrome, getFocusedCallConversationId, getCallPartyHint, getCallUiRevision, subscribeCallChrome, isGenericCallLabel } from '../lib/call-chrome';
 
 type Props = {
   conversation: ConversationCallConversation;
@@ -40,28 +40,24 @@ type Props = {
   onToggleMute: () => void;
 };
 
-function firstNonEmpty(...values: Array<string | null | undefined>) {
-  for (const value of values) {
+function getCallPartyLabel(
+  conversation: ConversationCallConversation,
+  session: ConversationCallSession | null,
+) {
+  const hint = getCallPartyHint(conversation.id);
+  const candidates = [
+    hint?.label,
+    conversation.contact.displayName,
+    session?.recipientDisplayName,
+    conversation.contact.primaryPhone,
+    session?.recipientIdentityValue,
+    conversation.channel.displayPhoneNumber,
+  ];
+  for (const value of candidates) {
     const trimmed = value?.trim();
-    if (trimmed) return trimmed;
+    if (trimmed && !isGenericCallLabel(trimmed)) return trimmed;
   }
   return 'WhatsApp call';
-}
-
-function getConversationLabel(conversation: ConversationCallConversation) {
-  return firstNonEmpty(
-    conversation.contact.displayName,
-    conversation.contact.primaryPhone,
-    conversation.channel.displayPhoneNumber,
-    conversation.channel.channelName,
-  );
-}
-
-function getInitials(label: string) {
-  const parts = label.split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
-  return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
 }
 
 function formatDuration(totalSeconds: number) {
@@ -336,12 +332,13 @@ export function CallPanel({
 }: Props) {
   const insets = useSafeAreaInsets();
   const focusedConversationId = useSyncExternalStore(subscribeCallChrome, getFocusedCallConversationId);
+  useSyncExternalStore(subscribeCallChrome, getCallUiRevision);
   const [expanded, setExpanded] = useState(false);
   const [incomingExpanded, setIncomingExpanded] = useState(true);
   const [speakerOn, setSpeakerOn] = useState(true);
   const [speakerError, setSpeakerError] = useState<string | null>(null);
 
-  const label = getConversationLabel(conversation);
+  const label = getCallPartyLabel(conversation, activeCallSession);
   const isIncomingCall = Boolean(
     activeCallSession
     && activeCallSession.direction === 'INBOUND'
@@ -544,9 +541,7 @@ export function CallPanel({
 
           <View style={styles.expandedBody}>
             <View style={styles.expandedAvatarRing}>
-              <View style={styles.expandedAvatar}>
-                <Text style={styles.expandedAvatarText}>{getInitials(label)}</Text>
-              </View>
+              <ColorfulAvatar name={label} size={120} url={conversation.contact.avatarUrl} />
             </View>
             <Text style={styles.expandedName}>{label}</Text>
             <Text style={styles.expandedStatus}>
