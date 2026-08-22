@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Socket } from 'socket.io-client';
-import { createRealtimeSocket, setRealtimeConnectionStatus, getActiveConversationId } from '../api/realtime';
+import { createRealtimeSocket, setActiveRealtimeSocket, setRealtimeConnectionStatus, getActiveConversationId } from '../api/realtime';
 import { latestAccessToken } from '../api/client';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
@@ -22,6 +22,8 @@ import {
 import { writeIncomingCallPrompt } from '../lib/incoming-call-prompt';
 import { syncIncomingCallPromptFromSession, upsertActiveCallSessionCache, type CallSessionUpdatedEvent } from '../lib/active-call-cache';
 import { useNotificationPreferences } from './useNotificationPreferences';
+import { claimNotification } from '../lib/notification-dedupe';
+import { playNotificationSound } from '../lib/notificationSound';
 
 const REALTIME_READY_EVENT = 'realtime.ready';
 const REALTIME_CONVERSATION_UPDATED_EVENT = 'conversation.updated';
@@ -43,8 +45,6 @@ type ConversationUpdatedEvent = {
 };
 type MessageCreatedEvent = { workspaceId: string; conversationId: string; messageId: string; createdAt: string };
 type NotificationCreatedEvent = NotificationCreatedRealtimeEvent;
-
-const handledNotificationIds = new Set<string>();
 
 const pendingInvalidations = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -347,6 +347,7 @@ export function useRealtimeSync(accessToken: string | null) {
     setRealtimeConnectionStatus('connecting');
     const socket = createRealtimeSocket(() => latestAccessToken ?? accessToken);
     socketRef.current = socket;
+    setActiveRealtimeSocket(socket);
 
     const handleConversationUpdated = (payload: ConversationUpdatedEvent) => {
       if (__DEV__) {
@@ -469,8 +470,7 @@ export function useRealtimeSync(accessToken: string | null) {
 
     const handleNotificationCreated = (payload: NotificationCreatedEvent) => {
       if (!payload?.notificationId) return;
-      if (handledNotificationIds.has(payload.notificationId)) return;
-      handledNotificationIds.add(payload.notificationId);
+      if (!claimNotification(payload.notificationId)) return;
 
       const preferences = preferencesRef.current;
 
@@ -487,6 +487,9 @@ export function useRealtimeSync(accessToken: string | null) {
         if (preferences.incomingCallAlertsEnabled) {
           writeIncomingCallPrompt(payload as Parameters<typeof writeIncomingCallPrompt>[0]);
           void queryClient.invalidateQueries({ queryKey: ['active-calls'], refetchType: 'active' });
+          if (AppState.currentState === 'active' && preferences.soundEnabled) {
+            void playNotificationSound(payload.type);
+          }
         }
         return;
       }
@@ -569,6 +572,7 @@ export function useRealtimeSync(accessToken: string | null) {
       socket.off(REALTIME_PRESENCE_UPDATED_EVENT, handlePresenceUpdated);
       socket.off(REALTIME_WORKSPACE_USAGE_UPDATED_EVENT, handleWorkspaceUsageUpdated);
       socket.disconnect();
+      if (socketRef.current === socket) setActiveRealtimeSocket(null);
       if (socketRef.current === socket) socketRef.current = null;
       pendingInvalidations.forEach((timeout) => clearTimeout(timeout));
       pendingInvalidations.clear();

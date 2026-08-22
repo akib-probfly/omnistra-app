@@ -11,11 +11,16 @@ import { AppNavigator } from './src/navigation/AppNavigator';
 import { AuthProvider, useAuth } from './src/auth/AuthContext';
 import { useRealtimeSync } from './src/hooks/useRealtimeSync';
 import { useMobilePushRegistration } from './src/hooks/useMobilePushRegistration';
+import { configureMobileForegroundNotificationHandler, useMobileNotificationHandlers } from './src/hooks/useMobileNotificationHandlers';
 import { CallControllerProvider } from './src/providers/CallControllerProvider';
 import { GlobalCallLayer } from './src/components/GlobalCallLayer';
 import { toastConfig } from './src/components/AppToast';
 import { SplashScreen } from './src/screens/SplashScreen';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
+import { navigationRef } from './src/navigation/navigationRef';
+import { isSafeNotificationId } from './src/lib/mobile-notification';
+
+configureMobileForegroundNotificationHandler();
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -76,10 +81,18 @@ const linking = {
     screens: {
       Main: {
         screens: {
+          Inbox: {
+            screens: {
+              InboxList: 'inbox',
+              Conversation: 'inbox/conversation/:conversationId',
+            },
+          },
           Settings: {
             screens: {
               Billing: 'billing',
               BillingPlanDetails: 'billing/plan/:planKey',
+              Broadcast: 'broadcast',
+              BroadcastCampaign: 'broadcast/:campaignId',
             },
           },
         },
@@ -94,7 +107,53 @@ const linking = {
     return () => subscription.remove();
   },
   getStateFromPath(path: string) {
-    return parseBillingReturnUrl(`osaas://${path.replace(/^\//, '')}`) ?? undefined;
+    const billingState = parseBillingReturnUrl(`osaas://${path.replace(/^\//, '')}`);
+    if (billingState) return billingState;
+
+    try {
+      const parsed = new URL(`https://osaas.app/${path.replace(/^\/+/, '')}`);
+      const pathname = parsed.pathname.replace(/^\/+|\/+$/g, '');
+      const conversationId = parsed.searchParams.get('conversation');
+      if ((pathname === 'inbox' || pathname === 'calls') && isSafeNotificationId(conversationId)) {
+        return {
+          routes: [{
+            name: 'Main',
+            state: {
+              routes: [{
+                name: 'Inbox',
+                state: {
+                  routes: [{
+                    name: 'Conversation',
+                    params: { conversationId, contactName: 'Conversation' },
+                  }],
+                },
+              }],
+            },
+          }],
+        };
+      }
+
+      const [section, campaignId] = pathname.split('/');
+      if (section === 'broadcast' && isSafeNotificationId(campaignId)) {
+        return {
+          routes: [{
+            name: 'Main',
+            state: {
+              routes: [{
+                name: 'Settings',
+                state: {
+                  routes: [{ name: 'BroadcastCampaign', params: { campaignId } }],
+                },
+              }],
+            },
+          }],
+        };
+      }
+    } catch {
+      // Ignore malformed external URLs and let React Navigation fall back.
+    }
+
+    return undefined;
   },
 };
 
@@ -102,6 +161,7 @@ function RealtimeBridge() {
   const { session } = useAuth();
   useRealtimeSync(session?.accessToken ?? null);
   useMobilePushRegistration();
+  useMobileNotificationHandlers();
   return null;
 }
 
@@ -132,6 +192,7 @@ function RootApp() {
             <SplashScreen iconSource={require('./assets/icon.png')} wordmarkSource={require('./assets/logo-wordmark.png')} tagline="OMNICHANNEL INBOX" backgroundColor={ROOT_BG} onFinish={finishSplash} />
           ) : (
             <NavigationContainer
+              ref={navigationRef}
               linking={linking as never}
               theme={{
                 ...DefaultTheme,

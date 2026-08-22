@@ -28,6 +28,17 @@ let connectionStatus: 'connected' | 'connecting' | 'disconnected' = 'disconnecte
 const statusListeners = new Set<() => void>();
 
 let activeConversationId: string | null = null;
+let activeRealtimeSocket: Socket | null = null;
+
+export function setActiveRealtimeSocket(socket: Socket | null) {
+  activeRealtimeSocket = socket;
+}
+
+export function reconnectRealtimeSocket() {
+  if (activeRealtimeSocket && !activeRealtimeSocket.connected) {
+    activeRealtimeSocket.connect();
+  }
+}
 
 export function setActiveConversationId(conversationId: string | null) {
   activeConversationId = conversationId;
