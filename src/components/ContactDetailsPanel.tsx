@@ -3,7 +3,6 @@ import { Ban, Check, ChevronDown, ChevronUp, Download, File, FileText, Film, Mus
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Toast from 'react-native-toast-message';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiUrl } from '../api/client';
 import { attachConversationTag, banCrmContact, createConversationNote, createConversationTag, deleteConversationNote, detachConversationTag, fetchConversationAttachments, fetchConversationNotes, fetchConversationTags, fetchWorkspaceTags, unbanCrmContact, updateConversationNote, updateCrmContact, type ConversationAttachment, type ConversationTag } from '../api/conversationDetails';
 import { AuthenticatedImage, downloadMedia } from './AuthenticatedImage';
@@ -53,7 +52,6 @@ type PanelProps = {
 };
 
 export function ContactDetailsPanel({ visible, onClose, conversation, isUpdatingStatus = false, onToggleStatus }: PanelProps) {
-  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const [customerOpen, setCustomerOpen] = useState(true);
@@ -249,11 +247,12 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   return (
     <>
     <BottomSheet visible={visible} onClose={onClose} sheetStyle={{ height: '92%' }}>
+        <View style={styles.panelBody}>
         <View style={[styles.drawerHeader, { backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
           <Text style={[styles.drawerTitle, { color: colors.text }]}>Contact details</Text>
         </View>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <SheetScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }} keyboardShouldPersistTaps="handled">
+        <KeyboardAvoidingView style={styles.panelScroll} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <SheetScrollView style={styles.panelScroll} contentContainerStyle={{ paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
             <Pressable
               onPress={confirmToggleBan}
               disabled={banMutation.isPending}
@@ -480,11 +479,12 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
             </View>
           </SheetScrollView>
         </KeyboardAvoidingView>
-        <View style={[styles.statusBar, { backgroundColor: colors.surface, borderTopColor: colors.cardBorder, paddingBottom: insets.bottom + 14 }]}>
+        <View style={[styles.statusBar, { backgroundColor: colors.surface, borderTopColor: colors.cardBorder }]}>
           <Pressable onPress={onToggleStatus} disabled={isUpdatingStatus} style={[styles.statusBtn, conversation.status === 'CLOSED' ? [styles.statusBtnClosed, { backgroundColor: colors.surface }] : styles.statusBtnOpen]}>
             {isUpdatingStatus ? <ActivityIndicator color={conversation.status === 'CLOSED' ? colors.primary : '#10b981'} size="small" /> : conversation.status === 'CLOSED' ? <RotateCcw color={colors.primary} size={17} /> : <Check color="#10b981" size={17} />}
             <Text style={[styles.statusBtnText, conversation.status === 'CLOSED' ? [styles.statusBtnTextClosed, { color: colors.primary }] : styles.statusBtnTextOpen]}>{conversation.status === 'CLOSED' ? 'Reopen conversation' : 'Mark as closed'}</Text>
           </Pressable>
+        </View>
         </View>
       </BottomSheet>
       <ConfirmDialog
@@ -518,6 +518,8 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
 }
 
 const styles = StyleSheet.create({
+  panelBody: { flex: 1, minHeight: 0 },
+  panelScroll: { flex: 1, minHeight: 0 },
   drawerHeader: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e5e7eb', borderBottomWidth: 1, flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 16 },
   drawerTitle: { color: '#17233a', fontSize: 17, fontWeight: '700', flex: 1 },
   drawerClose: { alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 18, height: 34, justifyContent: 'center', width: 34 },

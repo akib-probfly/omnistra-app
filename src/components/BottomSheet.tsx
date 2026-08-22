@@ -161,6 +161,7 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
     });
 
   const topGap = insets.top + 8;
+  const flattenedSheet = StyleSheet.flatten(sheetStyle) ?? {};
 
   const sheetAnimatedStyle = useAnimatedStyle(() => {
     const kb = keyboardInset.value;
@@ -198,7 +199,7 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
                 </GestureDetector>
               ) : null}
               <BottomSheetContext.Provider value={{ pan, nativeScrollGesture, contentOffsetY }}>
-                <View style={styles.body}>{children}</View>
+                <View style={[styles.body, flattenedSheet.height != null ? styles.bodyFill : null]}>{children}</View>
               </BottomSheetContext.Provider>
             </Animated.View>
           </GestureDetector>
@@ -234,5 +235,9 @@ const styles = StyleSheet.create({
   },
   body: {
     flexShrink: 1,
+  },
+  bodyFill: {
+    flex: 1,
+    minHeight: 0,
   },
 });
