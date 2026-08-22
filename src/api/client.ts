@@ -17,6 +17,20 @@ export const apiUrl = (value: string | null): string | null => {
 };
 export let latestAccessToken: string | null = null;
 let authExpiredHandler: (() => void) | null = null;
+const accessTokenListeners = new Set<(token: string | null) => void>();
+
+export function setLatestAccessToken(token: string | null) {
+  if (latestAccessToken === token) return;
+  latestAccessToken = token;
+  accessTokenListeners.forEach((listener) => listener(token));
+}
+
+export function subscribeAccessToken(listener: (token: string | null) => void) {
+  accessTokenListeners.add(listener);
+  return () => {
+    accessTokenListeners.delete(listener);
+  };
+}
 
 export function setAuthExpiredHandler(handler: (() => void) | null) {
   authExpiredHandler = handler;
@@ -24,7 +38,7 @@ export function setAuthExpiredHandler(handler: (() => void) | null) {
 
 export async function uploadFile(path: string, uri: string, name: string, mimeType: string, fields: Record<string, string> = {}) {
   const token = await SecureStore.getItemAsync('access-token');
-  latestAccessToken = token;
+  setLatestAccessToken(token);
   const form = new FormData();
   Object.entries(fields).forEach(([key, value]) => form.append(key, value));
   form.append('file', { uri, name, type: mimeType } as any);
@@ -41,7 +55,7 @@ export async function uploadFile(path: string, uri: string, name: string, mimeTy
 export async function apiFetch<T>(path: string, init: RequestInit & { auth?: boolean } = {}): Promise<T> {
   const { auth = true, ...fetchInit } = init;
   const token = auth ? await SecureStore.getItemAsync('access-token') : null;
-  latestAccessToken = token;
+  if (auth) setLatestAccessToken(token);
   if (__DEV__) console.log(`[api] request ${fetchInit.method ?? 'GET'} ${path}`, { authenticated: Boolean(token) });
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...fetchInit,
@@ -68,6 +82,7 @@ export async function apiFetch<T>(path: string, init: RequestInit & { auth?: boo
         if (refreshed.accessToken) {
           await SecureStore.setItemAsync('access-token', refreshed.accessToken);
           if (refreshed.refreshToken) await SecureStore.setItemAsync('refresh-token', refreshed.refreshToken);
+          setLatestAccessToken(refreshed.accessToken);
           return apiFetch<T>(path, { ...init, headers: { ...Object.fromEntries(requestHeaders.entries()), 'x-mobile-retry': '1' } });
         }
       }

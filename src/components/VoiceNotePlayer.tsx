@@ -1,8 +1,9 @@
-import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { setAudioModeAsync, setIsAudioActiveAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as SecureStore from 'expo-secure-store';
 import { Pause, Play, RotateCw } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { latestAccessToken, setLatestAccessToken, subscribeAccessToken } from '../api/client';
 import { parseAudioDurationSeconds } from '../lib/audio-duration';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -10,7 +11,6 @@ const PLAYBACK_RATES = [1, 1.5, 2];
 const LOAD_TIMEOUT_MS = 8000;
 const DURATION_RESOLVE_DELAY_MS = 350;
 let currentPlayer: any = null;
-let cachedAccessToken: string | null | undefined;
 
 const durationByUrl = new Map<string, number>();
 const inflightDuration = new Map<string, Promise<number | null>>();
@@ -28,24 +28,36 @@ function cachedDuration(url: string, durationMs?: number | null): number | null 
   return normalizeDurationMs(durationMs);
 }
 
+async function readAccessToken(): Promise<string | null> {
+  const stored = await SecureStore.getItemAsync('access-token');
+  const token = stored ?? latestAccessToken;
+  setLatestAccessToken(token);
+  return token;
+}
+
+async function preparePlaybackSession() {
+  await setIsAudioActiveAsync(true);
+  await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
+}
+
 function useAuthToken(): string | null {
-  const [token, setToken] = useState<string | null>(cachedAccessToken ?? null);
+  const [token, setToken] = useState<string | null>(latestAccessToken);
   useEffect(() => {
-    if (cachedAccessToken !== undefined) {
-      setToken(cachedAccessToken);
-      return;
-    }
     let active = true;
-    SecureStore.getItemAsync('access-token')
-      .then((value) => {
-        cachedAccessToken = value;
-        if (active) setToken(value);
-      })
-      .catch(() => {
-        cachedAccessToken = null;
-      });
+    const apply = (value: string | null) => {
+      if (active) setToken(value);
+    };
+    readAccessToken().then(apply).catch(() => apply(null));
+    const unsubscribe = subscribeAccessToken(apply);
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') return;
+      readAccessToken().then(apply).catch(() => {});
+      preparePlaybackSession().catch(() => {});
+    });
     return () => {
       active = false;
+      unsubscribe();
+      appStateSub.remove();
     };
   }, []);
   return token;
@@ -144,9 +156,13 @@ function PlayerShell({
   durationRef.current = duration ?? 0;
   const onRetryRef = useRef(onRetry);
   onRetryRef.current = onRetry;
+  const sourceRef = useRef(source);
+  sourceRef.current = source;
+  const statusRef = useRef(status);
+  statusRef.current = status;
 
   useEffect(() => {
-    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
+    preparePlaybackSession().catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -221,7 +237,8 @@ function PlayerShell({
 
   function togglePlay() {
     const target = playerRef.current;
-    if (!target || !source) return;
+    const nextSource = sourceRef.current;
+    if (!target || !nextSource) return;
     if (status.playing) {
       target.pause();
       return;
@@ -231,18 +248,41 @@ function PlayerShell({
     }
     const dur = durationRef.current;
     const atEnd = status.didJustFinish || (dur > 0 && status.currentTime >= Math.max(0, dur - 0.15));
+    const needsReload = !status.isLoaded;
     currentPlayer = target;
-    if (atEnd) {
-      target.seekTo(0).then(() => {
-        try { target.loop = false; } catch {}
-        target.play();
-      }).catch(() => {
-        target.play();
-      });
-      return;
-    }
-    try { target.loop = false; } catch {}
-    target.play();
+
+    void (async () => {
+      try {
+        await preparePlaybackSession();
+        if (needsReload) {
+          const freshToken = await readAccessToken();
+          target.replace({
+            uri: nextSource.uri,
+            headers: freshToken ? { Authorization: `Bearer ${freshToken}` } : nextSource.headers,
+          });
+        }
+      } catch {
+        onRetryRef.current();
+        return;
+      }
+      try { target.loop = false; } catch {}
+      const start = () => {
+        try { target.play(); } catch {
+          onRetryRef.current();
+        }
+      };
+      if (atEnd) {
+        target.seekTo(0).then(start).catch(start);
+      } else {
+        start();
+      }
+      setTimeout(() => {
+        const latest = statusRef.current;
+        if (currentPlayer !== target) return;
+        if (latest.playing || latest.isBuffering) return;
+        if (!latest.isLoaded) onRetryRef.current();
+      }, 2000);
+    })();
   }
 
   function cycleRate() {
@@ -328,7 +368,7 @@ export function VoiceNotePlayer({ url, outgoing = false, durationMs = null }: { 
 
   return (
     <PlayerShell
-      key={`${url}-${retryTick}`}
+      key={`${url}-${retryTick}-${token ?? ''}`}
       url={url}
       source={source}
       outgoing={outgoing}
