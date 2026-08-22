@@ -68,6 +68,7 @@ export type NotificationPreferences = {
   soundEnabled: boolean;
   backgroundSoundEnabled: boolean;
   browserNotificationsEnabled: boolean;
+  mobilePushNotificationsEnabled: boolean;
   newConversationAlertsEnabled: boolean;
   incomingCallAlertsEnabled: boolean;
   mentionsAndAssignmentsOnly: boolean;
@@ -78,6 +79,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   soundEnabled: true,
   backgroundSoundEnabled: false,
   browserNotificationsEnabled: false,
+  mobilePushNotificationsEnabled: false,
   newConversationAlertsEnabled: true,
   incomingCallAlertsEnabled: true,
   mentionsAndAssignmentsOnly: false,
