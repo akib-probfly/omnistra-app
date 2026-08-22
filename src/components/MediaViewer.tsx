@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, FlatList, Image, Modal, PanResponder, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { showNotice } from './AppToast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as MediaLibrary from 'expo-media-library';
@@ -27,87 +29,107 @@ function useLocalAsset(url: string | null): string | null {
   return uri;
 }
 
-function ZoomableImage({ src, stageWidth, stageHeight }: { src: string; stageWidth: number; stageHeight: number }) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateX = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-  const lastScale = useRef(1);
-  const lastTx = useRef(0);
-  const lastTy = useRef(0);
-  const pinchStart = useRef<{ distance: number; scale: number } | null>(null);
+const MIN_SCALE = 1;
+const MAX_SCALE = 4;
 
-  const clampScale = (value: number) => Math.min(4, Math.max(1, value));
-  const clampPan = (x: number, y: number, s: number) => {
-    const maxX = Math.max(0, (stageWidth * (s - 1)) / 2);
-    const maxY = Math.max(0, (stageHeight * (s - 1)) / 2);
-    return { x: Math.max(-maxX, Math.min(maxX, x)), y: Math.max(-maxY, Math.min(maxY, y)) };
+function clampPan(x: number, y: number, s: number, stageWidth: number, stageHeight: number) {
+  'worklet';
+  const maxX = Math.max(0, (stageWidth * (s - 1)) / 2);
+  const maxY = Math.max(0, (stageHeight * (s - 1)) / 2);
+  return {
+    x: Math.max(-maxX, Math.min(maxX, x)),
+    y: Math.max(-maxY, Math.min(maxY, y)),
   };
-  const distance = (touches: any[]) => {
-    if (touches.length < 2) return 0;
-    const dx = touches[0].pageX - touches[1].pageX;
-    const dy = touches[0].pageY - touches[1].pageY;
-    return Math.hypot(dx, dy);
+}
+
+function ZoomableImage({
+  src,
+  stageWidth,
+  stageHeight,
+  onZoomChange,
+}: {
+  src: string;
+  stageWidth: number;
+  stageHeight: number;
+  onZoomChange: (zoomed: boolean) => void;
+}) {
+  const scale = useSharedValue(1);
+  const savedScale = useSharedValue(1);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const savedTx = useSharedValue(0);
+  const savedTy = useSharedValue(0);
+
+  const reportZoom = (value: number) => {
+    onZoomChange(value > 1.02);
   };
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => lastScale.current > 1,
-      onMoveShouldSetPanResponder: (event) => (event.nativeEvent.touches ?? []).length >= 2 || lastScale.current > 1,
-      onPanResponderGrant: () => {},
-      onPanResponderMove: (event, gesture) => {
-        const touches = event.nativeEvent.touches ?? [];
-        if (touches.length >= 2) {
-          const d = distance(touches);
-          if (!pinchStart.current) {
-            pinchStart.current = { distance: d, scale: lastScale.current };
-            return;
-          }
-          const base = pinchStart.current.distance || 1;
-          const next = clampScale(pinchStart.current.scale * (d / base));
-          scale.setValue(next);
-          lastScale.current = next;
-          return;
-        }
-        if (pinchStart.current) {
-          pinchStart.current = null;
-        }
-        if (lastScale.current <= 1) {
-          translateX.setValue(0);
-          translateY.setValue(0);
-          return;
-        }
-        const next = clampPan(lastTx.current + gesture.dx, lastTy.current + gesture.dy, lastScale.current);
-        translateX.setValue(next.x);
-        translateY.setValue(next.y);
-      },
-      onPanResponderRelease: (_, gesture) => {
-        if (gesture.numberActiveTouches >= 2) {
-          pinchStart.current = null;
-          return;
-        }
-        pinchStart.current = null;
-        if (lastScale.current < 1) {
-          lastScale.current = 1;
-          Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
-        }
-        const clamped = clampPan(lastTx.current + gesture.dx, lastTy.current + gesture.dy, lastScale.current);
-        lastTx.current = clamped.x;
-        lastTy.current = clamped.y;
-        translateX.setValue(clamped.x);
-        translateY.setValue(clamped.y);
-      },
-      onPanResponderTerminate: () => {
-        pinchStart.current = null;
-      },
-    }),
-  ).current;
+  const pinch = Gesture.Pinch()
+    .onStart(() => {
+      savedScale.value = scale.value;
+      runOnJS(reportZoom)(Math.max(scale.value, 1.1));
+    })
+    .onUpdate((event) => {
+      const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, savedScale.value * event.scale));
+      scale.value = next;
+      const clamped = clampPan(translateX.value, translateY.value, next, stageWidth, stageHeight);
+      translateX.value = clamped.x;
+      translateY.value = clamped.y;
+    })
+    .onEnd(() => {
+      if (scale.value <= 1.02) {
+        scale.value = withTiming(1);
+        translateX.value = withTiming(0);
+        translateY.value = withTiming(0);
+        savedScale.value = 1;
+        savedTx.value = 0;
+        savedTy.value = 0;
+        runOnJS(reportZoom)(1);
+        return;
+      }
+      savedScale.value = scale.value;
+      runOnJS(reportZoom)(scale.value);
+    });
+
+  const pan = Gesture.Pan()
+    .manualActivation(true)
+    .averageTouches(true)
+    .onTouchesMove((_event, state) => {
+      if (scale.value > 1.02) state.activate();
+    })
+    .onStart(() => {
+      savedTx.value = translateX.value;
+      savedTy.value = translateY.value;
+    })
+    .onUpdate((event) => {
+      if (scale.value <= 1) return;
+      const next = clampPan(savedTx.value + event.translationX, savedTy.value + event.translationY, scale.value, stageWidth, stageHeight);
+      translateX.value = next.x;
+      translateY.value = next.y;
+    })
+    .onEnd(() => {
+      savedTx.value = translateX.value;
+      savedTy.value = translateY.value;
+    });
+
+  const composed = Gesture.Simultaneous(pinch, pan);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
+  }));
 
   return (
-    <View style={[styles.zoomStage, { width: stageWidth, height: stageHeight }]} {...panResponder.panHandlers}>
-      <Animated.View style={[styles.zoomFill, { transform: [{ scale }, { translateX }, { translateY }] }]}>
-        <Image source={{ uri: src }} resizeMode="contain" style={{ width: stageWidth, height: stageHeight }} />
-      </Animated.View>
-    </View>
+    <GestureDetector gesture={composed}>
+      <View style={[styles.zoomStage, { width: stageWidth, height: stageHeight }]} collapsable={false}>
+        <Animated.View style={[styles.zoomFill, { width: stageWidth, height: stageHeight }, animatedStyle]}>
+          <Image source={{ uri: src }} resizeMode="contain" style={{ width: stageWidth, height: stageHeight }} />
+        </Animated.View>
+      </View>
+    </GestureDetector>
   );
 }
 
@@ -116,6 +138,7 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
   const { width: winW, height: winH } = useWindowDimensions();
   const listRef = useRef<FlatList<MediaGalleryItem>>(null);
   const [saving, setSaving] = useState(false);
+  const [pagerLocked, setPagerLocked] = useState(false);
   const [stage, setStage] = useState({ width: winW, height: winH });
   const visible = images.length > 0 && index >= 0 && index < images.length;
   const current = visible ? images[index] : null;
@@ -125,6 +148,10 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
   useEffect(() => {
     setStage({ width: winW, height: winH });
   }, [winW, winH]);
+
+  useEffect(() => {
+    setPagerLocked(false);
+  }, [index]);
 
   useEffect(() => {
     if (!visible || !listRef.current) return;
@@ -170,7 +197,7 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
       presentationStyle="fullScreen"
       statusBarTranslucent
     >
-      <View
+      <GestureHandlerRootView
         style={styles.backdrop}
         onLayout={(event) => {
           const { width, height } = event.nativeEvent.layout;
@@ -185,6 +212,7 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
           keyExtractor={(media) => media.attachId}
           horizontal
           pagingEnabled
+          scrollEnabled={!pagerLocked}
           style={styles.pager}
           showsHorizontalScrollIndicator={false}
           getItemLayout={(_, i) => ({ length: stageW, offset: stageW * i, index: i })}
@@ -192,7 +220,7 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
           onMomentumScrollEnd={onMomentumScrollEnd}
           renderItem={({ item: media }) => (
             <View style={[styles.slide, { width: stageW, height: stageH }]}>
-              <MainAsset src={media.src} stageWidth={stageW} stageHeight={stageH} />
+              <MainAsset src={media.src} stageWidth={stageW} stageHeight={stageH} onZoomChange={setPagerLocked} />
             </View>
           )}
         />
@@ -210,12 +238,22 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
             {saving ? <ActivityIndicator color="#fff" size="small" /> : <Download color="#fff" size={18} />}
           </Pressable>
         </View>
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
 
-function MainAsset({ src, stageWidth, stageHeight }: { src: string; stageWidth: number; stageHeight: number }) {
+function MainAsset({
+  src,
+  stageWidth,
+  stageHeight,
+  onZoomChange,
+}: {
+  src: string;
+  stageWidth: number;
+  stageHeight: number;
+  onZoomChange: (zoomed: boolean) => void;
+}) {
   const modified = useLocalAsset(src);
   if (!modified) {
     return (
@@ -224,7 +262,7 @@ function MainAsset({ src, stageWidth, stageHeight }: { src: string; stageWidth: 
       </View>
     );
   }
-  return <ZoomableImage src={modified} stageWidth={stageWidth} stageHeight={stageHeight} />;
+  return <ZoomableImage src={modified} stageWidth={stageWidth} stageHeight={stageHeight} onZoomChange={onZoomChange} />;
 }
 
 const styles = StyleSheet.create({
