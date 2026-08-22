@@ -5,13 +5,17 @@ import * as Notifications from "expo-notifications";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import {
+  fetchNotificationPreferences,
   registerMobilePushDevice,
   revokeMobilePushDevice,
+  updateNotificationPreferences,
   type MobilePushEnvironment,
   type MobilePushProvider,
 } from "../api/notifications";
+import { fetchMyWorkspaces } from "../api/workspaces";
 
 const REGISTRATION_STORAGE_KEY = "mobile-push-device-registration";
+const PREFERENCE_AUTO_ENABLE_KEY = "mobile-push-pref-auto-enabled";
 const DEFAULT_CHANNEL_ID = "default";
 const CALL_CHANNEL_ID = "calls";
 const NOTIFICATION_COLOR = "#1d4ed8";
@@ -143,6 +147,49 @@ async function getNativeToken(): Promise<string | null> {
     : null;
 }
 
+async function ensureNotificationPermission(): Promise<boolean> {
+  const existing = await Notifications.getPermissionsAsync();
+  if (existing.status === "granted") {
+    return true;
+  }
+
+  const requested = await Notifications.requestPermissionsAsync({
+    ios: {
+      allowAlert: true,
+      allowBadge: true,
+      allowSound: true,
+    },
+  });
+  return requested.status === "granted";
+}
+
+async function enableMobilePushPreferenceOnce(): Promise<void> {
+  try {
+    const already = await SecureStore.getItemAsync(PREFERENCE_AUTO_ENABLE_KEY);
+    if (already === "1") {
+      return;
+    }
+
+    const workspaces = await fetchMyWorkspaces();
+    const workspaceId = workspaces.items?.[0]?.id;
+    if (!workspaceId) {
+      return;
+    }
+
+    const preferences = await fetchNotificationPreferences(workspaceId);
+    if (!preferences.mobilePushNotificationsEnabled) {
+      await updateNotificationPreferences(workspaceId, {
+        ...preferences,
+        mobilePushNotificationsEnabled: true,
+      });
+    }
+
+    await SecureStore.setItemAsync(PREFERENCE_AUTO_ENABLE_KEY, "1");
+  } catch (error) {
+    console.warn("[mobile-push] preference auto-enable failed", error);
+  }
+}
+
 async function registerOnce(): Promise<boolean> {
   if (!isNativeMobilePlatform() || !Device.isDevice) {
     return false;
@@ -157,8 +204,8 @@ async function registerOnce(): Promise<boolean> {
     return false;
   }
 
-  const permission = await Notifications.getPermissionsAsync();
-  if (permission.status !== "granted") {
+  const permissionGranted = await ensureNotificationPermission();
+  if (!permissionGranted) {
     return false;
   }
 
@@ -181,6 +228,7 @@ async function registerOnce(): Promise<boolean> {
   });
 
   await writeStoredRegistration({ provider, token });
+  await enableMobilePushPreferenceOnce();
 
   if (
     previous &&
