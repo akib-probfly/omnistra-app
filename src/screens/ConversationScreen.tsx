@@ -4,6 +4,7 @@ import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
 import { ConversationAssignmentSheet } from '../components/ConversationAssignmentSheet';
 import { ContactDetailsPanel, formatPhoneNumberDisplay, formatUsernameDisplay } from '../components/ContactDetailsPanel';
+import { InCallConversationHeader } from '../components/InCallConversationHeader';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
@@ -37,6 +38,7 @@ import type { MainTabParamList } from '../navigation/MainTabs';
 import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getCallSessionTimelineTimestamp, getConversationTitle, getMessengerMessagingAvailability, getReplyPreviewBody, getVoiceCallButtonState, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
 import { CallHistoryItem } from '../components/CallHistoryItem';
 import { useCallController } from '../providers/CallControllerProvider';
+import { getCallChrome, setFocusedCallConversationId, subscribeCallChrome } from '../lib/call-chrome';
 import { isWhatsappCallSupported } from '../lib/whatsapp-calling';
 import { useInboxAppearance } from '../hooks/useInboxAppearance';
 import { useTheme } from '../theme/ThemeContext';
@@ -562,6 +564,15 @@ export function ConversationScreen() {
     return () => setActiveConversationId(null);
   }, [route.params.conversationId]);
 
+  useEffect(() => {
+    if (!isFocused) {
+      setFocusedCallConversationId(null);
+      return;
+    }
+    setFocusedCallConversationId(route.params.conversationId);
+    return () => setFocusedCallConversationId(null);
+  }, [isFocused, route.params.conversationId]);
+
   useEffect(() => () => { if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current); }, []);
 
   const loadOlder = useCallback(async () => {
@@ -801,6 +812,10 @@ export function ConversationScreen() {
   }, [messages.data, route.params.conversationId]);
 
   const channelName = header.conversation?.channel?.channelName ?? null;
+  const callChrome = useSyncExternalStore(subscribeCallChrome, getCallChrome);
+  const showInCallHeader = Boolean(
+    callChrome && callChrome.conversationId === route.params.conversationId,
+  );
   const onScroll = useCallback((event: any) => {
     const offsetY = event.nativeEvent.contentOffset.y;
     lastScrollOffsetRef.current = offsetY;
@@ -836,6 +851,16 @@ export function ConversationScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: colors.background, flex: 1 }]}>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
+      {showInCallHeader && callChrome ? (
+        <InCallConversationHeader
+          chrome={{
+            ...callChrome,
+            label: title || callChrome.label,
+            avatarUrl: header.conversation?.contact?.avatarUrl ?? callChrome.avatarUrl,
+          }}
+          onBack={() => navigation.navigate('Inbox', { screen: 'InboxList' })}
+        />
+      ) : (
       <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <Pressable onPress={() => navigation.navigate('Inbox', { screen: 'InboxList' })}><ArrowLeft color={colors.textSecondary} size={23} /></Pressable>
         <Pressable
@@ -887,6 +912,7 @@ export function ConversationScreen() {
           <Pressable onPress={() => setDetailsOpen(true)} hitSlop={6}><MoreVertical color={colors.textSecondary} size={19} /></Pressable>
         </View>
       </View>
+      )}
       <View style={styles.body}>
         <InboxPatternBackground pattern={inboxPattern} />
         <View style={styles.listWrap}>

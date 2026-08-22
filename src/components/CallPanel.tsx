@@ -13,7 +13,7 @@ import {
   Volume1,
   Volume2,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { ActivityIndicator, Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ConversationCallConversation, ConversationCallSession, ConversationCallSignalSession } from '../api/inbox';
@@ -23,6 +23,7 @@ import { RTCView } from '../native/webrtc';
 import { ColorfulAvatar } from './ColorfulAvatar';
 import { useTheme } from '../theme/ThemeContext';
 import { useCallRingtone } from '../hooks/useCallRingtone';
+import { setCallChrome, getFocusedCallConversationId, subscribeCallChrome } from '../lib/call-chrome';
 
 type Props = {
   conversation: ConversationCallConversation;
@@ -39,11 +40,21 @@ type Props = {
   onToggleMute: () => void;
 };
 
+function firstNonEmpty(...values: Array<string | null | undefined>) {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed) return trimmed;
+  }
+  return 'WhatsApp call';
+}
+
 function getConversationLabel(conversation: ConversationCallConversation) {
-  return conversation.contact.displayName
-    ?? conversation.contact.primaryPhone
-    ?? conversation.channel.channelName
-    ?? 'WhatsApp call';
+  return firstNonEmpty(
+    conversation.contact.displayName,
+    conversation.contact.primaryPhone,
+    conversation.channel.displayPhoneNumber,
+    conversation.channel.channelName,
+  );
 }
 
 function getInitials(label: string) {
@@ -143,6 +154,7 @@ function IncomingCallScreen({
   onDeclineCall,
   topInset,
   bottomInset,
+  hideDock = false,
 }: {
   label: string;
   avatarUrl?: string | null;
@@ -159,6 +171,7 @@ function IncomingCallScreen({
   onDeclineCall: () => void;
   topInset: number;
   bottomInset: number;
+  hideDock?: boolean;
 }) {
   const { colors } = useTheme();
   const pulse = usePulse(true);
@@ -179,11 +192,10 @@ function IncomingCallScreen({
 
   return (
     <>
-      <View style={[styles.dock, { bottom: Math.max(bottomInset, 12), backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+      {hideDock ? null : (
+      <View style={[styles.dock, { top: Math.max(topInset, 8), backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
         <Pressable style={styles.dockMain} onPress={onExpand}>
-          <View style={styles.dockAvatar}>
-            <Text style={styles.dockAvatarText}>{getInitials(label)}</Text>
-          </View>
+          <ColorfulAvatar name={label} size={36} url={avatarUrl} />
           <View style={styles.dockCopy}>
             <Text style={styles.dockName} numberOfLines={1}>{label}</Text>
             <View style={styles.dockStatusRow}>
@@ -214,6 +226,7 @@ function IncomingCallScreen({
           {isBusy ? <ActivityIndicator color="#fff" /> : <Phone color="#fff" size={18} />}
         </Pressable>
       </View>
+      )}
 
       <Modal
         visible={expanded}
@@ -322,6 +335,7 @@ export function CallPanel({
   onToggleMute,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const focusedConversationId = useSyncExternalStore(subscribeCallChrome, getFocusedCallConversationId);
   const [expanded, setExpanded] = useState(false);
   const [incomingExpanded, setIncomingExpanded] = useState(true);
   const [speakerOn, setSpeakerOn] = useState(true);
@@ -399,6 +413,61 @@ export function CallPanel({
     };
   }, [isOngoing, speakerOn]);
 
+  const embedInHeader = focusedConversationId === conversation.id;
+
+  useEffect(() => {
+    if (!activeCallSession) {
+      setCallChrome(null);
+      return;
+    }
+    if (!isIncomingCall && !isOngoing && connectionState === 'idle') {
+      setCallChrome(null);
+      return;
+    }
+    setCallChrome({
+      conversationId: conversation.id,
+      label,
+      avatarUrl: conversation.contact.avatarUrl ?? null,
+      phase: isIncomingCall ? 'incoming' : 'ongoing',
+      isConnected,
+      durationLabel,
+      statusLabel: isIncomingCall && !activeCallSignal ? 'Waiting for signal…' : statusLabel,
+      isMuted,
+      isBusy,
+      canAnswer: Boolean(activeCallSignal),
+      canToggleMute: Boolean(activeCallSession) && !isTerminal,
+      onExpand: () => {
+        if (isIncomingCall) setIncomingExpanded(true);
+        else setExpanded(true);
+      },
+      onToggleMute,
+      onEndCall,
+      onAnswerCall,
+      onDeclineCall,
+    });
+  }, [
+    activeCallSession,
+    activeCallSignal,
+    connectionState,
+    conversation.contact.avatarUrl,
+    conversation.id,
+    durationLabel,
+    isBusy,
+    isConnected,
+    isIncomingCall,
+    isOngoing,
+    isMuted,
+    isTerminal,
+    label,
+    onAnswerCall,
+    onDeclineCall,
+    onEndCall,
+    onToggleMute,
+    statusLabel,
+  ]);
+
+  useEffect(() => () => setCallChrome(null), []);
+
   if (!activeCallSession && connectionState === 'idle') return null;
 
   if (isIncomingCall) {
@@ -419,6 +488,7 @@ export function CallPanel({
         onDeclineCall={onDeclineCall}
         topInset={insets.top}
         bottomInset={insets.bottom}
+        hideDock={embedInHeader}
       />
     );
   }
@@ -434,9 +504,10 @@ export function CallPanel({
     <>
       {remoteAudio}
 
-      <View style={[styles.dock, { bottom: Math.max(insets.bottom, 12) }]}>
+      {embedInHeader ? null : (
+      <View style={[styles.dock, { top: Math.max(insets.top, 8) }]}>
         <Pressable style={styles.dockMain} onPress={() => setExpanded(true)}>
-          <View style={styles.dockAvatar}><Text style={styles.dockAvatarText}>{getInitials(label)}</Text></View>
+          <ColorfulAvatar name={label} size={36} url={conversation.contact.avatarUrl} />
           <View style={styles.dockCopy}>
             <Text style={styles.dockName} numberOfLines={1}>{label}</Text>
             <View style={styles.dockStatusRow}>
@@ -459,6 +530,7 @@ export function CallPanel({
           {isBusy ? <ActivityIndicator color="#fff" /> : <PhoneOff color="#fff" size={18} />}
         </Pressable>
       </View>
+      )}
 
       <Modal visible={expanded && isOngoing} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => setExpanded(false)}>
         <View style={[styles.expandedRoot, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>

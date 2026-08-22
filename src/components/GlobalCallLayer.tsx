@@ -135,9 +135,9 @@ function fallbackConversation(session: ConversationCallSession): ConversationCal
     unreadCount: 0,
     contact: {
       id: session.conversationId,
-      displayName: session.recipientDisplayName,
-      primaryPhone: session.recipientIdentityValue,
-      avatarUrl: null,
+      displayName: session.recipientDisplayName?.trim() || null,
+      primaryPhone: session.recipientIdentityValue?.trim() || null,
+      avatarUrl: session.conversation?.contact.avatarUrl ?? null,
     },
     channel: {
       channelId: session.channelAccountId,
