@@ -51,6 +51,7 @@ export type NotificationCreatedRealtimeEvent = {
   createdAt: string;
   metadata: NotificationMetadata;
   recipientUserIds: string[] | null;
+  callEvent?: 'RINGING' | 'ENDED';
 };
 
 export type NotificationPreferences = {
