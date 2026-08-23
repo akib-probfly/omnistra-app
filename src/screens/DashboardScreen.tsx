@@ -21,6 +21,7 @@ import { fetchDashboard, type DashboardChannelHealthItem, type DashboardResponse
 import { channelBrandColor, ChannelLogo } from '../components/ChannelLogo';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 import { DashboardSkeleton } from '../components/Skeleton';
+import { useWorkspaceAccess } from '../lib/workspace-access';
 import { useTheme } from '../theme/ThemeContext';
 import type { ThemeColors } from '../theme/colors';
 
@@ -681,6 +682,7 @@ export function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const isFocused = useIsFocused();
+  const { canManage } = useWorkspaceAccess();
   const { width: windowWidth } = useWindowDimensions();
   const contentWidth = Math.max(windowWidth - 32, 280);
   const [preset, setPreset] = useState<RangePreset>('7d');
@@ -734,7 +736,9 @@ export function DashboardScreen() {
     return [
       { label: 'Conversations', value: formatNumber(summary?.totalConversations), note: 'vs prior period', color: isDark ? '#d9f99d' : '#3f6212', colors: isDark ? darkGradient(['#ecfccb', '#a3e635']) : ['#ecfccb', '#a3e635'] as [string, string], Icon: MessageSquareText, delta: totalCmp },
       { label: 'Unique contacts', value: formatNumber(summary?.uniqueContactsCreated), note: 'in range', color: isDark ? '#fdba74' : '#9a3412', colors: isDark ? darkGradient(['#ffedd5', '#fb923c']) : ['#ffedd5', '#fb923c'] as [string, string], Icon: Users, delta: null },
-      { label: 'Unassigned', value: formatNumber(summary?.unassignedConversations), note: 'needs owner', color: isDark ? '#7dd3fc' : '#075985', colors: isDark ? darkGradient(['#e0f2fe', '#38bdf8']) : ['#e0f2fe', '#38bdf8'] as [string, string], Icon: Inbox, delta: null },
+      ...(canManage
+        ? [{ label: 'Unassigned', value: formatNumber(summary?.unassignedConversations), note: 'needs owner', color: isDark ? '#7dd3fc' : '#075985', colors: isDark ? darkGradient(['#e0f2fe', '#38bdf8']) : ['#e0f2fe', '#38bdf8'] as [string, string], Icon: Inbox, delta: null }]
+        : []),
       { label: 'Assigned', value: formatNumber(summary?.assignedConversations), note: 'with agents', color: isDark ? '#86efac' : '#166534', colors: isDark ? darkGradient(['#dcfce7', '#4ade80']) : ['#dcfce7', '#4ade80'] as [string, string], Icon: UserCheck, delta: null },
       { label: 'First response', value: formatDuration(summary?.avgFirstResponseMinutes ?? null), note: 'vs prior period', color: isDark ? '#fca5a5' : '#991b1b', colors: isDark ? darkGradient(['#fee2e2', '#f87171']) : ['#fee2e2', '#f87171'] as [string, string], Icon: Clock3, delta: respCmp },
       { label: 'Resolution rate', value: `${(summary?.resolutionRate ?? 0).toFixed(1)}%`, note: 'vs prior period', color: isDark ? '#6ee7b7' : '#065f46', colors: isDark ? darkGradient(['#d1fae5', '#34d399']) : ['#d1fae5', '#34d399'] as [string, string], Icon: Percent, delta: rateCmp },
@@ -743,8 +747,12 @@ export function DashboardScreen() {
 
   const overview = [
     { label: 'Conversations', value: formatNumber(summary?.totalConversations), note: 'Total in selected range', colors: isDark ? darkGradient(['#1d4ed8', '#60a5fa']) : ['#1d4ed8', '#60a5fa'] as [string, string], Icon: MessageSquareText },
-    { label: 'Channels', value: formatNumber(channelsCount), note: 'Connected in workspace', colors: isDark ? darkGradient(['#0f766e', '#2dd4bf']) : ['#0f766e', '#2dd4bf'] as [string, string], Icon: Wifi },
-    { label: 'Team', value: formatNumber(teamMembers), note: 'Agents in command center', colors: isDark ? darkGradient(['#7c3aed', '#c4b5fd']) : ['#7c3aed', '#c4b5fd'] as [string, string], Icon: Users },
+    ...(canManage
+      ? [
+        { label: 'Channels', value: formatNumber(channelsCount), note: 'Connected in workspace', colors: isDark ? darkGradient(['#0f766e', '#2dd4bf']) : ['#0f766e', '#2dd4bf'] as [string, string], Icon: Wifi },
+        { label: 'Team', value: formatNumber(teamMembers), note: 'Agents in command center', colors: isDark ? darkGradient(['#7c3aed', '#c4b5fd']) : ['#7c3aed', '#c4b5fd'] as [string, string], Icon: Users },
+      ]
+      : []),
   ];
 
   const applySearch = () => setSearch(searchInput.trim());
@@ -774,7 +782,7 @@ export function DashboardScreen() {
               onChangeText={setSearchInput}
               onSubmitEditing={applySearch}
               returnKeyType="search"
-              placeholder="Search agents, channels…"
+              placeholder={canManage ? 'Search agents, channels…' : 'Search conversations…'}
               placeholderTextColor={colors.textMuted}
               style={[styles.searchInput, { color: colors.text }]}
             />
@@ -837,8 +845,12 @@ export function DashboardScreen() {
             <Section title="Channel mix" colors={colors}>
               <ChannelMix mix={mix} colors={colors} />
             </Section>
-            <TeamCommandCenter data={dashboard.data} colors={colors} isDark={isDark} />
-            <LiveChannelStatus data={dashboard.data} colors={colors} />
+            {canManage ? (
+              <>
+                <TeamCommandCenter data={dashboard.data} colors={colors} isDark={isDark} />
+                <LiveChannelStatus data={dashboard.data} colors={colors} />
+              </>
+            ) : null}
 
             <Text style={[styles.footerNote, { color: colors.textMuted }]}>Scoped to the current workspace. Search and date range update every section.</Text>
           </>

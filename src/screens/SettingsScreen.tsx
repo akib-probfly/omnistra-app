@@ -21,14 +21,13 @@ import {
 } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useAuth } from '../auth/AuthContext';
-import { fetchMyWorkspaces } from '../api/workspaces';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 import { canViewBroadcast } from '../lib/broadcast-access';
+import { useWorkspaceAccess } from '../lib/workspace-access';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -86,20 +85,20 @@ export function SettingsScreen() {
   const navigation = useNavigation<NavigationProp<SettingsStackParamList>>();
   const { session, logout } = useAuth();
   const { mode, setMode, isDark } = useTheme();
-  const workspacesQuery = useQuery({
-    queryKey: ['workspaces', 'mine'],
-    queryFn: fetchMyWorkspaces,
-    staleTime: 30_000,
-  });
-  const showBroadcast = canViewBroadcast(workspacesQuery.data?.items?.[0]);
+  const { workspace, canManage } = useWorkspaceAccess();
+  const showBroadcast = canViewBroadcast(workspace);
   const visibleGroups = useMemo(
     () => SETTINGS_GROUPS
-      .map((group) => ({
-        ...group,
-        items: group.label === 'Broadcast' && !showBroadcast ? [] : group.items,
-      }))
+      .map((group) => {
+        if (group.label === 'Broadcast' && !showBroadcast) return { ...group, items: [] };
+        if (group.label === 'Billing' && !canManage) return { ...group, items: [] };
+        if (group.label === 'General Settings' && !canManage) {
+          return { ...group, items: group.items.filter((item) => item.id !== 'assignment') };
+        }
+        return group;
+      })
       .filter((group) => group.items.length > 0),
-    [showBroadcast],
+    [showBroadcast, canManage],
   );
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
@@ -142,7 +141,11 @@ export function SettingsScreen() {
         <View style={styles.topbarCopy}>
           <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {showBroadcast ? 'General settings, broadcast, and billing' : 'General settings and billing'}
+            {canManage
+              ? showBroadcast
+                ? 'General settings, broadcast, and billing'
+                : 'General settings and billing'
+              : 'General settings'}
           </Text>
         </View>
         <NotificationBell onOpen={() => setNotificationsOpen(true)} />

@@ -15,6 +15,20 @@ export const apiUrl = (value: string | null): string | null => {
     return `${base.replace(/\/$/, '')}/${value.replace(/^\//, '')}`;
   }
 };
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+export function isApiErrorWithStatus(error: unknown, status: number) {
+  return error instanceof ApiError && error.status === status;
+}
+
 export let latestAccessToken: string | null = null;
 let authExpiredHandler: (() => void) | null = null;
 const accessTokenListeners = new Set<(token: string | null) => void>();
@@ -111,7 +125,7 @@ export async function apiFetch<T>(path: string, init: RequestInit & { auth?: boo
       if (raw && !raw.includes('\\n') && raw.length < 240) message = raw;
     }
     if (__DEV__) console.error(`[api] ${fetchInit.method ?? 'GET'} ${path} -> ${response.status}`, message);
-    throw new Error(message);
+    throw new ApiError(message, response.status);
   }
   const payload = await response.json() as T | { data?: T };
   if (typeof payload === 'object' && payload !== null && 'data' in payload && payload.data !== undefined) {

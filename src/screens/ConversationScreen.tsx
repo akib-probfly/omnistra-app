@@ -12,7 +12,7 @@ import { showNotice } from '../components/AppToast';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useIsFocused, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { apiFetch, uploadFile } from '../api/client';
+import { apiFetch, isApiErrorWithStatus, uploadFile } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { getRealtimeConnectionStatus, setActiveConversationId, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { markRecentLocalMessageSend } from '../lib/inbox-realtime-suppression';
@@ -958,7 +958,13 @@ export function ConversationScreen() {
             <Pressable style={[styles.fab, { backgroundColor: colors.primary }]} onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}><ChevronDown color="#fff" size={22} /></Pressable>
           ) : null}
         </View>
-        {messages.isError ? <Text style={[styles.error, { color: colors.error }]}>{messages.error instanceof Error ? messages.error.message : 'Unable to load messages.'}</Text> : null}
+        {messages.isError ? (
+          <Text style={[styles.error, { color: colors.error }]}>
+            {isApiErrorWithStatus(messages.error, 404) || isApiErrorWithStatus(messages.error, 403)
+              ? 'This conversation is no longer available to you.'
+              : messages.error instanceof Error ? messages.error.message : 'Unable to load messages.'}
+          </Text>
+        ) : null}
         {(header.conversation || messages.data?.conversation) ? (
         <View style={{ paddingBottom: insets.bottom }}>
         <ConversationComposer

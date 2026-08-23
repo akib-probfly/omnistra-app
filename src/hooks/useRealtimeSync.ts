@@ -82,11 +82,28 @@ function patchConversationMessageStatus(
   });
 }
 
+/**
+ * Realtime events are workspace-wide, but members with restricted scope cannot read
+ * every conversation. Only refresh threads this client already knows about, so a
+ * scoped member never fires a request that comes back 404.
+ */
+function isConversationVisibleToViewer(
+  queryClient: ReturnType<typeof useQueryClient>,
+  conversationId: string,
+) {
+  if (getActiveConversationId() === conversationId) return true;
+  if (queryClient.getQueryData(['messages', conversationId])) return true;
+  return queryClient
+    .getQueriesData<CachedConversationList>({ queryKey: ['conversations'] })
+    .some(([, data]) => data?.pages?.some((page) => page.items?.some((item) => item.id === conversationId)));
+}
+
 function refreshConversationMessages(
   queryClient: ReturnType<typeof useQueryClient>,
   conversationId: string,
   delay: number,
 ) {
+  if (!isConversationVisibleToViewer(queryClient, conversationId)) return;
   schedule(`messages:${conversationId}`, () => {
     void refreshConversationMessagesPage(queryClient, conversationId);
   }, delay);
