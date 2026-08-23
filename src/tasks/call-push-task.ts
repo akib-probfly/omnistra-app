@@ -10,6 +10,11 @@ import {
   presentIncomingCallNotification,
 } from '../lib/call-notification';
 import { clearIncomingCallPrompt, writeIncomingCallPrompt } from '../lib/incoming-call-prompt';
+import {
+  ensureMessageNotificationCategory,
+  handleMessageNotificationAction,
+  presentIncomingMessageNotification,
+} from '../lib/message-notification';
 import { parseMobileNotificationData } from '../lib/mobile-notification';
 import { ensureMobilePushChannels } from '../lib/mobilePushRegistration';
 
@@ -52,6 +57,11 @@ async function handleRemoteCallPush(rawData: Record<string, unknown>) {
     return;
   }
 
+  if (payload?.type === 'NEW_MESSAGE') {
+    await presentIncomingMessageNotification(payload);
+    return;
+  }
+
   if (!payload || payload.type !== 'INCOMING_CALL') return;
   if (isIncomingCallPromptExpired(payload)) return;
 
@@ -91,6 +101,7 @@ TaskManager.defineTask<Notifications.NotificationTaskPayload>(CALL_PUSH_TASK, as
   if (error || !data) return;
   try {
     if ('actionIdentifier' in data) {
+      if (await handleMessageNotificationAction(data)) return;
       await handleCallAction(data);
       return;
     }
@@ -102,6 +113,7 @@ TaskManager.defineTask<Notifications.NotificationTaskPayload>(CALL_PUSH_TASK, as
 
 export function registerCallPushTask() {
   void ensureIncomingCallCategory();
+  void ensureMessageNotificationCategory();
   void ensureMobilePushChannels().catch((error) => {
     if (__DEV__) console.warn('[call-push] channel setup failed', error);
   });

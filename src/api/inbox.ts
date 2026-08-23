@@ -277,6 +277,14 @@ export async function markConversationRead(conversationId: string) {
   return apiFetch<{ unreadCount?: number }>(`/conversations/${conversationId}/read`, { method: 'PATCH' });
 }
 
+/** Plain text send used by the notification reply action, where no composer state exists. */
+export async function sendConversationTextMessage(conversationId: string, text: string) {
+  return apiFetch(`/conversations/${conversationId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ type: 'TEXT', text, attachmentIds: [] }),
+  });
+}
+
 export async function markConversationUnread(conversationId: string) {
   return apiFetch<{ unreadCount?: number }>(`/conversations/${conversationId}/unread`, { method: 'PATCH' });
 }

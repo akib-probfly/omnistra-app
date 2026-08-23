@@ -14,6 +14,13 @@ import {
 } from '../lib/call-notification';
 import { clearIncomingCallPrompt } from '../lib/incoming-call-prompt';
 import {
+  ensureMessageNotificationCategory,
+  handleMessageNotificationAction,
+  isMessageNotificationAction,
+  presentIncomingMessageNotification,
+  wasPresentedLocally,
+} from '../lib/message-notification';
+import {
   navigateFromMobileNotification,
   parseMobileNotificationData,
   reconnectAndRefreshActiveCalls,
@@ -71,6 +78,18 @@ export function useMobileNotificationHandlers() {
       ) {
         void playNotificationSound(payload.type);
       }
+
+      // Remote FCM alerts have no Reply action. Replace them with a local
+      // notification we own, unless this is already that local banner.
+      if (
+        payload.type === 'NEW_MESSAGE'
+        && AppState.currentState !== 'active'
+        && !wasPresentedLocally(notification.request.content.data)
+      ) {
+        void Notifications.dismissNotificationAsync(notification.request.identifier)
+          .catch(() => {})
+          .then(() => presentIncomingMessageNotification(payload));
+      }
     },
     [queryClient],
   );
@@ -82,8 +101,23 @@ export function useMobileNotificationHandlers() {
         response.actionIdentifier === DECLINE_CALL_ACTION_ID;
       if (
         response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER &&
-        !isCallAction
+        !isCallAction &&
+        !isMessageNotificationAction(response.actionIdentifier)
       ) {
+        return;
+      }
+
+      if (isMessageNotificationAction(response.actionIdentifier)) {
+        void handleMessageNotificationAction(response).then((handled) => {
+          if (!handled) return;
+          const payload = parseMobileNotificationData(
+            response.notification.request.content.data,
+          );
+          if (payload) {
+            syncNotificationCaches(queryClient, payload, { showIncomingCallPrompt: false });
+          }
+          Notifications.clearLastNotificationResponse();
+        });
         return;
       }
 
@@ -94,10 +128,7 @@ export function useMobileNotificationHandlers() {
         Notifications.clearLastNotificationResponse();
         return;
       }
-      if (!claimNotification(payload.notificationId)) {
-        Notifications.clearLastNotificationResponse();
-        return;
-      }
+      claimNotification(payload.notificationId);
 
       if (response.actionIdentifier === DECLINE_CALL_ACTION_ID) {
         clearIncomingCallPrompt(payload.entityId);
@@ -148,6 +179,7 @@ export function useMobileNotificationHandlers() {
   useEffect(() => {
     configureMobileForegroundNotificationHandler();
     void ensureIncomingCallCategory();
+    void ensureMessageNotificationCategory();
   }, []);
 
   useEffect(() => {
