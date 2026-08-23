@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
-import { apiFetch } from '../api/client';
+import { apiFetch, isApiErrorWithStatus } from '../api/client';
 
 type Attachment = {
   id: string;
@@ -100,6 +100,12 @@ export async function refreshConversationMessagesPage(
       conversation: page.conversation ?? current?.conversation ?? null,
     });
   } catch (error) {
+    // A 404 means the conversation is gone or outside this member's access scope.
+    // Retrying would loop, so drop the cached thread instead.
+    if (isApiErrorWithStatus(error, 404) || isApiErrorWithStatus(error, 403)) {
+      queryClient.removeQueries({ queryKey });
+      return;
+    }
     if (__DEV__) {
       console.warn('[realtime] message page refresh failed', conversationId, error);
     }

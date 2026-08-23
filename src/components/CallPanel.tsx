@@ -14,7 +14,7 @@ import {
   Volume2,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { ActivityIndicator, Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Modal, Platform, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ConversationCallConversation, ConversationCallSession, ConversationCallSignalSession } from '../api/inbox';
 import { getCallSessionStatusLabel, isCallSessionTerminal } from '../lib/inbox-utils';
@@ -22,8 +22,17 @@ import type { CallConnectionState } from '../hooks/useWhatsappCallController';
 import { RTCView } from '../native/webrtc';
 import { ColorfulAvatar } from './ColorfulAvatar';
 import { useTheme } from '../theme/ThemeContext';
+
+/**
+ * Android renders Modal outside the safe-area provider, so insets come back as 0
+ * and the header would sit under the status bar.
+ */
+function resolveModalTopInset(topInset: number) {
+  if (Platform.OS !== 'android') return topInset;
+  return Math.max(topInset, StatusBar.currentHeight ?? 24);
+}
 import { useCallRingtone } from '../hooks/useCallRingtone';
-import { setCallChrome, getFocusedCallConversationId, subscribeCallChrome } from '../lib/call-chrome';
+import { setCallChrome, getFocusedCallConversationId, getCallPartyHint, getCallUiRevision, subscribeCallChrome, isGenericCallLabel } from '../lib/call-chrome';
 
 type Props = {
   conversation: ConversationCallConversation;
@@ -40,28 +49,24 @@ type Props = {
   onToggleMute: () => void;
 };
 
-function firstNonEmpty(...values: Array<string | null | undefined>) {
-  for (const value of values) {
+function getCallPartyLabel(
+  conversation: ConversationCallConversation,
+  session: ConversationCallSession | null,
+) {
+  const hint = getCallPartyHint(conversation.id);
+  const candidates = [
+    hint?.label,
+    conversation.contact.displayName,
+    session?.recipientDisplayName,
+    conversation.contact.primaryPhone,
+    session?.recipientIdentityValue,
+    conversation.channel.displayPhoneNumber,
+  ];
+  for (const value of candidates) {
     const trimmed = value?.trim();
-    if (trimmed) return trimmed;
+    if (trimmed && !isGenericCallLabel(trimmed)) return trimmed;
   }
   return 'WhatsApp call';
-}
-
-function getConversationLabel(conversation: ConversationCallConversation) {
-  return firstNonEmpty(
-    conversation.contact.displayName,
-    conversation.contact.primaryPhone,
-    conversation.channel.displayPhoneNumber,
-    conversation.channel.channelName,
-  );
-}
-
-function getInitials(label: string) {
-  const parts = label.split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
-  return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase();
 }
 
 function formatDuration(totalSeconds: number) {
@@ -237,7 +242,7 @@ function IncomingCallScreen({
         <LinearGradient
           colors={['#0f2744', '#0b1220', '#07101c']}
           locations={[0, 0.45, 1]}
-          style={[styles.incomingRoot, { paddingTop: topInset + 12, paddingBottom: bottomInset + 28 }]}
+          style={[styles.incomingRoot, { paddingTop: resolveModalTopInset(topInset) + 20, paddingBottom: bottomInset + 28 }]}
         >
           <View style={styles.incomingGlow} />
           <View style={styles.incomingHeader}>
@@ -336,12 +341,13 @@ export function CallPanel({
 }: Props) {
   const insets = useSafeAreaInsets();
   const focusedConversationId = useSyncExternalStore(subscribeCallChrome, getFocusedCallConversationId);
+  useSyncExternalStore(subscribeCallChrome, getCallUiRevision);
   const [expanded, setExpanded] = useState(false);
   const [incomingExpanded, setIncomingExpanded] = useState(true);
   const [speakerOn, setSpeakerOn] = useState(true);
   const [speakerError, setSpeakerError] = useState<string | null>(null);
 
-  const label = getConversationLabel(conversation);
+  const label = getCallPartyLabel(conversation, activeCallSession);
   const isIncomingCall = Boolean(
     activeCallSession
     && activeCallSession.direction === 'INBOUND'
@@ -533,7 +539,7 @@ export function CallPanel({
       )}
 
       <Modal visible={expanded && isOngoing} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => setExpanded(false)}>
-        <View style={[styles.expandedRoot, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
+        <View style={[styles.expandedRoot, { paddingTop: resolveModalTopInset(insets.top) + 20, paddingBottom: insets.bottom + 24 }]}>
           <View style={styles.expandedHeader}>
             <Pressable style={styles.minimizeButton} onPress={() => setExpanded(false)} hitSlop={12}>
               <ChevronDown color="#fff" size={22} />
@@ -544,9 +550,7 @@ export function CallPanel({
 
           <View style={styles.expandedBody}>
             <View style={styles.expandedAvatarRing}>
-              <View style={styles.expandedAvatar}>
-                <Text style={styles.expandedAvatarText}>{getInitials(label)}</Text>
-              </View>
+              <ColorfulAvatar name={label} size={120} url={conversation.contact.avatarUrl} />
             </View>
             <Text style={styles.expandedName}>{label}</Text>
             <Text style={styles.expandedStatus}>

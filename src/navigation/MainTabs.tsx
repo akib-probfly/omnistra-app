@@ -8,6 +8,7 @@ import { ChannelsStack } from './ChannelsStack';
 import { ContactsStack } from './ContactsStack';
 import { InboxStack, type InboxStackParamList } from './InboxStack';
 import { SettingsStack } from './SettingsStack';
+import { useWorkspaceAccess } from '../lib/workspace-access';
 import { useTheme } from '../theme/ThemeContext';
 
 export type MainTabParamList = {
@@ -51,6 +52,7 @@ function TabBarButton({
 export function MainTabs() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const { canManage } = useWorkspaceAccess();
   const bottomPad = Math.max(insets.bottom, 8) + 4;
 
   const tabBarStyle = {
@@ -78,7 +80,9 @@ export function MainTabs() {
       }}
     >
       <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ tabBarIcon: ({ color, size }) => <BarChart3 color={color} size={size} /> }} />
-      <Tab.Screen name="Channels" component={ChannelsStack} options={{ tabBarIcon: ({ color, size }) => <Radio color={color} size={size} /> }} />
+      {canManage ? (
+        <Tab.Screen name="Channels" component={ChannelsStack} options={{ tabBarIcon: ({ color, size }) => <Radio color={color} size={size} /> }} />
+      ) : null}
       <Tab.Screen
         name="Inbox"
         component={InboxStack}
@@ -90,7 +94,9 @@ export function MainTabs() {
           };
         }}
       />
-      <Tab.Screen name="Contacts" component={ContactsStack} options={{ tabBarIcon: ({ color, size }) => <ContactRound color={color} size={size} /> }} />
+      {canManage ? (
+        <Tab.Screen name="Contacts" component={ContactsStack} options={{ tabBarIcon: ({ color, size }) => <ContactRound color={color} size={size} /> }} />
+      ) : null}
       <Tab.Screen name="Settings" component={SettingsStack} options={{ tabBarIcon: ({ color, size }) => <Settings color={color} size={size} /> }} />
     </Tab.Navigator>
   );

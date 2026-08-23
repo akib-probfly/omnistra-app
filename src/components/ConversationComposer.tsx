@@ -25,7 +25,7 @@ import { PanelSkeleton } from './Skeleton';
 import { WhatsappTemplateSendModal, type TemplateSendPayload } from './WhatsappTemplateSendModal';
 import { useTheme } from '../theme/ThemeContext';
 
-type SendAttachment = {
+export type SendAttachment = {
   uri: string;
   name: string;
   mimeType: string;

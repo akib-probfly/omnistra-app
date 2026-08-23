@@ -296,7 +296,6 @@ export function WhatsappTemplateSendModal({
                 <Text style={styles.title}>WhatsApp templates</Text>
               </View>
               <TextInput
-                autoFocus
                 placeholder="Search templates..."
                 placeholderTextColor={colors.textMuted}
                 value={query}
@@ -480,8 +479,7 @@ const styles = StyleSheet.create({
   },
   flexFill: { flex: 1 },
   panelHeight: {
-    flex: 1,
-    marginTop: 96,
+    height: '92%',
     paddingHorizontal: 16,
     paddingTop: 14,
   },

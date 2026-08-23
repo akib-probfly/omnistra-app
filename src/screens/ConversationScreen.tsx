@@ -12,7 +12,7 @@ import { showNotice } from '../components/AppToast';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useIsFocused, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { apiFetch, uploadFile } from '../api/client';
+import { apiFetch, isApiErrorWithStatus, uploadFile } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { getRealtimeConnectionStatus, setActiveConversationId, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { markRecentLocalMessageSend } from '../lib/inbox-realtime-suppression';
@@ -22,7 +22,7 @@ import {
   setConversationUnreadInCache,
 } from '../lib/inbox-unread-cache';
 import { ConversationComposer } from '../components/ConversationComposer';
-import type { ComposerSendPayload } from '../components/ConversationComposer';
+import type { ComposerSendPayload, SendAttachment } from '../components/ConversationComposer';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ConversationSkeleton, ComposerSkeleton } from '../components/Skeleton';
 import { InboxPatternBackground } from '../components/InboxPatternBackground';
@@ -38,14 +38,13 @@ import type { MainTabParamList } from '../navigation/MainTabs';
 import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getCallSessionTimelineTimestamp, getConversationTitle, getMessengerMessagingAvailability, getReplyPreviewBody, getVoiceCallButtonState, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
 import { CallHistoryItem } from '../components/CallHistoryItem';
 import { useCallController } from '../providers/CallControllerProvider';
-import { getCallChrome, setFocusedCallConversationId, subscribeCallChrome } from '../lib/call-chrome';
+import { getCallChrome, setFocusedCallConversationId, subscribeCallChrome, rememberCallParty, getCallUiRevision } from '../lib/call-chrome';
 import { isWhatsappCallSupported } from '../lib/whatsapp-calling';
 import { useInboxAppearance } from '../hooks/useInboxAppearance';
 import { useTheme } from '../theme/ThemeContext';
 
 type Attachment = { id: string; messageId?: string | null; mediaType: string; mimeType: string; originalName: string | null; downloadUrl: string; previewUrl: string | null; thumbnailUrl: string | null; durationMs: number | null };
 type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBOUND'; senderType?: string | null; sender?: { userName?: string | null; userEmail?: string | null } | null; type: string; text: string | null; deliveryStatus?: string; failureReason?: string | null; campaignId?: string | null; campaignName?: string | null; templateName?: string | null; templateComponentsJson?: unknown; replyToMessageId?: string | null; replyTo?: { id?: string; sender?: { userName?: string | null } | null; text?: string | null; type?: string; attachments?: Attachment[] } | null; sentAt?: string | null; createdAt?: string; metadata?: any; attachments?: Attachment[] };
-type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT'; sizeBytes?: number | null; durationMs?: number | null };
 type MediaItem = { attachId: string; src: string; mediaType: string };
 type TimelineRow = { entry: ConversationTimelineEntry<Message>; showDivider: boolean };
 
@@ -694,6 +693,14 @@ export function ConversationScreen() {
   const title = getConversationTitle(header.conversation, route.params.contactName);
 
   useEffect(() => {
+    rememberCallParty(
+      route.params.conversationId,
+      title,
+      header.conversation?.contact?.avatarUrl ?? null,
+    );
+  }, [header.conversation?.contact?.avatarUrl, route.params.conversationId, title]);
+
+  useEffect(() => {
     const conversationId = route.params.conversationId;
     if (!isMessengerConversation || !header.conversation) {
       initializedMessengerModeConversationIdRef.current = null;
@@ -726,10 +733,10 @@ export function ConversationScreen() {
   ]);
   const callsQuery = useQuery({
     queryKey: ['conversation-calls', route.params.conversationId],
-    queryFn: () => fetchConversationCallSessions({ conversationId: route.params.conversationId, limit: 10 }),
+    queryFn: () => fetchConversationCallSessions({ conversationId: route.params.conversationId, limit: 100 }),
     enabled: isWhatsAppConversation,
-    staleTime: 60_000,
-    refetchOnMount: false,
+    staleTime: 15_000,
+    refetchOnMount: 'always',
   });
   const callSessions: ConversationCallSession[] = callsQuery.data?.items ?? [];
   const assignmentHistoryQuery = useQuery({
@@ -779,18 +786,7 @@ export function ConversationScreen() {
     void queryClient.invalidateQueries({ queryKey: ['active-calls'] });
   };
   const timeline = useMemo<ConversationTimelineEntry<Message>[]>(() => {
-    const times = allMessages.map((message) => new Date(message.sentAt ?? message.createdAt ?? '').getTime()).filter((value) => Number.isFinite(value));
-    const minTs = times.length ? Math.min(...times) : 0;
-    const maxTs = times.length ? Math.max(...times) : Date.now();
-    const boundedCalls = callSessions.filter((session) => {
-      const timestamp = new Date(getCallSessionTimelineTimestamp(session)).getTime();
-      return Number.isFinite(timestamp) && timestamp >= minTs && timestamp <= maxTs;
-    });
-    const boundedAssignments = assignmentEvents.filter((event) => {
-      const timestamp = new Date(event.createdAt).getTime();
-      return Number.isFinite(timestamp) && timestamp >= minTs && timestamp <= maxTs;
-    });
-    return buildConversationTimeline(allMessages, boundedCalls, boundedAssignments);
+    return buildConversationTimeline(allMessages, callSessions, assignmentEvents);
   }, [allMessages, callSessions, assignmentEvents]);
   timelineRef.current = timeline;
   const displayEntries = useMemo<TimelineRow[]>(() => {
@@ -812,7 +808,8 @@ export function ConversationScreen() {
   }, [messages.data, route.params.conversationId]);
 
   const channelName = header.conversation?.channel?.channelName ?? null;
-  const callChrome = useSyncExternalStore(subscribeCallChrome, getCallChrome);
+  useSyncExternalStore(subscribeCallChrome, getCallUiRevision);
+  const callChrome = getCallChrome();
   const showInCallHeader = Boolean(
     callChrome && callChrome.conversationId === route.params.conversationId,
   );
@@ -960,7 +957,13 @@ export function ConversationScreen() {
             <Pressable style={[styles.fab, { backgroundColor: colors.primary }]} onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}><ChevronDown color="#fff" size={22} /></Pressable>
           ) : null}
         </View>
-        {messages.isError ? <Text style={[styles.error, { color: colors.error }]}>{messages.error instanceof Error ? messages.error.message : 'Unable to load messages.'}</Text> : null}
+        {messages.isError ? (
+          <Text style={[styles.error, { color: colors.error }]}>
+            {isApiErrorWithStatus(messages.error, 404) || isApiErrorWithStatus(messages.error, 403)
+              ? 'This conversation is no longer available to you.'
+              : messages.error instanceof Error ? messages.error.message : 'Unable to load messages.'}
+          </Text>
+        ) : null}
         {(header.conversation || messages.data?.conversation) ? (
         <View style={{ paddingBottom: insets.bottom }}>
         <ConversationComposer

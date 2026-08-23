@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import Toast from 'react-native-toast-message';
+import { ApiError } from './src/api/client';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { AuthProvider, useAuth } from './src/auth/AuthContext';
 import { useRealtimeSync } from './src/hooks/useRealtimeSync';
@@ -29,6 +30,11 @@ const queryClient = new QueryClient({
       // so we don't need every query to be refetched on every mount/focus.
       staleTime: 30_000,
       gcTime: 5 * 60_000,
+      // Client errors (missing record, out of access scope) never succeed on retry.
+      retry: (failureCount, error) => {
+        if (error instanceof ApiError && error.status >= 400 && error.status < 500) return false;
+        return failureCount < 3;
+      },
     },
   },
 });
