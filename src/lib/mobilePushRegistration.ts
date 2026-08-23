@@ -18,6 +18,7 @@ const REGISTRATION_STORAGE_KEY = "mobile-push-device-registration";
 const PREFERENCE_AUTO_ENABLE_KEY = "mobile-push-pref-auto-enabled";
 const DEFAULT_CHANNEL_ID = "default";
 const CALL_CHANNEL_ID = "calls";
+export { CALL_CHANNEL_ID };
 const NOTIFICATION_COLOR = "#1d4ed8";
 
 type StoredMobilePushRegistration = {
@@ -137,6 +138,11 @@ async function configureAndroidChannels(): Promise<void> {
     sound: "call.wav",
     vibrationPattern: [0, 500, 250, 500],
     lightColor: NOTIFICATION_COLOR,
+    // Ringing has to reach the user through Do Not Disturb and be readable
+    // on a locked screen, like a phone call.
+    bypassDnd: true,
+    lockscreenVisibility:
+      Notifications.AndroidNotificationVisibility.PUBLIC,
   });
 }
 

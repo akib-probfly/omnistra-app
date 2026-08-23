@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 export type IncomingCallPrompt = {
   notificationId: string;
   workspaceId: string;
@@ -16,6 +18,12 @@ export type IncomingCallPrompt = {
 
 type Listener = (prompt: IncomingCallPrompt | null) => void;
 
+/**
+ * Persisted so a call that rang while the app was killed can still be answered
+ * after the cold start the notification triggers.
+ */
+const STORAGE_KEY = 'incoming-call-prompt';
+
 let currentPrompt: IncomingCallPrompt | null = null;
 const listeners = new Set<Listener>();
 
@@ -26,13 +34,34 @@ export function readIncomingCallPrompt() {
 export function writeIncomingCallPrompt(prompt: IncomingCallPrompt) {
   if (prompt.type !== 'INCOMING_CALL') return;
   currentPrompt = prompt;
+  void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(prompt)).catch(() => {});
   listeners.forEach((listener) => listener(prompt));
 }
 
 export function clearIncomingCallPrompt(callSessionId?: string | null) {
   if (callSessionId && currentPrompt?.entityId !== callSessionId) return;
   currentPrompt = null;
+  void AsyncStorage.removeItem(STORAGE_KEY).catch(() => {});
   listeners.forEach((listener) => listener(null));
+}
+
+/** Restore a ringing call written by the background push task before this process started. */
+export async function hydrateIncomingCallPrompt(): Promise<IncomingCallPrompt | null> {
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as IncomingCallPrompt;
+    if (!parsed || parsed.type !== 'INCOMING_CALL' || typeof parsed.entityId !== 'string') {
+      await AsyncStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    if (currentPrompt) return currentPrompt;
+    currentPrompt = parsed;
+    listeners.forEach((listener) => listener(parsed));
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 export function subscribeIncomingCallPrompt(listener: Listener) {

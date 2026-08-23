@@ -14,7 +14,7 @@ import {
   Volume2,
 } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { ActivityIndicator, Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Modal, Platform, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ConversationCallConversation, ConversationCallSession, ConversationCallSignalSession } from '../api/inbox';
 import { getCallSessionStatusLabel, isCallSessionTerminal } from '../lib/inbox-utils';
@@ -22,6 +22,15 @@ import type { CallConnectionState } from '../hooks/useWhatsappCallController';
 import { RTCView } from '../native/webrtc';
 import { ColorfulAvatar } from './ColorfulAvatar';
 import { useTheme } from '../theme/ThemeContext';
+
+/**
+ * Android renders Modal outside the safe-area provider, so insets come back as 0
+ * and the header would sit under the status bar.
+ */
+function resolveModalTopInset(topInset: number) {
+  if (Platform.OS !== 'android') return topInset;
+  return Math.max(topInset, StatusBar.currentHeight ?? 24);
+}
 import { useCallRingtone } from '../hooks/useCallRingtone';
 import { setCallChrome, getFocusedCallConversationId, getCallPartyHint, getCallUiRevision, subscribeCallChrome, isGenericCallLabel } from '../lib/call-chrome';
 
@@ -233,7 +242,7 @@ function IncomingCallScreen({
         <LinearGradient
           colors={['#0f2744', '#0b1220', '#07101c']}
           locations={[0, 0.45, 1]}
-          style={[styles.incomingRoot, { paddingTop: topInset + 12, paddingBottom: bottomInset + 28 }]}
+          style={[styles.incomingRoot, { paddingTop: resolveModalTopInset(topInset) + 20, paddingBottom: bottomInset + 28 }]}
         >
           <View style={styles.incomingGlow} />
           <View style={styles.incomingHeader}>
@@ -530,7 +539,7 @@ export function CallPanel({
       )}
 
       <Modal visible={expanded && isOngoing} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => setExpanded(false)}>
-        <View style={[styles.expandedRoot, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
+        <View style={[styles.expandedRoot, { paddingTop: resolveModalTopInset(insets.top) + 20, paddingBottom: insets.bottom + 24 }]}>
           <View style={styles.expandedHeader}>
             <Pressable style={styles.minimizeButton} onPress={() => setExpanded(false)} hitSlop={12}>
               <ChevronDown color="#fff" size={22} />

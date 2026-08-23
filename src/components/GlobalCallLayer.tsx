@@ -10,10 +10,12 @@ import { useAuth } from '../auth/AuthContext';
 import { fetchMyProfile } from '../api/profile';
 import {
   clearIncomingCallPrompt,
+  hydrateIncomingCallPrompt,
   readIncomingCallPrompt,
   subscribeIncomingCallPrompt,
   type IncomingCallPrompt,
 } from '../lib/incoming-call-prompt';
+import { dismissIncomingCallNotification, isIncomingCallPromptExpired } from '../lib/call-notification';
 import { extractWhatsappCallSignal } from '../lib/whatsapp-calling';
 import { isCallSessionTerminal, isLiveCallSession } from '../lib/inbox-utils';
 import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
@@ -159,7 +161,7 @@ function fallbackConversation(session: ConversationCallSession): ConversationCal
       id: session.conversationId,
       displayName: session.recipientDisplayName?.trim() || null,
       primaryPhone: session.recipientIdentityValue?.trim() || null,
-      avatarUrl: session.conversation?.contact.avatarUrl ?? null,
+      avatarUrl: null,
     },
     channel: {
       channelId: session.channelAccountId,
@@ -231,6 +233,23 @@ export function GlobalCallLayer() {
     setIncomingCallPrompt(prompt);
   }), [canShowIncomingCallAlerts]);
 
+  // A call that rang while the app was killed is restored from storage on launch.
+  useEffect(() => {
+    void hydrateIncomingCallPrompt().then((prompt) => {
+      if (prompt && isIncomingCallPromptExpired(prompt)) {
+        clearIncomingCallPrompt(prompt.entityId);
+        void dismissIncomingCallNotification(prompt.entityId);
+      }
+    });
+  }, []);
+
+  // Once the in-app call screen is on top the OS notification is redundant noise,
+  // but it must keep ringing while the app sits in the background.
+  useEffect(() => {
+    if (!incomingCallPrompt || appState !== 'active') return;
+    void dismissIncomingCallNotification(incomingCallPrompt.entityId);
+  }, [incomingCallPrompt, appState]);
+
   const visibleCallSession = useMemo(
     () => selectVisibleCallSession(activeCallsQuery.data?.items ?? [], currentUserId),
     [activeCallsQuery.data?.items, currentUserId],
@@ -261,6 +280,7 @@ export function GlobalCallLayer() {
     if (!shouldClear) return;
     dismissedPromptSessionIdsRef.current.add(promptSessionId);
     clearIncomingCallPrompt(promptSessionId);
+    void dismissIncomingCallNotification(promptSessionId);
     setIncomingCallPrompt(null);
   }, [activeCallsQuery.data?.items, currentUserId, incomingCallPrompt?.entityId]);
 
@@ -349,6 +369,7 @@ export function GlobalCallLayer() {
         });
         dismissedPromptSessionIdsRef.current.add(callSessionId);
         clearIncomingCallPrompt(callSessionId);
+        void dismissIncomingCallNotification(callSessionId);
       }}
       onEndCall={() => {
         void callController.endCall({

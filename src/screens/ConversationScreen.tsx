@@ -22,7 +22,7 @@ import {
   setConversationUnreadInCache,
 } from '../lib/inbox-unread-cache';
 import { ConversationComposer } from '../components/ConversationComposer';
-import type { ComposerSendPayload } from '../components/ConversationComposer';
+import type { ComposerSendPayload, SendAttachment } from '../components/ConversationComposer';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ConversationSkeleton, ComposerSkeleton } from '../components/Skeleton';
 import { InboxPatternBackground } from '../components/InboxPatternBackground';
@@ -45,7 +45,6 @@ import { useTheme } from '../theme/ThemeContext';
 
 type Attachment = { id: string; messageId?: string | null; mediaType: string; mimeType: string; originalName: string | null; downloadUrl: string; previewUrl: string | null; thumbnailUrl: string | null; durationMs: number | null };
 type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBOUND'; senderType?: string | null; sender?: { userName?: string | null; userEmail?: string | null } | null; type: string; text: string | null; deliveryStatus?: string; failureReason?: string | null; campaignId?: string | null; campaignName?: string | null; templateName?: string | null; templateComponentsJson?: unknown; replyToMessageId?: string | null; replyTo?: { id?: string; sender?: { userName?: string | null } | null; text?: string | null; type?: string; attachments?: Attachment[] } | null; sentAt?: string | null; createdAt?: string; metadata?: any; attachments?: Attachment[] };
-type SendAttachment = { uri: string; name: string; mimeType: string; type: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'DOCUMENT'; sizeBytes?: number | null; durationMs?: number | null };
 type MediaItem = { attachId: string; src: string; mediaType: string };
 type TimelineRow = { entry: ConversationTimelineEntry<Message>; showDivider: boolean };
 

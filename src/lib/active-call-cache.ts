@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { ConversationCallSession, ConversationCallSessionsResponse } from '../api/inbox';
 import type { UserProfile } from '../api/profile';
+import { dismissIncomingCallNotification } from './call-notification';
 import { clearIncomingCallPrompt, writeIncomingCallPrompt } from './incoming-call-prompt';
 import { isCallSessionTerminal } from './inbox-utils';
 
@@ -142,6 +143,7 @@ export function syncIncomingCallPromptFromSession(
 
   if (terminalOrClaimed) {
     clearIncomingCallPrompt(payload.callSessionId);
+    void dismissIncomingCallNotification(payload.callSessionId);
     return;
   }
 
