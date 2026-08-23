@@ -4,8 +4,8 @@ import { AppState } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/AuthContext';
 import { useNotificationPreferences } from './useNotificationPreferences';
-import { claimNotification } from '../lib/notification-dedupe';
 import { declineConversationCall } from '../api/inbox';
+import { claimNotification } from '../lib/notification-dedupe';
 import {
   ANSWER_CALL_ACTION_ID,
   DECLINE_CALL_ACTION_ID,
@@ -45,75 +45,105 @@ export function useMobileNotificationHandlers() {
   const preferencesRef = useRef(preferences);
   preferencesRef.current = preferences;
 
-  const processNotification = useCallback((notification: Notifications.Notification) => {
-    const payload = parseMobileNotificationData(notification.request.content.data);
-    if (!payload || !claimNotification(payload.notificationId)) return;
+  const processNotification = useCallback(
+    (notification: Notifications.Notification) => {
+      const payload = parseMobileNotificationData(
+        notification.request.content.data,
+      );
+      if (!payload || !claimNotification(payload.notificationId)) return;
 
-    const currentPreferences = preferencesRef.current;
-    syncNotificationCaches(queryClient, payload, {
-      showIncomingCallPrompt: currentPreferences.incomingCallAlertsEnabled,
-    });
+      const currentPreferences = preferencesRef.current;
+      syncNotificationCaches(queryClient, payload, {
+        showIncomingCallPrompt: currentPreferences.incomingCallAlertsEnabled,
+      });
 
-    if (
-      payload.type === 'INCOMING_CALL'
-      && AppState.currentState === 'active'
-      && currentPreferences.isLoaded
-      && currentPreferences.incomingCallAlertsEnabled
-      && currentPreferences.soundEnabled
-    ) {
-      void playNotificationSound(payload.type);
-    }
-  }, [queryClient]);
-
-  const processResponse = useCallback((response: Notifications.NotificationResponse) => {
-    const isCallAction =
-      response.actionIdentifier === ANSWER_CALL_ACTION_ID
-      || response.actionIdentifier === DECLINE_CALL_ACTION_ID;
-    if (response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER && !isCallAction) return;
-
-    const payload = parseMobileNotificationData(response.notification.request.content.data);
-    if (!payload) {
-      Notifications.clearLastNotificationResponse();
-      return;
-    }
-    if (!claimNotification(payload.notificationId)) {
-      Notifications.clearLastNotificationResponse();
-      return;
-    }
-
-    if (response.actionIdentifier === DECLINE_CALL_ACTION_ID) {
-      clearIncomingCallPrompt(payload.entityId);
-      void dismissIncomingCallNotification(payload.entityId);
-      if (payload.conversationId) {
-        void declineConversationCall({
-          conversationId: payload.conversationId,
-          callSessionId: payload.entityId,
-        }).catch(() => {
-          // The call may have already ended on the other side.
-        });
+      if (payload.type === 'INCOMING_CALL' && payload.callEvent === 'ENDED') {
+        void dismissIncomingCallNotification(payload.entityId);
       }
-      Notifications.clearLastNotificationResponse();
-      return;
-    }
 
-    const currentPreferences = preferencesRef.current;
-    syncNotificationCaches(queryClient, payload, {
-      showIncomingCallPrompt: currentPreferences.incomingCallAlertsEnabled,
-    });
-    if (payload.type === 'INCOMING_CALL') {
-      void dismissIncomingCallNotification(payload.entityId);
-      void reconnectAndRefreshActiveCalls(queryClient, payload.conversationId);
-    }
+      if (
+        payload.type === 'INCOMING_CALL' &&
+        payload.callEvent !== 'ENDED' &&
+        AppState.currentState === 'active' &&
+        currentPreferences.isLoaded &&
+        currentPreferences.incomingCallAlertsEnabled &&
+        currentPreferences.soundEnabled
+      ) {
+        void playNotificationSound(payload.type);
+      }
+    },
+    [queryClient],
+  );
 
-    const retryNavigation = (attempt = 0) => {
-      if (navigateFromMobileNotification(payload) || attempt >= 10) {
+  const processResponse = useCallback(
+    (response: Notifications.NotificationResponse) => {
+      const isCallAction =
+        response.actionIdentifier === ANSWER_CALL_ACTION_ID ||
+        response.actionIdentifier === DECLINE_CALL_ACTION_ID;
+      if (
+        response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER &&
+        !isCallAction
+      ) {
+        return;
+      }
+
+      const payload = parseMobileNotificationData(
+        response.notification.request.content.data,
+      );
+      if (!payload) {
         Notifications.clearLastNotificationResponse();
         return;
       }
-      setTimeout(() => retryNavigation(attempt + 1), 100);
-    };
-    retryNavigation();
-  }, [queryClient]);
+      if (!claimNotification(payload.notificationId)) {
+        Notifications.clearLastNotificationResponse();
+        return;
+      }
+
+      if (response.actionIdentifier === DECLINE_CALL_ACTION_ID) {
+        clearIncomingCallPrompt(payload.entityId);
+        void dismissIncomingCallNotification(payload.entityId);
+        if (payload.conversationId) {
+          void declineConversationCall({
+            conversationId: payload.conversationId,
+            callSessionId: payload.entityId,
+          }).catch(() => {
+            // The call may have already ended on the other side.
+          });
+        }
+        Notifications.clearLastNotificationResponse();
+        return;
+      }
+
+      const currentPreferences = preferencesRef.current;
+      syncNotificationCaches(queryClient, payload, {
+        showIncomingCallPrompt: currentPreferences.incomingCallAlertsEnabled,
+      });
+      if (payload.type === 'INCOMING_CALL') {
+        void dismissIncomingCallNotification(payload.entityId);
+        if (payload.callEvent !== 'ENDED') {
+          void reconnectAndRefreshActiveCalls(
+            queryClient,
+            payload.conversationId,
+          );
+        }
+      }
+
+      if (payload.type === 'INCOMING_CALL' && payload.callEvent === 'ENDED') {
+        Notifications.clearLastNotificationResponse();
+        return;
+      }
+
+      const retryNavigation = (attempt = 0) => {
+        if (navigateFromMobileNotification(payload) || attempt >= 10) {
+          Notifications.clearLastNotificationResponse();
+          return;
+        }
+        setTimeout(() => retryNavigation(attempt + 1), 100);
+      };
+      retryNavigation();
+    },
+    [queryClient],
+  );
 
   useEffect(() => {
     configureMobileForegroundNotificationHandler();
@@ -123,8 +153,10 @@ export function useMobileNotificationHandlers() {
   useEffect(() => {
     if (!session) return;
 
-    const receivedSubscription = Notifications.addNotificationReceivedListener(processNotification);
-    const responseSubscription = Notifications.addNotificationResponseReceivedListener(processResponse);
+    const receivedSubscription =
+      Notifications.addNotificationReceivedListener(processNotification);
+    const responseSubscription =
+      Notifications.addNotificationResponseReceivedListener(processResponse);
     let active = true;
 
     void Notifications.getLastNotificationResponseAsync()

@@ -3,25 +3,15 @@ import type { NotificationCreatedRealtimeEvent, NotificationMetadata, Notificati
 import { fetchActiveConversationCallSessions } from '../api/inbox';
 import { reconnectRealtimeSocket } from '../api/realtime';
 import { notificationQueryKeys } from '../api/notifications';
-import { writeIncomingCallPrompt } from './incoming-call-prompt';
+import {
+  clearIncomingCallPrompt,
+  writeIncomingCallPrompt,
+} from './incoming-call-prompt';
 import { navigationRef } from '../navigation/navigationRef';
 
-const SUPPORTED_NOTIFICATION_TYPES = new Set<NotificationType>([
-  'NEW_MESSAGE',
-  'CONVERSATION_ASSIGNED',
-  'CONVERSATION_UNASSIGNED',
-  'INCOMING_CALL',
-  'CONTACT_EXPORT_READY',
-  'CAMPAIGN_EXPORT_READY',
-]);
+const SUPPORTED_NOTIFICATION_TYPES = new Set<NotificationType>(['NEW_MESSAGE', 'CONVERSATION_ASSIGNED', 'CONVERSATION_UNASSIGNED', 'INCOMING_CALL', 'CONTACT_EXPORT_READY', 'CAMPAIGN_EXPORT_READY']);
 
-const SUPPORTED_ENTITY_TYPES = new Set<NotificationEntityType>([
-  'MESSAGE',
-  'CONVERSATION',
-  'CALL_SESSION',
-  'CONTACT_EXPORT',
-  'CAMPAIGN_EXPORT',
-]);
+const SUPPORTED_ENTITY_TYPES = new Set<NotificationEntityType>(['MESSAGE', 'CONVERSATION', 'CALL_SESSION', 'CONTACT_EXPORT', 'CAMPAIGN_EXPORT']);
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -68,6 +58,7 @@ export function parseMobileNotificationData(value: unknown): NotificationCreated
   const body = asNonEmptyString(data.body);
   const createdAt = asNonEmptyString(data.createdAt);
   const targetScope = asNonEmptyString(data.targetScope);
+  const callEvent = data.callEvent === 'RINGING' || data.callEvent === 'ENDED' ? data.callEvent : undefined;
 
   if (
     !notificationId ||
@@ -99,6 +90,7 @@ export function parseMobileNotificationData(value: unknown): NotificationCreated
     createdAt,
     metadata: parseMetadata(data.metadata),
     recipientUserIds: null,
+    ...(callEvent ? { callEvent } : {}),
   };
 }
 
@@ -148,33 +140,57 @@ export function navigateFromMobileNotification(payload: NotificationCreatedRealt
 
 export async function reconnectAndRefreshActiveCalls(queryClient: QueryClient, conversationId: string | null) {
   reconnectRealtimeSocket();
-  await queryClient.invalidateQueries({ queryKey: ['active-calls'], refetchType: 'active' });
+  await queryClient.invalidateQueries({
+    queryKey: ['active-calls'],
+    refetchType: 'active',
+  });
   void queryClient.fetchQuery({
     queryKey: ['active-calls'],
     queryFn: () => fetchActiveConversationCallSessions({ limit: 5 }),
     staleTime: 0,
   });
   if (!conversationId) return;
-  await queryClient.invalidateQueries({ queryKey: ['conversation-calls', conversationId], refetchType: 'active' });
+  await queryClient.invalidateQueries({
+    queryKey: ['conversation-calls', conversationId],
+    refetchType: 'active',
+  });
 }
 
 /** Refresh the same caches used by realtime when push is the first event after background/killed state. */
-export function syncNotificationCaches(
-  queryClient: QueryClient,
-  payload: NotificationCreatedRealtimeEvent,
-  options: { showIncomingCallPrompt?: boolean } = {},
-) {
-  void queryClient.invalidateQueries({ queryKey: notificationQueryKeys.all, refetchType: 'active' });
-  void queryClient.invalidateQueries({ queryKey: ['conversations'], refetchType: 'active' });
-  void queryClient.invalidateQueries({ queryKey: ['inbox-unread-count'], refetchType: 'active' });
+export function syncNotificationCaches(queryClient: QueryClient, payload: NotificationCreatedRealtimeEvent, options: { showIncomingCallPrompt?: boolean } = {}) {
+  void queryClient.invalidateQueries({
+    queryKey: notificationQueryKeys.all,
+    refetchType: 'active',
+  });
+  void queryClient.invalidateQueries({
+    queryKey: ['conversations'],
+    refetchType: 'active',
+  });
+  void queryClient.invalidateQueries({
+    queryKey: ['inbox-unread-count'],
+    refetchType: 'active',
+  });
 
   if (payload.conversationId) {
-    void queryClient.invalidateQueries({ queryKey: ['messages', payload.conversationId], refetchType: 'active' });
-    void queryClient.invalidateQueries({ queryKey: ['conversation-calls', payload.conversationId], refetchType: 'active' });
+    void queryClient.invalidateQueries({
+      queryKey: ['messages', payload.conversationId],
+      refetchType: 'active',
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ['conversation-calls', payload.conversationId],
+      refetchType: 'active',
+    });
   }
 
-  if (payload.type === 'INCOMING_CALL' && options.showIncomingCallPrompt !== false) {
-    writeIncomingCallPrompt(payload as Parameters<typeof writeIncomingCallPrompt>[0]);
-    void queryClient.invalidateQueries({ queryKey: ['active-calls'], refetchType: 'active' });
+  if (payload.type === 'INCOMING_CALL') {
+    if (payload.callEvent === 'ENDED') {
+      clearIncomingCallPrompt(payload.entityId);
+    } else if (options.showIncomingCallPrompt !== false) {
+      writeIncomingCallPrompt(payload as Parameters<typeof writeIncomingCallPrompt>[0]);
+    }
+    void queryClient.invalidateQueries({
+      queryKey: ['active-calls'],
+      refetchType: 'active',
+    });
   }
 }
