@@ -11,6 +11,7 @@ import {
 } from '../lib/call-notification';
 import { clearIncomingCallPrompt, writeIncomingCallPrompt } from '../lib/incoming-call-prompt';
 import { parseMobileNotificationData } from '../lib/mobile-notification';
+import { ensureMobilePushChannels } from '../lib/mobilePushRegistration';
 
 export const CALL_PUSH_TASK = 'ZURVIS-CALL-PUSH-TASK';
 
@@ -101,6 +102,9 @@ TaskManager.defineTask<Notifications.NotificationTaskPayload>(CALL_PUSH_TASK, as
 
 export function registerCallPushTask() {
   void ensureIncomingCallCategory();
+  void ensureMobilePushChannels().catch((error) => {
+    if (__DEV__) console.warn('[call-push] channel setup failed', error);
+  });
   void Notifications.registerTaskAsync(CALL_PUSH_TASK).catch((error) => {
     if (__DEV__) console.warn('[call-push] task registration failed', error);
   });

@@ -27,6 +27,7 @@ type StoredMobilePushRegistration = {
 };
 
 let registrationInFlight: Promise<boolean> | null = null;
+let notificationChannelsPromise: Promise<void> | null = null;
 
 function isNativeMobilePlatform(): boolean {
   return Platform.OS === "android" || Platform.OS === "ios";
@@ -146,6 +147,20 @@ async function configureAndroidChannels(): Promise<void> {
   });
 }
 
+/**
+ * The call background task can run before the authenticated app tree mounts.
+ * Ensure its local channel exists independently of token registration.
+ */
+export function ensureMobilePushChannels(): Promise<void> {
+  if (!notificationChannelsPromise) {
+    notificationChannelsPromise = configureAndroidChannels().catch((error) => {
+      notificationChannelsPromise = null;
+      throw error;
+    });
+  }
+  return notificationChannelsPromise;
+}
+
 async function getNativeToken(): Promise<string | null> {
   const token = await Notifications.getDevicePushTokenAsync();
   return typeof token.data === "string" && token.data.length > 0
@@ -218,7 +233,7 @@ async function registerOnce(): Promise<boolean> {
   const provider = getProvider();
   if (!provider) return false;
 
-  await configureAndroidChannels();
+  await ensureMobilePushChannels();
   const token = await getNativeToken();
   if (!token) return false;
 

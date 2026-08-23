@@ -14,6 +14,7 @@ export type IncomingCallPrompt = {
   createdAt: string;
   metadata: unknown;
   recipientUserIds: string[] | null;
+  callEvent?: 'RINGING' | 'ENDED';
 };
 
 type Listener = (prompt: IncomingCallPrompt | null) => void;

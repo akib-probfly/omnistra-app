@@ -58,7 +58,10 @@ export function parseMobileNotificationData(value: unknown): NotificationCreated
   const body = asNonEmptyString(data.body);
   const createdAt = asNonEmptyString(data.createdAt);
   const targetScope = asNonEmptyString(data.targetScope);
-  const callEvent = data.callEvent === 'RINGING' || data.callEvent === 'ENDED' ? data.callEvent : undefined;
+  const callEventValue = asNonEmptyString(data.callEvent)?.toUpperCase();
+  const callEvent = callEventValue === 'RINGING' || callEventValue === 'ENDED'
+    ? callEventValue
+    : undefined;
 
   if (
     !notificationId ||
