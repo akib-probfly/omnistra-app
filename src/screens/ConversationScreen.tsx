@@ -519,7 +519,20 @@ export function ConversationScreen() {
       manualReadToggleRef.current = false;
     },
   });
-  const statusMutation = useMutation({ mutationFn: (status: string) => updateConversationStatus(route.params.conversationId, status as 'OPEN' | 'CLOSED'), onSuccess: (_, status) => setHeader((c) => ({ ...c, status })) });
+  const statusMutation = useMutation({
+    mutationFn: (status: string) => updateConversationStatus(route.params.conversationId, status as 'OPEN' | 'CLOSED'),
+    onSuccess: (_, status) => {
+      setHeader((c) => ({
+        ...c,
+        status,
+        conversation: c.conversation ? { ...c.conversation, status } : c.conversation,
+      }));
+      queryClient.setQueryData(['messages', route.params.conversationId], (current: { conversation?: { status?: string } } | undefined) => {
+        if (!current?.conversation) return current;
+        return { ...current, conversation: { ...current.conversation, status } };
+      });
+    },
+  });
   const assignmentMutation = useMutation({
     mutationFn: (assignee: AssigneeFilterOption | null) => updateConversationAssignment(route.params.conversationId, assignee?.workspaceMemberId ?? null),
     onSuccess: (_, assignee) => {
@@ -1062,7 +1075,7 @@ export function ConversationScreen() {
         <ContactDetailsPanel
           visible={detailsOpen}
           onClose={() => setDetailsOpen(false)}
-          conversation={header.conversation as any}
+          conversation={{ ...header.conversation, status: header.status } as any}
           isUpdatingStatus={statusMutation.isPending}
           onToggleStatus={() => statusMutation.mutate(header.status === 'CLOSED' ? 'OPEN' : 'CLOSED')}
         />

@@ -392,6 +392,9 @@ export function useRealtimeSync(accessToken: string | null) {
           schedule(`assignment-events:${payload.conversationId}`, () => {
             void queryClient.invalidateQueries({ queryKey: ['assignment-events', payload.conversationId], refetchType: 'active' });
           }, 400);
+          // Status/assignment changes land here (no messageId). Refresh the open
+          // thread so conversation.status updates in the contact details sheet.
+          refreshConversationMessages(queryClient, payload.conversationId, 250);
         }
       }
 
