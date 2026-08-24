@@ -1,7 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { getFocusedRouteNameFromRoute, type NavigatorScreenParams } from '@react-navigation/native';
 import { BarChart3, ContactRound, Inbox, Radio, Settings } from 'lucide-react-native';
-import { Pressable, type PressableProps } from 'react-native';
+import { ActivityIndicator, Pressable, View, type PressableProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { ChannelsStack } from './ChannelsStack';
@@ -52,8 +52,16 @@ function TabBarButton({
 export function MainTabs() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
-  const { canManage } = useWorkspaceAccess();
+  const { canManage, loading } = useWorkspaceAccess();
   const bottomPad = Math.max(insets.bottom, 8) + 4;
+
+  if (loading) {
+    return (
+      <View style={{ alignItems: 'center', backgroundColor: colors.surface, flex: 1, justifyContent: 'center' }}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
 
   const tabBarStyle = {
     height: 54 + bottomPad,
