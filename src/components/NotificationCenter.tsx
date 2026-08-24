@@ -15,7 +15,9 @@ import {
   type NotificationListItem,
   type NotificationType,
 } from '../api/notifications';
+import { ChannelLogo, normalizeChannelType } from './ChannelLogo';
 import { PanelSkeleton } from './Skeleton';
+import { fetchChannels } from '../api/channels';
 import { isBillingLocked, pollingWhileUnlocked } from '../lib/billing-lock';
 
 function formatNotificationTime(isoDate: string) {
@@ -61,6 +63,35 @@ function getNotificationContextLabel(notification: NotificationListItem) {
   return null;
 }
 
+function inferChannelTypeFromLabel(value?: string | null) {
+  const label = (value ?? '').toLowerCase();
+  if (!label) return null;
+  if (label.includes('whatsapp')) return 'WHATSAPP';
+  if (label.includes('messenger') || label.includes('facebook')) return 'MESSENGER';
+  if (label.includes('instagram')) return 'INSTAGRAM';
+  if (label.includes('telegram')) return 'TELEGRAM';
+  if (label.includes('tiktok')) return 'TIKTOK';
+  if (label.includes('email')) return 'EMAIL';
+  if (label.includes('sms')) return 'SMS';
+  return null;
+}
+
+function getNotificationChannelType(
+  notification: NotificationListItem,
+  channelTypeById?: Map<string, string>,
+) {
+  const fromMetadata =
+    getMetadataString(notification.metadata, 'channelType') ??
+    getMetadataString(notification.metadata, 'channel') ??
+    getMetadataString(notification.metadata, 'provider');
+  const fromChannelId = notification.channelId
+    ? channelTypeById?.get(notification.channelId) ?? null
+    : null;
+  const fromName = inferChannelTypeFromLabel(getMetadataString(notification.metadata, 'channelName'));
+  const normalized = normalizeChannelType(fromMetadata ?? fromChannelId ?? fromName);
+  return normalized || null;
+}
+
 function getNotificationRowCopy(notification: NotificationListItem) {
   const title = notification.title?.trim() || 'Notification';
   const actor = getNotificationActorLabel(notification);
@@ -95,10 +126,21 @@ function NotificationTypeIcon({ kind, color }: { kind: 'message' | 'call' | 'ass
   }
 }
 
-function NotificationRow({ notification, onOpen, onMarkRead }: { notification: NotificationListItem; onOpen: (notification: NotificationListItem) => void; onMarkRead: (notification: NotificationListItem) => void }) {
+function NotificationRow({
+  notification,
+  channelTypeById,
+  onOpen,
+  onMarkRead,
+}: {
+  notification: NotificationListItem;
+  channelTypeById?: Map<string, string>;
+  onOpen: (notification: NotificationListItem) => void;
+  onMarkRead: (notification: NotificationListItem) => void;
+}) {
   const { colors } = useTheme();
   const appearance = getNotificationAppearance(notification.type);
   const copy = getNotificationRowCopy(notification);
+  const channelType = getNotificationChannelType(notification, channelTypeById);
 
   return (
       <Pressable
@@ -109,8 +151,19 @@ function NotificationRow({ notification, onOpen, onMarkRead }: { notification: N
       }}
     >
       <View style={[styles.notificationAccent, { backgroundColor: notification.isUnread ? appearance.accent : 'transparent' }]} />
-      <View style={[styles.notificationIconWrap, { backgroundColor: appearance.wrap }]}>
-        <NotificationTypeIcon kind={appearance.icon} color={appearance.iconColor} />
+      <View style={styles.notificationIconStack}>
+        {channelType ? (
+          <ChannelLogo type={channelType} box={36} glyph={18} radius={12} />
+        ) : (
+          <View style={[styles.notificationIconWrap, { backgroundColor: appearance.wrap }]}>
+            <NotificationTypeIcon kind={appearance.icon} color={appearance.iconColor} />
+          </View>
+        )}
+        {channelType && appearance.icon !== 'message' ? (
+          <View style={[styles.notificationTypeBadge, { backgroundColor: appearance.wrap, borderColor: colors.surface }]}>
+            <NotificationTypeIcon kind={appearance.icon} color={appearance.iconColor} />
+          </View>
+        ) : null}
       </View>
       <View style={styles.notificationCopy}>
         <Text style={[styles.notificationRowTitle, { color: colors.text }]} numberOfLines={1}>{copy.title}</Text>
@@ -176,11 +229,27 @@ export function NotificationBell({ onOpen }: { onOpen: () => void }) {
   );
 }
 
-function NotificationScrollList({ notifications, onOpen, onMarkRead }: { notifications: NotificationListItem[]; onOpen: (notification: NotificationListItem) => void; onMarkRead: (notification: NotificationListItem) => void }) {
+function NotificationScrollList({
+  notifications,
+  channelTypeById,
+  onOpen,
+  onMarkRead,
+}: {
+  notifications: NotificationListItem[];
+  channelTypeById?: Map<string, string>;
+  onOpen: (notification: NotificationListItem) => void;
+  onMarkRead: (notification: NotificationListItem) => void;
+}) {
   return (
     <SheetScrollView showsVerticalScrollIndicator={false} style={styles.notificationList}>
       {notifications.map((notification) => (
-        <NotificationRow key={notification.id} notification={notification} onOpen={onOpen} onMarkRead={onMarkRead} />
+        <NotificationRow
+          key={notification.id}
+          notification={notification}
+          channelTypeById={channelTypeById}
+          onOpen={onOpen}
+          onMarkRead={onMarkRead}
+        />
       ))}
     </SheetScrollView>
   );
@@ -202,6 +271,21 @@ export function NotificationCenter({ visible, onClose }: { visible: boolean; onC
     queryFn: fetchUnreadNotificationCount,
     staleTime: 15_000,
   });
+  const channelsQuery = useQuery({
+    queryKey: ['channels'],
+    queryFn: fetchChannels,
+    staleTime: 2 * 60_000,
+  });
+  const channelTypeById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const channel of channelsQuery.data?.items ?? []) {
+      map.set(channel.id, channel.type);
+      for (const account of channel.accounts ?? []) {
+        map.set(account.id, channel.type);
+      }
+    }
+    return map;
+  }, [channelsQuery.data?.items]);
 
   useEffect(() => {
     if (!visible) return;
@@ -291,6 +375,7 @@ export function NotificationCenter({ visible, onClose }: { visible: boolean; onC
           ) : (
             <NotificationScrollList
               notifications={notifications}
+              channelTypeById={channelTypeById}
               onOpen={handleOpenNotification}
               onMarkRead={(item) => void markRead(item)}
             />
@@ -326,10 +411,12 @@ const styles = StyleSheet.create({
   retryButton: { borderRadius: 12, marginTop: 14, paddingHorizontal: 16, paddingVertical: 10 },
   retryButtonText: { fontSize: 13, fontWeight: '700' },
 
-  notificationRow: { alignItems: 'center', borderRadius: 16, borderWidth: 1, flexDirection: 'row', marginBottom: 8, minHeight: 64, overflow: 'hidden', paddingHorizontal: 12, paddingVertical: 10, position: 'relative' },
+  notificationRow: { alignItems: 'center', borderRadius: 16, borderWidth: 1, flexDirection: 'row', marginBottom: 8, minHeight: 64, paddingHorizontal: 12, paddingVertical: 10, position: 'relative' },
   notificationRowUnread: {},
   notificationAccent: { bottom: 0, left: 0, position: 'absolute', top: 0, width: 4 },
-  notificationIconWrap: { alignItems: 'center', borderRadius: 12, height: 36, justifyContent: 'center', marginRight: 10, width: 36 },
+  notificationIconStack: { marginRight: 10, position: 'relative' },
+  notificationIconWrap: { alignItems: 'center', borderRadius: 12, height: 36, justifyContent: 'center', width: 36 },
+  notificationTypeBadge: { alignItems: 'center', borderRadius: 8, borderWidth: 2, bottom: -3, height: 18, justifyContent: 'center', position: 'absolute', right: -3, width: 18 },
   notificationCopy: { flex: 1, minWidth: 0 },
   notificationRowTitle: { fontSize: 13, fontWeight: '700' },
   notificationBody: { fontSize: 12, lineHeight: 17, marginTop: 2 },
