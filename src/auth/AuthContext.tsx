@@ -1,6 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { apiFetch, setAuthExpiredHandler, setLatestAccessToken } from '../api/client';
+import { clearBillingLock } from '../lib/billing-lock';
 import { revokeRegisteredMobilePushDevice } from '../lib/mobilePushRegistration';
 
 type Session = {
@@ -57,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
   useEffect(() => {
     const clearExpiredSession = () => {
+      clearBillingLock();
       setSession(null);
       setLatestAccessToken(null);
       void Promise.all([SecureStore.deleteItemAsync('session'), SecureStore.deleteItemAsync('access-token'), SecureStore.deleteItemAsync('refresh-token')]);
@@ -113,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               body: JSON.stringify({ refreshToken }),
             });
           await revokeRegisteredMobilePushDevice();
+          clearBillingLock();
           setSession(null);
           setLatestAccessToken(null);
           await SecureStore.deleteItemAsync('session');

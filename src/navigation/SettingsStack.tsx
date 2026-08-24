@@ -4,6 +4,7 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { WorkspaceSettingsScreen } from '../screens/WorkspaceSettingsScreen';
 import { BillingSettingsScreen } from '../screens/BillingSettingsScreen';
 import { BillingPlanDetailsScreen } from '../screens/BillingPlanDetailsScreen';
+import { BillingCheckoutScreen } from '../screens/BillingCheckoutScreen';
 import { NotificationSettingsScreen } from '../screens/NotificationSettingsScreen';
 import { QuickRepliesSettingsScreen } from '../screens/QuickRepliesSettingsScreen';
 import { AssignmentPolicySettingsScreen } from '../screens/AssignmentPolicySettingsScreen';
@@ -38,6 +39,11 @@ export type SettingsStackParamList = {
     workspaceId: string;
     cycle: BillingInterval;
   };
+  BillingCheckout: {
+    checkoutUrl: string;
+    planKey: string;
+    workspaceId: string;
+  };
   PrivacyPolicy: undefined;
 };
 
@@ -59,6 +65,7 @@ export function SettingsStack() {
       <Stack.Screen name="BroadcastCreate" component={BroadcastCreateScreen} />
       <Stack.Screen name="Billing" component={BillingSettingsScreen} />
       <Stack.Screen name="BillingPlanDetails" component={BillingPlanDetailsScreen} />
+      <Stack.Screen name="BillingCheckout" component={BillingCheckoutScreen} />
       <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
     </Stack.Navigator>
   );

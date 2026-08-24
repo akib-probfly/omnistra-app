@@ -23,6 +23,7 @@ import { useCallController } from '../providers/CallControllerProvider';
 import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { CallPanel } from './CallPanel';
 import { getCallPartyHint, getCallUiRevision, isGenericCallLabel, subscribeCallChrome } from '../lib/call-chrome';
+import { pollingWhileUnlocked } from '../lib/billing-lock';
 
 function firstRealLabel(...values: Array<string | null | undefined>) {
   for (const value of values) {
@@ -209,13 +210,11 @@ export function GlobalCallLayer() {
     refetchOnReconnect: false,
     refetchOnWindowFocus: false,
     refetchIntervalInBackground: false,
-    refetchInterval: () => {
+    refetchInterval: pollingWhileUnlocked(() => {
       if (appState !== 'active') return false;
-      // Only poll while this device is in a call. Incoming rings are applied from
-      // call.session.updated + INCOMING_CALL notifications, not /calls/active.
       if (callController.isBusy) return 5000;
       return false;
-    },
+    }),
   });
 
   const [incomingCallPrompt, setIncomingCallPrompt] = useState<IncomingCallPrompt | null>(() => readIncomingCallPrompt());

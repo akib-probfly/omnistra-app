@@ -1,7 +1,7 @@
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Linking } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -15,6 +15,7 @@ import { useMobilePushRegistration } from './src/hooks/useMobilePushRegistration
 import { configureMobileForegroundNotificationHandler, useMobileNotificationHandlers } from './src/hooks/useMobileNotificationHandlers';
 import { CallControllerProvider } from './src/providers/CallControllerProvider';
 import { GlobalCallLayer } from './src/components/GlobalCallLayer';
+import { isBillingLocked, subscribeBillingLock } from './src/lib/billing-lock';
 import { toastConfig } from './src/components/AppToast';
 import { SplashScreen } from './src/screens/SplashScreen';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
@@ -35,6 +36,8 @@ const queryClient = new QueryClient({
         if (error instanceof ApiError && error.status >= 400 && error.status < 500) return false;
         return failureCount < 3;
       },
+      refetchOnWindowFocus: () => !isBillingLocked(),
+      refetchOnReconnect: () => !isBillingLocked(),
     },
   },
 });
@@ -173,6 +176,9 @@ function RealtimeBridge() {
 
 function AuthenticatedOverlays() {
   const { session } = useAuth();
+  useEffect(() => subscribeBillingLock((reason) => {
+    if (reason) void queryClient.cancelQueries();
+  }), []);
   if (!session) return null;
   return <GlobalCallLayer />;
 }

@@ -22,6 +22,7 @@ import { channelBrandColor, ChannelLogo } from '../components/ChannelLogo';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 import { DashboardSkeleton } from '../components/Skeleton';
 import { useWorkspaceAccess } from '../lib/workspace-access';
+import { isBillingLocked, pollingWhileUnlocked } from '../lib/billing-lock';
 import { useTheme } from '../theme/ThemeContext';
 import type { ThemeColors } from '../theme/colors';
 
@@ -697,16 +698,17 @@ export function DashboardScreen() {
     queryFn: () => fetchDashboard(query),
     staleTime: 30_000,
     gcTime: 5 * 60_000,
-    refetchInterval: isFocused ? 30_000 : false,
+    refetchInterval: pollingWhileUnlocked(() => (isFocused ? 30_000 : false)),
     refetchOnMount: false,
     refetchOnWindowFocus: false,
-    refetchOnReconnect: true,
+    refetchOnReconnect: () => !isBillingLocked(),
     placeholderData: keepPreviousData,
   });
 
   // Silent refresh when returning to the tab — only if cached data is stale.
   useFocusEffect(
     useCallback(() => {
+      if (isBillingLocked()) return;
       void queryClient.refetchQueries({ queryKey: ['dashboard', query], stale: true });
     }, [queryClient, query]),
   );

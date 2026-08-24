@@ -3,7 +3,6 @@ import { BadgeCheck, LoaderCircle } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -33,18 +32,13 @@ import {
   type BillingInterval,
 } from '../api/billing';
 import { ErrorState } from '../components/ErrorState';
+import { clearBillingLock } from '../lib/billing-lock';
 import { FormSkeleton } from '../components/Skeleton';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 
 function isLiveSubscriptionStatus(status?: string | null) {
   const value = (status ?? '').toLowerCase();
   return value === 'active' || value === 'changing' || value === 'trialing';
-}
-
-async function openCheckout(url: string) {
-  const canOpen = await Linking.canOpenURL(url);
-  if (!canOpen) throw new Error('Unable to open the payment page on this device.');
-  await Linking.openURL(url);
 }
 
 export function BillingPlanDetailsScreen() {
@@ -147,6 +141,7 @@ export function BillingPlanDetailsScreen() {
   const proration = prorationQuery.data?.proration ?? null;
 
   const invalidateBilling = async () => {
+    clearBillingLock();
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['billing-subscription-current', workspaceId] }),
       queryClient.invalidateQueries({ queryKey: ['billing-usage', workspaceId] }),
@@ -164,6 +159,10 @@ export function BillingPlanDetailsScreen() {
       cancelUrl: input.cancelUrl,
     }),
   });
+
+  const startCheckout = (checkoutUrl: string) => {
+    navigation.navigate('BillingCheckout', { checkoutUrl, planKey, workspaceId });
+  };
 
   const buildReturnUrls = (cycle: BillingInterval) => {
     const webOrigin = (process.env.EXPO_PUBLIC_FRONTEND_BASE_URL ?? 'https://app.omnistra.ai').replace(/\/$/, '');
@@ -196,8 +195,8 @@ export function BillingPlanDetailsScreen() {
         const urls = buildReturnUrls(effectiveCycle);
         const data = await changePlanMutation.mutateAsync({ immediate: true, ...urls });
         if (data.requiresPayment && data.checkoutUrl) {
-          Toast.show({ type: 'success', text1: 'Redirecting to payment', text2: 'Opening secure PipraPay checkout.' });
-          await openCheckout(data.checkoutUrl);
+          Toast.show({ type: 'success', text1: 'Opening payment', text2: 'Complete checkout without leaving the app.' });
+          startCheckout(data.checkoutUrl);
           return;
         }
         await invalidateBilling();
@@ -210,8 +209,8 @@ export function BillingPlanDetailsScreen() {
         const urls = buildReturnUrls(resolvedBillingCycle);
         const data = await changePlanMutation.mutateAsync({ immediate: false, ...urls });
         if (data.requiresPayment && data.checkoutUrl) {
-          Toast.show({ type: 'success', text1: 'Redirecting to payment', text2: 'Opening secure PipraPay checkout.' });
-          await openCheckout(data.checkoutUrl);
+          Toast.show({ type: 'success', text1: 'Opening payment', text2: 'Complete checkout without leaving the app.' });
+          startCheckout(data.checkoutUrl);
           return;
         }
         await invalidateBilling();
@@ -232,8 +231,8 @@ export function BillingPlanDetailsScreen() {
         successUrl: urls.successUrl,
         cancelUrl: urls.cancelUrl,
       });
-      Toast.show({ type: 'success', text1: 'Redirecting to payment', text2: 'Opening secure PipraPay checkout.' });
-      await openCheckout(response.checkoutUrl);
+      Toast.show({ type: 'success', text1: 'Opening payment', text2: 'Complete checkout without leaving the app.' });
+      startCheckout(response.checkoutUrl);
     } catch (error) {
       showNotice('Could not start payment', error instanceof Error ? error.message : 'Please try again.');
     } finally {

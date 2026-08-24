@@ -16,6 +16,7 @@ import { apiFetch, isApiErrorWithStatus, uploadFile } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { getRealtimeConnectionStatus, setActiveConversationId, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { markRecentLocalMessageSend } from '../lib/inbox-realtime-suppression';
+import { pollingWhileUnlocked } from '../lib/billing-lock';
 import { setUnreadOverride } from '../lib/unread-count-override';
 import {
   adjustInboxUnreadConversationCount,
@@ -221,12 +222,12 @@ export function ConversationScreen() {
     refetchOnReconnect: false,
     // Realtime updates the open thread; keep a slow poll as a safety net for zombie sockets.
     // Briefly poll faster after send for delivery receipts.
-    refetchInterval: () => {
+    refetchInterval: pollingWhileUnlocked(() => {
       if (!isFocused) return false;
       if (pendingOptimisticRef.current.size > 0) return 2500;
       if (awaitingDeliveryRef.current && Date.now() < deliveryPollUntilRef.current) return 2500;
       return realtimeStatus === 'connected' ? 45_000 : 15_000;
-    },
+    }),
     refetchOnWindowFocus: false,
   });
 

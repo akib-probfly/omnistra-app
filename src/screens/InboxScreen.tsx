@@ -23,6 +23,7 @@ import {
 } from '../lib/conversation-last-interaction';
 import { applyUnreadOverrideToPage } from '../lib/unread-count-override';
 import { optimisticMarkConversationReadInCache } from '../lib/inbox-unread-cache';
+import { pollingWhileUnlocked } from '../lib/billing-lock';
 import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -184,7 +185,7 @@ export function InboxScreen() {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.pageInfo?.hasMore ? (lastPage.pageInfo.nextCursor ?? undefined) : undefined,
     staleTime: 15_000,
-    refetchInterval: inboxPollMs,
+    refetchInterval: pollingWhileUnlocked(inboxPollMs),
     refetchOnWindowFocus: false,
   });
 
@@ -192,7 +193,7 @@ export function InboxScreen() {
     queryKey: ['inbox-unread-count', advancedFilterParams],
     queryFn: () => fetchConversationUnreadCount(advancedFilterParams),
     staleTime: 15_000,
-    refetchInterval: inboxPollMs,
+    refetchInterval: pollingWhileUnlocked(inboxPollMs),
     refetchOnWindowFocus: false,
   });
 
@@ -201,7 +202,7 @@ export function InboxScreen() {
     queryFn: () => fetchConversationCount({ ...filters, status: 'CLOSED' }),
     enabled: sidebarTab === 'chats' && tab === 'closed',
     staleTime: 15_000,
-    refetchInterval: inboxPollMs,
+    refetchInterval: pollingWhileUnlocked(inboxPollMs),
     refetchOnWindowFocus: false,
   });
 

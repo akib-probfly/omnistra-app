@@ -35,6 +35,8 @@ import {
   type WorkspaceUsage,
 } from '../api/billing';
 import { fetchMyWorkspaces } from '../api/workspaces';
+import { clearBillingLock, isBillingLocked } from '../lib/billing-lock';
+import { workspaceIdFromAccessToken } from '../lib/jwt-workspace';
 import { ErrorState } from '../components/ErrorState';
 import { CardGridSkeleton, FormSkeleton, PanelSkeleton } from '../components/Skeleton';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
@@ -83,7 +85,7 @@ export function BillingSettingsScreen() {
   const route = useRoute<RouteProp<SettingsStackParamList, 'Billing'>>();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
-  const initialTab = route.params?.tab ?? 'current';
+  const initialTab = route.params?.tab ?? (isBillingLocked() ? 'packages' : 'current');
   const [tab, setTab] = useState<BillingTab>(initialTab);
   const [packageCycle, setPackageCycle] = useState<BillingInterval>('monthly');
   const handledCheckoutRef = useRef<string | null>(null);
@@ -97,7 +99,7 @@ export function BillingSettingsScreen() {
     queryFn: fetchMyWorkspaces,
     staleTime: 30_000,
   });
-  const workspaceId = workspacesQuery.data?.items?.[0]?.id;
+  const workspaceId = workspacesQuery.data?.items?.[0]?.id ?? workspaceIdFromAccessToken();
 
   useEffect(() => {
     const checkout = route.params?.checkout;
@@ -112,6 +114,7 @@ export function BillingSettingsScreen() {
           if (route.params?.reference) {
             await confirmReturnedPipraPayPayment(workspaceId, route.params.reference);
           }
+          clearBillingLock();
           await Promise.all([
             queryClient.invalidateQueries({ queryKey: ['billing-subscription-current', workspaceId] }),
             queryClient.invalidateQueries({ queryKey: ['billing-usage', workspaceId] }),
@@ -251,9 +254,9 @@ export function BillingSettingsScreen() {
         })}
       </View>
 
-      {workspacesQuery.isLoading ? (
+      {workspacesQuery.isLoading && !workspaceId ? (
         <FormSkeleton fields={5} />
-      ) : workspacesQuery.isError || !workspaceId ? (
+      ) : !workspaceId ? (
         <ErrorState
           message={workspacesQuery.error instanceof Error ? workspacesQuery.error.message : 'Unable to load workspace billing.'}
           onRetry={() => workspacesQuery.refetch()}

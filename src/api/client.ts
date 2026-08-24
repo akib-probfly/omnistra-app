@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import { setBillingLocked } from '../lib/billing-lock';
 
 const API_BASE_URL = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.zurvis.io/api/v1').replace(/\/$/, '');
 export const apiUrl = (value: string | null): string | null => {
@@ -125,6 +126,9 @@ export async function apiFetch<T>(path: string, init: RequestInit & { auth?: boo
       if (raw && !raw.includes('\\n') && raw.length < 240) message = raw;
     }
     if (__DEV__) console.error(`[api] ${fetchInit.method ?? 'GET'} ${path} -> ${response.status}`, message);
+    if (response.status === 402 && !path.startsWith('/billing') && !path.startsWith('/auth')) {
+      setBillingLocked(message);
+    }
     throw new ApiError(message, response.status);
   }
   const payload = await response.json() as T | { data?: T };

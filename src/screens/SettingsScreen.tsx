@@ -21,13 +21,14 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useAuth } from '../auth/AuthContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 import { canViewBroadcast } from '../lib/broadcast-access';
+import { useBillingLockReason } from '../lib/billing-lock';
 import { useWorkspaceAccess } from '../lib/workspace-access';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
@@ -88,24 +89,40 @@ export function SettingsScreen() {
   const { session, logout } = useAuth();
   const { mode, setMode, isDark } = useTheme();
   const { workspace, canManage } = useWorkspaceAccess();
+  const lockReason = useBillingLockReason();
+  const subscriptionExpired = Boolean(lockReason);
   const showBroadcast = canViewBroadcast(workspace);
   const visibleGroups = useMemo(
     () => SETTINGS_GROUPS
       .map((group) => {
         if (group.label === 'Broadcast' && !showBroadcast) return { ...group, items: [] };
-        if (group.label === 'Billing' && !canManage) return { ...group, items: [] };
+        if (group.label === 'Billing' && !canManage && !subscriptionExpired) return { ...group, items: [] };
+        if (group.label === 'Billing' && subscriptionExpired) {
+          return {
+            ...group,
+            items: group.items.map((item) =>
+              item.kind === 'billing' && item.tab === 'packages'
+                ? { ...item, label: 'Renew plan', description: 'Choose a plan to restore workspace access' }
+                : item,
+            ),
+          };
+        }
         if (group.label === 'General Settings' && !canManage) {
           return { ...group, items: group.items.filter((item) => item.id !== 'assignment') };
         }
         return group;
       })
       .filter((group) => group.items.length > 0),
-    [showBroadcast, canManage],
+    [showBroadcast, canManage, subscriptionExpired],
   );
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
   /** Groups start collapsed so Sign out stays visible. Only one group can be open. */
   const [openGroup, setOpenGroup] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (subscriptionExpired) setOpenGroup('Billing');
+  }, [subscriptionExpired]);
   const name = session?.user.name?.trim() || session?.user.email?.trim() || 'User';
   const email = session?.user.email?.trim() || '';
 
@@ -143,11 +160,13 @@ export function SettingsScreen() {
         <View style={styles.topbarCopy}>
           <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {canManage
-              ? showBroadcast
-                ? 'General settings, broadcast, and billing'
-                : 'General settings and billing'
-              : 'General settings'}
+            {subscriptionExpired
+              ? 'Subscription expired — renew your plan below'
+              : canManage
+                ? showBroadcast
+                  ? 'General settings, broadcast, and billing'
+                  : 'General settings and billing'
+                : 'General settings'}
           </Text>
         </View>
         <NotificationBell onOpen={() => setNotificationsOpen(true)} />
@@ -170,6 +189,24 @@ export function SettingsScreen() {
             </View>
           </View>
         </View>
+
+        {subscriptionExpired ? (
+          <Pressable
+            onPress={() => navigation.navigate('Billing', { tab: 'packages' })}
+            style={[styles.renewCard, { backgroundColor: isDark ? '#3f1d2e' : '#fff1f2', borderColor: isDark ? '#9f1239' : '#fecdd3' }]}
+          >
+            <View style={[styles.rowIcon, { backgroundColor: '#ffe4e6' }]}>
+              <CreditCard color="#e11d48" size={18} />
+            </View>
+            <View style={styles.copy}>
+              <Text style={[styles.rowName, { color: colors.text }]}>Renew plan</Text>
+              <Text style={[styles.muted, { color: colors.textSecondary }]} numberOfLines={2}>
+                {lockReason}
+              </Text>
+            </View>
+            <ChevronRight color={colors.textMuted} size={18} />
+          </Pressable>
+        ) : null}
 
         {visibleGroups.map((group) => {
           const isOpen = openGroup === group.label;
@@ -266,6 +303,14 @@ const styles = StyleSheet.create({
   subtitle: { color: '#64748b', fontSize: 13, marginTop: 4 },
   scroll: { flex: 1 },
   content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
+  renewCard: {
+    alignItems: 'center',
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginTop: 16,
+    padding: 16,
+  },
   profileCard: {
     alignItems: 'center',
     backgroundColor: '#fff',

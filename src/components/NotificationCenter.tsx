@@ -16,6 +16,7 @@ import {
   type NotificationType,
 } from '../api/notifications';
 import { PanelSkeleton } from './Skeleton';
+import { isBillingLocked, pollingWhileUnlocked } from '../lib/billing-lock';
 
 function formatNotificationTime(isoDate: string) {
   const date = new Date(isoDate);
@@ -136,7 +137,7 @@ export function NotificationBell({ onOpen }: { onOpen: () => void }) {
     queryFn: fetchUnreadNotificationCount,
     staleTime: 30_000,
     // Badge is also patched/invalidated by realtime; keep a light fallback poll.
-    refetchInterval: 60_000,
+    refetchInterval: pollingWhileUnlocked(60_000),
     refetchOnWindowFocus: false,
   });
   const unreadCount = unreadQuery.data ?? 0;
@@ -144,6 +145,7 @@ export function NotificationBell({ onOpen }: { onOpen: () => void }) {
 
   useFocusEffect(
     useCallback(() => {
+      if (isBillingLocked()) return;
       void unreadQuery.refetch();
     }, [unreadQuery]),
   );
