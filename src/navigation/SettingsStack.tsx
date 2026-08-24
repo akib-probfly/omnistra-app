@@ -8,6 +8,7 @@ import { NotificationSettingsScreen } from '../screens/NotificationSettingsScree
 import { QuickRepliesSettingsScreen } from '../screens/QuickRepliesSettingsScreen';
 import { AssignmentPolicySettingsScreen } from '../screens/AssignmentPolicySettingsScreen';
 import { InboxAppearanceSettingsScreen } from '../screens/InboxAppearanceSettingsScreen';
+import { TagsSettingsScreen } from '../screens/TagsSettingsScreen';
 import { BroadcastSettingsScreen } from '../screens/BroadcastSettingsScreen';
 import { BroadcastCampaignScreen } from '../screens/BroadcastCampaignScreen';
 import { BroadcastCreateScreen } from '../screens/BroadcastCreateScreen';
@@ -21,6 +22,7 @@ export type SettingsStackParamList = {
   Notifications: undefined;
   InboxAppearance: undefined;
   QuickReplies: undefined;
+  Tags: undefined;
   AssignmentPolicy: undefined;
   Broadcast: undefined;
   BroadcastCampaign: { campaignId: string };
@@ -50,6 +52,7 @@ export function SettingsStack() {
       <Stack.Screen name="Notifications" component={NotificationSettingsScreen} />
       <Stack.Screen name="InboxAppearance" component={InboxAppearanceSettingsScreen} />
       <Stack.Screen name="QuickReplies" component={QuickRepliesSettingsScreen} />
+      <Stack.Screen name="Tags" component={TagsSettingsScreen} />
       <Stack.Screen name="AssignmentPolicy" component={AssignmentPolicySettingsScreen} />
       <Stack.Screen name="Broadcast" component={BroadcastSettingsScreen} />
       <Stack.Screen name="BroadcastCampaign" component={BroadcastCampaignScreen} />

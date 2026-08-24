@@ -12,6 +12,15 @@ export type ConversationTag = {
   updatedAt?: string;
 };
 
+export const WORKSPACE_TAG_COLOR_OPTIONS = [
+  { label: 'Slate', color: '#64748B' },
+  { label: 'Blue', color: '#2563EB' },
+  { label: 'Cyan', color: '#0891B2' },
+  { label: 'Green', color: '#16A34A' },
+  { label: 'Amber', color: '#D97706' },
+  { label: 'Red', color: '#DC2626' },
+] as const;
+
 export type ConversationNote = {
   id: string;
   conversationId?: string;
@@ -70,9 +79,14 @@ export async function fetchConversationTags(conversationId: string): Promise<{ i
   return apiFetch(`/conversations/${conversationId}/tags`);
 }
 
-export async function fetchWorkspaceTags(workspaceId?: string): Promise<{ items: ConversationTag[] }> {
+export async function fetchWorkspaceTags(
+  workspaceId?: string,
+  options?: { includeArchived?: boolean; search?: string },
+): Promise<{ items: ConversationTag[] }> {
   const query = new URLSearchParams();
   if (workspaceId) query.set('workspaceId', workspaceId);
+  if (options?.search?.trim()) query.set('search', options.search.trim());
+  if (options?.includeArchived) query.set('includeArchived', 'true');
   const raw = query.toString();
   return apiFetch(`/tags${raw ? `?${raw}` : ''}`);
 }
@@ -86,6 +100,34 @@ export async function createWorkspaceTag(input: { text: string; color?: string; 
       workspaceId: input.workspaceId,
     }),
   });
+}
+
+export async function updateWorkspaceTag(input: {
+  tagId: string;
+  workspaceId?: string;
+  text?: string;
+  color?: string;
+}): Promise<ConversationTag> {
+  return apiFetch(`/tags/${input.tagId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      workspaceId: input.workspaceId,
+      text: input.text,
+      color: input.color,
+    }),
+  });
+}
+
+export async function archiveWorkspaceTag(input: { tagId: string; workspaceId?: string }): Promise<ConversationTag> {
+  return apiFetch(`/tags/${input.tagId}/archive`, {
+    method: 'PATCH',
+    body: JSON.stringify({ workspaceId: input.workspaceId }),
+  });
+}
+
+export async function deleteWorkspaceTag(input: { tagId: string; workspaceId?: string }): Promise<ConversationTag> {
+  const query = input.workspaceId ? `?workspaceId=${encodeURIComponent(input.workspaceId)}` : '';
+  return apiFetch(`/tags/${input.tagId}${query}`, { method: 'DELETE' });
 }
 
 export async function attachConversationTag(conversationId: string, tagId: string): Promise<any> {
