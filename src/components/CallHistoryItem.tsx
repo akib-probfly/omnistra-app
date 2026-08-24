@@ -15,7 +15,7 @@ import {
 } from '../lib/inbox-utils';
 
 function renderIcon(tone: CallHistoryTone, direction: 'INBOUND' | 'OUTBOUND', color: string) {
-  const size = 14;
+  const size = 15;
   switch (tone) {
     case 'noAnswer':
       return <PhoneOutgoing color={color} size={size} />;
@@ -37,7 +37,7 @@ function renderIcon(tone: CallHistoryTone, direction: 'INBOUND' | 'OUTBOUND', co
 }
 
 export function CallHistoryItem({ session }: { session: ConversationCallSession }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const presentation = getCallSessionHistoryPresentation(session);
   const timestamp = getCallSessionTimelineTimestamp(session);
   const timeLabel = formatCallHistoryTime(timestamp);
@@ -49,52 +49,94 @@ export function CallHistoryItem({ session }: { session: ConversationCallSession 
   const agentLabel = getCallAgentLabel(session);
   const detailLabel = presentation.detail?.trim() || null;
   const metaLabel = agentLabel ?? detailLabel;
+  const cardBg = isDark ? colors.surface : toneStyles.iconBg;
 
   return (
-    <View style={styles.row}>
-      <View style={[styles.pill, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-        <View style={styles.line}>
-          <View style={[styles.iconCircle, { backgroundColor: toneStyles.iconBg }]}>
-            {renderIcon(tone, session.direction, toneStyles.iconColor)}
-          </View>
-          <Text style={[styles.direction, { color: colors.text }]}>{directionLabel}</Text>
-          <Text style={[styles.sep, { color: colors.textMuted }]}>·</Text>
-          <Text style={[styles.outcome, { color: toneStyles.text }]}>{outcomeLabel}</Text>
-          <Text style={[styles.sep, { color: colors.textMuted }]}>·</Text>
-          <Text style={[styles.time, { color: colors.textMuted }]}>{timeLabel}</Text>
+    <View style={styles.wrap}>
+      <View style={[styles.card, { backgroundColor: cardBg, borderColor: isDark ? colors.cardBorder : `${toneStyles.iconColor}22` }]}>
+        <View style={[styles.iconCircle, { backgroundColor: isDark ? colors.surfaceSecondary : '#fff' }]}>
+          {renderIcon(tone, session.direction, toneStyles.iconColor)}
         </View>
-        {metaLabel ? <Text style={[styles.agent, { color: colors.textSecondary }]} numberOfLines={1}>{metaLabel}</Text> : null}
+        <View style={styles.copy}>
+          <View style={styles.topLine}>
+            <View style={styles.titleGroup}>
+              <Text style={[styles.direction, { color: colors.text }]} numberOfLines={1}>{directionLabel}</Text>
+              <Text style={[styles.sep, { color: colors.textMuted }]}>·</Text>
+              <Text style={[styles.outcome, { color: toneStyles.text }]} numberOfLines={1}>{outcomeLabel}</Text>
+            </View>
+            <Text style={[styles.time, { color: colors.textMuted }]}>{timeLabel}</Text>
+          </View>
+          {metaLabel ? (
+            <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>{metaLabel}</Text>
+          ) : null}
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { alignItems: 'center', alignSelf: 'stretch', paddingVertical: 4 },
-  pill: {
-    alignItems: 'center',
-    alignSelf: 'center',
-    backgroundColor: '#fff',
-    borderColor: '#dce8f8',
-    borderRadius: 999,
-    borderWidth: 1,
-    elevation: 1,
-    flexDirection: 'column',
-    gap: 2,
-    justifyContent: 'center',
-    maxWidth: '100%',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
+  wrap: {
+    alignSelf: 'stretch',
+    paddingHorizontal: 20,
+    paddingVertical: 5,
   },
-  line: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 5, justifyContent: 'center' },
-  iconCircle: { alignItems: 'center', borderRadius: 11, height: 20, justifyContent: 'center', marginLeft: 4, width: 20 },
-  direction: { color: '#1e293b', fontSize: 12, flexShrink: 0, fontWeight: '600' },
-  sep: { color: '#cbd5e1', fontSize: 12 },
-  outcome: { flexShrink: 1, fontSize: 12, fontWeight: '600' },
-  agent: { color: '#64748b', flexShrink: 1, fontSize: 11, fontWeight: '500' },
-  time: { color: '#94a3b8', flexShrink: 0, fontSize: 11 },
+  card: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    overflow: 'hidden',
+    paddingHorizontal: 12,
+  },
+  iconCircle: {
+    alignItems: 'center',
+    borderRadius: 10,
+    height: 28,
+    justifyContent: 'center',
+    width: 28,
+  },
+  copy: {
+    flex: 1,
+    minWidth: 0,
+    paddingVertical: 8,
+  },
+  topLine: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  titleGroup: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    gap: 6,
+    minWidth: 0,
+  },
+  direction: {
+    flexShrink: 0,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  outcome: {
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  sep: {
+    fontSize: 13,
+  },
+  time: {
+    flexShrink: 0,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  meta: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
 });
