@@ -49,16 +49,30 @@ export function configureMobileForegroundNotificationHandler() {
       }
 
       const category = notification.request.content.categoryIdentifier;
-      const showActions =
+      const payload = parseMobileNotificationData(notification.request.content.data);
+      const isIncomingCall =
+        category === INCOMING_CALL_CATEGORY_ID ||
+        (payload?.type === 'INCOMING_CALL' && payload.callEvent !== 'ENDED');
+      // FCM ringing banners have no Expo category. Still show them when the app
+      // is backgrounded — otherwise JS swallows the only OS-visible incoming call.
+      const showBanner =
         wasPresentedLocally(notification.request.content.data) ||
         category === NEW_MESSAGE_CATEGORY_ID ||
-        category === INCOMING_CALL_CATEGORY_ID;
-      const isIncomingCall = category === INCOMING_CALL_CATEGORY_ID;
+        isIncomingCall;
+
+      if (payload?.type === 'INCOMING_CALL' && payload.callEvent === 'ENDED') {
+        return {
+          shouldShowBanner: false,
+          shouldShowList: false,
+          shouldPlaySound: false,
+          shouldSetBadge: false,
+        };
+      }
 
       return {
-        shouldShowBanner: showActions,
-        shouldShowList: showActions,
-        shouldPlaySound: isIncomingCall || showActions,
+        shouldShowBanner: showBanner,
+        shouldShowList: showBanner,
+        shouldPlaySound: isIncomingCall || showBanner,
         shouldSetBadge: false,
         priority: isIncomingCall
           ? Notifications.AndroidNotificationPriority.MAX
@@ -95,8 +109,13 @@ export function useMobileNotificationHandlers() {
         payload.type === 'INCOMING_CALL'
         && payload.callEvent !== 'ENDED'
         && AppState.currentState !== 'active'
+        && !wasPresentedLocally(notification.request.content.data)
       ) {
-        void presentIncomingCallNotification(payload as Parameters<typeof presentIncomingCallNotification>[0]);
+        void Notifications.dismissNotificationAsync(notification.request.identifier)
+          .catch(() => {})
+          .then(() => presentIncomingCallNotification(
+            payload as Parameters<typeof presentIncomingCallNotification>[0],
+          ));
       }
 
       if (

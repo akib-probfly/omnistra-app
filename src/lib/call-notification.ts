@@ -9,8 +9,8 @@ export const ANSWER_CALL_ACTION_ID = 'answer_call';
 export const DECLINE_CALL_ACTION_ID = 'decline_call';
 const LEGACY_CATEGORY_ID = 'incoming_call';
 
-/** Call sessions ring for a bounded window; a stale ring is worse than none. */
-export const INCOMING_CALL_TTL_MS = 60_000;
+/** Match the FCM RINGING ttl so a delayed push is still shown. */
+export const INCOMING_CALL_TTL_MS = 90_000;
 
 let categoryConfigured = false;
 
@@ -62,7 +62,7 @@ function buildContent(prompt: IncomingCallPrompt): Notifications.NotificationCon
   return {
     title: contactLabel(prompt),
     body: callSubtitle(prompt),
-    data: { ...prompt },
+    data: { ...prompt, presentedLocally: '1' },
     categoryIdentifier: INCOMING_CALL_CATEGORY_ID,
     sound: 'call.wav',
     color: '#1d4ed8',

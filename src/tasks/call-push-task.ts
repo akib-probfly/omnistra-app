@@ -31,6 +31,11 @@ function readCallEvent(data: Record<string, unknown>): CallPushEvent | null {
   return value === 'RINGING' || value === 'ENDED' ? value : null;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
 /** FCM delivers data fields flat; Android also mirrors them into a JSON `dataString`. */
 function readRemoteData(data: { dataString?: string; [key: string]: unknown }) {
   if (typeof data.dataString === 'string') {
@@ -44,6 +49,31 @@ function readRemoteData(data: { dataString?: string; [key: string]: unknown }) {
     }
   }
   return data as Record<string, unknown>;
+}
+
+/**
+ * Expo's background task payload is not a flat FCM map. It may be
+ * `{ data }`, `{ data, dataString }`, or `{ notification: { request: { content: { data } } } }`.
+ */
+function extractRemotePushData(taskData: unknown): Record<string, unknown> {
+  const root = asRecord(taskData);
+  if (!root) return {};
+
+  const nestedData = asRecord(root.data);
+  const notification = asRecord(root.notification);
+  const request = asRecord(notification?.request);
+  const content = asRecord(request?.content);
+  const contentData = asRecord(content?.data);
+
+  return readRemoteData({
+    ...root,
+    ...nestedData,
+    ...contentData,
+    ...(typeof root.dataString === 'string' ? { dataString: root.dataString } : {}),
+    ...(typeof nestedData?.dataString === 'string'
+      ? { dataString: nestedData.dataString }
+      : {}),
+  });
 }
 
 async function handleRemoteCallPush(rawData: Record<string, unknown>) {
@@ -105,7 +135,7 @@ TaskManager.defineTask<Notifications.NotificationTaskPayload>(CALL_PUSH_TASK, as
       await handleCallAction(data);
       return;
     }
-    await handleRemoteCallPush(readRemoteData(data.data ?? {}));
+    await handleRemoteCallPush(extractRemotePushData(data));
   } catch (taskError) {
     if (__DEV__) console.warn('[call-push] task failed', taskError);
   }
