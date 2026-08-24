@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreVertical, Phone, Reply, UserRound } from 'lucide-react-native';
+import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreVertical, Phone, Reply, RotateCcw, UserRound } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
 import { ConversationAssignmentSheet } from '../components/ConversationAssignmentSheet';
 import { ContactDetailsPanel, formatPhoneNumberDisplay, formatUsernameDisplay } from '../components/ContactDetailsPanel';
 import { InCallConversationHeader } from '../components/InCallConversationHeader';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { showNotice } from '../components/AppToast';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
@@ -128,7 +128,7 @@ export function ConversationScreen() {
   const isFocused = useIsFocused();
   const realtimeStatus = useSyncExternalStore(subscribeRealtimeConnectionStatus, getRealtimeConnectionStatus);
   const { session } = useAuth();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const callController = useCallController();
   const listRef = useRef<FlatList>(null);
   const [draft, setDraft] = useState(''); const [replyTo, setReplyTo] = useState<Message | null>(null);
@@ -967,6 +967,30 @@ export function ConversationScreen() {
         ) : null}
         {(header.conversation || messages.data?.conversation) ? (
         <View style={{ paddingBottom: insets.bottom }}>
+        {header.status === 'CLOSED' ? (
+          <View style={styles.reopenWrap}>
+            <Pressable
+              onPress={() => { if (!statusMutation.isPending) statusMutation.mutate('OPEN'); }}
+              disabled={statusMutation.isPending}
+              style={[
+                styles.reopenBtn,
+                {
+                  backgroundColor: isDark ? '#182130' : '#ffffff',
+                  borderColor: isDark ? colors.cardBorder : '#dce8f8',
+                },
+              ]}
+            >
+              {statusMutation.isPending ? (
+                <ActivityIndicator color="#315efb" size="small" />
+              ) : (
+                <View style={[styles.reopenIcon, { backgroundColor: isDark ? 'rgba(56,189,248,0.15)' : '#eff6ff' }]}>
+                  <RotateCcw color={isDark ? '#7dd3fc' : '#315efb'} size={14} strokeWidth={2.4} />
+                </View>
+              )}
+              <Text style={[styles.reopenText, { color: isDark ? '#7dd3fc' : '#315efb' }]}>Reopen conversation</Text>
+            </Pressable>
+          </View>
+        ) : (
         <ConversationComposer
           value={draft} onChange={setDraft} sending={send.isPending}
           attachments={attachments} onAttachments={setAttachments}
@@ -983,6 +1007,7 @@ export function ConversationScreen() {
           canSendHumanAgentMessage={messengerAvailability.canSendHumanAgentMessage}
           messengerMessagingReady={messengerMessagingReady}
         />
+        )}
         </View>
         ) : (
           <View style={{ paddingBottom: insets.bottom }}>
@@ -1147,6 +1172,18 @@ const styles = StyleSheet.create({
   dayDivider: { alignSelf: 'center', backgroundColor: '#e8eef7', borderRadius: 999, color: '#526987', fontSize: 12, fontWeight: '600', marginVertical: 8, overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 6 },
   olderPill: { alignSelf: 'center', color: '#64748b', fontSize: 12 },
   olderSpacer: { alignItems: 'center', height: 28, justifyContent: 'center' },
+  reopenWrap: { alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10 },
+  reopenBtn: {
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  reopenIcon: { alignItems: 'center', borderRadius: 11, height: 22, justifyContent: 'center', width: 22 },
+  reopenText: { fontSize: 12, fontWeight: '600' },
   fab: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 22, bottom: 16, elevation: 3, height: 44, justifyContent: 'center', position: 'absolute', right: 16, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 5, width: 44 },
   replyAction: { alignItems: 'center', justifyContent: 'center', marginVertical: 3, width: 56 },
   replyIconCircle: {
