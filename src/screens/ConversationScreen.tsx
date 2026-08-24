@@ -17,6 +17,7 @@ import { useAuth } from '../auth/AuthContext';
 import { getRealtimeConnectionStatus, setActiveConversationId, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { markRecentLocalMessageSend } from '../lib/inbox-realtime-suppression';
 import { pollingWhileUnlocked } from '../lib/billing-lock';
+import { unmuteConversationNotifications } from '../lib/muted-conversations';
 import { setUnreadOverride } from '../lib/unread-count-override';
 import {
   adjustInboxUnreadConversationCount,
@@ -252,6 +253,10 @@ export function ConversationScreen() {
     lastScrollOffsetRef.current = 0;
     pinToLatestRef.current = true;
     setAtBottom(true);
+  }, [route.params.conversationId]);
+
+  useEffect(() => {
+    void unmuteConversationNotifications(route.params.conversationId);
   }, [route.params.conversationId]);
 
   useEffect(() => {

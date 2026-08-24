@@ -62,6 +62,30 @@ export async function playNotificationSound(type: NotificationType | string = 'N
   await playTone('call');
 }
 
+let ringingPlayer: ReturnType<typeof createAudioPlayer> | null = null;
+
+export async function startIncomingCallRingtone() {
+  try {
+    await ensureMode();
+    if (!ringingPlayer) {
+      ringingPlayer = createAudioPlayer(TONE_SOURCES.call);
+      ringingPlayer.loop = true;
+    }
+    ringingPlayer.seekTo(0);
+    ringingPlayer.play();
+  } catch {
+    // never let a ringtone failure affect the app
+  }
+}
+
+export function stopIncomingCallRingtone() {
+  try {
+    ringingPlayer?.pause();
+  } catch {
+    // already stopped
+  }
+}
+
 /** Outbound message tones are disabled; incoming calls use playNotificationSound. */
 export async function playMessageSentSound() {
   return;

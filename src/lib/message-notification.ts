@@ -4,17 +4,27 @@ import type { NotificationCreatedRealtimeEvent } from '../api/notifications';
 import { markConversationRead, sendConversationTextMessage } from '../api/inbox';
 import { DEFAULT_CHANNEL_ID } from './mobilePushRegistration';
 import { parseMobileNotificationData } from './mobile-notification';
+import {
+  isConversationNotificationsMuted,
+  muteConversationNotifications,
+} from './muted-conversations';
 
-export const NEW_MESSAGE_CATEGORY_ID = 'new_message';
+export const NEW_MESSAGE_CATEGORY_ID = 'zurvis_new_message';
 export const REPLY_MESSAGE_ACTION_ID = 'reply_message';
 export const MARK_READ_ACTION_ID = 'mark_read';
+export const MUTE_MESSAGE_ACTION_ID = 'mute_message';
 
 const PRESENTED_LOCALLY_FLAG = 'presentedLocally';
+const LEGACY_CATEGORY_ID = 'new_message';
 
 let categoryConfigured = false;
 
 export function isMessageNotificationAction(actionIdentifier: string) {
-  return actionIdentifier === REPLY_MESSAGE_ACTION_ID || actionIdentifier === MARK_READ_ACTION_ID;
+  return (
+    actionIdentifier === REPLY_MESSAGE_ACTION_ID
+    || actionIdentifier === MARK_READ_ACTION_ID
+    || actionIdentifier === MUTE_MESSAGE_ACTION_ID
+  );
 }
 
 export function wasPresentedLocally(data: unknown) {
@@ -27,6 +37,7 @@ export async function ensureMessageNotificationCategory() {
   if (categoryConfigured) return;
   categoryConfigured = true;
   try {
+    await Notifications.deleteNotificationCategoryAsync(LEGACY_CATEGORY_ID).catch(() => {});
     await Notifications.setNotificationCategoryAsync(NEW_MESSAGE_CATEGORY_ID, [
       {
         identifier: REPLY_MESSAGE_ACTION_ID,
@@ -42,11 +53,25 @@ export async function ensureMessageNotificationCategory() {
         buttonTitle: 'Mark as read',
         options: { opensAppToForeground: false },
       },
+      {
+        identifier: MUTE_MESSAGE_ACTION_ID,
+        buttonTitle: 'Mute',
+        options: { opensAppToForeground: false },
+      },
     ]);
   } catch (error) {
     categoryConfigured = false;
     if (__DEV__) console.warn('[message-push] category setup failed', error);
   }
+}
+
+function readReplyText(response: Notifications.NotificationResponse) {
+  const direct = (response.userText ?? '').replace(/\u200B/g, '').trim();
+  if (direct) return direct;
+  const data = response.notification.request.content.data;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return '';
+  const nested = (data as Record<string, unknown>).userText;
+  return typeof nested === 'string' ? nested.replace(/\u200B/g, '').trim() : '';
 }
 
 function notificationIdForConversation(conversationId: string) {
@@ -60,16 +85,19 @@ function buildContent(payload: NotificationCreatedRealtimeEvent): Notifications.
     data: { ...payload, [PRESENTED_LOCALLY_FLAG]: '1' },
     categoryIdentifier: NEW_MESSAGE_CATEGORY_ID,
     sound: 'message.wav',
+    color: '#1d4ed8',
+    priority: Notifications.AndroidNotificationPriority.HIGH,
     ...(Platform.OS === 'android' ? { channelId: DEFAULT_CHANNEL_ID } : {}),
   };
 }
 
 /**
- * Show a message notification that the app owns, so Reply / Mark as read are attached.
+ * Show a message notification the app owns so Reply / Mark as read / Mute are attached.
  * Identifier is per conversation so a newer message replaces the previous banner.
  */
 export async function presentIncomingMessageNotification(payload: NotificationCreatedRealtimeEvent) {
   if (payload.type !== 'NEW_MESSAGE' || !payload.conversationId) return;
+  if (await isConversationNotificationsMuted(payload.conversationId)) return;
   await ensureMessageNotificationCategory();
   try {
     await Notifications.scheduleNotificationAsync({
@@ -98,6 +126,12 @@ export async function handleMessageNotificationAction(response: Notifications.No
   const payload = parseMobileNotificationData(response.notification.request.content.data);
   if (!payload || payload.type !== 'NEW_MESSAGE' || !payload.conversationId) return false;
 
+  if (response.actionIdentifier === MUTE_MESSAGE_ACTION_ID) {
+    await muteConversationNotifications(payload.conversationId);
+    await dismissIncomingMessageNotification(payload.conversationId);
+    return true;
+  }
+
   if (response.actionIdentifier === MARK_READ_ACTION_ID) {
     try {
       await markConversationRead(payload.conversationId);
@@ -108,7 +142,7 @@ export async function handleMessageNotificationAction(response: Notifications.No
     return true;
   }
 
-  const text = (response.userText ?? '').replace(/\u200B/g, '').trim();
+  const text = readReplyText(response);
   if (!text) return true;
 
   try {
@@ -116,7 +150,6 @@ export async function handleMessageNotificationAction(response: Notifications.No
     await dismissIncomingMessageNotification(payload.conversationId);
   } catch (error) {
     if (__DEV__) console.warn('[message-push] reply failed', error);
-    // Put the banner back so the user can try again without opening the app.
     await presentIncomingMessageNotification(payload);
   }
   return true;

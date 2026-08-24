@@ -7,19 +7,22 @@ import { useNotificationPreferences } from './useNotificationPreferences';
 import { declineConversationCall } from '../api/inbox';
 import { claimNotification } from '../lib/notification-dedupe';
 import {
+  ensureMessageNotificationCategory,
+  handleMessageNotificationAction,
+  isMessageNotificationAction,
+  NEW_MESSAGE_CATEGORY_ID,
+  presentIncomingMessageNotification,
+  wasPresentedLocally,
+} from '../lib/message-notification';
+import {
   ANSWER_CALL_ACTION_ID,
   DECLINE_CALL_ACTION_ID,
   dismissIncomingCallNotification,
   ensureIncomingCallCategory,
+  INCOMING_CALL_CATEGORY_ID,
+  presentIncomingCallNotification,
 } from '../lib/call-notification';
 import { clearIncomingCallPrompt } from '../lib/incoming-call-prompt';
-import {
-  ensureMessageNotificationCategory,
-  handleMessageNotificationAction,
-  isMessageNotificationAction,
-  presentIncomingMessageNotification,
-  wasPresentedLocally,
-} from '../lib/message-notification';
 import {
   navigateFromMobileNotification,
   parseMobileNotificationData,
@@ -35,13 +38,33 @@ export function configureMobileForegroundNotificationHandler() {
   foregroundHandlerConfigured = true;
 
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      // Socket.IO updates the open app; never show the same push as a second banner.
-      shouldShowBanner: false,
-      shouldShowList: false,
-      shouldPlaySound: false,
-      shouldSetBadge: false,
-    }),
+    handleNotification: async (notification) => {
+      if (AppState.currentState === 'active') {
+        return {
+          shouldShowBanner: false,
+          shouldShowList: false,
+          shouldPlaySound: false,
+          shouldSetBadge: false,
+        };
+      }
+
+      const category = notification.request.content.categoryIdentifier;
+      const showActions =
+        wasPresentedLocally(notification.request.content.data) ||
+        category === NEW_MESSAGE_CATEGORY_ID ||
+        category === INCOMING_CALL_CATEGORY_ID;
+      const isIncomingCall = category === INCOMING_CALL_CATEGORY_ID;
+
+      return {
+        shouldShowBanner: showActions,
+        shouldShowList: showActions,
+        shouldPlaySound: isIncomingCall || showActions,
+        shouldSetBadge: false,
+        priority: isIncomingCall
+          ? Notifications.AndroidNotificationPriority.MAX
+          : undefined,
+      };
+    },
   });
 }
 
@@ -66,6 +89,14 @@ export function useMobileNotificationHandlers() {
 
       if (payload.type === 'INCOMING_CALL' && payload.callEvent === 'ENDED') {
         void dismissIncomingCallNotification(payload.entityId);
+      }
+
+      if (
+        payload.type === 'INCOMING_CALL'
+        && payload.callEvent !== 'ENDED'
+        && AppState.currentState !== 'active'
+      ) {
+        void presentIncomingCallNotification(payload as Parameters<typeof presentIncomingCallNotification>[0]);
       }
 
       if (

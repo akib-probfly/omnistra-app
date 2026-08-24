@@ -1,16 +1,35 @@
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { CALL_CHANNEL_ID } from './mobilePushRegistration';
 import type { IncomingCallPrompt } from './incoming-call-prompt';
+import { startIncomingCallRingtone, stopIncomingCallRingtone } from './notificationSound';
 
-export const INCOMING_CALL_CATEGORY_ID = 'incoming_call';
+export const INCOMING_CALL_CATEGORY_ID = 'zurvis_incoming_call';
 export const ANSWER_CALL_ACTION_ID = 'answer_call';
 export const DECLINE_CALL_ACTION_ID = 'decline_call';
+const LEGACY_CATEGORY_ID = 'incoming_call';
 
 /** Call sessions ring for a bounded window; a stale ring is worse than none. */
 export const INCOMING_CALL_TTL_MS = 60_000;
 
 let categoryConfigured = false;
+
+function contactLabel(prompt: IncomingCallPrompt) {
+  const metadata = prompt.metadata && typeof prompt.metadata === 'object' && !Array.isArray(prompt.metadata)
+    ? prompt.metadata as Record<string, unknown>
+    : null;
+  const name = typeof metadata?.contactDisplayName === 'string' ? metadata.contactDisplayName.trim() : '';
+  const phone = typeof metadata?.contactPhone === 'string' ? metadata.contactPhone.trim() : '';
+  return name || phone || prompt.title?.replace(/\s+called you$/i, '').trim() || 'Incoming call';
+}
+
+function callSubtitle(prompt: IncomingCallPrompt) {
+  const metadata = prompt.metadata && typeof prompt.metadata === 'object' && !Array.isArray(prompt.metadata)
+    ? prompt.metadata as Record<string, unknown>
+    : null;
+  const channel = typeof metadata?.channelName === 'string' ? metadata.channelName.trim() : '';
+  return channel ? `Incoming voice call · ${channel}` : 'Incoming voice call';
+}
 
 /**
  * Answer/Decline buttons on the ringing notification. Answer opens the app so the
@@ -20,6 +39,7 @@ export async function ensureIncomingCallCategory() {
   if (categoryConfigured) return;
   categoryConfigured = true;
   try {
+    await Notifications.deleteNotificationCategoryAsync(LEGACY_CATEGORY_ID).catch(() => {});
     await Notifications.setNotificationCategoryAsync(INCOMING_CALL_CATEGORY_ID, [
       {
         identifier: ANSWER_CALL_ACTION_ID,
@@ -40,14 +60,17 @@ export async function ensureIncomingCallCategory() {
 
 function buildContent(prompt: IncomingCallPrompt): Notifications.NotificationContentInput {
   return {
-    title: prompt.title || 'Incoming call',
-    body: prompt.body || 'Tap to answer',
+    title: contactLabel(prompt),
+    body: callSubtitle(prompt),
     data: { ...prompt },
     categoryIdentifier: INCOMING_CALL_CATEGORY_ID,
     sound: 'call.wav',
+    color: '#1d4ed8',
     priority: Notifications.AndroidNotificationPriority.MAX,
     sticky: true,
     autoDismiss: false,
+    vibrate: [0, 1000, 500, 1000, 500, 1000],
+    interruptionLevel: 'timeSensitive',
     ...(Platform.OS === 'android' ? { channelId: CALL_CHANNEL_ID } : {}),
   };
 }
@@ -57,6 +80,7 @@ function buildContent(prompt: IncomingCallPrompt): Notifications.NotificationCon
  * The notification identifier is the call session id so it can be dismissed later.
  */
 export async function presentIncomingCallNotification(prompt: IncomingCallPrompt) {
+  if (prompt.callEvent === 'ENDED') return;
   await ensureIncomingCallCategory();
   try {
     await Notifications.scheduleNotificationAsync({
@@ -64,6 +88,9 @@ export async function presentIncomingCallNotification(prompt: IncomingCallPrompt
       content: buildContent(prompt),
       trigger: null,
     });
+    if (AppState.currentState !== 'active') {
+      void startIncomingCallRingtone();
+    }
   } catch (error) {
     if (__DEV__) console.warn('[call-push] present failed', prompt.entityId, error);
   }
@@ -71,6 +98,7 @@ export async function presentIncomingCallNotification(prompt: IncomingCallPrompt
 
 /** Stop ringing once the call is answered, declined, missed, or taken on another device. */
 export async function dismissIncomingCallNotification(callSessionId?: string | null) {
+  stopIncomingCallRingtone();
   try {
     if (callSessionId) {
       await Notifications.dismissNotificationAsync(callSessionId);
