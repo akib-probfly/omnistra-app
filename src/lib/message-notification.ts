@@ -78,6 +78,40 @@ function notificationIdForConversation(conversationId: string) {
   return `message:${conversationId}`;
 }
 
+function isLocalMessageBanner(identifier: string, data: unknown) {
+  return identifier.startsWith('message:') || wasPresentedLocally(data);
+}
+
+/**
+ * Expo may still surface a bare "New message" tray item from FCM data.
+ * Keep the local banner (with Reply / Mark as read / Mute) and drop the rest.
+ */
+async function dismissDuplicateMessageBanners(conversationId: string) {
+  try {
+    const presented = await Notifications.getPresentedNotificationsAsync();
+    await Promise.all(
+      presented.map(async (notification) => {
+        const identifier = notification.request.identifier;
+        const data = notification.request.content.data;
+        if (isLocalMessageBanner(identifier, data)) return;
+
+        const payload = parseMobileNotificationData(data);
+        const title = notification.request.content.title?.trim() ?? '';
+        const body = notification.request.content.body?.trim() ?? '';
+        const sameConversation = payload?.conversationId === conversationId;
+        const bareNewMessage =
+          payload?.type === 'NEW_MESSAGE' ||
+          title === 'New message' ||
+          body === 'New message';
+        if (!sameConversation && !bareNewMessage) return;
+        await Notifications.dismissNotificationAsync(identifier).catch(() => {});
+      }),
+    );
+  } catch {
+    // Presented-notification APIs are unavailable in some development runtimes.
+  }
+}
+
 function buildContent(payload: NotificationCreatedRealtimeEvent): Notifications.NotificationContentInput {
   return {
     title: payload.title || 'New message',
@@ -105,6 +139,7 @@ export async function presentIncomingMessageNotification(payload: NotificationCr
       content: buildContent(payload),
       trigger: null,
     });
+    await dismissDuplicateMessageBanners(payload.conversationId);
   } catch (error) {
     if (__DEV__) console.warn('[message-push] present failed', payload.conversationId, error);
   }

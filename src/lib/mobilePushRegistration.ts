@@ -178,8 +178,12 @@ async function getNativeToken(): Promise<string | null> {
 
 async function ensureNotificationPermission(): Promise<boolean> {
   const existing = await Notifications.getPermissionsAsync();
-  if (existing.status === "granted") {
+  if (existing.granted || existing.status === "granted") {
     return true;
+  }
+
+  if (existing.status === "denied" && existing.canAskAgain === false) {
+    return false;
   }
 
   const requested = await Notifications.requestPermissionsAsync({
@@ -189,7 +193,7 @@ async function ensureNotificationPermission(): Promise<boolean> {
       allowSound: true,
     },
   });
-  return requested.status === "granted";
+  return requested.granted || requested.status === "granted";
 }
 
 async function enableMobilePushPreferenceOnce(): Promise<void> {
@@ -219,7 +223,7 @@ async function enableMobilePushPreferenceOnce(): Promise<void> {
   }
 }
 
-async function registerOnce(): Promise<boolean> {
+async function registerOnce(accessTokenOverride?: string | null): Promise<boolean> {
   if (!isNativeMobilePlatform() || !Device.isDevice) {
     return false;
   }
@@ -228,13 +232,16 @@ async function registerOnce(): Promise<boolean> {
     return false;
   }
 
-  const accessToken = await SecureStore.getItemAsync("access-token");
-  if (!accessToken) {
+  // Ask before reading SecureStore so first login still shows the system dialog
+  // even if the access token has not been persisted yet.
+  const permissionGranted = await ensureNotificationPermission();
+  if (!permissionGranted) {
     return false;
   }
 
-  const permissionGranted = await ensureNotificationPermission();
-  if (!permissionGranted) {
+  const accessToken =
+    accessTokenOverride || (await SecureStore.getItemAsync("access-token"));
+  if (!accessToken) {
     return false;
   }
 
@@ -273,9 +280,11 @@ async function registerOnce(): Promise<boolean> {
   return true;
 }
 
-export function registerMobilePushDeviceIfPermitted(): Promise<boolean> {
+export function registerMobilePushDeviceIfPermitted(
+  accessToken?: string | null,
+): Promise<boolean> {
   if (!registrationInFlight) {
-    registrationInFlight = registerOnce()
+    registrationInFlight = registerOnce(accessToken)
       .catch((error) => {
         console.warn("[mobile-push] device registration failed", error);
         return false;

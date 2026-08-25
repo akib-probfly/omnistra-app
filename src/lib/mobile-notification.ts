@@ -54,8 +54,8 @@ export function parseMobileNotificationData(value: unknown): NotificationCreated
   const type = asNonEmptyString(data.type) as NotificationType | null;
   const entityType = asNonEmptyString(data.entityType) as NotificationEntityType | null;
   const entityId = asSafeId(data.entityId);
-  const title = asNonEmptyString(data.title);
-  const body = asNonEmptyString(data.body);
+  const title = asNonEmptyString(data.title) ?? asNonEmptyString(data.alertTitle);
+  const body = asNonEmptyString(data.body) ?? asNonEmptyString(data.alertBody);
   const createdAt = asNonEmptyString(data.createdAt);
   const targetScope = asNonEmptyString(data.targetScope);
   const callEventValue = asNonEmptyString(data.callEvent)?.toUpperCase();
