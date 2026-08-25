@@ -45,5 +45,8 @@ GoogleService-Info.plist
 /ios
 /android
 
+# local Play signing (keystore + passwords)
+.signing/
+
 # graphify
 graphify-out/

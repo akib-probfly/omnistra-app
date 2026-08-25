@@ -82,11 +82,25 @@ function isLocalMessageBanner(identifier: string, data: unknown) {
   return identifier.startsWith('message:') || wasPresentedLocally(data);
 }
 
+/** Bare Expo tray item from FCM data `title`/`body` — title only, no message preview. */
+function isBareExpoMessageBanner(
+  data: unknown,
+  title: string,
+  body: string,
+  categoryIdentifier?: string | null,
+) {
+  if (categoryIdentifier === NEW_MESSAGE_CATEGORY_ID) return false;
+  if (wasPresentedLocally(data)) return false;
+  if (title === 'New message' && !body) return true;
+  const payload = parseMobileNotificationData(data);
+  return payload?.type === 'NEW_MESSAGE';
+}
+
 /**
  * Expo may still surface a bare "New message" tray item from FCM data.
  * Keep the local banner (with Reply / Mark as read / Mute) and drop the rest.
  */
-async function dismissDuplicateMessageBanners(conversationId: string) {
+export async function dismissDuplicateMessageBanners(conversationId: string) {
   try {
     const presented = await Notifications.getPresentedNotificationsAsync();
     await Promise.all(
@@ -95,12 +109,13 @@ async function dismissDuplicateMessageBanners(conversationId: string) {
         const data = notification.request.content.data;
         if (isLocalMessageBanner(identifier, data)) return;
 
-        const payload = parseMobileNotificationData(data);
         const title = notification.request.content.title?.trim() ?? '';
         const body = notification.request.content.body?.trim() ?? '';
+        const category = notification.request.content.categoryIdentifier;
+        const payload = parseMobileNotificationData(data);
         const sameConversation = payload?.conversationId === conversationId;
         const bareNewMessage =
-          payload?.type === 'NEW_MESSAGE' ||
+          isBareExpoMessageBanner(data, title, body, category) ||
           title === 'New message' ||
           body === 'New message';
         if (!sameConversation && !bareNewMessage) return;

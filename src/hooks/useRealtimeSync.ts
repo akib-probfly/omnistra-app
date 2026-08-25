@@ -21,6 +21,7 @@ import {
 } from '../lib/unread-count-override';
 import { writeIncomingCallPrompt } from '../lib/incoming-call-prompt';
 import { presentIncomingCallNotification } from '../lib/call-notification';
+import { presentIncomingMessageNotification } from '../lib/message-notification';
 import { syncIncomingCallPromptFromSession, upsertActiveCallSessionCache, type CallSessionUpdatedEvent } from '../lib/active-call-cache';
 import { useNotificationPreferences } from './useNotificationPreferences';
 import { claimNotification } from '../lib/notification-dedupe';
@@ -518,6 +519,13 @@ export function useRealtimeSync(accessToken: string | null) {
       }
 
       if (!shouldSurfaceNotification(payload, preferences)) return;
+
+      if (
+        payload.type === 'NEW_MESSAGE'
+        && AppState.currentState !== 'active'
+      ) {
+        void presentIncomingMessageNotification(payload);
+      }
     };
 
     const markReady = () => {

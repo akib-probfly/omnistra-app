@@ -12,6 +12,7 @@ import {
   isMessageNotificationAction,
   NEW_MESSAGE_CATEGORY_ID,
   presentIncomingMessageNotification,
+  dismissDuplicateMessageBanners,
   wasPresentedLocally,
 } from '../lib/message-notification';
 import {
@@ -53,11 +54,13 @@ export function configureMobileForegroundNotificationHandler() {
       const isIncomingCall =
         category === INCOMING_CALL_CATEGORY_ID ||
         (payload?.type === 'INCOMING_CALL' && payload.callEvent !== 'ENDED');
+      const isLocalMessage =
+        wasPresentedLocally(notification.request.content.data) ||
+        category === NEW_MESSAGE_CATEGORY_ID;
       // FCM ringing banners have no Expo category. Still show them when the app
       // is backgrounded — otherwise JS swallows the only OS-visible incoming call.
       const showBanner =
-        wasPresentedLocally(notification.request.content.data) ||
-        category === NEW_MESSAGE_CATEGORY_ID ||
+        isLocalMessage ||
         isIncomingCall;
 
       if (payload?.type === 'INCOMING_CALL' && payload.callEvent === 'ENDED') {
@@ -94,12 +97,16 @@ export function useMobileNotificationHandlers() {
       const payload = parseMobileNotificationData(
         notification.request.content.data,
       );
-      if (!payload || !claimNotification(payload.notificationId)) return;
+      if (!payload) return;
 
+      const claimed = claimNotification(payload.notificationId);
       const currentPreferences = preferencesRef.current;
-      syncNotificationCaches(queryClient, payload, {
-        showIncomingCallPrompt: currentPreferences.incomingCallAlertsEnabled,
-      });
+
+      if (claimed) {
+        syncNotificationCaches(queryClient, payload, {
+          showIncomingCallPrompt: currentPreferences.incomingCallAlertsEnabled,
+        });
+      }
 
       if (payload.type === 'INCOMING_CALL' && payload.callEvent === 'ENDED') {
         void dismissIncomingCallNotification(payload.entityId);
@@ -129,8 +136,8 @@ export function useMobileNotificationHandlers() {
         void playNotificationSound(payload.type);
       }
 
-      // Remote FCM alerts have no Reply action. Replace them with a local
-      // notification we own, unless this is already that local banner.
+      // Data-only FCM (alertTitle/alertBody) has no OS banner. Present locally
+      // even when realtime already claimed the id for cache dedupe.
       if (
         payload.type === 'NEW_MESSAGE'
         && AppState.currentState !== 'active'
@@ -138,7 +145,10 @@ export function useMobileNotificationHandlers() {
       ) {
         void Notifications.dismissNotificationAsync(notification.request.identifier)
           .catch(() => {})
-          .then(() => presentIncomingMessageNotification(payload));
+          .then(async () => {
+            await presentIncomingMessageNotification(payload);
+            await dismissDuplicateMessageBanners(payload.conversationId ?? '');
+          });
       }
     },
     [queryClient],

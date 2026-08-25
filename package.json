@@ -73,7 +73,9 @@
     "build:ios:preview": "eas build --platform ios --profile preview",
     "build:android:production-preview": "eas build --platform android --profile production-preview",
     "build:android:dev": "eas build --platform android --profile development",
-    "build:android:aab": "eas build --platform android --profile production"
+    "build:android:aab": "eas build --platform android --profile production",
+    "build:android:apk:production": "eas build --platform android --profile production-apk",
+    "build:android:local": "powershell -ExecutionPolicy Bypass -File scripts/build-android-release.ps1"
   },
   "overrides": {
     "expo-asset": "12.0.13"

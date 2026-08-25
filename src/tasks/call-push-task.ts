@@ -14,6 +14,7 @@ import {
   ensureMessageNotificationCategory,
   handleMessageNotificationAction,
   presentIncomingMessageNotification,
+  dismissDuplicateMessageBanners,
 } from '../lib/message-notification';
 import { parseMobileNotificationData } from '../lib/mobile-notification';
 import { ensureMobilePushChannels } from '../lib/mobilePushRegistration';
@@ -89,6 +90,7 @@ async function handleRemoteCallPush(rawData: Record<string, unknown>) {
 
   if (payload?.type === 'NEW_MESSAGE') {
     await presentIncomingMessageNotification(payload);
+    await dismissDuplicateMessageBanners(payload.conversationId ?? '');
     return;
   }
 
