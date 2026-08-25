@@ -101,8 +101,20 @@ export type MessengerChannelConfiguration = {
   lastWebhookError: string | null;
 };
 
+export type TikTokChannelConfiguration = {
+  provider: string;
+  businessId: string | null;
+  accountDisplayName: string | null;
+  accountUsername: string | null;
+  webhookSubscriptionStatus: ChannelConnectionStatus | null;
+  lastWebhookError: string | null;
+  lastSyncedAt?: string | null;
+  lastSyncStatus?: 'SUCCESS' | 'FAILED' | null;
+  lastSyncError?: string | null;
+};
+
 export type ChannelDetails = Channel & {
-  configuration?: WhatsappChannelConfiguration | MessengerChannelConfiguration | null;
+  configuration?: WhatsappChannelConfiguration | MessengerChannelConfiguration | TikTokChannelConfiguration | null;
   lifecycle: ChannelLifecycle;
   capabilities?: ChannelCapabilities | null;
   templateCounts?: WhatsappChannelTemplateCounts | null;
@@ -234,6 +246,44 @@ export function startMessengerConnect(workspaceId: string) {
       body: JSON.stringify({ workspaceId }),
     },
   );
+}
+
+export type TikTokConnectLaunch = {
+  provider: 'tiktok_business_messaging';
+  channelType: 'TIKTOK';
+  workspaceId: string;
+  launchUrl: string;
+  state: string;
+};
+
+export type TikTokSyncResponse = {
+  ok: true;
+  channelId: string;
+  conversations: number;
+  messages: number;
+  queuedMessages: number;
+  skippedMessages: number;
+  syncedAt: string;
+};
+
+export function startTikTokConnect(workspaceId: string) {
+  return apiFetch<TikTokConnectLaunch>('/channels/tiktok/connect', {
+    method: 'POST',
+    body: JSON.stringify({ workspaceId }),
+  });
+}
+
+export function reconnectTikTokChannel(channelId: string) {
+  return apiFetch<TikTokConnectLaunch>(`/channels/${channelId}/reconnect`, {
+    method: 'POST',
+  });
+}
+
+export function syncTikTokChannel(channelId: string) {
+  return apiFetch<TikTokSyncResponse>('/webhooks/tiktok/sync', {
+    method: 'POST',
+    body: JSON.stringify({ channelId }),
+  });
 }
 
 export type ChannelQuickAutomationDay = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';

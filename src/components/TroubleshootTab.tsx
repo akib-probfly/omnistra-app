@@ -1,7 +1,7 @@
-import { ArrowLeft, Pause, Play, RefreshCcw, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Pause, Play, RefreshCcw, RotateCcw, Trash2 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import type { ChannelAccount, ChannelDetails, ChannelLifecycle } from '../api/channels';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { ChannelAccount, ChannelDetails, ChannelLifecycle, TikTokChannelConfiguration } from '../api/channels';
 import { useTheme } from '../theme/ThemeContext';
 
 const RETENTION_MS = 60 * 60 * 1000;
@@ -44,8 +44,12 @@ export function TroubleshootTab({
   onRestore,
   onRemove,
   onPauseResume,
+  onSyncMessages,
+  onReconnect,
   onGoToOverview,
   isBusy,
+  syncPending = false,
+  reconnectPending = false,
 }: {
   channel: ChannelDetails;
   lifecycle: ChannelLifecycle;
@@ -53,18 +57,25 @@ export function TroubleshootTab({
   onRestore: () => void;
   onRemove: () => void;
   onPauseResume: () => void;
+  onSyncMessages?: () => void;
+  onReconnect?: () => void;
   onGoToOverview?: () => void;
   isBusy: boolean;
+  syncPending?: boolean;
+  reconnectPending?: boolean;
 }) {
   const { colors } = useTheme();
   const countdown = useRemovalCountdown(lifecycle.purgeAt);
+  const isTikTok = channel.type === 'TIKTOK';
+  const tiktokConfig = (channel.configuration ?? null) as TikTokChannelConfiguration | null;
   const needsReconnect = ['NEEDS_ACTION', 'ERROR', 'DISCONNECTED'].includes(channel.status);
+  const canSync = Boolean(onSyncMessages) && channel.status === 'CONNECTED' && !lifecycle.isRemoved;
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.content}>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-        <Text style={[styles.cardTitle, { color: colors.text }]}>Access and diagnostics</Text>
-        <Text style={[styles.cardSub, { color: colors.textSecondary }]}>Operational controls, permissions, and technical identifiers in one place.</Text>
+        <Text style={[styles.cardTitle, { color: colors.text }]}>Channel actions</Text>
+        <Text style={[styles.cardSub, { color: colors.textSecondary }]}>Pause, remove, or restore this channel from here.</Text>
 
         <View style={styles.summaryGrid}>
           <View style={[styles.summary, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
@@ -104,26 +115,48 @@ export function TroubleshootTab({
               </Pressable>
             ) : null}
           </View>
-        ) : needsReconnect ? (
-          <View style={[styles.needsAttention, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.needsAttentionText, { color: colors.textSecondary }]}>
-              This channel needs attention before it can fully manage Meta webhook processing again. Reconnect it in the web workspace to resubscribe Meta webhooks and restore the channel.
-            </Text>
-            <Pressable style={[styles.destructiveButton, { backgroundColor: colors.error, marginTop: 12 }, isBusy && styles.buttonDisabled]} onPress={onRemove} disabled={isBusy}>
-              <Trash2 color={colors.primaryText} size={16} />
-              <Text style={styles.destructiveButtonText}>Remove channel</Text>
-            </Pressable>
-          </View>
         ) : (
-          <View style={styles.controls}>
-            <Pressable style={[styles.primaryButton, { backgroundColor: colors.primary }, isBusy && styles.buttonDisabled]} onPress={onPauseResume} disabled={isBusy}>
-              {lifecycle.isPaused ? <Play color={colors.primaryText} size={16} /> : <Pause color={colors.primaryText} size={16} />}
-              <Text style={styles.primaryButtonText}>{lifecycle.isPaused ? 'Resume channel' : 'Pause channel'}</Text>
-            </Pressable>
-            <Pressable style={[styles.destructiveButton, { backgroundColor: colors.error, flex: 1 }, isBusy && styles.buttonDisabled]} onPress={onRemove} disabled={isBusy}>
-              <Trash2 color={colors.primaryText} size={16} />
-              <Text style={styles.destructiveButtonText}>Remove channel</Text>
-            </Pressable>
+          <View style={styles.actionStack}>
+            {needsReconnect ? (
+              <View style={[styles.needsAttention, { backgroundColor: colors.surface, marginTop: 0 }]}>
+                <Text style={[styles.needsAttentionText, { color: colors.textSecondary }]}>
+                  {isTikTok
+                    ? 'This TikTok channel needs to be reconnected before it can send and receive messages again.'
+                    : 'This channel needs attention before it can fully manage Meta webhook processing again. Reconnect it in the web workspace to resubscribe Meta webhooks and restore the channel.'}
+                </Text>
+                {onReconnect ? (
+                  <Pressable style={[styles.primaryButton, { backgroundColor: colors.primary, flex: undefined, marginTop: 12 }, (isBusy || reconnectPending) && styles.buttonDisabled]} onPress={onReconnect} disabled={isBusy || reconnectPending}>
+                    {reconnectPending ? <ActivityIndicator color={colors.primaryText} size="small" /> : <RotateCcw color={colors.primaryText} size={16} />}
+                    <Text style={styles.primaryButtonText}>Reconnect</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable style={[styles.destructiveButton, { backgroundColor: colors.error, marginTop: 12 }, isBusy && styles.buttonDisabled]} onPress={onRemove} disabled={isBusy}>
+                  <Trash2 color={colors.primaryText} size={16} />
+                  <Text style={styles.destructiveButtonText}>Remove channel</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.controls}>
+                <Pressable style={[styles.primaryButton, { backgroundColor: colors.primary }, isBusy && styles.buttonDisabled]} onPress={onPauseResume} disabled={isBusy}>
+                  {lifecycle.isPaused ? <Play color={colors.primaryText} size={16} /> : <Pause color={colors.primaryText} size={16} />}
+                  <Text style={styles.primaryButtonText}>{lifecycle.isPaused ? 'Resume channel' : 'Pause channel'}</Text>
+                </Pressable>
+                <Pressable style={[styles.destructiveButton, { backgroundColor: colors.error, flex: 1 }, isBusy && styles.buttonDisabled]} onPress={onRemove} disabled={isBusy}>
+                  <Trash2 color={colors.primaryText} size={16} />
+                  <Text style={styles.destructiveButtonText}>Remove channel</Text>
+                </Pressable>
+              </View>
+            )}
+            {canSync ? (
+              <Pressable
+                style={[styles.outlineButton, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, (isBusy || syncPending) && styles.buttonDisabled]}
+                onPress={onSyncMessages}
+                disabled={isBusy || syncPending}
+              >
+                {syncPending ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCcw color={colors.primary} size={16} />}
+                <Text style={[styles.outlineButtonText, { color: colors.primary }]}>Sync messages</Text>
+              </Pressable>
+            ) : null}
           </View>
         )}
       </View>
@@ -133,8 +166,17 @@ export function TroubleshootTab({
         <View style={styles.diag}>
           <DiagRow label="Workspace" value={channel.workspaceName} />
           <DiagRow label="Channel ID" value={channel.id} />
-          <DiagRow label="WABA" value={primaryAccount?.wabaId ?? 'Not linked'} />
-          <DiagRow label="Phone number" value={primaryAccount?.displayPhoneNumber ?? 'Not linked'} />
+          {isTikTok ? (
+            <>
+              <DiagRow label="Business ID" value={tiktokConfig?.businessId ?? primaryAccount?.externalAccountId ?? 'Not available'} />
+              <DiagRow label="Account" value={tiktokConfig?.accountDisplayName || tiktokConfig?.accountUsername || primaryAccount?.displayName || 'TikTok Business account'} />
+            </>
+          ) : (
+            <>
+              <DiagRow label="WABA" value={primaryAccount?.wabaId ?? 'Not linked'} />
+              <DiagRow label="Phone number" value={primaryAccount?.displayPhoneNumber ?? 'Not linked'} />
+            </>
+          )}
           <DiagRow label="Last updated" value={formatDateLabel(channel.updatedAt)} />
         </View>
       </View>
@@ -177,7 +219,8 @@ const styles = StyleSheet.create({
   needsAttentionText: { color: '#475569', fontSize: 13, lineHeight: 19 },
   destructiveButton: { alignItems: 'center', backgroundColor: '#dc2626', borderRadius: 12, flexDirection: 'row', gap: 6, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 9 },
   destructiveButtonText: { color: '#fff', flexShrink: 1, fontSize: 13, fontWeight: '700', textAlign: 'center' },
-  controls: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  actionStack: { gap: 10, marginTop: 16 },
+  controls: { flexDirection: 'row', gap: 10 },
   primaryButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 12, flex: 1, flexDirection: 'row', gap: 6, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 9 },
   primaryButtonText: { color: '#fff', flexShrink: 1, fontSize: 13, fontWeight: '700', textAlign: 'center' },
   buttonDisabled: { opacity: 0.6 },

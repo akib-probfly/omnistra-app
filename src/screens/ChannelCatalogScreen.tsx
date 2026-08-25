@@ -1,11 +1,13 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ArrowLeft, MessageCircle, Users } from 'lucide-react-native';
+import { ArrowLeft, Users } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { fetchChannels, startMessengerConnect, startWhatsAppConnect } from '../api/channels';
+import { fetchChannels, startMessengerConnect, startTikTokConnect, startWhatsAppConnect } from '../api/channels';
+import { fetchMyWorkspaces } from '../api/workspaces';
+import { ChannelLogo } from '../components/ChannelLogo';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CardGridSkeleton } from '../components/Skeleton';
 import { useTheme } from '../theme/ThemeContext';
@@ -14,7 +16,7 @@ import { AppChip, AppSearchField } from '../ui';
 const CATALOG = [
   { id: 'whatsapp', name: 'WhatsApp Business Platform (API)', description: 'Connect WhatsApp Business API to enable seamless conversations.', category: 'Business Messaging', badge: 'Popular', tone: '#25D366', available: true },
   { id: 'messenger', name: 'Facebook Messenger', description: "Engage with your customers on the world's most used social platform.", category: 'Business Messaging', badge: 'Popular', tone: '#0084FF', available: true },
-  { id: 'tiktok', name: 'TikTok', description: 'Connect TikTok Business Messaging to engage with a whole new audience.', category: 'Business Messaging', badge: 'Beta', tone: '#0f172a', available: false },
+  { id: 'tiktok', name: 'TikTok', description: 'Connect TikTok Business Messaging to engage with a whole new audience.', category: 'Business Messaging', badge: 'Beta', tone: '#0f172a', available: true },
   { id: 'instagram', name: 'Instagram', description: 'Reply to private messages and build a strong brand presence.', category: 'Business Messaging', tone: '#bc1888', available: false },
   { id: 'telegram', name: 'Telegram', description: 'Connect a Telegram Bot to provide real-time support to customers.', category: 'Business Messaging', tone: '#229ED9', available: false },
   { id: 'email', name: 'Email', description: 'Connect your shared inbox to handle email conversations.', category: 'Email', tone: '#334155', available: false },
@@ -31,8 +33,9 @@ export function ChannelCatalogScreen() {
   const { colors, isDark } = useTheme();
 
   const channels = useQuery({ queryKey: ['channels'], queryFn: () => fetchChannels(), staleTime: 2 * 60 * 1000 });
+  const workspaces = useQuery({ queryKey: ['workspaces', 'mine'], queryFn: fetchMyWorkspaces, staleTime: 30_000 });
   const existingChannels = channels.data?.items ?? [];
-  const workspaceId = existingChannels[0]?.workspaceId;
+  const workspaceId = existingChannels[0]?.workspaceId ?? workspaces.data?.items?.[0]?.id;
   const connectedTypes = new Set<string>(existingChannels.map((channel) => channel.type));
   const isChannelLimitReached = false;
 
@@ -41,7 +44,12 @@ export function ChannelCatalogScreen() {
       setErrorText('No workspace is available to connect a channel. Please sign in and try again.');
       return;
     }
-    const action = id === 'whatsapp' ? startWhatsAppConnect(workspaceId) : startMessengerConnect(workspaceId);
+    const action =
+      id === 'whatsapp'
+        ? startWhatsAppConnect(workspaceId)
+        : id === 'tiktok'
+          ? startTikTokConnect(workspaceId)
+          : startMessengerConnect(workspaceId);
     launch.mutate({ id, action, workspaceId });
   };
 
@@ -163,12 +171,12 @@ export function ChannelCatalogScreen() {
 }
 
 function ChannelGlyph({ id }: { id: string }) {
-  if (id === 'whatsapp') return <Text style={{ color: '#fff', fontSize: 20, fontWeight: '800' }}>w</Text>;
-  if (id === 'messenger') return <MessageCircle color="#fff" size={20} />;
-  if (id === 'instagram') return <Text style={{ color: '#fff', fontSize: 20, fontWeight: '800' }}>Ig</Text>;
-  if (id === 'tiktok') return <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800' }}>TT</Text>;
-  if (id === 'telegram') return <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800' }}>Tg</Text>;
-  if (id === 'email') return <Text style={{ color: '#fff', fontSize: 18, fontWeight: '800' }}>@</Text>;
+  if (id === 'whatsapp') return <ChannelLogo type="WHATSAPP" box={48} glyph={24} radius={16} />;
+  if (id === 'messenger') return <ChannelLogo type="MESSENGER" box={48} glyph={24} radius={16} />;
+  if (id === 'instagram') return <ChannelLogo type="INSTAGRAM" box={48} glyph={24} radius={16} />;
+  if (id === 'tiktok') return <ChannelLogo type="TIKTOK" box={48} glyph={24} radius={16} />;
+  if (id === 'telegram') return <ChannelLogo type="TELEGRAM" box={48} glyph={24} radius={16} />;
+  if (id === 'email') return <ChannelLogo type="EMAIL" box={48} glyph={24} radius={16} />;
   if (id === 'voice') return <Users color="#fff" size={20} />;
   return <Text style={{ color: '#fff', fontSize: 18 }}>c</Text>;
 }

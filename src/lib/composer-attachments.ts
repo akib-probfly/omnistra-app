@@ -1,6 +1,6 @@
 import { getInfoAsync } from 'expo-file-system/legacy';
 
-export type AttachmentChannelType = 'WHATSAPP' | 'MESSENGER' | 'INSTAGRAM' | string;
+export type AttachmentChannelType = 'WHATSAPP' | 'MESSENGER' | 'INSTAGRAM' | 'TIKTOK' | string;
 
 export const COMPOSER_MAX_ATTACHMENT_COUNT = 100;
 
@@ -13,6 +13,7 @@ const COMPOSER_MAX_FILE_SIZE = {
   messengerAttachment: 25 * MB,
   video: 16 * MB,
   image: 5 * MB,
+  tiktokImage: 3 * MB,
 } as const;
 
 const WHATSAPP_ACCEPTED_MIME_TYPES = [
@@ -71,6 +72,8 @@ const INSTAGRAM_ACCEPTED_MIME_TYPES = [
   'audio/ogg',
 ] as const;
 
+const TIKTOK_ACCEPTED_MIME_TYPES = ['image/jpeg', 'image/png'] as const;
+
 const EXT_MIME: Record<string, string> = {
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
@@ -122,6 +125,7 @@ function acceptedMimeTypes(channelType: AttachmentChannelType) {
   const channel = String(channelType ?? 'WHATSAPP').toUpperCase();
   if (channel === 'MESSENGER') return MESSENGER_ACCEPTED_MIME_TYPES;
   if (channel === 'INSTAGRAM') return INSTAGRAM_ACCEPTED_MIME_TYPES;
+  if (channel === 'TIKTOK') return TIKTOK_ACCEPTED_MIME_TYPES;
   return WHATSAPP_ACCEPTED_MIME_TYPES;
 }
 
@@ -171,6 +175,9 @@ export async function getComposerAttachmentValidationError(input: {
     if (channelType === 'INSTAGRAM') {
       return 'Instagram messaging supports image, GIF, video, and audio attachments; document files are not supported.';
     }
+    if (channelType === 'TIKTOK') {
+      return 'TikTok Business Messaging supports JPEG and PNG image attachments up to 3 MB.';
+    }
     return 'WhatsApp supports JPEG/PNG images, MP4/3GPP video, supported audio, PDF, Word, Excel, PowerPoint, and plain-text documents.';
   }
 
@@ -180,6 +187,12 @@ export async function getComposerAttachmentValidationError(input: {
   if (channelType === 'MESSENGER') {
     return size > COMPOSER_MAX_FILE_SIZE.messengerAttachment
       ? `Messenger attachments must be ${formatAttachmentSize(COMPOSER_MAX_FILE_SIZE.messengerAttachment)} or smaller.`
+      : null;
+  }
+
+  if (channelType === 'TIKTOK') {
+    return size > COMPOSER_MAX_FILE_SIZE.tiktokImage
+      ? `TikTok images must be ${formatAttachmentSize(COMPOSER_MAX_FILE_SIZE.tiktokImage)} or smaller.`
       : null;
   }
 

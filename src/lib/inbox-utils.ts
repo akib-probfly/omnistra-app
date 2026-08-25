@@ -499,8 +499,8 @@ export function getConversationWindowLabel(
   return { label: minutes > 0 ? `${minutes}m left` : 'Open', tone: 'open' };
 }
 
-export function getConversationTitle(conversation: { contact?: { displayName?: string | null; primaryPhone?: string | null } | null; channel?: { channelName?: string | null; displayPhoneNumber?: string | null } | null } | undefined, fallback = 'Unknown contact'): string {
-  const title = conversation?.contact?.displayName ?? conversation?.contact?.primaryPhone ?? conversation?.channel?.displayPhoneNumber ?? conversation?.channel?.channelName;
+export function getConversationTitle(conversation: { contact?: { displayName?: string | null; primaryPhone?: string | null; username?: string | null } | null; channel?: { channelName?: string | null; displayPhoneNumber?: string | null } | null } | undefined, fallback = 'Unknown contact'): string {
+  const title = conversation?.contact?.displayName ?? conversation?.contact?.primaryPhone ?? conversation?.contact?.username ?? conversation?.channel?.displayPhoneNumber ?? conversation?.channel?.channelName;
   return title?.trim() ? title : fallback;
 }
 

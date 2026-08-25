@@ -43,6 +43,7 @@ const FILTER_LAYERS: Array<{ id: FilterLayer; label: string }> = [
 
 function getChannelFilterLabel(channelType: string) {
   if (channelType === 'MESSENGER') return 'Facebook';
+  if (channelType === 'TIKTOK') return 'TikTok';
   return channelType.charAt(0) + channelType.slice(1).toLowerCase();
 }
 

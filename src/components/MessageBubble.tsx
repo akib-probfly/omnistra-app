@@ -57,7 +57,7 @@ export function MessageBubble(props: any) {
   return <StandardMessageBubble {...props} />;
 }
 
-function StandardMessageBubble({ message, outgoing, attachments, replyPreview, reactions, onImage, onVideo, onLongPress, onReplyPress, channelName }: any) {
+function StandardMessageBubble({ message, outgoing, attachments, replyPreview, reactions, onImage, onVideo, onLongPress, onReplyPress, channelName, channelType }: any) {
   const { colors } = useTheme();
   const mediaType = (message.type ?? '').toUpperCase();
   const templateDisplay = isTemplateLikeMessage(message) ? getTemplateMessageDisplay(message) : null;
@@ -84,9 +84,17 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
     [message, channelName],
   );
   const body = (message.text ?? '').trim();
+  const isTikTokUnsupportedInboundVoice =
+    !outgoing &&
+    String(channelType ?? '').toUpperCase() === 'TIKTOK' &&
+    mediaType === 'FILE' &&
+    (attachments ?? []).length === 0 &&
+    (body.length === 0 || ATTACHMENT_ONLY_PLACEHOLDERS.has(body.toLowerCase()));
   const showBody = templateDisplay
     ? false
-    : body.length > 0 && !ATTACHMENT_ONLY_PLACEHOLDERS.has(body.toLowerCase());
+    : !isTikTokUnsupportedInboundVoice &&
+      body.length > 0 &&
+      !ATTACHMENT_ONLY_PLACEHOLDERS.has(body.toLowerCase());
   const statusMeta = outgoing ? getOutboundStatusMeta(message.deliveryStatus) : null;
   const edited = isMessageEdited(message);
   const failedReason = outgoing && statusMeta?.showFailed ? getMessageFailureReason(message) : null;
@@ -287,7 +295,12 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
             ))}
           </View>
         ) : null}
-        {!showBody && !templateDisplay && !imageAttachments.length && !videoAttachments.length && !voiceAttachments.length && !documentAttachments.length && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(mediaType) ? (
+        {isTikTokUnsupportedInboundVoice ? (
+          <Text style={[styles.missingMedia, !outgoing && { color: colors.textMuted }]}>
+            TikTok does not support receiving inbound voice messages through its API.
+          </Text>
+        ) : null}
+        {!showBody && !isTikTokUnsupportedInboundVoice && !templateDisplay && !imageAttachments.length && !videoAttachments.length && !voiceAttachments.length && !documentAttachments.length && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(mediaType) ? (
           <Text style={[styles.missingMedia, outgoing && styles.outgoingMuted, !outgoing && { color: colors.textMuted }]}>Attachment</Text>
         ) : null}
         {showBody ? renderBody() : null}

@@ -122,6 +122,8 @@ export function ConversationComposer({
 
   const isWhatsAppChannel = (channelType ?? '').toUpperCase() === 'WHATSAPP';
   const isMessengerChannel = (channelType ?? '').toUpperCase() === 'MESSENGER';
+  const isTikTokChannel = (channelType ?? '').toUpperCase() === 'TIKTOK';
+  const imageOnlyAttachments = isTikTokChannel;
   const quickReplies = useQuery({
     queryKey: ['quick-replies', 'picker', workspaceId, conversationId, channelType, quickQuery],
     queryFn: () => fetchQuickReplyPicker({
@@ -231,7 +233,7 @@ export function ConversationComposer({
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images', 'videos'],
+      mediaTypes: imageOnlyAttachments ? ['images'] : ['images', 'videos'],
       quality: 0.85,
       allowsMultipleSelection: true,
       selectionLimit: remainingAttachmentSlots,
@@ -255,7 +257,7 @@ export function ConversationComposer({
   async function chooseCamera() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      showNotice('Permission required', 'Allow camera access to take a photo or video.');
+      showNotice('Permission required', imageOnlyAttachments ? 'Allow camera access to take a photo.' : 'Allow camera access to take a photo or video.');
       return;
     }
     if (remainingAttachmentSlots <= 0) {
@@ -263,7 +265,7 @@ export function ConversationComposer({
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images', 'videos'],
+      mediaTypes: imageOnlyAttachments ? ['images'] : ['images', 'videos'],
       quality: 0.85,
       videoMaxDuration: 60,
       allowsEditing: false,
@@ -701,9 +703,18 @@ export function ConversationComposer({
           >
             <Paperclip color={attachmentPickerOpen ? colors.primary : colors.textSecondary} size={20} />
           </Pressable>
-          <Pressable disabled={!canComposeFreeform} onPress={startRecording} style={!canComposeFreeform ? styles.actionDisabled : undefined}>
-            <Mic color={colors.textSecondary} size={20} />
-          </Pressable>
+          {isTikTokChannel ? (
+            <Pressable
+              onPress={() => showNotice('Not supported', 'TikTok does not support sending outbound voice messages through its API.')}
+              style={styles.actionDisabled}
+            >
+              <Mic color={colors.textMuted} size={20} />
+            </Pressable>
+          ) : (
+            <Pressable disabled={!canComposeFreeform} onPress={startRecording} style={!canComposeFreeform ? styles.actionDisabled : undefined}>
+              <Mic color={colors.textSecondary} size={20} />
+            </Pressable>
+          )}
           <Pressable disabled={!canComposeFreeform} onPress={() => { setEmojiOpen(false); setQuickOpen(true); }} style={!canComposeFreeform ? styles.actionDisabled : undefined}>
             <Zap color={colors.textSecondary} size={20} />
           </Pressable>
@@ -769,8 +780,8 @@ export function ConversationComposer({
                 <ImageIcon color="#2563eb" size={22} />
               </View>
               <View style={styles.attachOptionCopy}>
-                <Text style={[styles.attachOptionTitle, { color: colors.text }]}>Photos & videos</Text>
-                <Text style={[styles.attachOptionBody, { color: colors.textSecondary }]}>Choose from your library</Text>
+                <Text style={[styles.attachOptionTitle, { color: colors.text }]}>{imageOnlyAttachments ? 'Photos' : 'Photos & videos'}</Text>
+                <Text style={[styles.attachOptionBody, { color: colors.textSecondary }]}>{imageOnlyAttachments ? 'JPEG or PNG up to 3 MB' : 'Choose from your library'}</Text>
               </View>
             </Pressable>
 
@@ -783,10 +794,11 @@ export function ConversationComposer({
               </View>
               <View style={styles.attachOptionCopy}>
                 <Text style={[styles.attachOptionTitle, { color: colors.text }]}>Camera</Text>
-                <Text style={[styles.attachOptionBody, { color: colors.textSecondary }]}>Take a photo or short video</Text>
+                <Text style={[styles.attachOptionBody, { color: colors.textSecondary }]}>{imageOnlyAttachments ? 'Take a photo' : 'Take a photo or short video'}</Text>
               </View>
             </Pressable>
 
+            {imageOnlyAttachments ? null : (
             <Pressable
               style={[styles.attachOption, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}
               onPress={() => void runAttachmentAction(chooseDocument)}
@@ -799,6 +811,7 @@ export function ConversationComposer({
                 <Text style={[styles.attachOptionBody, { color: colors.textSecondary }]}>PDF, Word, Excel, and more</Text>
               </View>
             </Pressable>
+            )}
           </View>
         </View>
       </BottomSheet>

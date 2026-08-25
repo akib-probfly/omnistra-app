@@ -159,6 +159,7 @@ function channelLabel(channelType: string) {
     case 'MESSENGER': return 'Messenger';
     case 'INSTAGRAM': return 'Instagram';
     case 'TELEGRAM': return 'Telegram';
+    case 'TIKTOK': return 'TikTok';
     case 'EMAIL': return 'Email';
     default: return channelType ? channelType.charAt(0).toUpperCase() + channelType.slice(1).toLowerCase() : 'Channel';
   }

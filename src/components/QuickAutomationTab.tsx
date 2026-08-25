@@ -102,7 +102,7 @@ export function QuickAutomationTab({ channelId, channelType }: { channelId: stri
     }));
   };
 
-  const channelLabel = channelType === 'MESSENGER' ? 'Messenger' : 'WhatsApp';
+  const channelLabel = channelType === 'MESSENGER' ? 'Messenger' : channelType === 'TIKTOK' ? 'TikTok' : 'WhatsApp';
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={styles.content}>

@@ -62,6 +62,7 @@ const TimelineRowItem = memo(function TimelineRowItem({
   row,
   highlighted,
   channelName,
+  channelType,
   replyTarget,
   reactions,
   dayLabelBg,
@@ -75,6 +76,7 @@ const TimelineRowItem = memo(function TimelineRowItem({
   row: TimelineRow;
   highlighted: boolean;
   channelName?: string | null;
+  channelType?: string | null;
   replyTarget: Message | null;
   reactions?: Array<{ emoji: string; count: number }>;
   dayLabelBg: string;
@@ -97,6 +99,7 @@ const TimelineRowItem = memo(function TimelineRowItem({
         <SwipeableMessage
           message={entry.message}
           channelName={channelName}
+          channelType={channelType}
           setReplyTo={onReply}
           setReactTarget={onReact}
           onImage={onImage}
@@ -698,6 +701,7 @@ export function ConversationScreen() {
   const channelId = header.conversation?.channel?.channelId ?? header.conversation?.channel?.id ?? route.params.channelId;
   const isWhatsAppConversation = (channelType ?? '').toUpperCase() === 'WHATSAPP';
   const isMessengerConversation = (channelType ?? '').toUpperCase() === 'MESSENGER';
+  const isTikTokConversation = (channelType ?? '').toUpperCase() === 'TIKTOK';
   const messengerAvailability = getMessengerMessagingAvailability(header.conversation);
   const messengerMessagingReady = Boolean(header.conversation);
   const canSendSelectedMessengerMode = messengerMessagingMode === 'STANDARD'
@@ -705,7 +709,9 @@ export function ConversationScreen() {
     : messengerAvailability.canSendHumanAgentMessage;
   const canSendFreeform = isMessengerConversation
     ? (messengerMessagingReady ? canSendSelectedMessengerMode : true)
-    : header.conversation?.messaging?.canSendFreeformMessage;
+    : isTikTokConversation
+      ? (header.conversation?.messaging?.canSendFreeformMessage ?? true)
+      : header.conversation?.messaging?.canSendFreeformMessage;
   const contactSubtitle =
     formatPhoneNumberDisplay(header.conversation?.contact?.primaryPhone) ??
     formatUsernameDisplay(header.conversation?.contact?.username);
@@ -851,6 +857,7 @@ export function ConversationScreen() {
         row={item}
         highlighted={Boolean(message && message.id === highlightedMessageId)}
         channelName={channelName}
+        channelType={channelType}
         replyTarget={message ? (messageById.get(message.replyToMessageId ?? '') ?? null) : null}
         reactions={message ? reactionGroups[message.id] : undefined}
         dayLabelBg={colors.surfaceSecondary}
@@ -862,7 +869,7 @@ export function ConversationScreen() {
         onJumpToMessage={jumpToMessage}
       />
     );
-  }, [channelName, colors.surfaceSecondary, colors.textSecondary, highlightedMessageId, jumpToMessage, messageById, openImage, openVideo, reactionGroups]);
+  }, [channelName, channelType, colors.surfaceSecondary, colors.textSecondary, highlightedMessageId, jumpToMessage, messageById, openImage, openVideo, reactionGroups]);
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background, flex: 1 }]}>
@@ -1106,7 +1113,7 @@ async function sendTemplateMutation(conversationId: string, params: { templateNa
   }
 }
 
-const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, setReplyTo, setReactTarget, onImage, onVideo, replyTarget, reactions, onJumpToMessage }: { message: Message; channelName?: string | null; setReplyTo: (message: Message) => void; setReactTarget: (message: Message) => void; onImage: (attachId: string) => void; onVideo: (attachment: any) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }>; onJumpToMessage?: (messageId: string) => void }) {
+const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, channelType, setReplyTo, setReactTarget, onImage, onVideo, replyTarget, reactions, onJumpToMessage }: { message: Message; channelName?: string | null; channelType?: string | null; setReplyTo: (message: Message) => void; setReactTarget: (message: Message) => void; onImage: (attachId: string) => void; onVideo: (attachment: any) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }>; onJumpToMessage?: (messageId: string) => void }) {
   const { colors } = useTheme();
   const outgoing = message.direction === 'OUTBOUND';
   const swipeRef = useRef<SwipeableMethods | null>(null);
@@ -1161,7 +1168,7 @@ const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, 
       onSwipeableWillOpen={handleWillOpen}
     >
       <View style={[styles.group, outgoing && styles.outgoingGroup]}>
-        <MessageBubble message={message} outgoing={outgoing} attachments={message.attachments ?? []} replyPreview={replyPreview} reactions={reactions} channelName={channelName} onImage={onImage} onVideo={onVideo} onLongPress={onReact} onReplyPress={onJumpToMessage && replyTargetId ? () => onJumpToMessage(replyTargetId) : undefined} />
+        <MessageBubble message={message} outgoing={outgoing} attachments={message.attachments ?? []} replyPreview={replyPreview} reactions={reactions} channelName={channelName} channelType={channelType} onImage={onImage} onVideo={onVideo} onLongPress={onReact} onReplyPress={onJumpToMessage && replyTargetId ? () => onJumpToMessage(replyTargetId) : undefined} />
       </View>
     </ReanimatedSwipeable>
   );

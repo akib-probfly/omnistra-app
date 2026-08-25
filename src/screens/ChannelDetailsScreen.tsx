@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, FileText, LoaderCircle, RefreshCw, RotateCcw } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,11 +10,14 @@ import {
   fetchWhatsappBusinessProfile,
   pauseChannel,
   removeChannel,
+  reconnectTikTokChannel,
   restoreChannel,
   resumeChannel,
+  syncTikTokChannel,
   syncWhatsappBusinessProfile,
   updateWhatsappBusinessProfile,
   type ChannelDetails,
+  type TikTokChannelConfiguration,
 } from '../api/channels';
 import { ChannelLogo } from '../components/ChannelLogo';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -83,6 +86,7 @@ export function ChannelDetailsScreen() {
   const profile = useQuery({
     queryKey: ['channel-profile', channelId],
     queryFn: () => fetchWhatsappBusinessProfile(channelId),
+    enabled: details.data?.type === 'WHATSAPP',
     staleTime: 30000,
   });
 
@@ -112,6 +116,29 @@ export function ChannelDetailsScreen() {
     onSuccess: () => { setChannelConfirm(null); Toast.show({ type: 'success', text1: 'Removal scheduled', text2: 'This channel will be permanently deleted in about 1 hour unless you restore it.' }); invalidate(); },
   });
   const restore = useMutation({ mutationFn: () => restoreChannel(channelId), onSuccess: () => { Toast.show({ type: 'success', text1: 'Channel restored', text2: 'The pending deletion has been canceled.' }); invalidate(); } });
+  const syncTikTok = useMutation({
+    mutationFn: () => syncTikTokChannel(channelId),
+    onSuccess: (result) => {
+      invalidate();
+      Toast.show({
+        type: 'success',
+        text1: 'TikTok sync queued',
+        text2: `${result.messages} message${result.messages === 1 ? '' : 's'} processed.`,
+      });
+    },
+    onError: (error) => Toast.show({ type: 'error', text1: 'Could not sync TikTok', text2: error instanceof Error ? error.message : 'Please try again.' }),
+  });
+  const reconnectTikTok = useMutation({
+    mutationFn: () => reconnectTikTokChannel(channelId),
+    onSuccess: (launch) => {
+      if (!launch.launchUrl) {
+        Toast.show({ type: 'info', text1: 'Reconnect link unavailable', text2: 'Please reconnect this channel from the web workspace.' });
+        return;
+      }
+      Linking.openURL(launch.launchUrl).catch(() => Toast.show({ type: 'error', text1: 'Could not open browser' }));
+    },
+    onError: (error) => Toast.show({ type: 'error', text1: 'Could not reconnect TikTok', text2: error instanceof Error ? error.message : 'Please try again.' }),
+  });
   const sync = useMutation({
     mutationFn: () => syncWhatsappBusinessProfile(channelId),
     onSuccess: () => { profile.refetch(); Toast.show({ type: 'success', text1: 'Profile synced', text2: 'The business profile was refreshed from WhatsApp.' }); },
@@ -143,7 +170,7 @@ export function ChannelDetailsScreen() {
   });
 
   const [verticalPicker, setVerticalPicker] = useState(false);
-  const isBusy = pause.isPending || resume.isPending || remove.isPending || restore.isPending || sync.isPending || save.isPending;
+  const isBusy = pause.isPending || resume.isPending || remove.isPending || restore.isPending || sync.isPending || save.isPending || syncTikTok.isPending || reconnectTikTok.isPending;
   const statusTone = STATUS_TONE[channel?.status ?? 'PENDING'] ?? STATUS_TONE.PENDING;
 
   const confirmRemove = () => setChannelConfirm('remove');
@@ -172,7 +199,8 @@ export function ChannelDetailsScreen() {
 
   const isMessenger = channel.type === 'MESSENGER';
   const isWhatsapp = channel.type === 'WHATSAPP';
-  const tabs = isMessenger
+  const isTikTok = channel.type === 'TIKTOK';
+  const tabs = isMessenger || isTikTok
     ? [{ key: 'overview', label: 'Configuration' }, { key: 'automation', label: 'Quick Automation' }, { key: 'access', label: 'Troubleshoot' }]
     : isWhatsapp
       ? [{ key: 'overview', label: 'Configuration' }, { key: 'templates', label: 'Templates' }, { key: 'business', label: 'Profile' }, { key: 'calling', label: 'Calls' }, { key: 'automation', label: 'Quick Automation' }, { key: 'access', label: 'Troubleshoot' }]
@@ -227,6 +255,44 @@ export function ChannelDetailsScreen() {
             <Field label="Accounts" value={String(channel.accounts.length)} />
             <Field label="Updated" value={formatDateLabel(channel.updatedAt)} />
             <Field label="Event processing" value={lifecycle.canProcessEvents ? 'Active' : 'Stopped'} />
+          </View>
+        </ScrollView>
+      );
+    }
+
+    if (isTikTok) {
+      const config = (channel.configuration ?? null) as TikTokChannelConfiguration | null;
+      const accountLabel = config?.accountDisplayName || config?.accountUsername || primaryAccount?.displayName || 'TikTok Business account';
+      return (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+          <View style={[styles.titleCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <ChannelLogo type={channel.type} box={52} glyph={26} radius={18} />
+            <View style={styles.titleCopy}>
+              <Text style={[styles.channelName, { color: colors.text }]}>{channel.name}</Text>
+              <Text style={[styles.cardSub, { color: colors.textSecondary, marginTop: 2 }]}>TikTok Business Messaging</Text>
+              <View style={styles.badges}>
+                <View style={[styles.badge, { backgroundColor: statusTone.bg }]}><Text style={[styles.badgeText, { color: statusTone.fg }]}>{channel.status.replaceAll('_', ' ')}</Text></View>
+                {lifecycle.isPaused ? <View style={[styles.badge, { backgroundColor: '#fff7df' }]}><Text style={[styles.badgeText, { color: '#b45309' }]}>Paused</Text></View> : null}
+              </View>
+            </View>
+          </View>
+
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Configuration</Text>
+            <Field label="Business ID" value={config?.businessId ?? primaryAccount?.externalAccountId ?? 'Not available'} />
+            <Field label="Account" value={accountLabel} />
+            <Field label="Status" value={channel.status.replaceAll('_', ' ')} />
+            <Field label="Supported replies" value="Text and JPEG/PNG image messages" />
+          </View>
+
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Messaging health</Text>
+            <Text style={[styles.cardSub, { color: colors.textSecondary, marginTop: 8 }]}>
+              {config?.lastSyncedAt ? `Last sync: ${formatDateLabel(config.lastSyncedAt)}` : 'No manual sync has run yet.'}
+            </Text>
+            {config?.lastSyncStatus === 'FAILED' && config.lastSyncError ? (
+              <Text style={[styles.dangerText, { color: colors.error, marginTop: 8 }]}>{config.lastSyncError}</Text>
+            ) : null}
           </View>
         </ScrollView>
       );
@@ -370,8 +436,12 @@ export function ChannelDetailsScreen() {
             onRestore={() => restore.mutate()}
             onRemove={confirmRemove}
             onPauseResume={() => confirmPauseOrResume(lifecycle.isPaused ? 'resume' : 'pause')}
+            onSyncMessages={isTikTok ? () => syncTikTok.mutate() : undefined}
+            onReconnect={isTikTok ? () => reconnectTikTok.mutate() : undefined}
             onGoToOverview={() => setTab('overview')}
             isBusy={isBusy}
+            syncPending={syncTikTok.isPending}
+            reconnectPending={reconnectTikTok.isPending}
           />
         ) : null}
       </View>
