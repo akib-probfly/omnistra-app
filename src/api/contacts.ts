@@ -78,7 +78,11 @@ export type CrmContactsFilters = {
   tagIds?: string[];
   assigned?: boolean;
   unassigned?: boolean;
+  blockedStatus?: 'blocked' | 'unblocked';
   recentlyActive?: boolean;
+  recentlyAdded?: boolean;
+  conversationCreatedAtFrom?: string;
+  conversationCreatedAtTo?: string;
   cursor?: string;
   limit?: number;
 };
@@ -148,7 +152,11 @@ export async function fetchCrmContacts(params: CrmContactsFilters = {}): Promise
     tagIds: params.tagIds,
     assigned: params.assigned,
     unassigned: params.unassigned,
+    blockedStatus: params.blockedStatus,
     recentlyActive: params.recentlyActive,
+    recentlyAdded: params.recentlyAdded,
+    conversationCreatedAtFrom: params.conversationCreatedAtFrom,
+    conversationCreatedAtTo: params.conversationCreatedAtTo,
     cursor: params.cursor,
     limit: params.limit ?? 20,
   })}`);

@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ContactRound, Filter, Mail, Phone, Plus, Search, X } from 'lucide-react-native';
+import { Ban, Check, CheckCircle2, ChevronDown, CircleSlash, ContactRound, Filter, Mail, Minus, Phone, Plus, Search, X } from 'lucide-react-native';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,6 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch } from '../api/client';
+import { type Channel } from '../api/channels';
 import {
   createCrmContact,
   fetchCrmContacts,
@@ -27,6 +28,7 @@ import { fetchAssigneeOptions } from '../api/inbox';
 import { fetchWorkspaceTags } from '../api/conversationDetails';
 import { AppToggle } from '../components/AppToggle';
 import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
+import { DateRangeFilter } from '../components/DateRangeFilter';
 import { InlineSkeleton, ListSkeleton } from '../components/Skeleton';
 import { ChannelLogo } from '../components/ChannelLogo';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
@@ -38,19 +40,20 @@ import { AppSearchField, EmptyState } from '../ui';
 
 type FilterLayer = 'channels' | 'labels' | 'users' | 'more';
 type AssignmentFilter = 'all' | 'assigned' | 'unassigned';
+type BlockedStatusFilter = 'all' | 'blocked' | 'unblocked';
 
-type ChannelOption = {
-  id: string;
-  channelName?: string | null;
-  name?: string | null;
-  type?: string;
-  channelType?: string;
-  accounts?: Array<{
-    id: string;
-    isEnabled?: boolean;
-    displayPhoneNumber?: string | null;
-    externalAccountId?: string | null;
-  }>;
+type ChannelFilterItem = {
+  key: string;
+  channelId: string;
+  name: string;
+  displayPhoneNumber: string | null;
+};
+
+type ChannelTypeGroup = {
+  typeKey: string;
+  typeName: string;
+  type: string | null;
+  channels: ChannelFilterItem[];
 };
 
 type WhatsappAccountOption = {
@@ -66,6 +69,57 @@ const FILTER_LAYERS: Array<{ id: FilterLayer; label: string }> = [
   { id: 'users', label: 'Users' },
   { id: 'more', label: 'More' },
 ];
+
+function getChannelTypeLabel(type: string | null) {
+  switch ((type ?? '').toLowerCase()) {
+    case 'whatsapp':
+      return 'WhatsApp';
+    case 'messenger':
+      return 'Messenger';
+    case 'instagram':
+      return 'Instagram';
+    case 'telegram':
+      return 'Telegram';
+    case 'email':
+      return 'Email';
+    case 'webchat':
+      return 'Web';
+    case 'sms':
+      return 'SMS';
+    case 'tiktok':
+      return 'TikTok';
+    default:
+      return type ?? 'Channel';
+  }
+}
+
+function getChannelTypeSortRank(type: string | null) {
+  switch ((type ?? '').toLowerCase()) {
+    case 'whatsapp':
+      return 0;
+    case 'messenger':
+      return 1;
+    case 'instagram':
+      return 2;
+    case 'telegram':
+      return 3;
+    case 'email':
+      return 4;
+    case 'webchat':
+      return 5;
+    case 'sms':
+      return 6;
+    case 'tiktok':
+      return 7;
+    default:
+      return 99;
+  }
+}
+
+function toggleChannelIds(current: string[], ids: string[], selected: boolean) {
+  if (selected) return current.filter((id) => !ids.includes(id));
+  return Array.from(new Set([...current, ...ids]));
+}
 
 function formatRelativeActivity(value: string | null) {
   if (!value) return 'No activity';
@@ -101,8 +155,13 @@ export function ContactsScreen() {
   const [addOpen, setAddOpen] = useState(false);
   const [filterLayer, setFilterLayer] = useState<FilterLayer>('channels');
   const [assignment, setAssignment] = useState<AssignmentFilter>('all');
+  const [blockedStatus, setBlockedStatus] = useState<BlockedStatusFilter>('all');
   const [recentlyActive, setRecentlyActive] = useState(false);
+  const [recentlyAdded, setRecentlyAdded] = useState(false);
+  const [conversationCreatedAtFrom, setConversationCreatedAtFrom] = useState<string | null>(null);
+  const [conversationCreatedAtTo, setConversationCreatedAtTo] = useState<string | null>(null);
   const [channelIds, setChannelIds] = useState<string[]>([]);
+  const [expandedPlatformKeys, setExpandedPlatformKeys] = useState<string[]>([]);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState('');
@@ -133,10 +192,21 @@ export function ContactsScreen() {
     ownerWorkspaceMemberIds: ownerId ? [ownerId] : undefined,
     assigned: assignment === 'assigned' ? true : undefined,
     unassigned: assignment === 'unassigned' ? true : undefined,
+    blockedStatus: blockedStatus === 'all' ? undefined : blockedStatus,
     recentlyActive: recentlyActive || undefined,
-  }), [debouncedSearch, channelIds, tagIds, ownerId, assignment, recentlyActive]);
+    recentlyAdded: recentlyAdded || undefined,
+    conversationCreatedAtFrom: conversationCreatedAtFrom ?? undefined,
+    conversationCreatedAtTo: conversationCreatedAtTo ?? undefined,
+  }), [debouncedSearch, channelIds, tagIds, ownerId, assignment, blockedStatus, recentlyActive, recentlyAdded, conversationCreatedAtFrom, conversationCreatedAtTo]);
 
-  const hasAdvancedFilters = channelIds.length > 0 || tagIds.length > 0 || ownerId != null || assignment !== 'all' || recentlyActive;
+  const hasAdvancedFilters = channelIds.length > 0
+    || tagIds.length > 0
+    || ownerId != null
+    || assignment !== 'all'
+    || blockedStatus !== 'all'
+    || recentlyActive
+    || recentlyAdded
+    || Boolean(conversationCreatedAtFrom || conversationCreatedAtTo);
 
   const contactsQuery = useInfiniteQuery({
     queryKey: ['crm-contacts', filters],
@@ -148,7 +218,7 @@ export function ContactsScreen() {
 
   const channelsQuery = useQuery({
     queryKey: ['channels', 'contacts-filter'],
-    queryFn: () => apiFetch<{ items: ChannelOption[] }>('/channels?page=1&limit=100&sortBy=createdAt&sortOrder=desc'),
+    queryFn: () => apiFetch<{ items: Channel[] }>('/channels?page=1&limit=100&sortBy=createdAt&sortOrder=desc'),
     enabled: filterOpen || addOpen,
     staleTime: 60_000,
   });
@@ -174,18 +244,54 @@ export function ContactsScreen() {
   );
   const totalCount = contactsQuery.data?.pages?.[0]?.totalCount ?? items.length;
   const channelOptions = channelsQuery.data?.items ?? [];
+  const channelFilterGroups = useMemo<ChannelTypeGroup[]>(() => {
+    const groups = new Map<string, ChannelTypeGroup>();
+
+    for (const channel of channelOptions) {
+      const type = channel.type ?? null;
+      const typeName = type ? getChannelTypeLabel(type) : 'Channel';
+      const typeKey = type ?? 'unknown';
+      const primaryAccount = channel.accounts.find((account) => account.isEnabled) ?? channel.accounts[0] ?? null;
+      const numbers = channel.accounts
+        .map((account) => account.displayPhoneNumber?.trim() || account.displayName?.trim() || account.pageName?.trim() || account.externalAccountId?.trim() || '')
+        .filter(Boolean);
+      const displayPhoneNumber = numbers[0] ?? primaryAccount?.displayName?.trim() ?? primaryAccount?.pageName?.trim() ?? null;
+
+      if (!groups.has(typeKey)) {
+        groups.set(typeKey, { typeKey, typeName, type, channels: [] });
+      }
+
+      groups.get(typeKey)!.channels.push({
+        key: channel.id,
+        channelId: channel.id,
+        name: channel.name,
+        displayPhoneNumber,
+      });
+    }
+
+    return Array.from(groups.values())
+      .map((group) => ({
+        ...group,
+        channels: group.channels.slice().sort((left, right) =>
+          left.name.localeCompare(right.name) || (left.displayPhoneNumber ?? '').localeCompare(right.displayPhoneNumber ?? ''),
+        ),
+      }))
+      .sort((left, right) => {
+        const orderDiff = getChannelTypeSortRank(left.type) - getChannelTypeSortRank(right.type);
+        return orderDiff !== 0 ? orderDiff : left.typeName.localeCompare(right.typeName);
+      });
+  }, [channelOptions]);
   const whatsappAccountOptions = useMemo(() => {
     const options: WhatsappAccountOption[] = [];
     for (const channel of channelOptions) {
-      const type = (channel.type ?? channel.channelType ?? '').toUpperCase();
-      if (type !== 'WHATSAPP') continue;
-      const account = channel.accounts?.find((item) => item.isEnabled) ?? channel.accounts?.[0];
+      if (channel.type !== 'WHATSAPP') continue;
+      const account = channel.accounts.find((item) => item.isEnabled) ?? channel.accounts[0];
       if (!account?.id) continue;
       options.push({
         accountId: account.id,
-        channelName: channel.channelName ?? channel.name ?? 'WhatsApp',
+        channelName: channel.name || 'WhatsApp',
         displayPhoneNumber: account.displayPhoneNumber ?? account.externalAccountId ?? null,
-        channelType: type,
+        channelType: channel.type,
       });
     }
     return options;
@@ -253,8 +359,13 @@ export function ContactsScreen() {
 
   const resetFilters = () => {
     setAssignment('all');
+    setBlockedStatus('all');
     setRecentlyActive(false);
+    setRecentlyAdded(false);
+    setConversationCreatedAtFrom(null);
+    setConversationCreatedAtTo(null);
     setChannelIds([]);
+    setExpandedPlatformKeys([]);
     setTagIds([]);
     setOwnerId(null);
     setUserSearch('');
@@ -403,22 +514,92 @@ export function ContactsScreen() {
             <SheetScrollView style={styles.optionList} keyboardShouldPersistTaps="handled">
               {filterLayer === 'channels' ? (
                 <>
-                  {channelOptions.map((channel) => {
-                    const active = channelIds.includes(channel.id);
+                  <Text style={[styles.filterHint, { color: colors.textMuted }]}>Tap a channel to pick specific numbers.</Text>
+                  {channelFilterGroups.map((typeGroup) => {
+                    const expanded = expandedPlatformKeys.includes(typeGroup.typeKey);
+                    const platformChannelIds = typeGroup.channels.map((channel) => channel.channelId);
+                    const selectedCount = platformChannelIds.filter((id) => channelIds.includes(id)).length;
+                    const allSelected = platformChannelIds.length > 0 && selectedCount === platformChannelIds.length;
+                    const someSelected = selectedCount > 0 && !allSelected;
+                    const toggleExpanded = () => {
+                      setExpandedPlatformKeys((current) => (
+                        current.includes(typeGroup.typeKey)
+                          ? current.filter((key) => key !== typeGroup.typeKey)
+                          : [...current, typeGroup.typeKey]
+                      ));
+                    };
+
                     return (
-                      <Pressable
-                        key={channel.id}
-                        style={[styles.optionRow, active && [styles.optionRowActive, { backgroundColor: colors.surfaceSecondary }]]}
-                        onPress={() => setChannelIds((current) => (active ? current.filter((id) => id !== channel.id) : [...current, channel.id]))}
+                      <View
+                        key={typeGroup.typeKey}
+                        style={[styles.channelGroup, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}
                       >
-                        <ChannelLogo type={channel.type ?? channel.channelType} box={28} glyph={14} radius={8} />
-                        <Text style={[styles.optionText, { color: colors.textSecondary }, active && [styles.optionTextActive, { color: colors.primary }]]} numberOfLines={1}>
-                          {channel.channelName ?? channel.name ?? 'Channel'}
-                        </Text>
-                      </Pressable>
+                        <View style={styles.channelGroupHeader}>
+                          <Pressable
+                            style={[styles.channelGroupMain, expanded && { backgroundColor: `${colors.primary}14` }]}
+                            onPress={toggleExpanded}
+                          >
+                            <ChannelLogo type={typeGroup.type} box={28} glyph={14} radius={14} />
+                            <Text style={[styles.channelGroupName, { color: colors.text }]} numberOfLines={1}>{typeGroup.typeName}</Text>
+                            <View style={[styles.channelCountBadge, { backgroundColor: colors.surface }]}>
+                              <Text style={[styles.channelCountBadgeText, { color: colors.textSecondary }]}>{typeGroup.channels.length}</Text>
+                            </View>
+                          </Pressable>
+                          <Pressable
+                            style={[
+                              styles.channelCheck,
+                              { borderColor: colors.cardBorder },
+                              (allSelected || someSelected) && { borderColor: colors.primary, backgroundColor: `${colors.primary}14` },
+                            ]}
+                            onPress={() => setChannelIds((current) => toggleChannelIds(current, platformChannelIds, allSelected))}
+                            accessibilityLabel={`Toggle all ${typeGroup.typeName} channels`}
+                          >
+                            {allSelected ? <Check color={colors.primary} size={12} /> : someSelected ? <Minus color={colors.primary} size={12} /> : null}
+                          </Pressable>
+                          <Pressable style={styles.channelChevron} onPress={toggleExpanded} hitSlop={8}>
+                            <ChevronDown color={colors.textMuted} size={18} style={expanded ? { transform: [{ rotate: '180deg' }] } : undefined} />
+                          </Pressable>
+                        </View>
+
+                        {expanded ? (
+                          <View style={[styles.channelGroupBody, { borderTopColor: colors.cardBorder }]}>
+                            <View style={styles.channelGroupBodyHeader}>
+                              <Text style={[styles.channelGroupBodyLabel, { color: colors.textMuted }]}>All {typeGroup.typeName} channels</Text>
+                              <Pressable onPress={() => setChannelIds((current) => toggleChannelIds(current, platformChannelIds, allSelected))}>
+                                <Text style={[styles.channelSelectAll, { color: colors.primary }]}>{allSelected ? 'Clear all' : 'Select all'}</Text>
+                              </Pressable>
+                            </View>
+                            {typeGroup.channels.map((channel) => {
+                              const active = channelIds.includes(channel.channelId);
+                              return (
+                                <Pressable
+                                  key={channel.key}
+                                  style={[
+                                    styles.channelChildRow,
+                                    { backgroundColor: colors.surface, borderColor: colors.cardBorder },
+                                    active && { borderColor: `${colors.primary}4D`, backgroundColor: `${colors.primary}14` },
+                                  ]}
+                                  onPress={() => setChannelIds((current) => toggleChannelIds(current, [channel.channelId], active))}
+                                >
+                                  <ChannelLogo type={typeGroup.type} box={28} glyph={14} radius={14} />
+                                  <View style={{ flex: 1, minWidth: 0 }}>
+                                    <Text style={[styles.channelChildName, { color: colors.text }]} numberOfLines={1}>{channel.name}</Text>
+                                    {channel.displayPhoneNumber ? (
+                                      <Text style={[styles.channelChildMeta, { color: colors.textMuted }]} numberOfLines={1}>{channel.displayPhoneNumber}</Text>
+                                    ) : null}
+                                  </View>
+                                  <View style={[styles.channelCheck, { borderColor: active ? colors.primary : colors.cardBorder, backgroundColor: active ? `${colors.primary}14` : 'transparent' }]}>
+                                    {active ? <Check color={colors.primary} size={12} /> : null}
+                                  </View>
+                                </Pressable>
+                              );
+                            })}
+                          </View>
+                        ) : null}
+                      </View>
                     );
                   })}
-                  {!channelOptions.length ? <Text style={[styles.emptyHint, { color: colors.textMuted }]}>No channels available.</Text> : null}
+                  {!channelFilterGroups.length ? <Text style={[styles.emptyHint, { color: colors.textMuted }]}>No channels available.</Text> : null}
                 </>
               ) : null}
 
@@ -470,6 +651,30 @@ export function ContactsScreen() {
 
               {filterLayer === 'more' ? (
                 <>
+                  <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Conversation created date</Text>
+                  <DateRangeFilter
+                    value={{ from: conversationCreatedAtFrom, to: conversationCreatedAtTo }}
+                    onChange={(range) => {
+                      setConversationCreatedAtFrom(range.from);
+                      setConversationCreatedAtTo(range.to);
+                    }}
+                  />
+                  <Text style={[styles.sectionLabel, styles.sectionLabelSpaced, { color: colors.textSecondary }]}>Ban status</Text>
+                  <View style={[styles.segment, { backgroundColor: colors.surfaceSecondary }]}>
+                    {([
+                      ['all', 'All', CircleSlash],
+                      ['blocked', 'Banned', Ban],
+                      ['unblocked', 'Unbanned', CheckCircle2],
+                    ] as const).map(([value, label, Icon]) => {
+                      const active = blockedStatus === value;
+                      return (
+                        <Pressable key={value} style={[styles.segmentOption, active && [styles.segmentOptionActive, { backgroundColor: colors.surface }]]} onPress={() => setBlockedStatus(value)}>
+                          <Icon color={active ? colors.primary : colors.textSecondary} size={13} />
+                          <Text style={[styles.segmentText, { color: colors.textSecondary }, active && [styles.segmentTextActive, { color: colors.text }]]}>{label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                   <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Assignment</Text>
                   <View style={[styles.segment, { backgroundColor: colors.surfaceSecondary }]}>
                     {([
@@ -488,6 +693,10 @@ export function ContactsScreen() {
                   <Pressable style={[styles.switchRow, { borderColor: colors.cardBorder }]} onPress={() => setRecentlyActive((value) => !value)}>
                     <Text style={[styles.switchLabel, { color: colors.textSecondary }]}>Recently active</Text>
                     <AppToggle value={recentlyActive} variant="sidebar" />
+                  </Pressable>
+                  <Pressable style={[styles.switchRow, styles.switchRowSpaced, { borderColor: colors.cardBorder }]} onPress={() => setRecentlyAdded((value) => !value)}>
+                    <Text style={[styles.switchLabel, { color: colors.textSecondary }]}>Recently added</Text>
+                    <AppToggle value={recentlyAdded} variant="sidebar" />
                   </Pressable>
                 </>
               ) : null}
@@ -730,22 +939,40 @@ const styles = StyleSheet.create({
   layerTabActive: { backgroundColor: '#fff', elevation: 1, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4 },
   layerTabText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
   layerTabTextActive: { color: '#0f172a', fontWeight: '700' },
-  optionList: { gap: 6, maxHeight: 320 },
+  optionList: { gap: 6, maxHeight: 400 },
   optionRow: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 10, paddingHorizontal: 10, paddingVertical: 10 },
   optionRowActive: { backgroundColor: '#dbeafe' },
   optionText: { color: '#334155', flex: 1, fontSize: 14, fontWeight: '500' },
   optionTextActive: { color: '#1d4ed8', fontWeight: '700' },
   tagDot: { borderRadius: 5, height: 10, width: 10 },
   emptyHint: { color: '#94a3b8', fontSize: 13, paddingVertical: 12 },
+  filterHint: { fontSize: 11, marginBottom: 6 },
+  channelGroup: { borderRadius: 12, borderWidth: 1, marginBottom: 6, overflow: 'hidden' },
+  channelGroupHeader: { alignItems: 'center', flexDirection: 'row', gap: 2, paddingHorizontal: 4, paddingVertical: 2 },
+  channelGroupMain: { alignItems: 'center', borderRadius: 10, flex: 1, flexDirection: 'row', gap: 8, minWidth: 0, paddingHorizontal: 4, paddingVertical: 4 },
+  channelGroupName: { flexShrink: 1, fontSize: 13, fontWeight: '700' },
+  channelCountBadge: { borderRadius: 999, minWidth: 20, paddingHorizontal: 5, paddingVertical: 1 },
+  channelCountBadgeText: { fontSize: 11, fontWeight: '700', textAlign: 'center' },
+  channelCheck: { alignItems: 'center', borderRadius: 999, borderWidth: 1, height: 18, justifyContent: 'center', width: 18 },
+  channelChevron: { alignItems: 'center', height: 28, justifyContent: 'center', width: 28 },
+  channelGroupBody: { borderTopWidth: 1, gap: 6, paddingBottom: 6, paddingHorizontal: 6, paddingTop: 6 },
+  channelGroupBodyHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 2 },
+  channelGroupBodyLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase' },
+  channelSelectAll: { fontSize: 11, fontWeight: '700' },
+  channelChildRow: { alignItems: 'center', borderRadius: 10, borderWidth: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 8, paddingVertical: 6 },
+  channelChildName: { fontSize: 13, fontWeight: '700' },
+  channelChildMeta: { fontSize: 11, marginTop: 1 },
   inlineSearch: { alignItems: 'center', backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, flexDirection: 'row', marginBottom: 8, paddingHorizontal: 10 },
   inlineSearchInput: { color: '#17233a', flex: 1, height: 40, marginLeft: 8 },
   sectionLabel: { color: '#64748b', fontSize: 12, fontWeight: '700', letterSpacing: 0.4, marginBottom: 8, textTransform: 'uppercase' },
+  sectionLabelSpaced: { marginTop: 14 },
   segment: { backgroundColor: '#f1f5f9', borderRadius: 20, flexDirection: 'row', marginBottom: 12, padding: 4 },
-  segmentOption: { alignItems: 'center', borderRadius: 16, flex: 1, paddingVertical: 8 },
+  segmentOption: { alignItems: 'center', borderRadius: 16, flex: 1, flexDirection: 'row', gap: 4, justifyContent: 'center', paddingVertical: 8 },
   segmentOptionActive: { backgroundColor: '#fff', elevation: 1, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4 },
   segmentText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
   segmentTextActive: { color: '#0f172a', fontWeight: '700' },
   switchRow: { alignItems: 'center', borderColor: '#dbeafe', borderRadius: 16, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 12 },
+  switchRowSpaced: { marginTop: 8 },
   switchLabel: { color: '#334155', fontSize: 14, fontWeight: '600' },
   resetButton: { alignItems: 'center', marginTop: 14, paddingVertical: 6 },
   resetDisabled: { opacity: 0.45 },
