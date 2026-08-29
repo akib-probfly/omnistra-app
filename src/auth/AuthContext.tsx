@@ -13,7 +13,6 @@ type AuthContextValue = {
   session: Session | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (values: Record<string, string>) => Promise<void>;
   updateUser: (update: Partial<Session['user']>) => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -96,15 +95,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               }),
             }),
           ),
-        register: async (values) => {
-          await apiFetch('/auth/register', {
-            method: 'POST',
-            headers: {
-              'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-            },
-            body: JSON.stringify(values),
-          });
-        },
         updateUser,
         logout: async () => {
           const refreshToken = await SecureStore.getItemAsync('refresh-token');

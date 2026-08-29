@@ -2,7 +2,7 @@
   "expo": {
     "name": "Zurvis",
     "slug": "osaas-mobile",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "scheme": "osaas",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -37,7 +37,7 @@
       "softwareKeyboardLayoutMode": "resize",
       "backgroundColor": "#f4f7fb",
       "package": "com.zurvis.mobile",
-      "versionCode": 5,
+      "versionCode": 7,
       "predictiveBackGestureEnabled": false,
       "adaptiveIcon": {
         "backgroundColor": "#1d4ed8",

@@ -3,7 +3,6 @@ import { View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MainTabs } from './MainTabs';
 import { LoginScreen } from '../screens/LoginScreen';
-import { RegisterScreen } from '../screens/RegisterScreen';
 import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
 import { BillingLockedOverlay } from '../components/BillingLockedOverlay';
 import { useAuth } from '../auth/AuthContext';
@@ -11,7 +10,7 @@ import { useAuth } from '../auth/AuthContext';
 export type RootStackParamList = { Main: undefined };
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-type AuthView = 'login' | 'register' | 'forgot';
+type AuthView = 'login' | 'forgot';
 
 function MainWithOverlays() {
   return (
@@ -35,22 +34,11 @@ export function AppNavigator() {
   const [authView, setAuthView] = useState<AuthView>('login');
 
   if (!session) {
-    if (authView === 'register') {
-      return <RegisterScreen onLogin={() => setAuthView('login')} />;
-    }
     if (authView === 'forgot') {
-      return (
-        <ForgotPasswordScreen
-          onLogin={() => setAuthView('login')}
-          onRegister={() => setAuthView('register')}
-        />
-      );
+      return <ForgotPasswordScreen onLogin={() => setAuthView('login')} />;
     }
     return (
-      <LoginScreen
-        onRegister={() => setAuthView('register')}
-        onForgotPassword={() => setAuthView('forgot')}
-      />
+      <LoginScreen onForgotPassword={() => setAuthView('forgot')} />
     );
   }
 

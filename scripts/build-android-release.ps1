@@ -1,6 +1,27 @@
 $ErrorActionPreference = "Stop"
 
-$root = Split-Path -Parent $PSScriptRoot
+$realRoot = Split-Path -Parent $PSScriptRoot
+# Ninja object paths from keyboard-controller exceed Windows' 260-char limit
+# under C:\Users\akib\osaas-mobile. Build through a short junction.
+$root = "C:\z"
+if (Test-Path $root) {
+  $existing = Get-Item $root -Force
+  $target = if ($existing.LinkType -eq "Junction" -or $existing.Attributes -match "ReparsePoint") {
+    $existing.Target
+  } else {
+    $null
+  }
+  $resolvedTarget = if ($target) { (Resolve-Path $target).Path } else { $null }
+  $resolvedReal = (Resolve-Path $realRoot).Path
+  if ($resolvedTarget -and ($resolvedTarget -ne $resolvedReal)) {
+    throw "C:\z already points at $resolvedTarget. Remove it or pick another short path."
+  }
+  if (-not $resolvedTarget) {
+    throw "C:\z exists and is not a junction to this repo. Remove it and rerun."
+  }
+} else {
+  New-Item -ItemType Junction -Path $root -Target $realRoot | Out-Null
+}
 Set-Location $root
 
 $sdk = Join-Path $env:LOCALAPPDATA "Android\Sdk"
@@ -92,7 +113,24 @@ if ($gradle -notmatch "signingConfigs.release" -and $gradle -notmatch "MYAPP_UPL
     "        debug {`n            signingConfig signingConfigs.release",
     "        debug {`n            signingConfig signingConfigs.debug"
   )
-  Set-Content -Path $appGradle -Value $gradle -NoNewline -Encoding utf8
+  $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+  [System.IO.File]::WriteAllText($appGradle, $gradle, $utf8NoBom)
+}
+
+$preload = Join-Path $root "android\cmake-preload.cmake"
+Set-Content -Path $preload -Value 'set(CMAKE_OBJECT_PATH_MAX 80 CACHE STRING "Shorten ninja object paths on Windows" FORCE)' -Encoding ascii
+$gradle = [System.IO.File]::ReadAllText($appGradle)
+if ($gradle -notmatch "cmake-preload.cmake") {
+  $gradle = $gradle.Replace(
+    "        buildConfigField `"String`", `"REACT_NATIVE_RELEASE_LEVEL`", `"\`"`${findProperty('reactNativeReleaseLevel') ?: 'stable'}\`"`"`n    }",
+    "        buildConfigField `"String`", `"REACT_NATIVE_RELEASE_LEVEL`", `"\`"`${findProperty('reactNativeReleaseLevel') ?: 'stable'}\`"`"`n        externalNativeBuild {`n            cmake {`n                arguments `"-C`${rootProject.projectDir.absolutePath.replace('\\\\', '/')}/cmake-preload.cmake`"`n            }`n        }`n    }"
+  )
+  $gradle = $gradle.Replace(
+    "        buildConfigField `"String`", `"REACT_NATIVE_RELEASE_LEVEL`", `"\`"`${findProperty('reactNativeReleaseLevel') ?: 'stable'}\`"`"`r`n    }",
+    "        buildConfigField `"String`", `"REACT_NATIVE_RELEASE_LEVEL`", `"\`"`${findProperty('reactNativeReleaseLevel') ?: 'stable'}\`"`"`r`n        externalNativeBuild {`r`n            cmake {`r`n                arguments `"-C`${rootProject.projectDir.absolutePath.replace('\\\\', '/')}/cmake-preload.cmake`"`r`n            }`r`n        }`r`n    }"
+  )
+  $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+  [System.IO.File]::WriteAllText($appGradle, $gradle, $utf8NoBom)
 }
 
 $googleServices = Join-Path $root "google-services.json"

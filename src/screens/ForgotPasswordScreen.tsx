@@ -19,10 +19,8 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function ForgotPasswordScreen({
   onLogin,
-  onRegister,
 }: {
   onLogin: () => void;
-  onRegister: () => void;
 }) {
   const { colors, isDark } = useTheme();
   const styles = createAuthStyles(colors);
@@ -91,12 +89,6 @@ export function ForgotPasswordScreen({
             >
               <Text style={styles.primaryText}>Back to login</Text>
             </Pressable>
-            <Pressable
-              onPress={onRegister}
-              style={({ pressed }) => [styles.secondary, pressed && styles.primaryPressed]}
-            >
-              <Text style={styles.secondaryText}>Create account</Text>
-            </Pressable>
           </View>
         ) : (
           <>
@@ -137,9 +129,6 @@ export function ForgotPasswordScreen({
                 <Text style={styles.link}>
                   Remember your password? <Text style={styles.linkBold}>Back to login</Text>
                 </Text>
-              </Pressable>
-              <Pressable onPress={onRegister}>
-                <Text style={styles.linkBold}>Create account</Text>
               </Pressable>
             </View>
           </>

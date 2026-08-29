@@ -16,10 +16,8 @@ import { AuthChrome, AuthWordmark } from '../components/AuthChrome';
 import { createAuthStyles } from './authStyles';
 
 export function LoginScreen({
-  onRegister,
   onForgotPassword,
 }: {
-  onRegister: () => void;
   onForgotPassword: () => void;
 }) {
   const { login } = useAuth();
@@ -101,11 +99,6 @@ export function LoginScreen({
         <Pressable onPress={onForgotPassword} style={styles.linkWrapper}>
           <Text style={styles.link}>
             Forgot your password? <Text style={styles.linkBold}>Reset it</Text>
-          </Text>
-        </Pressable>
-        <Pressable onPress={onRegister} style={[styles.linkWrapper, { marginTop: 12 }]}>
-          <Text style={styles.link}>
-            New here? <Text style={styles.linkBold}>Create an account</Text>
           </Text>
         </Pressable>
       </ScrollView>
