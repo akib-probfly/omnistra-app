@@ -12,13 +12,14 @@ import {
   isMessageNotificationAction,
   NEW_MESSAGE_CATEGORY_ID,
   presentIncomingMessageNotification,
-  dismissDuplicateMessageBanners,
+  dismissDuplicateMessageBannersSoon,
   wasPresentedLocally,
 } from '../lib/message-notification';
 import {
   ANSWER_CALL_ACTION_ID,
   DECLINE_CALL_ACTION_ID,
   dismissIncomingCallNotification,
+  dismissRemoteIncomingCallBanners,
   ensureIncomingCallCategory,
   INCOMING_CALL_CATEGORY_ID,
   presentIncomingCallNotification,
@@ -27,6 +28,7 @@ import { clearIncomingCallPrompt } from '../lib/incoming-call-prompt';
 import {
   navigateFromMobileNotification,
   parseMobileNotificationData,
+  flattenRemotePushData,
   reconnectAndRefreshActiveCalls,
   syncNotificationCaches,
 } from '../lib/mobile-notification';
@@ -50,18 +52,22 @@ export function configureMobileForegroundNotificationHandler() {
       }
 
       const category = notification.request.content.categoryIdentifier;
-      const payload = parseMobileNotificationData(notification.request.content.data);
+      const data = flattenRemotePushData(notification.request.content.data) ?? {};
+      const payload = parseMobileNotificationData(data);
+      const rawType = payload?.type ?? (typeof data.type === 'string' ? data.type : '');
+      const rawCallEvent = (
+        payload?.callEvent
+        ?? (typeof data.callEvent === 'string' ? data.callEvent.toUpperCase() : '')
+      );
       const isIncomingCall =
         category === INCOMING_CALL_CATEGORY_ID ||
-        (payload?.type === 'INCOMING_CALL' && payload.callEvent !== 'ENDED');
+        (rawType === 'INCOMING_CALL' && rawCallEvent !== 'ENDED');
       const isLocalMessage =
-        wasPresentedLocally(notification.request.content.data) ||
+        wasPresentedLocally(data) ||
         category === NEW_MESSAGE_CATEGORY_ID;
       // FCM ringing banners have no Expo category. Still show them when the app
       // is backgrounded — otherwise JS swallows the only OS-visible incoming call.
-      const showBanner =
-        isLocalMessage ||
-        isIncomingCall;
+      const showBanner = isLocalMessage || isIncomingCall;
 
       if (payload?.type === 'INCOMING_CALL' && payload.callEvent === 'ENDED') {
         return {
@@ -118,11 +124,15 @@ export function useMobileNotificationHandlers() {
         && AppState.currentState !== 'active'
         && !wasPresentedLocally(notification.request.content.data)
       ) {
-        void Notifications.dismissNotificationAsync(notification.request.identifier)
-          .catch(() => {})
-          .then(() => presentIncomingCallNotification(
-            payload as Parameters<typeof presentIncomingCallNotification>[0],
-          ));
+        const remoteIdentifier = notification.request.identifier;
+        void presentIncomingCallNotification(
+          payload as Parameters<typeof presentIncomingCallNotification>[0],
+        ).then(() => {
+          if (remoteIdentifier && remoteIdentifier !== payload.entityId) {
+            void Notifications.dismissNotificationAsync(remoteIdentifier).catch(() => {});
+          }
+          void dismissRemoteIncomingCallBanners(payload.entityId);
+        });
       }
 
       if (
@@ -143,12 +153,13 @@ export function useMobileNotificationHandlers() {
         && AppState.currentState !== 'active'
         && !wasPresentedLocally(notification.request.content.data)
       ) {
-        void Notifications.dismissNotificationAsync(notification.request.identifier)
-          .catch(() => {})
-          .then(async () => {
-            await presentIncomingMessageNotification(payload);
-            await dismissDuplicateMessageBanners(payload.conversationId ?? '');
-          });
+        const remoteIdentifier = notification.request.identifier;
+        void presentIncomingMessageNotification(payload).then(() => {
+          if (remoteIdentifier && !remoteIdentifier.startsWith('message:')) {
+            void Notifications.dismissNotificationAsync(remoteIdentifier).catch(() => {});
+          }
+          dismissDuplicateMessageBannersSoon(payload.conversationId ?? '');
+        });
       }
     },
     [queryClient],

@@ -45,10 +45,57 @@ function parseMetadata(value: unknown): NotificationMetadata {
   return value as NotificationMetadata;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+/**
+ * FCM/Expo may deliver a flat data map, nest it under `data`, or JSON-encode it
+ * in `dataString`. Incoming-call handling has to see `type` + `callEvent` on the
+ * top-level object or the JS handler treats the ringing FCM banner as unknown
+ * and hides it.
+ */
+export function flattenRemotePushData(value: unknown): Record<string, unknown> | null {
+  const root = asRecord(value);
+  if (!root) return null;
+
+  const nestedData = asRecord(root.data);
+  const notification = asRecord(root.notification);
+  const request = asRecord(notification?.request);
+  const content = asRecord(request?.content);
+  const contentData = asRecord(content?.data);
+
+  const merged: Record<string, unknown> = {
+    ...root,
+    ...nestedData,
+    ...contentData,
+  };
+
+  const encoded =
+    (typeof merged.dataString === 'string' && merged.dataString)
+    || (typeof root.dataString === 'string' && root.dataString)
+    || (typeof nestedData?.dataString === 'string' && nestedData.dataString)
+    || null;
+
+  if (encoded) {
+    try {
+      const parsed = JSON.parse(encoded) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        Object.assign(merged, parsed as Record<string, unknown>);
+      }
+    } catch {
+      // Keep the already-merged flat fields.
+    }
+  }
+
+  return merged;
+}
+
 /** Normalize FCM string data and APNs data into the same trusted shape. */
 export function parseMobileNotificationData(value: unknown): NotificationCreatedRealtimeEvent | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const data = value as Record<string, unknown>;
+  const data = flattenRemotePushData(value);
+  if (!data) return null;
   const notificationId = asSafeId(data.notificationId);
   const workspaceId = asSafeId(data.workspaceId);
   const type = asNonEmptyString(data.type) as NotificationType | null;
@@ -59,9 +106,10 @@ export function parseMobileNotificationData(value: unknown): NotificationCreated
   const createdAt = asNonEmptyString(data.createdAt);
   const targetScope = asNonEmptyString(data.targetScope);
   const callEventValue = asNonEmptyString(data.callEvent)?.toUpperCase();
-  const callEvent = callEventValue === 'RINGING' || callEventValue === 'ENDED'
-    ? callEventValue
-    : undefined;
+  const callEvent =
+    callEventValue === 'RINGING' || callEventValue === 'ENDED'
+      ? callEventValue
+      : undefined;
 
   if (
     !notificationId ||

@@ -8,73 +8,25 @@ import {
   ensureIncomingCallCategory,
   isIncomingCallPromptExpired,
   presentIncomingCallNotification,
+  dismissRemoteIncomingCallBanners,
 } from '../lib/call-notification';
 import { clearIncomingCallPrompt, writeIncomingCallPrompt } from '../lib/incoming-call-prompt';
 import {
   ensureMessageNotificationCategory,
   handleMessageNotificationAction,
   presentIncomingMessageNotification,
-  dismissDuplicateMessageBanners,
+  dismissDuplicateMessageBannersSoon,
 } from '../lib/message-notification';
-import { parseMobileNotificationData } from '../lib/mobile-notification';
+import { parseMobileNotificationData, flattenRemotePushData } from '../lib/mobile-notification';
 import { ensureMobilePushChannels } from '../lib/mobilePushRegistration';
 
 export const CALL_PUSH_TASK = 'ZURVIS-CALL-PUSH-TASK';
 
-/**
- * Data-only push field the backend sets on call pushes. 'ENDED' covers answered
- * elsewhere, declined, and missed — anything that should stop the ringing.
- */
 type CallPushEvent = 'RINGING' | 'ENDED';
 
 function readCallEvent(data: Record<string, unknown>): CallPushEvent | null {
   const value = typeof data.callEvent === 'string' ? data.callEvent.toUpperCase() : null;
   return value === 'RINGING' || value === 'ENDED' ? value : null;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
-}
-
-/** FCM delivers data fields flat; Android also mirrors them into a JSON `dataString`. */
-function readRemoteData(data: { dataString?: string; [key: string]: unknown }) {
-  if (typeof data.dataString === 'string') {
-    try {
-      const parsed = JSON.parse(data.dataString) as unknown;
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        return { ...data, ...(parsed as Record<string, unknown>) };
-      }
-    } catch {
-      // Fall through to the flat fields.
-    }
-  }
-  return data as Record<string, unknown>;
-}
-
-/**
- * Expo's background task payload is not a flat FCM map. It may be
- * `{ data }`, `{ data, dataString }`, or `{ notification: { request: { content: { data } } } }`.
- */
-function extractRemotePushData(taskData: unknown): Record<string, unknown> {
-  const root = asRecord(taskData);
-  if (!root) return {};
-
-  const nestedData = asRecord(root.data);
-  const notification = asRecord(root.notification);
-  const request = asRecord(notification?.request);
-  const content = asRecord(request?.content);
-  const contentData = asRecord(content?.data);
-
-  return readRemoteData({
-    ...root,
-    ...nestedData,
-    ...contentData,
-    ...(typeof root.dataString === 'string' ? { dataString: root.dataString } : {}),
-    ...(typeof nestedData?.dataString === 'string'
-      ? { dataString: nestedData.dataString }
-      : {}),
-  });
 }
 
 async function handleRemoteCallPush(rawData: Record<string, unknown>) {
@@ -90,7 +42,7 @@ async function handleRemoteCallPush(rawData: Record<string, unknown>) {
 
   if (payload?.type === 'NEW_MESSAGE') {
     await presentIncomingMessageNotification(payload);
-    await dismissDuplicateMessageBanners(payload.conversationId ?? '');
+    dismissDuplicateMessageBannersSoon(payload.conversationId ?? '');
     return;
   }
 
@@ -101,6 +53,7 @@ async function handleRemoteCallPush(rawData: Record<string, unknown>) {
   // still restore the ringing call on cold start.
   writeIncomingCallPrompt(payload as Parameters<typeof writeIncomingCallPrompt>[0]);
   await presentIncomingCallNotification(payload as Parameters<typeof presentIncomingCallNotification>[0]);
+  await dismissRemoteIncomingCallBanners(payload.entityId);
 }
 
 async function handleCallAction(response: Notifications.NotificationResponse) {
@@ -137,7 +90,7 @@ TaskManager.defineTask<Notifications.NotificationTaskPayload>(CALL_PUSH_TASK, as
       await handleCallAction(data);
       return;
     }
-    await handleRemoteCallPush(extractRemotePushData(data));
+    await handleRemoteCallPush(flattenRemotePushData(data) ?? {});
   } catch (taskError) {
     if (__DEV__) console.warn('[call-push] task failed', taskError);
   }

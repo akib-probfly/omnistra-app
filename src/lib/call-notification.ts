@@ -96,6 +96,43 @@ export async function presentIncomingCallNotification(prompt: IncomingCallPrompt
   }
 }
 
+/** Drop the OS/FCM/APNs copy after the local Answer/Decline banner is up. */
+export async function dismissRemoteIncomingCallBanners(callSessionId: string) {
+  try {
+    const presented = await Notifications.getPresentedNotificationsAsync();
+    await Promise.all(
+      presented.map(async (notification) => {
+        const identifier = notification.request.identifier;
+        if (identifier === callSessionId) return;
+        const data = notification.request.content.data;
+        if (data && typeof data === 'object' && !Array.isArray(data)) {
+          const flag = (data as Record<string, unknown>).presentedLocally;
+          if (flag === '1' || flag === true) return;
+        }
+        const category = notification.request.content.categoryIdentifier;
+        const type =
+          data && typeof data === 'object' && !Array.isArray(data)
+            ? (data as Record<string, unknown>).type
+            : null;
+        const entityId =
+          data && typeof data === 'object' && !Array.isArray(data)
+            ? (data as Record<string, unknown>).entityId
+            : null;
+        if (
+          category !== INCOMING_CALL_CATEGORY_ID &&
+          type !== 'INCOMING_CALL' &&
+          entityId !== callSessionId
+        ) {
+          return;
+        }
+        await Notifications.dismissNotificationAsync(identifier).catch(() => {});
+      }),
+    );
+  } catch {
+    // Presented-notification APIs are unavailable in some development runtimes.
+  }
+}
+
 /** Stop ringing once the call is answered, declined, missed, or taken on another device. */
 export async function dismissIncomingCallNotification(callSessionId?: string | null) {
   stopIncomingCallRingtone();

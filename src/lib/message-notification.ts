@@ -4,6 +4,7 @@ import type { NotificationCreatedRealtimeEvent } from '../api/notifications';
 import { markConversationRead, sendConversationTextMessage } from '../api/inbox';
 import { DEFAULT_CHANNEL_ID } from './mobilePushRegistration';
 import { parseMobileNotificationData } from './mobile-notification';
+import { INCOMING_CALL_CATEGORY_ID } from './call-notification';
 import {
   isConversationNotificationsMuted,
   muteConversationNotifications,
@@ -97,8 +98,9 @@ function isBareExpoMessageBanner(
 }
 
 /**
- * Expo may still surface a bare "New message" tray item from FCM data.
- * Keep the local banner (with Reply / Mark as read / Mute) and drop the rest.
+ * Expo may still surface a bare "New message" tray item from FCM data
+ * (`title`/`body` keys). Keep the local banner (with Reply / Mark as read / Mute)
+ * and drop the rest, including ones that land after the first present.
  */
 export async function dismissDuplicateMessageBanners(conversationId: string) {
   try {
@@ -112,19 +114,28 @@ export async function dismissDuplicateMessageBanners(conversationId: string) {
         const title = notification.request.content.title?.trim() ?? '';
         const body = notification.request.content.body?.trim() ?? '';
         const category = notification.request.content.categoryIdentifier;
+        if (category === INCOMING_CALL_CATEGORY_ID) return;
         const payload = parseMobileNotificationData(data);
+        if (payload?.type === 'INCOMING_CALL') return;
         const sameConversation = payload?.conversationId === conversationId;
         const bareNewMessage =
           isBareExpoMessageBanner(data, title, body, category) ||
-          title === 'New message' ||
-          body === 'New message';
+          ((title === 'New message' || body === 'New message') && payload?.type !== 'INCOMING_CALL');
         if (!sameConversation && !bareNewMessage) return;
+        if (payload && payload.type !== 'NEW_MESSAGE' && !bareNewMessage) return;
         await Notifications.dismissNotificationAsync(identifier).catch(() => {});
       }),
     );
   } catch {
     // Presented-notification APIs are unavailable in some development runtimes.
   }
+}
+
+export function dismissDuplicateMessageBannersSoon(conversationId: string) {
+  void dismissDuplicateMessageBanners(conversationId);
+  setTimeout(() => {
+    void dismissDuplicateMessageBanners(conversationId);
+  }, 600);
 }
 
 function buildContent(payload: NotificationCreatedRealtimeEvent): Notifications.NotificationContentInput {
@@ -154,7 +165,7 @@ export async function presentIncomingMessageNotification(payload: NotificationCr
       content: buildContent(payload),
       trigger: null,
     });
-    await dismissDuplicateMessageBanners(payload.conversationId);
+    dismissDuplicateMessageBannersSoon(payload.conversationId);
   } catch (error) {
     if (__DEV__) console.warn('[message-push] present failed', payload.conversationId, error);
   }
