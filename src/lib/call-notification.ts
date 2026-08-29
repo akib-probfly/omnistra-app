@@ -79,8 +79,8 @@ function buildContent(prompt: IncomingCallPrompt): Notifications.NotificationCon
  * Ring the device for a call that arrived while the app was backgrounded or killed.
  * The notification identifier is the call session id so it can be dismissed later.
  */
-export async function presentIncomingCallNotification(prompt: IncomingCallPrompt) {
-  if (prompt.callEvent === 'ENDED') return;
+export async function presentIncomingCallNotification(prompt: IncomingCallPrompt): Promise<boolean> {
+  if (prompt.callEvent === 'ENDED') return false;
   await ensureIncomingCallCategory();
   try {
     await Notifications.scheduleNotificationAsync({
@@ -91,8 +91,10 @@ export async function presentIncomingCallNotification(prompt: IncomingCallPrompt
     if (AppState.currentState !== 'active') {
       void startIncomingCallRingtone();
     }
+    return true;
   } catch (error) {
     if (__DEV__) console.warn('[call-push] present failed', prompt.entityId, error);
+    return false;
   }
 }
 
@@ -136,13 +138,10 @@ export async function dismissRemoteIncomingCallBanners(callSessionId: string) {
 /** Stop ringing once the call is answered, declined, missed, or taken on another device. */
 export async function dismissIncomingCallNotification(callSessionId?: string | null) {
   stopIncomingCallRingtone();
+  if (!callSessionId) return;
   try {
-    if (callSessionId) {
-      await Notifications.dismissNotificationAsync(callSessionId);
-      await Notifications.cancelScheduledNotificationAsync(callSessionId);
-      return;
-    }
-    await Notifications.dismissAllNotificationsAsync();
+    await Notifications.dismissNotificationAsync(callSessionId);
+    await Notifications.cancelScheduledNotificationAsync(callSessionId);
   } catch {
     // Already gone, or the notification was never displayed on this device.
   }

@@ -19,7 +19,6 @@ import {
   ANSWER_CALL_ACTION_ID,
   DECLINE_CALL_ACTION_ID,
   dismissIncomingCallNotification,
-  dismissRemoteIncomingCallBanners,
   ensureIncomingCallCategory,
   INCOMING_CALL_CATEGORY_ID,
   presentIncomingCallNotification,
@@ -65,8 +64,6 @@ export function configureMobileForegroundNotificationHandler() {
       const isLocalMessage =
         wasPresentedLocally(data) ||
         category === NEW_MESSAGE_CATEGORY_ID;
-      // FCM ringing banners have no Expo category. Still show them when the app
-      // is backgrounded — otherwise JS swallows the only OS-visible incoming call.
       const showBanner = isLocalMessage || isIncomingCall;
 
       if (payload?.type === 'INCOMING_CALL' && payload.callEvent === 'ENDED') {
@@ -127,11 +124,11 @@ export function useMobileNotificationHandlers() {
         const remoteIdentifier = notification.request.identifier;
         void presentIncomingCallNotification(
           payload as Parameters<typeof presentIncomingCallNotification>[0],
-        ).then(() => {
+        ).then((presented) => {
+          if (!presented) return;
           if (remoteIdentifier && remoteIdentifier !== payload.entityId) {
             void Notifications.dismissNotificationAsync(remoteIdentifier).catch(() => {});
           }
-          void dismissRemoteIncomingCallBanners(payload.entityId);
         });
       }
 

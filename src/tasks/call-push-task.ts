@@ -52,8 +52,12 @@ async function handleRemoteCallPush(rawData: Record<string, unknown>) {
   // Persisted first: if the process is killed before the user reacts, the app can
   // still restore the ringing call on cold start.
   writeIncomingCallPrompt(payload as Parameters<typeof writeIncomingCallPrompt>[0]);
-  await presentIncomingCallNotification(payload as Parameters<typeof presentIncomingCallNotification>[0]);
-  await dismissRemoteIncomingCallBanners(payload.entityId);
+  const presented = await presentIncomingCallNotification(
+    payload as Parameters<typeof presentIncomingCallNotification>[0],
+  );
+  if (presented) {
+    await dismissRemoteIncomingCallBanners(payload.entityId);
+  }
 }
 
 async function handleCallAction(response: Notifications.NotificationResponse) {
