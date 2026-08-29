@@ -110,9 +110,12 @@ export type ConversationsFilters = {
   unrepliedOnly?: boolean;
   assignment?: 'any' | 'assigned' | 'unassigned';
   channelTypes?: string[];
+  channelIds?: string[];
   assigneeWorkspaceMemberIds?: string[];
   includeEmpty?: boolean;
   blockedStatus?: 'blocked' | 'unblocked';
+  createdAtFrom?: string;
+  createdAtTo?: string;
   cursor?: string;
   limit?: number;
 };
@@ -147,9 +150,12 @@ export async function fetchConversations(params: ConversationsFilters = {}): Pro
     unrepliedOnly: params.unrepliedOnly,
     assignment: params.assignment,
     channelTypes: params.channelTypes,
+    channelIds: params.channelIds,
     assigneeWorkspaceMemberIds: params.assigneeWorkspaceMemberIds,
     includeEmpty: params.includeEmpty,
     blockedStatus: params.blockedStatus,
+    createdAtFrom: params.createdAtFrom,
+    createdAtTo: params.createdAtTo,
     cursor: params.cursor,
     limit: params.limit ?? 25,
   })}`);
@@ -167,9 +173,12 @@ export async function fetchConversationCount(params: Omit<ConversationsFilters, 
     unrepliedOnly: params.unrepliedOnly,
     assignment: params.assignment,
     channelTypes: params.channelTypes,
+    channelIds: params.channelIds,
     assigneeWorkspaceMemberIds: params.assigneeWorkspaceMemberIds,
     includeEmpty: params.includeEmpty,
     blockedStatus: params.blockedStatus,
+    createdAtFrom: params.createdAtFrom,
+    createdAtTo: params.createdAtTo,
   })}`);
   if (typeof response === 'number') return response;
   return response?.count ?? response?.total ?? 0;
@@ -184,8 +193,11 @@ export async function fetchConversationUnreadCount(params: Omit<ConversationsFil
     starredOnly: params.starredOnly,
     assignment: params.assignment,
     channelTypes: params.channelTypes,
+    channelIds: params.channelIds,
     assigneeWorkspaceMemberIds: params.assigneeWorkspaceMemberIds,
     blockedStatus: params.blockedStatus,
+    createdAtFrom: params.createdAtFrom,
+    createdAtTo: params.createdAtTo,
   })}`);
   if (typeof response === 'number') return response;
   return response?.count ?? response?.unreadCount ?? response?.total ?? 0;

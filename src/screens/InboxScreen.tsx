@@ -7,12 +7,17 @@ import { AppToggle } from '../components/AppToggle';
 import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ErrorState } from '../components/ErrorState';
-import { ChannelLogo, channelBrandColor } from '../components/ChannelLogo';
+import { ChannelLogo } from '../components/ChannelLogo';
+import { ChannelTypeFilterList } from '../components/ChannelTypeFilterList';
+import { DateRangeFilter } from '../components/DateRangeFilter';
 import { InboxCallsPane } from '../components/InboxCallsPane';
 import { ListSkeleton, PanelSkeleton } from '../components/Skeleton';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { fetchConversations, fetchConversationCount, fetchConversationUnreadCount, fetchAssigneeOptions, type ConversationCallSession, type ConversationListItem } from '../api/inbox';
 import { fetchWorkspaceTags } from '../api/conversationDetails';
+import { apiFetch } from '../api/client';
+import { type Channel } from '../api/channels';
+import { groupChannelsByType } from '../lib/channel-filter-groups';
 import {
   getCallPreviewChipConfig,
   getConversationLastInteractionPresentation,
@@ -33,20 +38,12 @@ type FilterLayer = 'channels' | 'tags' | 'users' | 'more';
 type AssignmentFilter = 'any' | 'assigned' | 'unassigned';
 type BanStatusFilter = 'all' | 'blocked' | 'unblocked';
 
-const CHANNEL_TYPES = ['WHATSAPP', 'MESSENGER', 'INSTAGRAM', 'EMAIL', 'WEBCHAT', 'SMS', 'TELEGRAM', 'TIKTOK'] as const;
 const FILTER_LAYERS: Array<{ id: FilterLayer; label: string }> = [
   { id: 'channels', label: 'Channels' },
   { id: 'tags', label: 'Tags' },
   { id: 'users', label: 'Users' },
   { id: 'more', label: 'More' },
 ];
-
-function getChannelFilterLabel(channelType: string) {
-  if (channelType === 'MESSENGER') return 'Facebook';
-  if (channelType === 'TIKTOK') return 'TikTok';
-  return channelType.charAt(0) + channelType.slice(1).toLowerCase();
-}
-
 
 export function InboxScreen() {
   const insets = useSafeAreaInsets();
@@ -63,7 +60,10 @@ export function InboxScreen() {
   const [filterLayer, setFilterLayer] = useState<FilterLayer>('channels');
   const [assignment, setAssignment] = useState<AssignmentFilter>('any');
   const [blockedStatus, setBlockedStatus] = useState<BanStatusFilter>('all');
-  const [channelTypes, setChannelTypes] = useState<string[]>([]);
+  const [channelIds, setChannelIds] = useState<string[]>([]);
+  const [expandedPlatformKeys, setExpandedPlatformKeys] = useState<string[]>([]);
+  const [createdAtFrom, setCreatedAtFrom] = useState<string | null>(null);
+  const [createdAtTo, setCreatedAtTo] = useState<string | null>(null);
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [tagTextInput, setTagTextInput] = useState('');
@@ -77,12 +77,13 @@ export function InboxScreen() {
     debouncedSearch.trim()
     || selectedTagIds.length
     || debouncedTagText.trim()
-    || channelTypes.length
+    || channelIds.length
     || assigneeIds.length
     || assignment !== 'any'
     || blockedStatus !== 'all'
     || starredOnly
-    || unrepliedOnly,
+    || unrepliedOnly
+    || Boolean(createdAtFrom || createdAtTo),
   );
 
   const filters = useMemo(() => ({
@@ -91,25 +92,29 @@ export function InboxScreen() {
     unrepliedOnly: unrepliedOnly || undefined,
     starredOnly: starredOnly || undefined,
     assignment: assignment === 'any' ? undefined : assignment,
-    channelTypes: channelTypes.length ? channelTypes : undefined,
+    channelIds: channelIds.length ? channelIds : undefined,
     assigneeWorkspaceMemberIds: assigneeIds.length ? assigneeIds : undefined,
     tagIds: selectedTagIds.length ? selectedTagIds : undefined,
     tagText: debouncedTagText.trim() || undefined,
     search: debouncedSearch.trim() || undefined,
     includeEmpty: includeEmpty || undefined,
     blockedStatus: blockedStatus === 'all' ? undefined : blockedStatus,
-  }), [tab, unrepliedOnly, starredOnly, debouncedSearch, assignment, channelTypes, assigneeIds, selectedTagIds, debouncedTagText, includeEmpty, blockedStatus]);
+    createdAtFrom: createdAtFrom ?? undefined,
+    createdAtTo: createdAtTo ?? undefined,
+  }), [tab, unrepliedOnly, starredOnly, debouncedSearch, assignment, channelIds, assigneeIds, selectedTagIds, debouncedTagText, includeEmpty, blockedStatus, createdAtFrom, createdAtTo]);
 
   const advancedFilterParams = useMemo(() => ({
     search: debouncedSearch.trim() || undefined,
     tagIds: selectedTagIds.length ? selectedTagIds : undefined,
     tagText: debouncedTagText.trim() || undefined,
-    channelTypes: channelTypes.length ? channelTypes : undefined,
+    channelIds: channelIds.length ? channelIds : undefined,
     assigneeWorkspaceMemberIds: assigneeIds.length ? assigneeIds : undefined,
     assignment: assignment === 'any' ? undefined : assignment,
     starredOnly: starredOnly || undefined,
     blockedStatus: blockedStatus === 'all' ? undefined : blockedStatus,
-  }), [debouncedSearch, selectedTagIds, debouncedTagText, channelTypes, assigneeIds, assignment, starredOnly, blockedStatus]);
+    createdAtFrom: createdAtFrom ?? undefined,
+    createdAtTo: createdAtTo ?? undefined,
+  }), [debouncedSearch, selectedTagIds, debouncedTagText, channelIds, assigneeIds, assignment, starredOnly, blockedStatus, createdAtFrom, createdAtTo]);
 
   const assigneesQuery = useQuery({
     queryKey: ['assignee-filter-options'],
@@ -130,6 +135,16 @@ export function InboxScreen() {
     enabled: filterOpen,
     staleTime: 60_000,
   });
+  const channelsQuery = useQuery({
+    queryKey: ['channels', 'inbox-filter'],
+    queryFn: () => apiFetch<{ items: Channel[] }>('/channels?page=1&limit=100&sortBy=createdAt&sortOrder=desc'),
+    enabled: filterOpen,
+    staleTime: 60_000,
+  });
+  const channelFilterGroups = useMemo(
+    () => groupChannelsByType(channelsQuery.data?.items ?? []),
+    [channelsQuery.data?.items],
+  );
   const workspaceTags = tagsQuery.data?.items ?? [];
   const visibleTagOptions = useMemo(() => {
     const query = tagTextInput.trim().toLowerCase();
@@ -143,12 +158,21 @@ export function InboxScreen() {
   }, [workspaceTags, selectedTagIds, tagTextInput]);
 
   const hasTagFilters = selectedTagIds.length > 0 || debouncedTagText.trim().length > 0;
-  const hasAdvancedFilters = hasTagFilters || channelTypes.length > 0 || assigneeIds.length > 0 || assignment !== 'any' || starredOnly || blockedStatus !== 'all';
+  const hasAdvancedFilters = hasTagFilters
+    || channelIds.length > 0
+    || assigneeIds.length > 0
+    || assignment !== 'any'
+    || starredOnly
+    || blockedStatus !== 'all'
+    || Boolean(createdAtFrom || createdAtTo);
   const canClearFilters = hasAdvancedFilters || unrepliedOnly;
 
   const resetFilters = () => {
     setAssignment('any');
-    setChannelTypes([]);
+    setChannelIds([]);
+    setExpandedPlatformKeys([]);
+    setCreatedAtFrom(null);
+    setCreatedAtTo(null);
     setAssigneeIds([]);
     setSelectedTagIds([]);
     setTagTextInput('');
@@ -402,31 +426,15 @@ export function InboxScreen() {
 
             <SheetScrollView style={styles.filterLayerBody} contentContainerStyle={styles.filterLayerContent} keyboardShouldPersistTaps="handled">
               {filterLayer === 'channels' ? (
-                <View style={styles.chipRow}>
-                  {CHANNEL_TYPES.map((type) => {
-                    const active = channelTypes.includes(type);
-                    const brand = channelBrandColor(type);
-                    return (
-                      <Pressable
-                        key={type}
-                        style={[
-                          styles.chip,
-                          styles.channelChip,
-                          active && {
-                            backgroundColor: `${brand}14`,
-                            borderColor: brand,
-                          },
-                        ]}
-                        onPress={() => setChannelTypes((current) => active ? current.filter((t) => t !== type) : [...current, type])}
-                      >
-                        <ChannelLogo type={type} box={22} glyph={13} radius={7} />
-                        <Text style={[styles.chipText, active && { color: brand, fontWeight: '700' }]}>
-                          {getChannelFilterLabel(type)}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                <ChannelTypeFilterList
+                  groups={channelFilterGroups}
+                  selectedIds={channelIds}
+                  onChange={setChannelIds}
+                  expandedKeys={expandedPlatformKeys}
+                  onExpandedKeysChange={setExpandedPlatformKeys}
+                  searchable
+                  loading={channelsQuery.isLoading}
+                />
               ) : null}
 
               {filterLayer === 'tags' ? (
@@ -499,13 +507,15 @@ export function InboxScreen() {
 
               {filterLayer === 'more' ? (
                 <>
-                  <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Assignment</Text>
-                  <View style={[styles.assignmentSegment, { backgroundColor: colors.surfaceSecondary }]}>
-                    {([['any', 'Any'], ['assigned', 'Assigned'], ['unassigned', 'Unassigned']] as const).map(([value, label]) => (
-                      <Pressable key={value} style={[styles.assignmentOption, assignment === value && styles.assignmentOptionActive, assignment === value && { backgroundColor: colors.surface }]} onPress={() => setAssignment(value)}>
-                        <Text style={[styles.assignmentOptionText, { color: assignment === value ? colors.text : colors.textSecondary }]}>{label}</Text>
-                      </Pressable>
-                    ))}
+                  <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Conversation created date</Text>
+                  <View style={styles.dateFilterWrap}>
+                    <DateRangeFilter
+                      value={{ from: createdAtFrom, to: createdAtTo }}
+                      onChange={(range) => {
+                        setCreatedAtFrom(range.from);
+                        setCreatedAtTo(range.to);
+                      }}
+                    />
                   </View>
 
                   <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Ban status</Text>
@@ -532,6 +542,15 @@ export function InboxScreen() {
                         </Pressable>
                       );
                     })}
+                  </View>
+
+                  <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Assignment</Text>
+                  <View style={[styles.assignmentSegment, { backgroundColor: colors.surfaceSecondary }]}>
+                    {([['any', 'Any'], ['assigned', 'Assigned'], ['unassigned', 'Unassigned']] as const).map(([value, label]) => (
+                      <Pressable key={value} style={[styles.assignmentOption, assignment === value && styles.assignmentOptionActive, assignment === value && { backgroundColor: colors.surface }]} onPress={() => setAssignment(value)}>
+                        <Text style={[styles.assignmentOptionText, { color: assignment === value ? colors.text : colors.textSecondary }]}>{label}</Text>
+                      </Pressable>
+                    ))}
                   </View>
 
                   <Pressable
@@ -854,7 +873,7 @@ const styles = StyleSheet.create({
   filterLayerTabActive: { backgroundColor: '#fff', elevation: 1, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4 },
   filterLayerTabText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
   filterLayerTabTextActive: { color: '#0f172a', fontWeight: '700' },
-  filterLayerBody: { maxHeight: 360 },
+  filterLayerBody: { maxHeight: 400 },
   filterLayerContent: { paddingBottom: 8 },
   inlineSearch: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cbd5e1', borderRadius: 12, borderWidth: 1, flexDirection: 'row', marginBottom: 10, paddingHorizontal: 10 },
   inlineSearchInput: { color: '#17233a', flex: 1, height: 40, marginLeft: 8 },
@@ -867,6 +886,7 @@ const styles = StyleSheet.create({
   tagDot: { borderRadius: 5, height: 10, width: 10 },
   emptyFilterHint: { color: '#94a3b8', fontSize: 13, paddingVertical: 12 },
   sectionLabel: { color: '#64748b', fontSize: 12, fontWeight: '700', letterSpacing: 0.4, marginBottom: 8, marginTop: 4, textTransform: 'uppercase' },
+  dateFilterWrap: { marginBottom: 8 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { borderColor: '#c8dcfc', borderRadius: 18, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 7 },
   channelChip: { alignItems: 'center', flexDirection: 'row', gap: 8, paddingHorizontal: 10, paddingVertical: 6 },
