@@ -10,6 +10,7 @@ import { useAuth } from "../auth/AuthContext";
 import { registerMobilePushDeviceIfPermitted } from "../lib/mobilePushRegistration";
 
 const PERMISSION_PROMPT_DELAY_MS = 600;
+const REGISTRATION_RETRY_DELAYS_MS = [0, 1500, 5000] as const;
 
 function isForeground(state: AppStateStatus): boolean {
   return state === "active";
@@ -31,8 +32,20 @@ export function useMobilePushRegistration(): void {
     let interaction: { cancel: () => void } | null = null;
 
     const register = () => {
-      if (!active) return;
-      void registerMobilePushDeviceIfPermitted(session.accessToken);
+      void (async () => {
+        for (const delayMs of REGISTRATION_RETRY_DELAYS_MS) {
+          if (!active) return;
+          if (delayMs > 0) {
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+            if (!active) return;
+          }
+
+          const registered = await registerMobilePushDeviceIfPermitted(
+            session.accessToken,
+          );
+          if (registered || !active) return;
+        }
+      })();
     };
 
     const registerWhenUiReady = () => {

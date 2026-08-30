@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { useCallback, useEffect, useRef } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/AuthContext';
 import { useNotificationPreferences } from './useNotificationPreferences';
@@ -82,7 +82,12 @@ export function configureMobileForegroundNotificationHandler() {
         (rawType === 'INCOMING_CALL' && rawCallEvent !== 'ENDED');
       const isLocalMessage =
         wasPresentedLocally(data) || category === NEW_MESSAGE_CATEGORY_ID;
-      const showBanner = isLocalMessage || isIncomingCall;
+      // APNs sends visible notifications with an `alert` payload. On iOS, keep
+      // that native alert visible for every notification type. The previous
+      // filter only allowed calls and messages, which silently hid assignments
+      // and export notifications while the app process was backgrounded.
+      const showBanner =
+        Platform.OS === 'ios' ? true : isLocalMessage || isIncomingCall;
 
       if (payload?.type === 'INCOMING_CALL' && payload.callEvent === 'ENDED') {
         return {
@@ -176,6 +181,17 @@ export function useMobileNotificationHandlers() {
       if (
         payload.type === 'NEW_MESSAGE' &&
         AppState.currentState !== 'active' &&
+        // APNs already owns the visible alert on iOS. Re-posting it locally
+        // and dismissing the remote copy can turn a valid push into no banner
+        // if local scheduling fails. Data-only Android pushes still need the
+        // local notification for their action buttons.
+        !(
+          Platform.OS === 'ios' &&
+          Boolean(
+            notification.request.content.title ||
+              notification.request.content.body,
+          )
+        ) &&
         !wasPresentedLocally(notification.request.content.data)
       ) {
         const remoteIdentifier = notification.request.identifier;
