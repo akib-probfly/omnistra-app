@@ -32,11 +32,13 @@ export function readIncomingCallPrompt() {
   return currentPrompt;
 }
 
-export function writeIncomingCallPrompt(prompt: IncomingCallPrompt) {
+export async function writeIncomingCallPrompt(prompt: IncomingCallPrompt) {
   if (prompt.type !== 'INCOMING_CALL') return;
   currentPrompt = prompt;
-  void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(prompt)).catch(() => {});
   listeners.forEach((listener) => listener(prompt));
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(prompt)).catch(
+    () => {},
+  );
 }
 
 export function clearIncomingCallPrompt(callSessionId?: string | null) {
@@ -52,7 +54,11 @@ export async function hydrateIncomingCallPrompt(): Promise<IncomingCallPrompt | 
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as IncomingCallPrompt;
-    if (!parsed || parsed.type !== 'INCOMING_CALL' || typeof parsed.entityId !== 'string') {
+    if (
+      !parsed ||
+      parsed.type !== 'INCOMING_CALL' ||
+      typeof parsed.entityId !== 'string'
+    ) {
       await AsyncStorage.removeItem(STORAGE_KEY);
       return null;
     }

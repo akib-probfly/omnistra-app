@@ -1,6 +1,16 @@
 import type { QueryClient } from '@tanstack/react-query';
-import type { NotificationCreatedRealtimeEvent, NotificationMetadata, NotificationType, NotificationEntityType } from '../api/notifications';
+import type {
+  NotificationCreatedRealtimeEvent,
+  NotificationMetadata,
+  NotificationType,
+  NotificationEntityType,
+} from '../api/notifications';
+import { AppState, Platform } from 'react-native';
 import { fetchActiveConversationCallSessions } from '../api/inbox';
+import {
+  recordMobilePushInteraction,
+  type MobilePushInteraction,
+} from '../api/notifications';
 import { reconnectRealtimeSocket } from '../api/realtime';
 import { notificationQueryKeys } from '../api/notifications';
 import {
@@ -9,18 +19,34 @@ import {
 } from './incoming-call-prompt';
 import { navigationRef } from '../navigation/navigationRef';
 
-const SUPPORTED_NOTIFICATION_TYPES = new Set<NotificationType>(['NEW_MESSAGE', 'CONVERSATION_ASSIGNED', 'CONVERSATION_UNASSIGNED', 'INCOMING_CALL', 'CONTACT_EXPORT_READY', 'CAMPAIGN_EXPORT_READY']);
+const SUPPORTED_NOTIFICATION_TYPES = new Set<NotificationType>([
+  'NEW_MESSAGE',
+  'CONVERSATION_ASSIGNED',
+  'CONVERSATION_UNASSIGNED',
+  'INCOMING_CALL',
+  'CONTACT_EXPORT_READY',
+  'CAMPAIGN_EXPORT_READY',
+]);
 
-const SUPPORTED_ENTITY_TYPES = new Set<NotificationEntityType>(['MESSAGE', 'CONVERSATION', 'CALL_SESSION', 'CONTACT_EXPORT', 'CAMPAIGN_EXPORT']);
+const SUPPORTED_ENTITY_TYPES = new Set<NotificationEntityType>([
+  'MESSAGE',
+  'CONVERSATION',
+  'CALL_SESSION',
+  'CONTACT_EXPORT',
+  'CAMPAIGN_EXPORT',
+]);
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function isSafeNotificationId(value: unknown): value is string {
   return typeof value === 'string' && UUID_PATTERN.test(value);
 }
 
 function asNonEmptyString(value: unknown) {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+  return typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : null;
 }
 
 function asSafeId(value: unknown) {
@@ -56,7 +82,9 @@ function asRecord(value: unknown): Record<string, unknown> | null {
  * top-level object or the JS handler treats the ringing FCM banner as unknown
  * and hides it.
  */
-export function flattenRemotePushData(value: unknown): Record<string, unknown> | null {
+export function flattenRemotePushData(
+  value: unknown,
+): Record<string, unknown> | null {
   const root = asRecord(value);
   if (!root) return null;
 
@@ -73,10 +101,10 @@ export function flattenRemotePushData(value: unknown): Record<string, unknown> |
   };
 
   const encoded =
-    (typeof merged.dataString === 'string' && merged.dataString)
-    || (typeof root.dataString === 'string' && root.dataString)
-    || (typeof nestedData?.dataString === 'string' && nestedData.dataString)
-    || null;
+    (typeof merged.dataString === 'string' && merged.dataString) ||
+    (typeof root.dataString === 'string' && root.dataString) ||
+    (typeof nestedData?.dataString === 'string' && nestedData.dataString) ||
+    null;
 
   if (encoded) {
     try {
@@ -93,15 +121,20 @@ export function flattenRemotePushData(value: unknown): Record<string, unknown> |
 }
 
 /** Normalize FCM string data and APNs data into the same trusted shape. */
-export function parseMobileNotificationData(value: unknown): NotificationCreatedRealtimeEvent | null {
+export function parseMobileNotificationData(
+  value: unknown,
+): NotificationCreatedRealtimeEvent | null {
   const data = flattenRemotePushData(value);
   if (!data) return null;
   const notificationId = asSafeId(data.notificationId);
   const workspaceId = asSafeId(data.workspaceId);
   const type = asNonEmptyString(data.type) as NotificationType | null;
-  const entityType = asNonEmptyString(data.entityType) as NotificationEntityType | null;
+  const entityType = asNonEmptyString(
+    data.entityType,
+  ) as NotificationEntityType | null;
   const entityId = asSafeId(data.entityId);
-  const title = asNonEmptyString(data.title) ?? asNonEmptyString(data.alertTitle);
+  const title =
+    asNonEmptyString(data.title) ?? asNonEmptyString(data.alertTitle);
   const body = asNonEmptyString(data.body) ?? asNonEmptyString(data.alertBody);
   const createdAt = asNonEmptyString(data.createdAt);
   const targetScope = asNonEmptyString(data.targetScope);
@@ -122,7 +155,9 @@ export function parseMobileNotificationData(value: unknown): NotificationCreated
     !title ||
     !body ||
     !createdAt ||
-    (targetScope !== 'USER' && targetScope !== 'WORKSPACE' && targetScope !== 'CONVERSATION_ASSIGNEE')
+    (targetScope !== 'USER' &&
+      targetScope !== 'WORKSPACE' &&
+      targetScope !== 'CONVERSATION_ASSIGNEE')
   ) {
     return null;
   }
@@ -145,9 +180,53 @@ export function parseMobileNotificationData(value: unknown): NotificationCreated
   };
 }
 
-function metadataString(payload: NotificationCreatedRealtimeEvent, key: string) {
+/** Best-effort server telemetry for correlating FCM delivery with user actions. */
+export function reportMobilePushInteraction(
+  payload: NotificationCreatedRealtimeEvent,
+  interaction: MobilePushInteraction,
+  actionIdentifier?: string | null,
+) {
+  if (payload.type !== 'INCOMING_CALL' || !payload.callEvent) return;
+
+  const currentState = AppState.currentState;
+  const appState = [
+    'active',
+    'background',
+    'inactive',
+    'unknown',
+    'extension',
+  ].includes(currentState)
+    ? (currentState as
+        | 'active'
+        | 'background'
+        | 'inactive'
+        | 'unknown'
+        | 'extension')
+    : 'unknown';
+
+  void recordMobilePushInteraction({
+    notificationId: payload.notificationId,
+    workspaceId: payload.workspaceId,
+    entityId: payload.entityId,
+    type: 'INCOMING_CALL',
+    callEvent: payload.callEvent,
+    interaction,
+    clientTimestamp: new Date().toISOString(),
+    platform: Platform.OS === 'android' ? 'ANDROID' : 'IOS',
+    appState,
+    actionIdentifier: actionIdentifier ?? null,
+  }).catch(() => {
+    // Telemetry must never prevent a call notification or action from completing.
+  });
+}
+
+function metadataString(
+  payload: NotificationCreatedRealtimeEvent,
+  key: string,
+) {
   const metadata = payload.metadata;
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata))
+    return null;
   return asNonEmptyString((metadata as Record<string, unknown>)[key]);
 }
 
@@ -157,7 +236,9 @@ function navigateMainTab(params: Record<string, unknown>) {
   return true;
 }
 
-export function navigateFromMobileNotification(payload: NotificationCreatedRealtimeEvent) {
+export function navigateFromMobileNotification(
+  payload: NotificationCreatedRealtimeEvent,
+) {
   if (payload.type === 'CONTACT_EXPORT_READY') {
     return navigateMainTab({ screen: 'Contacts' });
   }
@@ -180,7 +261,10 @@ export function navigateFromMobileNotification(payload: NotificationCreatedRealt
       screen: 'Conversation',
       params: {
         conversationId,
-        contactName: metadataString(payload, 'contactDisplayName') ?? metadataString(payload, 'contactPhone') ?? 'Conversation',
+        contactName:
+          metadataString(payload, 'contactDisplayName') ??
+          metadataString(payload, 'contactPhone') ??
+          'Conversation',
         workspaceId: payload.workspaceId,
         channelId: payload.channelId ?? undefined,
         channelType: 'WHATSAPP',
@@ -189,7 +273,10 @@ export function navigateFromMobileNotification(payload: NotificationCreatedRealt
   });
 }
 
-export async function reconnectAndRefreshActiveCalls(queryClient: QueryClient, conversationId: string | null) {
+export async function reconnectAndRefreshActiveCalls(
+  queryClient: QueryClient,
+  conversationId: string | null,
+) {
   reconnectRealtimeSocket();
   await queryClient.invalidateQueries({
     queryKey: ['active-calls'],
@@ -208,7 +295,11 @@ export async function reconnectAndRefreshActiveCalls(queryClient: QueryClient, c
 }
 
 /** Refresh the same caches used by realtime when push is the first event after background/killed state. */
-export function syncNotificationCaches(queryClient: QueryClient, payload: NotificationCreatedRealtimeEvent, options: { showIncomingCallPrompt?: boolean } = {}) {
+export function syncNotificationCaches(
+  queryClient: QueryClient,
+  payload: NotificationCreatedRealtimeEvent,
+  options: { showIncomingCallPrompt?: boolean } = {},
+) {
   void queryClient.invalidateQueries({
     queryKey: notificationQueryKeys.all,
     refetchType: 'active',
@@ -237,7 +328,9 @@ export function syncNotificationCaches(queryClient: QueryClient, payload: Notifi
     if (payload.callEvent === 'ENDED') {
       clearIncomingCallPrompt(payload.entityId);
     } else if (options.showIncomingCallPrompt !== false) {
-      writeIncomingCallPrompt(payload as Parameters<typeof writeIncomingCallPrompt>[0]);
+      writeIncomingCallPrompt(
+        payload as Parameters<typeof writeIncomingCallPrompt>[0],
+      );
     }
     void queryClient.invalidateQueries({
       queryKey: ['active-calls'],

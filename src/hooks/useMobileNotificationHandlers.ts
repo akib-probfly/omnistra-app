@@ -29,6 +29,7 @@ import {
   navigateFromMobileNotification,
   parseMobileNotificationData,
   flattenRemotePushData,
+  reportMobilePushInteraction,
   reconnectAndRefreshActiveCalls,
   syncNotificationCaches,
 } from '../lib/mobile-notification';
@@ -42,9 +43,13 @@ export function configureMobileForegroundNotificationHandler() {
 
   Notifications.setNotificationHandler({
     handleNotification: async (notification) => {
-      const incomingData = flattenRemotePushData(notification.request.content.data) ?? {};
+      const incomingData =
+        flattenRemotePushData(notification.request.content.data) ?? {};
       // Must still post to the shade so Android can clear the Direct Reply spinner.
-      if (isSettlingDirectReply(incomingData) || isSettlingDirectReply(notification.request.content.data)) {
+      if (
+        isSettlingDirectReply(incomingData) ||
+        isSettlingDirectReply(notification.request.content.data)
+      ) {
         return {
           shouldShowBanner: false,
           shouldShowList: true,
@@ -65,17 +70,18 @@ export function configureMobileForegroundNotificationHandler() {
       const category = notification.request.content.categoryIdentifier;
       const data = incomingData;
       const payload = parseMobileNotificationData(data);
-      const rawType = payload?.type ?? (typeof data.type === 'string' ? data.type : '');
-      const rawCallEvent = (
-        payload?.callEvent
-        ?? (typeof data.callEvent === 'string' ? data.callEvent.toUpperCase() : '')
-      );
+      const rawType =
+        payload?.type ?? (typeof data.type === 'string' ? data.type : '');
+      const rawCallEvent =
+        payload?.callEvent ??
+        (typeof data.callEvent === 'string'
+          ? data.callEvent.toUpperCase()
+          : '');
       const isIncomingCall =
         category === INCOMING_CALL_CATEGORY_ID ||
         (rawType === 'INCOMING_CALL' && rawCallEvent !== 'ENDED');
       const isLocalMessage =
-        wasPresentedLocally(data) ||
-        category === NEW_MESSAGE_CATEGORY_ID;
+        wasPresentedLocally(data) || category === NEW_MESSAGE_CATEGORY_ID;
       const showBanner = isLocalMessage || isIncomingCall;
 
       if (payload?.type === 'INCOMING_CALL' && payload.callEvent === 'ENDED') {
@@ -114,6 +120,14 @@ export function useMobileNotificationHandlers() {
       );
       if (!payload) return;
 
+      if (
+        payload.type === 'INCOMING_CALL' &&
+        payload.callEvent &&
+        AppState.currentState === 'active'
+      ) {
+        reportMobilePushInteraction(payload, 'RECEIVED');
+      }
+
       const claimed = claimNotification(payload.notificationId);
       const currentPreferences = preferencesRef.current;
 
@@ -128,10 +142,10 @@ export function useMobileNotificationHandlers() {
       }
 
       if (
-        payload.type === 'INCOMING_CALL'
-        && payload.callEvent !== 'ENDED'
-        && AppState.currentState !== 'active'
-        && !wasPresentedLocally(notification.request.content.data)
+        payload.type === 'INCOMING_CALL' &&
+        payload.callEvent !== 'ENDED' &&
+        AppState.currentState !== 'active' &&
+        !wasPresentedLocally(notification.request.content.data)
       ) {
         const remoteIdentifier = notification.request.identifier;
         void presentIncomingCallNotification(
@@ -139,7 +153,9 @@ export function useMobileNotificationHandlers() {
         ).then((presented) => {
           if (!presented) return;
           if (remoteIdentifier && remoteIdentifier !== payload.entityId) {
-            void Notifications.dismissNotificationAsync(remoteIdentifier).catch(() => {});
+            void Notifications.dismissNotificationAsync(remoteIdentifier).catch(
+              () => {},
+            );
           }
         });
       }
@@ -158,14 +174,16 @@ export function useMobileNotificationHandlers() {
       // Data-only FCM (alertTitle/alertBody) has no OS banner. Present locally
       // even when realtime already claimed the id for cache dedupe.
       if (
-        payload.type === 'NEW_MESSAGE'
-        && AppState.currentState !== 'active'
-        && !wasPresentedLocally(notification.request.content.data)
+        payload.type === 'NEW_MESSAGE' &&
+        AppState.currentState !== 'active' &&
+        !wasPresentedLocally(notification.request.content.data)
       ) {
         const remoteIdentifier = notification.request.identifier;
         void presentIncomingMessageNotification(payload).then(() => {
           if (remoteIdentifier && !remoteIdentifier.startsWith('message:')) {
-            void Notifications.dismissNotificationAsync(remoteIdentifier).catch(() => {});
+            void Notifications.dismissNotificationAsync(remoteIdentifier).catch(
+              () => {},
+            );
           }
           dismissDuplicateMessageBannersSoon(payload.conversationId ?? '');
         });
@@ -194,7 +212,9 @@ export function useMobileNotificationHandlers() {
             response.notification.request.content.data,
           );
           if (payload) {
-            syncNotificationCaches(queryClient, payload, { showIncomingCallPrompt: false });
+            syncNotificationCaches(queryClient, payload, {
+              showIncomingCallPrompt: false,
+            });
           }
           Notifications.clearLastNotificationResponse();
         });
@@ -208,11 +228,25 @@ export function useMobileNotificationHandlers() {
         Notifications.clearLastNotificationResponse();
         return;
       }
+      if (payload.type === 'INCOMING_CALL' && payload.callEvent) {
+        reportMobilePushInteraction(
+          payload,
+          isCallAction ? 'ACTIONED' : 'OPENED',
+          response.actionIdentifier,
+        );
+      }
       claimNotification(payload.notificationId);
 
       if (response.actionIdentifier === DECLINE_CALL_ACTION_ID) {
         clearIncomingCallPrompt(payload.entityId);
         void dismissIncomingCallNotification(payload.entityId);
+        if (payload.type === 'INCOMING_CALL' && payload.callEvent) {
+          reportMobilePushInteraction(
+            payload,
+            'DISMISSED',
+            response.actionIdentifier,
+          );
+        }
         if (payload.conversationId) {
           void declineConversationCall({
             conversationId: payload.conversationId,

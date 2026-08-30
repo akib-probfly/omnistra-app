@@ -1,8 +1,19 @@
 import { apiFetch } from './client';
 
-export type NotificationType = 'NEW_MESSAGE' | 'CONVERSATION_ASSIGNED' | 'CONVERSATION_UNASSIGNED' | 'INCOMING_CALL' | 'CONTACT_EXPORT_READY' | 'CAMPAIGN_EXPORT_READY';
+export type NotificationType =
+  | 'NEW_MESSAGE'
+  | 'CONVERSATION_ASSIGNED'
+  | 'CONVERSATION_UNASSIGNED'
+  | 'INCOMING_CALL'
+  | 'CONTACT_EXPORT_READY'
+  | 'CAMPAIGN_EXPORT_READY';
 
-export type NotificationEntityType = 'MESSAGE' | 'CONVERSATION' | 'CALL_SESSION' | 'CONTACT_EXPORT' | 'CAMPAIGN_EXPORT';
+export type NotificationEntityType =
+  | 'MESSAGE'
+  | 'CONVERSATION'
+  | 'CALL_SESSION'
+  | 'CONTACT_EXPORT'
+  | 'CAMPAIGN_EXPORT';
 
 export type NotificationMetadata = Record<string, unknown> | null;
 
@@ -79,6 +90,26 @@ export type RegisterMobilePushDeviceInput = {
   environment: MobilePushEnvironment;
 };
 
+export type MobilePushInteraction =
+  | 'RECEIVED'
+  | 'PRESENTED'
+  | 'OPENED'
+  | 'ACTIONED'
+  | 'DISMISSED';
+
+export type RecordMobilePushInteractionInput = {
+  notificationId: string;
+  workspaceId: string;
+  entityId: string;
+  type: 'INCOMING_CALL';
+  callEvent: 'RINGING' | 'ENDED';
+  interaction: MobilePushInteraction;
+  clientTimestamp: string;
+  platform: MobilePushPlatform;
+  appState: 'active' | 'background' | 'inactive' | 'unknown' | 'extension';
+  actionIdentifier?: string | null;
+};
+
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   soundEnabled: true,
   backgroundSoundEnabled: false,
@@ -92,16 +123,21 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
 
 export const notificationQueryKeys = {
   all: ['notifications'] as const,
-  list: (query: { unreadOnly?: boolean; page?: number; limit?: number }) => ['notifications', 'list', query] as const,
+  list: (query: { unreadOnly?: boolean; page?: number; limit?: number }) =>
+    ['notifications', 'list', query] as const,
   unreadCount: () => ['notifications', 'unread-count'] as const,
-  preferences: (workspaceId: string) => ['notifications', 'preferences', workspaceId] as const,
+  preferences: (workspaceId: string) =>
+    ['notifications', 'preferences', workspaceId] as const,
 };
 
-function buildNotificationQueryString(query: { unreadOnly?: boolean; page?: number; limit?: number } = {}) {
+function buildNotificationQueryString(
+  query: { unreadOnly?: boolean; page?: number; limit?: number } = {},
+) {
   const params: string[] = [];
   if (typeof query.page === 'number') params.push(`page=${query.page}`);
   if (typeof query.limit === 'number') params.push(`limit=${query.limit}`);
-  if (typeof query.unreadOnly === 'boolean') params.push(`unreadOnly=${query.unreadOnly ? 'true' : 'false'}`);
+  if (typeof query.unreadOnly === 'boolean')
+    params.push(`unreadOnly=${query.unreadOnly ? 'true' : 'false'}`);
   const queryString = params.join('&');
   return queryString ? `?${queryString}` : '';
 }
@@ -125,9 +161,14 @@ type RawNotificationRecord = {
 };
 
 /** API returns NotificationDelivery rows with nested `notification`. Handle both shapes safely. */
-export function toNotificationListItem(raw: RawNotificationRecord): NotificationListItem | null {
+export function toNotificationListItem(
+  raw: RawNotificationRecord,
+): NotificationListItem | null {
   if (!raw || typeof raw !== 'object') return null;
-  const nested = raw.notification && typeof raw.notification === 'object' ? raw.notification : null;
+  const nested =
+    raw.notification && typeof raw.notification === 'object'
+      ? raw.notification
+      : null;
   const source = nested ? { ...raw, ...nested } : raw;
   const notificationId = nested?.id ?? raw.notificationId ?? raw.id;
   if (!notificationId || !source.type || !source.workspaceId) return null;
@@ -151,7 +192,9 @@ export function toNotificationListItem(raw: RawNotificationRecord): Notification
   };
 }
 
-export function notificationFromRealtimeEvent(payload: NotificationCreatedRealtimeEvent): NotificationListItem {
+export function notificationFromRealtimeEvent(
+  payload: NotificationCreatedRealtimeEvent,
+): NotificationListItem {
   return {
     id: payload.notificationId,
     notificationId: payload.notificationId,
@@ -170,12 +213,16 @@ export function notificationFromRealtimeEvent(payload: NotificationCreatedRealti
   };
 }
 
-export async function fetchNotifications(query: { unreadOnly?: boolean; page?: number; limit?: number } = {}) {
+export async function fetchNotifications(
+  query: { unreadOnly?: boolean; page?: number; limit?: number } = {},
+) {
   const response = await apiFetch<{
     items?: RawNotificationRecord[];
     meta: NotificationListResponse['meta'];
   }>(`/notifications${buildNotificationQueryString(query)}`, { method: 'GET' });
-  const items = (response.items ?? []).map((item) => toNotificationListItem(item)).filter((item): item is NotificationListItem => Boolean(item));
+  const items = (response.items ?? [])
+    .map((item) => toNotificationListItem(item))
+    .filter((item): item is NotificationListItem => Boolean(item));
 
   return {
     items,
@@ -184,13 +231,18 @@ export async function fetchNotifications(query: { unreadOnly?: boolean; page?: n
 }
 
 export async function fetchUnreadNotificationCount(): Promise<number> {
-  const response = await apiFetch<number | { count?: number; unreadCount?: number }>('/notifications/unread-count', { method: 'GET' });
+  const response = await apiFetch<
+    number | { count?: number; unreadCount?: number }
+  >('/notifications/unread-count', { method: 'GET' });
   if (typeof response === 'number') return response;
   return response.count ?? response.unreadCount ?? 0;
 }
 
 export async function markNotificationAsRead(notificationId: string) {
-  return apiFetch<unknown>(`/notifications/${encodeURIComponent(notificationId)}/read`, { method: 'POST' });
+  return apiFetch<unknown>(
+    `/notifications/${encodeURIComponent(notificationId)}/read`,
+    { method: 'POST' },
+  );
 }
 
 export async function markAllNotificationsAsRead() {
@@ -202,26 +254,48 @@ export async function deleteAllNotifications() {
 }
 
 export async function fetchNotificationPreferences(workspaceId: string) {
-  return apiFetch<NotificationPreferences>(`/notifications/preferences?workspaceId=${encodeURIComponent(workspaceId)}`);
+  return apiFetch<NotificationPreferences>(
+    `/notifications/preferences?workspaceId=${encodeURIComponent(workspaceId)}`,
+  );
 }
 
-export async function updateNotificationPreferences(workspaceId: string, preferences: NotificationPreferences) {
+export async function updateNotificationPreferences(
+  workspaceId: string,
+  preferences: NotificationPreferences,
+) {
   return apiFetch<NotificationPreferences>('/notifications/preferences', {
     method: 'POST',
     body: JSON.stringify({ workspaceId, ...preferences }),
   });
 }
 
-export async function registerMobilePushDevice(input: RegisterMobilePushDeviceInput) {
+export async function registerMobilePushDevice(
+  input: RegisterMobilePushDeviceInput,
+) {
   return apiFetch<unknown>('/notifications/mobile-devices', {
     method: 'POST',
     body: JSON.stringify(input),
   });
 }
 
-export async function revokeMobilePushDevice(input: { provider: MobilePushProvider; token: string }) {
+export async function revokeMobilePushDevice(input: {
+  provider: MobilePushProvider;
+  token: string;
+}) {
   return apiFetch<unknown>('/notifications/mobile-devices', {
     method: 'DELETE',
     body: JSON.stringify(input),
   });
+}
+
+export async function recordMobilePushInteraction(
+  input: RecordMobilePushInteractionInput,
+) {
+  return apiFetch<{ accepted: boolean; serverReceivedAt: string }>(
+    '/notifications/mobile-events',
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
 }
