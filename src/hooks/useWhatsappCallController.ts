@@ -17,6 +17,7 @@ import {
   type WhatsappCallPeerContext,
 } from '../lib/whatsapp-calling';
 import { MediaStream, RTCSessionDescription } from '../native/webrtc';
+import { releaseCallSession } from '../lib/audio-session';
 
 export type CallConnectionState =
   | 'idle'
@@ -48,7 +49,7 @@ export function useWhatsappCallController() {
     return true;
   }, []);
 
-  const resetPeerContext = useCallback(() => {
+  const resetPeerContext = useCallback((options?: { restoreAudio?: boolean }) => {
     peerContextRef.current?.peerConnection.close();
     peerContextRef.current?.localStream.getTracks().forEach((track: any) => track.stop());
     peerContextRef.current = null;
@@ -56,6 +57,9 @@ export function useWhatsappCallController() {
     setRemoteStream(null);
     setIsMuted(false);
     setConnectionState('idle');
+    if (options?.restoreAudio !== false) {
+      void releaseCallSession().catch(() => {});
+    }
   }, []);
 
   const clearError = useCallback(() => setErrorMessage(null), []);
@@ -70,9 +74,35 @@ export function useWhatsappCallController() {
   }, [syncLocalAudioTracks]);
 
   const attachPeerListeners = useCallback((peerConnection: any) => {
+    const applyRemoteStream = (stream: any, track?: any) => {
+      if (track) {
+        try { track.enabled = true; } catch {}
+      }
+      if (stream) {
+        stream.getAudioTracks?.().forEach((audioTrack: any) => {
+          try { audioTrack.enabled = true; } catch {}
+        });
+        setRemoteStream(stream);
+        return;
+      }
+      if (!track) return;
+      try {
+        const fallback = new MediaStream([track]);
+        setRemoteStream(fallback);
+      } catch {
+        try {
+          const fallback = new MediaStream();
+          fallback.addTrack?.(track);
+          setRemoteStream(fallback);
+        } catch {}
+      }
+    };
+
     peerConnection.ontrack = (event: { streams?: any[]; track: any }) => {
-      const stream = event.streams?.[0] ?? new MediaStream([event.track]);
-      setRemoteStream(stream);
+      applyRemoteStream(event.streams?.[0], event.track);
+    };
+    peerConnection.onaddstream = (event: { stream?: any }) => {
+      applyRemoteStream(event.stream);
     };
 
     peerConnection.onconnectionstatechange = () => {
@@ -99,7 +129,7 @@ export function useWhatsappCallController() {
     if (!isWhatsappCallSupported()) {
       throw new Error('WhatsApp calling requires a custom Expo build with WebRTC.');
     }
-    resetPeerContext();
+    resetPeerContext({ restoreAudio: false });
     const peerContext = await createWhatsappCallPeerContext();
     attachPeerListeners(peerContext.peerConnection);
     peerContextRef.current = peerContext;

@@ -14,7 +14,7 @@ export function useCallRingtone() {
       playsInSilentMode: true,
       shouldPlayInBackground: true,
       interruptionMode: 'doNotMix',
-      allowsRecording: false,
+      allowsRecording: true,
     });
     if (!playerRef.current) {
       const player = createAudioPlayer(INCOMING_SOURCE);
@@ -32,9 +32,11 @@ export function useCallRingtone() {
     try {
       player.pause();
       player.seekTo(0);
+      player.remove();
     } catch {
       // already stopped
     }
+    playerRef.current = null;
   }, []);
 
   const play = useCallback(async (kind: RingtoneKind) => {

@@ -1,10 +1,13 @@
 import { NativeModules } from 'react-native';
+import { requestRecordingPermissionsAsync } from 'expo-audio';
 import {
   mediaDevices,
   RTCPeerConnection,
   RTCSessionDescription,
 } from '../native/webrtc';
 import type { ConversationCallSignalSession } from '../api/inbox';
+import { activateCallSession } from './audio-session';
+import { stopIncomingCallRingtone } from './notificationSound';
 
 export type WhatsappCallPeerContext = {
   peerConnection: any;
@@ -50,6 +53,17 @@ export async function createWhatsappCallPeerContext(): Promise<WhatsappCallPeerC
   if (!isWhatsappCallSupported()) {
     throw new Error('WhatsApp calling is not supported on this device build. Use a custom Expo dev client.');
   }
+
+  stopIncomingCallRingtone();
+  const permission = await requestRecordingPermissionsAsync();
+  if (!permission.granted) {
+    throw new Error('Microphone permission is required for WhatsApp calls.');
+  }
+
+  // iOS getUserMedia fails if AVAudioSession is still in playback-only mode
+  // (ringtone or a voice note). Android is more forgiving of that mismatch.
+  await activateCallSession();
+  await new Promise((resolve) => setTimeout(resolve, 80));
 
   const localStream = await mediaDevices.getUserMedia({ audio: true, video: false });
   const peerConnection = new RTCPeerConnection({ iceServers: [] });

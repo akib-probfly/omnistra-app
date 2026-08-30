@@ -2,6 +2,7 @@ import { setAudioModeAsync, setIsAudioActiveAsync } from 'expo-audio';
 import { AppState, type AppStateStatus } from 'react-native';
 
 let lifecycleInstalled = false;
+let callAudioHeld = false;
 
 /**
  * iOS deactivates AVAudioSession when the app leaves the foreground.
@@ -13,6 +14,9 @@ export function ensureAudioSessionLifecycle() {
 
   const restore = (state: AppStateStatus) => {
     if (state !== 'active') return;
+    // Do not retouch AVAudioSession during a WebRTC call — expo-audio
+    // category changes mute remote audio on iOS.
+    if (callAudioHeld) return;
     void setIsAudioActiveAsync(true).catch(() => {});
   };
 
@@ -22,7 +26,12 @@ export function ensureAudioSessionLifecycle() {
   }
 }
 
+export function isCallAudioHeld() {
+  return callAudioHeld;
+}
+
 export async function activatePlaybackSession() {
+  if (callAudioHeld) return;
   ensureAudioSessionLifecycle();
   await setIsAudioActiveAsync(true);
   await setAudioModeAsync({
@@ -34,6 +43,7 @@ export async function activatePlaybackSession() {
 }
 
 export async function activateRecordingSession() {
+  if (callAudioHeld) return;
   ensureAudioSessionLifecycle();
   await setIsAudioActiveAsync(true);
   await setAudioModeAsync({
@@ -44,7 +54,26 @@ export async function activateRecordingSession() {
   });
 }
 
+export async function activateCallSession() {
+  ensureAudioSessionLifecycle();
+  callAudioHeld = true;
+  await setIsAudioActiveAsync(true);
+  await setAudioModeAsync({
+    playsInSilentMode: true,
+    allowsRecording: true,
+    shouldPlayInBackground: true,
+    interruptionMode: 'doNotMix',
+    shouldRouteThroughEarpiece: false,
+  });
+}
+
+export async function releaseCallSession() {
+  callAudioHeld = false;
+  await activatePlaybackSession();
+}
+
 export async function releaseRecordingSession() {
+  if (callAudioHeld) return;
   try {
     await setAudioModeAsync({
       playsInSilentMode: true,

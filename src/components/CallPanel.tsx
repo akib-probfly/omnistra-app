@@ -1,5 +1,6 @@
 import { setAudioModeAsync } from 'expo-audio';
-import { activatePlaybackSession } from '../lib/audio-session';
+import { RTCView, mediaDevices } from '../native/webrtc';
+import { activatePlaybackSession, isCallAudioHeld } from '../lib/audio-session';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ChevronDown,
@@ -20,7 +21,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ConversationCallConversation, ConversationCallSession, ConversationCallSignalSession } from '../api/inbox';
 import { getCallSessionStatusLabel, isCallSessionTerminal } from '../lib/inbox-utils';
 import type { CallConnectionState } from '../hooks/useWhatsappCallController';
-import { RTCView } from '../native/webrtc';
 import { ColorfulAvatar } from './ColorfulAvatar';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -135,6 +135,15 @@ function usePulse(active: boolean) {
 }
 
 async function applySpeakerMode(loud: boolean) {
+  // expo-audio category changes after WebRTC starts mute remote audio on iOS.
+  if (isCallAudioHeld()) {
+    try {
+      await mediaDevices.selectAudioOutput?.(loud ? 'speaker' : 'earpiece');
+    } catch {
+      // Speaker routing is best-effort; never retouch AVAudioSession mid-call.
+    }
+    return;
+  }
   await setAudioModeAsync({
     allowsRecording: true,
     playsInSilentMode: true,
@@ -387,7 +396,8 @@ export function CallPanel({
   }, [isIncomingCall, activeCallSession?.id]);
 
   useEffect(() => {
-    if (!isIncomingCall) {
+    const answering = connectionState === 'preparing' || connectionState === 'connecting' || connectionState === 'connected';
+    if (!isIncomingCall || answering) {
       stopRingtone();
       return;
     }
@@ -395,7 +405,7 @@ export function CallPanel({
     return () => {
       stopRingtone();
     };
-  }, [isIncomingCall, playRingtone, stopRingtone]);
+  }, [isIncomingCall, connectionState, playRingtone, stopRingtone]);
 
   useEffect(() => {
     if (!isOngoing) {
@@ -488,9 +498,22 @@ export function CallPanel({
 
   if (!activeCallSession && connectionState === 'idle') return null;
 
+  const remoteStreamUrl = (() => {
+    try {
+      return remoteStream?.toURL?.() ?? null;
+    } catch {
+      return null;
+    }
+  })();
+  const remoteAudio = remoteStreamUrl ? (
+    <RTCView streamURL={remoteStreamUrl} style={styles.hiddenAudio} objectFit="cover" />
+  ) : null;
+
   if (isIncomingCall) {
     return (
-      <IncomingCallScreen
+      <>
+        {remoteAudio}
+        <IncomingCallScreen
         label={label}
         avatarUrl={conversation.contact.avatarUrl}
         channelName={conversation.channel.channelName || conversation.channel.displayPhoneNumber}
@@ -508,15 +531,13 @@ export function CallPanel({
         bottomInset={insets.bottom}
         hideDock={embedInHeader}
       />
+      </>
     );
   }
 
   if (!isOngoing && connectionState === 'idle') return null;
 
   const canToggleMute = Boolean(activeCallSession) && !isTerminal;
-  const remoteAudio = remoteStream ? (
-    <RTCView streamURL={remoteStream.toURL()} style={styles.hiddenAudio} objectFit="cover" />
-  ) : null;
 
   return (
     <>
@@ -823,7 +844,7 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     zIndex: 50,
   },
-  hiddenAudio: { height: 1, opacity: 0, position: 'absolute', width: 1 },
+  hiddenAudio: { height: 1, left: 0, opacity: 0.01, position: 'absolute', top: 0, width: 1 },
   dockMain: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 10, minWidth: 0 },
   dockAvatar: { alignItems: 'center', backgroundColor: '#dbeafe', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   dockAvatarText: { color: '#1d4ed8', fontSize: 13, fontWeight: '800' },

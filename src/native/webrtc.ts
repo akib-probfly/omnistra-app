@@ -22,6 +22,7 @@ export const MediaStreamTrack = webRtc.MediaStreamTrack as any;
 export const RTCPeerConnection = webRtc.RTCPeerConnection as any;
 export const RTCSessionDescription = webRtc.RTCSessionDescription as any;
 export const RTCView = webRtc.RTCView as any;
+export const RTCAudioSession = webRtc.RTCAudioSession as any;
 
 export type MediaStream = any;
 export type MediaStreamTrack = any;
