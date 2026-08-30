@@ -17,7 +17,9 @@ import { fetchMyWorkspaces } from "../api/workspaces";
 const REGISTRATION_STORAGE_KEY = "mobile-push-device-registration";
 const PREFERENCE_AUTO_ENABLE_KEY = "mobile-push-pref-auto-enabled";
 const DEFAULT_CHANNEL_ID = "default";
-const CALL_CHANNEL_ID = "incoming_calls";
+// Versioned because Android notification channel sound/importance settings are
+// immutable after creation. This also matches the backend FCM channel id.
+const CALL_CHANNEL_ID = "incoming_calls_v2";
 export { CALL_CHANNEL_ID, DEFAULT_CHANNEL_ID };
 const NOTIFICATION_COLOR = "#1d4ed8";
 
