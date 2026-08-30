@@ -21,8 +21,10 @@ import { SplashScreen } from './src/screens/SplashScreen';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { navigationRef } from './src/navigation/navigationRef';
 import { isSafeNotificationId } from './src/lib/mobile-notification';
+import { ensureAudioSessionLifecycle } from './src/lib/audio-session';
 
 configureMobileForegroundNotificationHandler();
+ensureAudioSessionLifecycle();
 
 const queryClient = new QueryClient({
   defaultOptions: {

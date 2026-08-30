@@ -1,9 +1,10 @@
-import { setAudioModeAsync, setIsAudioActiveAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as SecureStore from 'expo-secure-store';
 import { Pause, Play, RotateCw } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import { latestAccessToken, setLatestAccessToken, subscribeAccessToken } from '../api/client';
+import { activatePlaybackSession, ensureAudioSessionLifecycle } from '../lib/audio-session';
 import { parseAudioDurationSeconds } from '../lib/audio-duration';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -36,8 +37,7 @@ async function readAccessToken(): Promise<string | null> {
 }
 
 async function preparePlaybackSession() {
-  await setIsAudioActiveAsync(true);
-  await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
+  await activatePlaybackSession();
 }
 
 function useAuthToken(): string | null {
@@ -52,7 +52,6 @@ function useAuthToken(): string | null {
     const appStateSub = AppState.addEventListener('change', (nextState) => {
       if (nextState !== 'active') return;
       readAccessToken().then(apply).catch(() => {});
-      preparePlaybackSession().catch(() => {});
     });
     return () => {
       active = false;
@@ -160,9 +159,22 @@ function PlayerShell({
   sourceRef.current = source;
   const statusRef = useRef(status);
   statusRef.current = status;
+  const interruptedRef = useRef(false);
 
   useEffect(() => {
-    preparePlaybackSession().catch(() => {});
+    ensureAudioSessionLifecycle();
+  }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') return;
+      interruptedRef.current = true;
+      const target = playerRef.current;
+      if (!target) return;
+      try { target.pause(); } catch {}
+      if (currentPlayer === target) currentPlayer = null;
+    });
+    return () => subscription.remove();
   }, []);
 
   useEffect(() => {
@@ -248,7 +260,8 @@ function PlayerShell({
     }
     const dur = durationRef.current;
     const atEnd = status.didJustFinish || (dur > 0 && status.currentTime >= Math.max(0, dur - 0.15));
-    const needsReload = !status.isLoaded;
+    const needsReload = !status.isLoaded || interruptedRef.current;
+    interruptedRef.current = false;
     currentPlayer = target;
 
     void (async () => {

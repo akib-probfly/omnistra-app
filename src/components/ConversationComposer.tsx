@@ -1,10 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import { requestRecordingPermissionsAsync, RecordingPresets, setAudioModeAsync, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
+import { requestRecordingPermissionsAsync, RecordingPresets, useAudioRecorder, useAudioRecorderState } from 'expo-audio';
 import { Camera, ChevronDown, Clock3, FileText, Film, Image as ImageIcon, Mic, Pause, Paperclip, Play, Send, Smile, Trash2, X, Zap, PanelsTopLeft } from 'lucide-react-native';
-import { useRef, useState } from 'react';
-import { Image, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AppState, Image, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  activateRecordingSession,
+  ensureAudioSessionLifecycle,
+  releaseRecordingSession,
+} from '../lib/audio-session';
 import { showNotice } from './AppToast';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EmojiKeyboard, type EmojiType } from 'rn-emoji-keyboard';
@@ -118,7 +123,35 @@ export function ConversationComposer({
   const [messengerModeOpen, setMessengerModeOpen] = useState(false);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder, 200);
+  const recordingRef = useRef(false);
   const remainingAttachmentSlots = Math.max(0, COMPOSER_MAX_ATTACHMENT_COUNT - attachments.length);
+
+  useEffect(() => {
+    ensureAudioSessionLifecycle();
+  }, []);
+
+  useEffect(() => {
+    recordingRef.current = recording;
+  }, [recording]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') return;
+      if (!recordingRef.current) return;
+      recordingRef.current = false;
+      setPaused(false);
+      setRecording(false);
+      void (async () => {
+        try {
+          await recorder.stop();
+        } catch {
+          // Already interrupted by iOS when the app left the foreground.
+        }
+        await releaseRecordingSession();
+      })();
+    });
+    return () => subscription.remove();
+  }, [recorder]);
 
   const isWhatsAppChannel = (channelType ?? '').toUpperCase() === 'WHATSAPP';
   const isMessengerChannel = (channelType ?? '').toUpperCase() === 'MESSENGER';
@@ -315,13 +348,21 @@ export function ConversationComposer({
     const permission = await requestRecordingPermissionsAsync();
     if (!permission.granted) { showNotice('Microphone permission', 'Permission to record your voice was denied.'); return; }
     try {
-      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-      await recorder.prepareToRecordAsync();
+      await activateRecordingSession();
+      try {
+        await recorder.prepareToRecordAsync();
+      } catch {
+        try { await recorder.stop(); } catch { /* reuse after an interrupted take */ }
+        await recorder.prepareToRecordAsync();
+      }
       recorder.record();
       setPaused(false);
       setRecording(true);
     } catch (error) {
       console.error('[voice] record start failed', error);
+      setPaused(false);
+      setRecording(false);
+      await releaseRecordingSession();
       showNotice('Recording failed', 'Could not start the recording. Please try again.');
     }
   }
@@ -335,11 +376,7 @@ export function ConversationComposer({
       console.error('[voice] record stop failed', error);
       setPaused(false);
       setRecording(false);
-      try {
-        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
-      } catch {
-        // ignore audio mode reset failures
-      }
+      await releaseRecordingSession();
       if (send) {
         showNotice('Recording failed', 'Could not finish the recording. Please try again.');
       }
@@ -347,11 +384,7 @@ export function ConversationComposer({
     }
     setPaused(false);
     setRecording(false);
-    try {
-      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
-    } catch {
-      // ignore audio mode reset failures
-    }
+    await releaseRecordingSession();
     const uri = recorder.uri;
     if (!send) return;
     if (!uri) {

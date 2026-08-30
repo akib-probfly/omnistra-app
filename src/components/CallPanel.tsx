@@ -1,4 +1,5 @@
 import { setAudioModeAsync } from 'expo-audio';
+import { activatePlaybackSession } from '../lib/audio-session';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ChevronDown,
@@ -418,6 +419,17 @@ export function CallPanel({
       cancelled = true;
     };
   }, [isOngoing, speakerOn]);
+
+  const wasInCallRef = useRef(false);
+  useEffect(() => {
+    if (isOngoing) {
+      wasInCallRef.current = true;
+      return;
+    }
+    if (!wasInCallRef.current) return;
+    wasInCallRef.current = false;
+    void activatePlaybackSession().catch(() => {});
+  }, [isOngoing]);
 
   const embedInHeader = focusedConversationId === conversation.id;
 
