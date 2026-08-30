@@ -128,7 +128,7 @@ export async function dismissDuplicateMessageBanners(conversationId: string) {
         const sameConversation = payload?.conversationId === conversationId;
         const bareNewMessage =
           isBareExpoMessageBanner(data, title, body, category) ||
-          ((title === 'New message' || body === 'New message') && payload?.type !== 'INCOMING_CALL');
+          (title === 'New message' || body === 'New message');
         if (!sameConversation && !bareNewMessage) return;
         if (payload && payload.type !== 'NEW_MESSAGE' && !bareNewMessage) return;
         await Notifications.dismissNotificationAsync(identifier).catch(() => {});
