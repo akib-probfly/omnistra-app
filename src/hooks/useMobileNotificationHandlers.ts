@@ -10,6 +10,7 @@ import {
   ensureMessageNotificationCategory,
   handleMessageNotificationAction,
   isMessageNotificationAction,
+  isSettlingDirectReply,
   NEW_MESSAGE_CATEGORY_ID,
   presentIncomingMessageNotification,
   dismissDuplicateMessageBannersSoon,
@@ -41,6 +42,17 @@ export function configureMobileForegroundNotificationHandler() {
 
   Notifications.setNotificationHandler({
     handleNotification: async (notification) => {
+      const incomingData = flattenRemotePushData(notification.request.content.data) ?? {};
+      // Must still post to the shade so Android can clear the Direct Reply spinner.
+      if (isSettlingDirectReply(incomingData) || isSettlingDirectReply(notification.request.content.data)) {
+        return {
+          shouldShowBanner: false,
+          shouldShowList: true,
+          shouldPlaySound: false,
+          shouldSetBadge: false,
+        };
+      }
+
       if (AppState.currentState === 'active') {
         return {
           shouldShowBanner: false,
@@ -51,7 +63,7 @@ export function configureMobileForegroundNotificationHandler() {
       }
 
       const category = notification.request.content.categoryIdentifier;
-      const data = flattenRemotePushData(notification.request.content.data) ?? {};
+      const data = incomingData;
       const payload = parseMobileNotificationData(data);
       const rawType = payload?.type ?? (typeof data.type === 'string' ? data.type : '');
       const rawCallEvent = (
