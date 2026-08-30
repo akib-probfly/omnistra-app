@@ -1,8 +1,15 @@
 import { setAudioModeAsync, setIsAudioActiveAsync } from 'expo-audio';
-import { AppState, type AppStateStatus } from 'react-native';
+import { AppState, Platform, type AppStateStatus } from 'react-native';
+import {
+  activateNativeCallAudio,
+  deactivateNativeCallAudio,
+  setNativeCallSpeaker,
+} from './call-audio-native';
+import { stopIncomingCallRingtone } from './notificationSound';
 
 let lifecycleInstalled = false;
 let callAudioHeld = false;
+let callSpeakerPreferred = true;
 
 /**
  * iOS deactivates AVAudioSession when the app leaves the foreground.
@@ -14,9 +21,12 @@ export function ensureAudioSessionLifecycle() {
 
   const restore = (state: AppStateStatus) => {
     if (state !== 'active') return;
-    // Do not retouch AVAudioSession during a WebRTC call — expo-audio
-    // category changes mute remote audio on iOS.
-    if (callAudioHeld) return;
+    if (callAudioHeld) {
+      if (Platform.OS === 'ios') {
+        void activateNativeCallAudio(callSpeakerPreferred).catch(() => {});
+      }
+      return;
+    }
     void setIsAudioActiveAsync(true).catch(() => {});
   };
 
@@ -54,9 +64,55 @@ export async function activateRecordingSession() {
   });
 }
 
+export async function reapplyCallAudio() {
+  if (!callAudioHeld || Platform.OS !== 'ios') return;
+  await activateNativeCallAudio(callSpeakerPreferred);
+}
+
+export function scheduleCallAudioReapply() {
+  if (!callAudioHeld || Platform.OS !== 'ios') return;
+  for (const delayMs of [200, 600, 1200]) {
+    setTimeout(() => {
+      void reapplyCallAudio().catch(() => {});
+    }, delayMs);
+  }
+}
+
+export async function routeCallAudio(speaker: boolean) {
+  callSpeakerPreferred = speaker;
+  if (Platform.OS === 'ios') {
+    const routed = await setNativeCallSpeaker(speaker);
+    if (routed) return;
+  }
+
+  await setAudioModeAsync({
+    allowsRecording: true,
+    playsInSilentMode: true,
+    shouldPlayInBackground: true,
+    interruptionMode: 'doNotMix',
+    shouldRouteThroughEarpiece: !speaker,
+  });
+}
+
 export async function activateCallSession() {
   ensureAudioSessionLifecycle();
   callAudioHeld = true;
+  callSpeakerPreferred = true;
+  stopIncomingCallRingtone();
+
+  if (Platform.OS === 'ios') {
+    try {
+      await setIsAudioActiveAsync(false);
+    } catch {
+      // expo-audio may already have released the session.
+    }
+    const configured = await activateNativeCallAudio(true);
+    if (configured) {
+      scheduleCallAudioReapply();
+      return;
+    }
+  }
+
   await setIsAudioActiveAsync(true);
   await setAudioModeAsync({
     playsInSilentMode: true,
@@ -69,6 +125,9 @@ export async function activateCallSession() {
 
 export async function releaseCallSession() {
   callAudioHeld = false;
+  if (Platform.OS === 'ios') {
+    await deactivateNativeCallAudio().catch(() => {});
+  }
   await activatePlaybackSession();
 }
 

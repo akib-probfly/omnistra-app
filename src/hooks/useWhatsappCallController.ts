@@ -17,7 +17,7 @@ import {
   type WhatsappCallPeerContext,
 } from '../lib/whatsapp-calling';
 import { MediaStream, RTCSessionDescription } from '../native/webrtc';
-import { releaseCallSession } from '../lib/audio-session';
+import { releaseCallSession, scheduleCallAudioReapply } from '../lib/audio-session';
 
 export type CallConnectionState =
   | 'idle'
@@ -83,6 +83,7 @@ export function useWhatsappCallController() {
           try { audioTrack.enabled = true; } catch {}
         });
         setRemoteStream(stream);
+        scheduleCallAudioReapply();
         return;
       }
       if (!track) return;
@@ -109,6 +110,7 @@ export function useWhatsappCallController() {
       switch (peerConnection.connectionState) {
         case 'connected':
           setConnectionState('connected');
+          scheduleCallAudioReapply();
           break;
         case 'connecting':
           setConnectionState('connecting');
@@ -121,6 +123,11 @@ export function useWhatsappCallController() {
           break;
         default:
           break;
+      }
+    };
+    peerConnection.oniceconnectionstatechange = () => {
+      if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
+        scheduleCallAudioReapply();
       }
     };
   }, []);

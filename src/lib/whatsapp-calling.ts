@@ -1,4 +1,4 @@
-import { NativeModules } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 import { requestRecordingPermissionsAsync } from 'expo-audio';
 import {
   mediaDevices,
@@ -6,7 +6,7 @@ import {
   RTCSessionDescription,
 } from '../native/webrtc';
 import type { ConversationCallSignalSession } from '../api/inbox';
-import { activateCallSession } from './audio-session';
+import { activateCallSession, reapplyCallAudio, scheduleCallAudioReapply } from './audio-session';
 import { stopIncomingCallRingtone } from './notificationSound';
 
 export type WhatsappCallPeerContext = {
@@ -62,10 +62,15 @@ export async function createWhatsappCallPeerContext(): Promise<WhatsappCallPeerC
 
   // iOS getUserMedia fails if AVAudioSession is still in playback-only mode
   // (ringtone or a voice note). Android is more forgiving of that mismatch.
+  // On iOS we also release expo-audio first so WebRTC can own PlayAndRecord.
   await activateCallSession();
-  await new Promise((resolve) => setTimeout(resolve, 80));
+  await new Promise((resolve) => setTimeout(resolve, Platform.OS === 'ios' ? 160 : 80));
 
   const localStream = await mediaDevices.getUserMedia({ audio: true, video: false });
+  if (Platform.OS === 'ios') {
+    await reapplyCallAudio().catch(() => {});
+    scheduleCallAudioReapply();
+  }
   const peerConnection = new RTCPeerConnection({ iceServers: [] });
 
   localStream.getAudioTracks().forEach((track: any) => {

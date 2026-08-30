@@ -1,0 +1,6 @@
+{
+  "name": "zurvis-call-audio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "iOS AVAudioSession control for WhatsApp WebRTC calls"
+}

@@ -81,5 +81,10 @@
   "overrides": {
     "expo-asset": "12.0.13"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "autolinking": {
+      "nativeModulesDir": "./modules"
+    }
+  }
 }

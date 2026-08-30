@@ -1,6 +1,5 @@
-import { setAudioModeAsync } from 'expo-audio';
-import { RTCView, mediaDevices } from '../native/webrtc';
-import { activatePlaybackSession, isCallAudioHeld } from '../lib/audio-session';
+import { RTCView } from '../native/webrtc';
+import { activatePlaybackSession, routeCallAudio } from '../lib/audio-session';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ChevronDown,
@@ -15,7 +14,7 @@ import {
   Volume1,
   Volume2,
 } from 'lucide-react-native';
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { ActivityIndicator, Animated, Easing, Modal, Platform, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ConversationCallConversation, ConversationCallSession, ConversationCallSignalSession } from '../api/inbox';
@@ -135,22 +134,7 @@ function usePulse(active: boolean) {
 }
 
 async function applySpeakerMode(loud: boolean) {
-  // expo-audio category changes after WebRTC starts mute remote audio on iOS.
-  if (isCallAudioHeld()) {
-    try {
-      await mediaDevices.selectAudioOutput?.(loud ? 'speaker' : 'earpiece');
-    } catch {
-      // Speaker routing is best-effort; never retouch AVAudioSession mid-call.
-    }
-    return;
-  }
-  await setAudioModeAsync({
-    allowsRecording: true,
-    playsInSilentMode: true,
-    shouldPlayInBackground: true,
-    interruptionMode: 'doNotMix',
-    shouldRouteThroughEarpiece: !loud,
-  });
+  await routeCallAudio(loud);
 }
 
 function IncomingCallScreen({
@@ -170,6 +154,7 @@ function IncomingCallScreen({
   topInset,
   bottomInset,
   hideDock = false,
+  remoteAudio = null,
 }: {
   label: string;
   avatarUrl?: string | null;
@@ -187,6 +172,7 @@ function IncomingCallScreen({
   topInset: number;
   bottomInset: number;
   hideDock?: boolean;
+  remoteAudio?: ReactNode;
 }) {
   const { colors } = useTheme();
   const pulse = usePulse(true);
@@ -254,6 +240,7 @@ function IncomingCallScreen({
           locations={[0, 0.45, 1]}
           style={[styles.incomingRoot, { paddingTop: resolveModalTopInset(topInset) + 20, paddingBottom: bottomInset + 28 }]}
         >
+          {remoteAudio}
           <View style={styles.incomingGlow} />
           <View style={styles.incomingHeader}>
             <Pressable style={styles.minimizeButton} onPress={onMinimize} hitSlop={12}>
@@ -415,20 +402,32 @@ export function CallPanel({
     }
   }, [isOngoing]);
 
+  const shouldRouteCallAudio =
+    isOngoing
+    || connectionState === 'preparing'
+    || connectionState === 'connecting'
+    || connectionState === 'connected'
+    || Boolean(remoteStream);
+
   useEffect(() => {
-    if (!isOngoing) return;
+    if (!shouldRouteCallAudio) return;
     let cancelled = false;
-    void applySpeakerMode(speakerOn)
-      .then(() => {
-        if (!cancelled) setSpeakerError(null);
-      })
-      .catch(() => {
-        if (!cancelled) setSpeakerError('Could not switch speaker.');
-      });
+    const apply = () => {
+      void applySpeakerMode(speakerOn)
+        .then(() => {
+          if (!cancelled) setSpeakerError(null);
+        })
+        .catch(() => {
+          if (!cancelled) setSpeakerError('Could not switch speaker.');
+        });
+    };
+    apply();
+    const retry = setTimeout(apply, 500);
     return () => {
       cancelled = true;
+      clearTimeout(retry);
     };
-  }, [isOngoing, speakerOn]);
+  }, [shouldRouteCallAudio, speakerOn, remoteStream]);
 
   const wasInCallRef = useRef(false);
   useEffect(() => {
@@ -512,25 +511,26 @@ export function CallPanel({
   if (isIncomingCall) {
     return (
       <>
-        {remoteAudio}
+        {incomingExpanded ? null : remoteAudio}
         <IncomingCallScreen
-        label={label}
-        avatarUrl={conversation.contact.avatarUrl}
-        channelName={conversation.channel.channelName || conversation.channel.displayPhoneNumber}
-        statusLabel={statusLabel}
-        waitingForSignal={!activeCallSignal}
-        errorMessage={errorMessage}
-        isBusy={isBusy}
-        canAnswer={Boolean(activeCallSignal)}
-        expanded={incomingExpanded}
-        onExpand={() => setIncomingExpanded(true)}
-        onMinimize={() => setIncomingExpanded(false)}
-        onAnswerCall={onAnswerCall}
-        onDeclineCall={onDeclineCall}
-        topInset={insets.top}
-        bottomInset={insets.bottom}
-        hideDock={embedInHeader}
-      />
+          label={label}
+          avatarUrl={conversation.contact.avatarUrl}
+          channelName={conversation.channel.channelName || conversation.channel.displayPhoneNumber}
+          statusLabel={statusLabel}
+          waitingForSignal={!activeCallSignal}
+          errorMessage={errorMessage}
+          isBusy={isBusy}
+          canAnswer={Boolean(activeCallSignal)}
+          expanded={incomingExpanded}
+          onExpand={() => setIncomingExpanded(true)}
+          onMinimize={() => setIncomingExpanded(false)}
+          onAnswerCall={onAnswerCall}
+          onDeclineCall={onDeclineCall}
+          topInset={insets.top}
+          bottomInset={insets.bottom}
+          hideDock={embedInHeader}
+          remoteAudio={incomingExpanded ? remoteAudio : null}
+        />
       </>
     );
   }
@@ -541,7 +541,7 @@ export function CallPanel({
 
   return (
     <>
-      {remoteAudio}
+      {expanded ? null : remoteAudio}
 
       {embedInHeader ? null : (
       <View style={[styles.dock, { top: Math.max(insets.top, 8) }]}>
@@ -573,6 +573,7 @@ export function CallPanel({
 
       <Modal visible={expanded && isOngoing} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => setExpanded(false)}>
         <View style={[styles.expandedRoot, { paddingTop: resolveModalTopInset(insets.top) + 20, paddingBottom: insets.bottom + 24 }]}>
+          {expanded ? remoteAudio : null}
           <View style={styles.expandedHeader}>
             <Pressable style={styles.minimizeButton} onPress={() => setExpanded(false)} hitSlop={12}>
               <ChevronDown color="#fff" size={22} />
@@ -844,7 +845,7 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     zIndex: 50,
   },
-  hiddenAudio: { height: 1, left: 0, opacity: 0.01, position: 'absolute', top: 0, width: 1 },
+  hiddenAudio: { height: 2, left: 0, opacity: 1, position: 'absolute', top: 0, width: 2 },
   dockMain: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 10, minWidth: 0 },
   dockAvatar: { alignItems: 'center', backgroundColor: '#dbeafe', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   dockAvatarText: { color: '#1d4ed8', fontSize: 13, fontWeight: '800' },

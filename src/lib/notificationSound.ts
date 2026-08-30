@@ -79,8 +79,13 @@ export async function startIncomingCallRingtone() {
 }
 
 export function stopIncomingCallRingtone() {
+  const player = ringingPlayer;
+  ringingPlayer = null;
+  if (!player) return;
   try {
-    ringingPlayer?.pause();
+    player.pause();
+    player.seekTo(0);
+    player.remove();
   } catch {
     // already stopped
   }
