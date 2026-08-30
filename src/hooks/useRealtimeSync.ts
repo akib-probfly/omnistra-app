@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Socket } from 'socket.io-client';
-import { createRealtimeSocket, setActiveRealtimeSocket, setRealtimeConnectionStatus, getActiveConversationId } from '../api/realtime';
+import { createRealtimeSocket, setActiveRealtimeSocket, setRealtimeConnectionStatus, getActiveConversationId, reconnectRealtimeSocket } from '../api/realtime';
 import { latestAccessToken } from '../api/client';
+import { isCallAudioHeld } from '../lib/audio-session';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   notificationFromRealtimeEvent,
@@ -19,7 +20,7 @@ import {
   setPreviewOverride,
   setUnreadOverride,
 } from '../lib/unread-count-override';
-import { writeIncomingCallPrompt } from '../lib/incoming-call-prompt';
+import { readIncomingCallPrompt, writeIncomingCallPrompt } from '../lib/incoming-call-prompt';
 import { presentIncomingCallNotification } from '../lib/call-notification';
 import { presentIncomingMessageNotification } from '../lib/message-notification';
 import { syncIncomingCallPromptFromSession, upsertActiveCallSessionCache, type CallSessionUpdatedEvent } from '../lib/active-call-cache';
@@ -562,16 +563,37 @@ export function useRealtimeSync(accessToken: string | null) {
       }
     };
 
+    let backgroundedAt: number | null = null;
     const onAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === 'background') {
+        if (backgroundedAt == null) backgroundedAt = Date.now();
+        return;
+      }
       if (nextState !== 'active') return;
+
       const current = socketRef.current;
       if (!current) return;
+
+      const awayMs = backgroundedAt == null ? 0 : Date.now() - backgroundedAt;
+      const afterBackground = backgroundedAt != null;
+      backgroundedAt = null;
+      const liveCalls = queryClient.getQueryData<{ items?: unknown[] }>(['active-calls'])?.items;
+      const inCallFlow =
+        isCallAudioHeld()
+        || Boolean(readIncomingCallPrompt())
+        || (Array.isArray(liveCalls) && liveCalls.length > 0);
+      // iOS can keep socket.connected true after a long suspend. Do not tear
+      // down signaling during an incoming or live call, and ignore Control Center.
+      const stale = afterBackground && awayMs >= 8_000 && !inCallFlow;
       if (!current.connected) {
-        console.log('[realtime] app foreground — reconnecting socket');
+        console.log('[realtime] app foreground — reconnecting socket', { awayMs });
         setRealtimeConnectionStatus('connecting');
-        current.connect();
+        reconnectRealtimeSocket();
+      } else if (stale) {
+        console.log('[realtime] app foreground — replacing stale socket', { awayMs });
+        setRealtimeConnectionStatus('connecting');
+        reconnectRealtimeSocket({ force: true });
       }
-      // Always resync after background — mobile sockets can go zombie without a disconnect event.
       refreshOnForeground();
     };
 

@@ -34,10 +34,15 @@ export function setActiveRealtimeSocket(socket: Socket | null) {
   activeRealtimeSocket = socket;
 }
 
-export function reconnectRealtimeSocket() {
-  if (activeRealtimeSocket && !activeRealtimeSocket.connected) {
-    activeRealtimeSocket.connect();
+export function reconnectRealtimeSocket(options?: { force?: boolean }) {
+  const socket = activeRealtimeSocket;
+  if (!socket) return;
+  if (options?.force) {
+    if (socket.connected) socket.disconnect();
+    socket.connect();
+    return;
   }
+  if (!socket.connected) socket.connect();
 }
 
 export function setActiveConversationId(conversationId: string | null) {

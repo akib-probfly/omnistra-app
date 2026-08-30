@@ -167,7 +167,7 @@ function PlayerShell({
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') return;
+      if (nextState !== 'background') return;
       interruptedRef.current = true;
       const target = playerRef.current;
       if (!target) return;

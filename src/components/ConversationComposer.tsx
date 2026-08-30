@@ -136,7 +136,7 @@ export function ConversationComposer({
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') return;
+      if (nextState !== 'background') return;
       if (!recordingRef.current) return;
       recordingRef.current = false;
       setPaused(false);
