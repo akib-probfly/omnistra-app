@@ -451,6 +451,7 @@ export function getConversationWindowLabel(
       humanAgentWindowExpiresAt?: string | null;
       canSendStandardMessage?: boolean;
       canSendHumanAgentMessage?: boolean;
+      canSendFreeformMessage?: boolean;
       windowState?: string | null;
       policyType?: string | null;
     } | null;
@@ -480,6 +481,10 @@ export function getConversationWindowLabel(
 
   if (conversation?.messaging?.policyType === 'UNRESTRICTED') {
     return { label: 'Free-form replies available', tone: 'open' };
+  }
+
+  if (conversation?.messaging?.canSendFreeformMessage === false) {
+    return { label: 'Window Expired', tone: 'expired' };
   }
 
   const expiresAt = conversation?.messaging?.windowExpiresAt ?? conversation?.messaging?.standardWindowExpiresAt;

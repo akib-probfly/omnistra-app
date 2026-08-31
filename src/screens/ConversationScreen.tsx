@@ -37,7 +37,7 @@ import { fetchConversationAssignmentEvents, fetchConversationCallSessions, fetch
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { InboxStackParamList } from '../navigation/InboxStack';
 import type { MainTabParamList } from '../navigation/MainTabs';
-import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getCallSessionTimelineTimestamp, getConversationTitle, getMessengerMessagingAvailability, getReplyPreviewBody, getVoiceCallButtonState, isConversationCustomerWindowExpired, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
+import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getCallSessionTimelineTimestamp, getConversationTitle, getConversationWindowLabel, getMessengerMessagingAvailability, getReplyPreviewBody, getVoiceCallButtonState, isConversationCustomerWindowExpired, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
 import { CallHistoryItem } from '../components/CallHistoryItem';
 import { useCallController } from '../providers/CallControllerProvider';
 import { getCallChrome, setFocusedCallConversationId, subscribeCallChrome, rememberCallParty, getCallUiRevision } from '../lib/call-chrome';
@@ -150,6 +150,7 @@ export function ConversationScreen() {
   const [header, setHeader] = useState({ isStarred: false, unreadCount: 0, status: 'OPEN' as string, conversation: null as any });
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [messengerMessagingMode, setMessengerMessagingMode] = useState<MessengerMessagingMode>('STANDARD');
+  const [windowLabelNow, setWindowLabelNow] = useState(() => new Date());
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initializedMessengerModeConversationIdRef = useRef<string | null>(null);
   const hasMoreRef = useRef(false);
@@ -261,6 +262,11 @@ export function ConversationScreen() {
   useEffect(() => {
     void unmuteConversationNotifications(route.params.conversationId);
   }, [route.params.conversationId]);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => setWindowLabelNow(new Date()), 30_000);
+    return () => clearInterval(intervalId);
+  }, []);
 
   useEffect(() => {
     if (messages.data?.conversation) {
@@ -706,6 +712,8 @@ export function ConversationScreen() {
   const headerMessagingLoaded = Boolean(currentConversation?.messaging);
   const isWhatsAppCustomerWindow = isWhatsAppConversation && currentConversation?.messaging?.policyType === 'CUSTOMER_WINDOW';
   const whatsappWindowExpired = isConversationCustomerWindowExpired(currentConversation);
+  const conversationWindowLabel = getConversationWindowLabel(currentConversation, messengerMessagingMode, windowLabelNow);
+  const showConversationWindowLabel = headerMessagingLoaded && conversationWindowLabel.tone !== 'none';
   const messengerAvailability = getMessengerMessagingAvailability(currentConversation);
   const messengerMessagingReady = Boolean(currentConversation);
   const canSendSelectedMessengerMode = messengerMessagingMode === 'STANDARD'
@@ -916,6 +924,21 @@ export function ConversationScreen() {
             {contactSubtitle ? (
               <Text style={[styles.contactSubtitle, { color: colors.textMuted }]}>
                 {contactSubtitle}
+              </Text>
+            ) : null}
+            {showConversationWindowLabel ? (
+              <Text
+                style={[
+                  styles.windowLabel,
+                  {
+                    color: conversationWindowLabel.tone === 'expired'
+                      ? colors.error
+                      : '#16a34a',
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {conversationWindowLabel.label}
               </Text>
             ) : null}
           </View>
@@ -1198,6 +1221,7 @@ const styles = StyleSheet.create({
   titleBlock: { flex: 1, minWidth: 0 },
   name: { color: '#0f172a', fontWeight: '700' },
   contactSubtitle: { color: '#64748b', fontSize: 12, fontWeight: '500', marginTop: 1, width: '100%' },
+  windowLabel: { fontSize: 11, fontWeight: '700', marginTop: 1, width: '100%' },
   headerActions: { alignItems: 'center', flexDirection: 'row', flexShrink: 0, gap: 8 },
   list: { backgroundColor: 'transparent', flex: 1 },
   listWrap: { backgroundColor: 'transparent', flex: 1, minHeight: 0 },
