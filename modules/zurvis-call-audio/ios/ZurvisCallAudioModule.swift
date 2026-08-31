@@ -24,11 +24,11 @@ public class ZurvisCallAudioModule: Module {
   }
 
   private static func installWebRtcDefaults() {
-    let config = RTCAudioSessionConfiguration.webRTCConfiguration()
+    let config = RTCAudioSessionConfiguration.webRTC()
     config.category = AVAudioSession.Category.playAndRecord.rawValue
     config.mode = AVAudioSession.Mode.videoChat.rawValue
     config.categoryOptions = categoryOptions()
-    RTCAudioSessionConfiguration.setWebRTCConfiguration(config)
+    RTCAudioSessionConfiguration.setWebRTC(config)
     RTCAudioSession.sharedInstance().useManualAudio = true
   }
 
