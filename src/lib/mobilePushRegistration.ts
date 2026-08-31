@@ -1,6 +1,5 @@
 import * as Application from "expo-application";
 import Constants, { ExecutionEnvironment } from "expo-constants";
-import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
@@ -235,10 +234,7 @@ async function enableMobilePushPreferenceOnce(): Promise<void> {
 async function registerOnce(
   accessTokenOverride?: string | null,
 ): Promise<boolean> {
-  if (
-    !isNativeMobilePlatform() ||
-    (Platform.OS === "ios" && !Device.isDevice)
-  ) {
+  if (!isNativeMobilePlatform()) {
     return false;
   }
 
