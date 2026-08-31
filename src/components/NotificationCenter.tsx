@@ -411,9 +411,9 @@ const styles = StyleSheet.create({
   retryButton: { borderRadius: 12, marginTop: 14, paddingHorizontal: 16, paddingVertical: 10 },
   retryButtonText: { fontSize: 13, fontWeight: '700' },
 
-  notificationRow: { alignItems: 'center', borderRadius: 16, borderWidth: 1, flexDirection: 'row', marginBottom: 8, minHeight: 64, paddingHorizontal: 12, paddingVertical: 10, position: 'relative' },
+  notificationRow: { alignItems: 'center', borderRadius: 16, borderWidth: 1, flexDirection: 'row', marginBottom: 8, minHeight: 64, paddingHorizontal: 12, paddingVertical: 10 },
   notificationRowUnread: {},
-  notificationAccent: { bottom: 0, left: 0, position: 'absolute', top: 0, width: 4 },
+  notificationAccent: { borderRadius: 999, height: 40, marginRight: 10, width: 4 },
   notificationIconStack: { marginRight: 10, position: 'relative' },
   notificationIconWrap: { alignItems: 'center', borderRadius: 12, height: 36, justifyContent: 'center', width: 36 },
   notificationTypeBadge: { alignItems: 'center', borderRadius: 8, borderWidth: 2, bottom: -3, height: 18, justifyContent: 'center', position: 'absolute', right: -3, width: 18 },

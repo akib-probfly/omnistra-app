@@ -451,6 +451,7 @@ export function getConversationWindowLabel(
       humanAgentWindowExpiresAt?: string | null;
       canSendStandardMessage?: boolean;
       canSendHumanAgentMessage?: boolean;
+      canSendFreeformMessage?: boolean;
       windowState?: string | null;
       policyType?: string | null;
     } | null;
@@ -482,6 +483,10 @@ export function getConversationWindowLabel(
     return { label: 'Free-form replies available', tone: 'open' };
   }
 
+  if (conversation?.messaging?.canSendFreeformMessage === false) {
+    return { label: 'Window Expired', tone: 'expired' };
+  }
+
   const expiresAt = conversation?.messaging?.windowExpiresAt ?? conversation?.messaging?.standardWindowExpiresAt;
   if (!expiresAt) {
     return {
@@ -497,6 +502,28 @@ export function getConversationWindowLabel(
   const minutes = Math.floor((diffMs % 3600000) / 60000);
   if (hours > 0) return { label: `${hours}h ${minutes}m left`, tone: 'open' };
   return { label: minutes > 0 ? `${minutes}m left` : 'Open', tone: 'open' };
+}
+
+export function isConversationCustomerWindowExpired(
+  conversation: {
+    messaging?: {
+      windowExpiresAt?: string | null;
+      standardWindowExpiresAt?: string | null;
+      windowState?: string | null;
+      canSendFreeformMessage?: boolean;
+    } | null;
+  } | undefined,
+  now = new Date(),
+): boolean {
+  const messaging = conversation?.messaging;
+  if (messaging?.windowState === 'EXPIRED') return true;
+  if (messaging?.canSendFreeformMessage === false) return true;
+
+  const expiresAt = messaging?.windowExpiresAt ?? messaging?.standardWindowExpiresAt;
+  if (!expiresAt) return false;
+
+  const expires = new Date(expiresAt);
+  return !Number.isNaN(expires.getTime()) && expires <= now;
 }
 
 export function getConversationTitle(conversation: { contact?: { displayName?: string | null; primaryPhone?: string | null; username?: string | null } | null; channel?: { channelName?: string | null; displayPhoneNumber?: string | null } | null } | undefined, fallback = 'Unknown contact'): string {
