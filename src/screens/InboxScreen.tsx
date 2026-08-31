@@ -26,6 +26,7 @@ import {
   isVideoPreview,
   isVoiceNotePreview,
 } from '../lib/conversation-last-interaction';
+import { isConversationCustomerWindowExpired } from '../lib/inbox-utils';
 import { applyUnreadOverrideToPage } from '../lib/unread-count-override';
 import { optimisticMarkConversationReadInCache } from '../lib/inbox-unread-cache';
 import { pollingWhileUnlocked } from '../lib/billing-lock';
@@ -754,7 +755,7 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
   const hasUnread = conversation.unreadCount > 0;
   const isWhatsAppCustomerWindow = conversation.channel?.channelType === 'WHATSAPP' && conversation.messaging?.policyType === 'CUSTOMER_WINDOW';
   const showWindowDot = isWhatsAppCustomerWindow && conversation.messaging?.windowState !== 'NOT_APPLICABLE';
-  const windowExpired = conversation.messaging?.windowState === 'EXPIRED';
+  const windowExpired = isConversationCustomerWindowExpired(conversation);
   const isBlocked = Boolean(conversation.blockedAt ?? conversation.contact.blockedAt);
   const onPress = useCallback(() => {
     if (conversation.unreadCount > 0) {

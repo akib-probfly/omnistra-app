@@ -37,7 +37,7 @@ import { fetchConversationAssignmentEvents, fetchConversationCallSessions, fetch
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { InboxStackParamList } from '../navigation/InboxStack';
 import type { MainTabParamList } from '../navigation/MainTabs';
-import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getCallSessionTimelineTimestamp, getConversationTitle, getMessengerMessagingAvailability, getReplyPreviewBody, getVoiceCallButtonState, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
+import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getCallSessionTimelineTimestamp, getConversationTitle, getMessengerMessagingAvailability, getReplyPreviewBody, getVoiceCallButtonState, isConversationCustomerWindowExpired, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
 import { CallHistoryItem } from '../components/CallHistoryItem';
 import { useCallController } from '../providers/CallControllerProvider';
 import { getCallChrome, setFocusedCallConversationId, subscribeCallChrome, rememberCallParty, getCallUiRevision } from '../lib/call-chrome';
@@ -697,33 +697,38 @@ export function ConversationScreen() {
   }, []);
 
   const { pattern: inboxPattern } = useInboxAppearance();
-  const channelType = header.conversation?.channel?.channelType ?? route.params.channelType;
-  const channelId = header.conversation?.channel?.channelId ?? header.conversation?.channel?.id ?? route.params.channelId;
+  const currentConversation = header.conversation ?? (messages.data as any)?.conversation ?? null;
+  const channelType = currentConversation?.channel?.channelType ?? route.params.channelType;
+  const channelId = currentConversation?.channel?.channelId ?? currentConversation?.channel?.id ?? route.params.channelId;
   const isWhatsAppConversation = (channelType ?? '').toUpperCase() === 'WHATSAPP';
   const isMessengerConversation = (channelType ?? '').toUpperCase() === 'MESSENGER';
   const isTikTokConversation = (channelType ?? '').toUpperCase() === 'TIKTOK';
-  const messengerAvailability = getMessengerMessagingAvailability(header.conversation);
-  const messengerMessagingReady = Boolean(header.conversation);
+  const headerMessagingLoaded = Boolean(currentConversation?.messaging);
+  const isWhatsAppCustomerWindow = isWhatsAppConversation && currentConversation?.messaging?.policyType === 'CUSTOMER_WINDOW';
+  const whatsappWindowExpired = isConversationCustomerWindowExpired(currentConversation);
+  const messengerAvailability = getMessengerMessagingAvailability(currentConversation);
+  const messengerMessagingReady = Boolean(currentConversation);
   const canSendSelectedMessengerMode = messengerMessagingMode === 'STANDARD'
     ? messengerAvailability.canSendStandardMessage
     : messengerAvailability.canSendHumanAgentMessage;
   const canSendFreeform = isMessengerConversation
     ? (messengerMessagingReady ? canSendSelectedMessengerMode : true)
     : isTikTokConversation
-      ? (header.conversation?.messaging?.canSendFreeformMessage ?? true)
-      : header.conversation?.messaging?.canSendFreeformMessage;
+      ? (currentConversation?.messaging?.canSendFreeformMessage ?? true)
+      : currentConversation?.messaging?.canSendFreeformMessage;
+  const showHeaderPresenceDot = !isWhatsAppConversation || headerMessagingLoaded;
   const contactSubtitle =
-    formatPhoneNumberDisplay(header.conversation?.contact?.primaryPhone) ??
-    formatUsernameDisplay(header.conversation?.contact?.username);
-  const title = getConversationTitle(header.conversation, route.params.contactName);
+    formatPhoneNumberDisplay(currentConversation?.contact?.primaryPhone) ??
+    formatUsernameDisplay(currentConversation?.contact?.username);
+  const title = getConversationTitle(currentConversation, route.params.contactName);
 
   useEffect(() => {
     rememberCallParty(
       route.params.conversationId,
       title,
-      header.conversation?.contact?.avatarUrl ?? null,
+      currentConversation?.contact?.avatarUrl ?? null,
     );
-  }, [header.conversation?.contact?.avatarUrl, route.params.conversationId, title]);
+  }, [currentConversation?.contact?.avatarUrl, route.params.conversationId, title]);
 
   useEffect(() => {
     const conversationId = route.params.conversationId;
@@ -896,7 +901,15 @@ export function ConversationScreen() {
               size={42}
               url={header.conversation?.contact?.avatarUrl ?? null}
             />
-            <View style={[styles.presence, { borderColor: colors.surface }]} />
+            {showHeaderPresenceDot ? (
+              <View
+                style={[
+                  styles.presence,
+                  { borderColor: colors.surface },
+                  isWhatsAppCustomerWindow && whatsappWindowExpired ? styles.presenceExpired : undefined,
+                ]}
+              />
+            ) : null}
           </View>
           <View style={styles.titleBlock}>
             <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{title}</Text>
@@ -1181,6 +1194,7 @@ const styles = StyleSheet.create({
   avatarWrap: { flexShrink: 0, position: 'relative' },
   headerIdentity: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 8, minWidth: 0 },
   presence: { backgroundColor: '#22c55e', borderColor: '#fff', borderRadius: 6, borderWidth: 1.5, bottom: 1, height: 12, position: 'absolute', right: 1, width: 12 },
+  presenceExpired: { backgroundColor: '#ef4444' },
   titleBlock: { flex: 1, minWidth: 0 },
   name: { color: '#0f172a', fontWeight: '700' },
   contactSubtitle: { color: '#64748b', fontSize: 12, fontWeight: '500', marginTop: 1, width: '100%' },
