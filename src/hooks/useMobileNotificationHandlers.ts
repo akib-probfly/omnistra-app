@@ -1,11 +1,11 @@
-import * as Notifications from 'expo-notifications';
-import { useCallback, useEffect, useRef } from 'react';
-import { AppState } from 'react-native';
-import { useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '../auth/AuthContext';
-import { useNotificationPreferences } from './useNotificationPreferences';
-import { declineConversationCall } from '../api/inbox';
-import { claimNotification } from '../lib/notification-dedupe';
+import * as Notifications from "expo-notifications";
+import { useCallback, useEffect, useRef } from "react";
+import { AppState } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "../auth/AuthContext";
+import { useNotificationPreferences } from "./useNotificationPreferences";
+import { declineConversationCall } from "../api/inbox";
+import { claimNotification } from "../lib/notification-dedupe";
 import {
   ensureMessageNotificationCategory,
   handleMessageNotificationAction,
@@ -15,7 +15,7 @@ import {
   presentIncomingMessageNotification,
   dismissDuplicateMessageBannersSoon,
   wasPresentedLocally,
-} from '../lib/message-notification';
+} from "../lib/message-notification";
 import {
   ANSWER_CALL_ACTION_ID,
   DECLINE_CALL_ACTION_ID,
@@ -23,16 +23,16 @@ import {
   ensureIncomingCallCategory,
   INCOMING_CALL_CATEGORY_ID,
   presentIncomingCallNotification,
-} from '../lib/call-notification';
-import { clearIncomingCallPrompt } from '../lib/incoming-call-prompt';
+} from "../lib/call-notification";
+import { clearIncomingCallPrompt } from "../lib/incoming-call-prompt";
 import {
   navigateFromMobileNotification,
   parseMobileNotificationData,
   flattenRemotePushData,
   reconnectAndRefreshActiveCalls,
   syncNotificationCaches,
-} from '../lib/mobile-notification';
-import { playNotificationSound } from '../lib/notificationSound';
+} from "../lib/mobile-notification";
+import { playNotificationSound } from "../lib/notificationSound";
 
 let foregroundHandlerConfigured = false;
 
@@ -42,9 +42,13 @@ export function configureMobileForegroundNotificationHandler() {
 
   Notifications.setNotificationHandler({
     handleNotification: async (notification) => {
-      const incomingData = flattenRemotePushData(notification.request.content.data) ?? {};
+      const incomingData =
+        flattenRemotePushData(notification.request.content.data) ?? {};
       // Must still post to the shade so Android can clear the Direct Reply spinner.
-      if (isSettlingDirectReply(incomingData) || isSettlingDirectReply(notification.request.content.data)) {
+      if (
+        isSettlingDirectReply(incomingData) ||
+        isSettlingDirectReply(notification.request.content.data)
+      ) {
         return {
           shouldShowBanner: false,
           shouldShowList: true,
@@ -53,7 +57,22 @@ export function configureMobileForegroundNotificationHandler() {
         };
       }
 
-      if (AppState.currentState === 'active') {
+      const data = incomingData;
+      const payload = parseMobileNotificationData(data);
+      const isEndedCall =
+        payload?.type === "INCOMING_CALL" && payload.callEvent === "ENDED";
+
+      if (AppState.currentState === "active") {
+        if (isEndedCall) {
+          return {
+            shouldShowBanner: true,
+            shouldShowList: true,
+            shouldPlaySound: false,
+            shouldSetBadge: false,
+            priority: Notifications.AndroidNotificationPriority.HIGH,
+          };
+        }
+
         return {
           shouldShowBanner: false,
           shouldShowList: false,
@@ -63,34 +82,18 @@ export function configureMobileForegroundNotificationHandler() {
       }
 
       const category = notification.request.content.categoryIdentifier;
-      const data = incomingData;
-      const payload = parseMobileNotificationData(data);
-      const rawType = payload?.type ?? (typeof data.type === 'string' ? data.type : '');
-      const rawCallEvent = (
-        payload?.callEvent
-        ?? (typeof data.callEvent === 'string' ? data.callEvent.toUpperCase() : '')
-      );
+      const rawType =
+        payload?.type ?? (typeof data.type === "string" ? data.type : "");
       const isIncomingCall =
-        category === INCOMING_CALL_CATEGORY_ID ||
-        (rawType === 'INCOMING_CALL' && rawCallEvent !== 'ENDED');
+        category === INCOMING_CALL_CATEGORY_ID || rawType === "INCOMING_CALL";
       const isLocalMessage =
-        wasPresentedLocally(data) ||
-        category === NEW_MESSAGE_CATEGORY_ID;
+        wasPresentedLocally(data) || category === NEW_MESSAGE_CATEGORY_ID;
       const showBanner = isLocalMessage || isIncomingCall;
-
-      if (payload?.type === 'INCOMING_CALL' && payload.callEvent === 'ENDED') {
-        return {
-          shouldShowBanner: false,
-          shouldShowList: false,
-          shouldPlaySound: false,
-          shouldSetBadge: false,
-        };
-      }
 
       return {
         shouldShowBanner: showBanner,
         shouldShowList: showBanner,
-        shouldPlaySound: isIncomingCall || showBanner,
+        shouldPlaySound: (isIncomingCall || showBanner) && !isEndedCall,
         shouldSetBadge: false,
         priority: isIncomingCall
           ? Notifications.AndroidNotificationPriority.MAX
@@ -123,15 +126,15 @@ export function useMobileNotificationHandlers() {
         });
       }
 
-      if (payload.type === 'INCOMING_CALL' && payload.callEvent === 'ENDED') {
+      if (payload.type === "INCOMING_CALL" && payload.callEvent === "ENDED") {
         void dismissIncomingCallNotification(payload.entityId);
       }
 
       if (
-        payload.type === 'INCOMING_CALL'
-        && payload.callEvent !== 'ENDED'
-        && AppState.currentState !== 'active'
-        && !wasPresentedLocally(notification.request.content.data)
+        payload.type === "INCOMING_CALL" &&
+        payload.callEvent !== "ENDED" &&
+        AppState.currentState !== "active" &&
+        !wasPresentedLocally(notification.request.content.data)
       ) {
         const remoteIdentifier = notification.request.identifier;
         void presentIncomingCallNotification(
@@ -139,15 +142,17 @@ export function useMobileNotificationHandlers() {
         ).then((presented) => {
           if (!presented) return;
           if (remoteIdentifier && remoteIdentifier !== payload.entityId) {
-            void Notifications.dismissNotificationAsync(remoteIdentifier).catch(() => {});
+            void Notifications.dismissNotificationAsync(remoteIdentifier).catch(
+              () => {},
+            );
           }
         });
       }
 
       if (
-        payload.type === 'INCOMING_CALL' &&
-        payload.callEvent !== 'ENDED' &&
-        AppState.currentState === 'active' &&
+        payload.type === "INCOMING_CALL" &&
+        payload.callEvent !== "ENDED" &&
+        AppState.currentState === "active" &&
         currentPreferences.isLoaded &&
         currentPreferences.incomingCallAlertsEnabled &&
         currentPreferences.soundEnabled
@@ -158,16 +163,18 @@ export function useMobileNotificationHandlers() {
       // Data-only FCM (alertTitle/alertBody) has no OS banner. Present locally
       // even when realtime already claimed the id for cache dedupe.
       if (
-        payload.type === 'NEW_MESSAGE'
-        && AppState.currentState !== 'active'
-        && !wasPresentedLocally(notification.request.content.data)
+        payload.type === "NEW_MESSAGE" &&
+        AppState.currentState !== "active" &&
+        !wasPresentedLocally(notification.request.content.data)
       ) {
         const remoteIdentifier = notification.request.identifier;
         void presentIncomingMessageNotification(payload).then(() => {
-          if (remoteIdentifier && !remoteIdentifier.startsWith('message:')) {
-            void Notifications.dismissNotificationAsync(remoteIdentifier).catch(() => {});
+          if (remoteIdentifier && !remoteIdentifier.startsWith("message:")) {
+            void Notifications.dismissNotificationAsync(remoteIdentifier).catch(
+              () => {},
+            );
           }
-          dismissDuplicateMessageBannersSoon(payload.conversationId ?? '');
+          dismissDuplicateMessageBannersSoon(payload.conversationId ?? "");
         });
       }
     },
@@ -194,7 +201,9 @@ export function useMobileNotificationHandlers() {
             response.notification.request.content.data,
           );
           if (payload) {
-            syncNotificationCaches(queryClient, payload, { showIncomingCallPrompt: false });
+            syncNotificationCaches(queryClient, payload, {
+              showIncomingCallPrompt: false,
+            });
           }
           Notifications.clearLastNotificationResponse();
         });
@@ -229,9 +238,9 @@ export function useMobileNotificationHandlers() {
       syncNotificationCaches(queryClient, payload, {
         showIncomingCallPrompt: currentPreferences.incomingCallAlertsEnabled,
       });
-      if (payload.type === 'INCOMING_CALL') {
-        void dismissIncomingCallNotification(payload.entityId);
-        if (payload.callEvent !== 'ENDED') {
+      if (payload.type === "INCOMING_CALL") {
+        if (payload.callEvent !== "ENDED") {
+          void dismissIncomingCallNotification(payload.entityId);
           void reconnectAndRefreshActiveCalls(
             queryClient,
             payload.conversationId,
@@ -239,7 +248,7 @@ export function useMobileNotificationHandlers() {
         }
       }
 
-      if (payload.type === 'INCOMING_CALL' && payload.callEvent === 'ENDED') {
+      if (payload.type === "INCOMING_CALL" && payload.callEvent === "ENDED") {
         Notifications.clearLastNotificationResponse();
         return;
       }

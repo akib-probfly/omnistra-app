@@ -18,7 +18,8 @@ const REGISTRATION_STORAGE_KEY = "mobile-push-device-registration";
 const PREFERENCE_AUTO_ENABLE_KEY = "mobile-push-pref-auto-enabled";
 const DEFAULT_CHANNEL_ID = "default";
 const CALL_CHANNEL_ID = "incoming_calls";
-export { CALL_CHANNEL_ID, DEFAULT_CHANNEL_ID };
+const CALL_ENDED_CHANNEL_ID = "call_ended";
+export { CALL_CHANNEL_ID, CALL_ENDED_CHANNEL_ID, DEFAULT_CHANNEL_ID };
 const NOTIFICATION_COLOR = "#1d4ed8";
 
 type StoredMobilePushRegistration = {
@@ -142,8 +143,7 @@ async function configureAndroidChannels(): Promise<void> {
     lightColor: NOTIFICATION_COLOR,
     enableVibrate: true,
     bypassDnd: true,
-    lockscreenVisibility:
-      Notifications.AndroidNotificationVisibility.PUBLIC,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     audioAttributes: {
       usage: Notifications.AndroidAudioUsage.NOTIFICATION_RINGTONE,
       contentType: Notifications.AndroidAudioContentType.SONIFICATION,
@@ -152,6 +152,15 @@ async function configureAndroidChannels(): Promise<void> {
         requestHardwareAudioVideoSynchronization: false,
       },
     },
+  });
+  await Notifications.setNotificationChannelAsync(CALL_ENDED_CHANNEL_ID, {
+    name: "Ended calls",
+    description: "Notifications when WhatsApp voice calls finish",
+    importance: Notifications.AndroidImportance.HIGH,
+    sound: "default",
+    vibrationPattern: [0, 250, 200, 250],
+    lightColor: NOTIFICATION_COLOR,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
   });
 }
 
@@ -223,8 +232,13 @@ async function enableMobilePushPreferenceOnce(): Promise<void> {
   }
 }
 
-async function registerOnce(accessTokenOverride?: string | null): Promise<boolean> {
-  if (!isNativeMobilePlatform() || !Device.isDevice) {
+async function registerOnce(
+  accessTokenOverride?: string | null,
+): Promise<boolean> {
+  if (
+    !isNativeMobilePlatform() ||
+    (Platform.OS === "ios" && !Device.isDevice)
+  ) {
     return false;
   }
 
