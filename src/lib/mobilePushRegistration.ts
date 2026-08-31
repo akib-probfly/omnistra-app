@@ -1,5 +1,6 @@
 import * as Application from "expo-application";
 import Constants, { ExecutionEnvironment } from "expo-constants";
+import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
@@ -41,6 +42,10 @@ function getProvider(): MobilePushProvider | null {
 
 async function getEnvironment(): Promise<MobilePushEnvironment> {
   if (Platform.OS === "ios") {
+    if (!Device.isDevice) {
+      return "DEVELOPMENT";
+    }
+
     try {
       const environment =
         await Application.getIosPushNotificationServiceEnvironmentAsync();
