@@ -42,6 +42,10 @@ function getProvider(): MobilePushProvider | null {
 
 async function getEnvironment(): Promise<MobilePushEnvironment> {
   if (Platform.OS === "ios") {
+    if (!Device.isDevice) {
+      return "DEVELOPMENT";
+    }
+
     try {
       const environment =
         await Application.getIosPushNotificationServiceEnvironmentAsync();
@@ -235,10 +239,7 @@ async function enableMobilePushPreferenceOnce(): Promise<void> {
 async function registerOnce(
   accessTokenOverride?: string | null,
 ): Promise<boolean> {
-  if (
-    !isNativeMobilePlatform() ||
-    (Platform.OS === "ios" && !Device.isDevice)
-  ) {
+  if (!isNativeMobilePlatform()) {
     return false;
   }
 
