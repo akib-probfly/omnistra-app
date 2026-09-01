@@ -62,7 +62,10 @@ export function BillingLockedOverlay() {
                 name: 'Main',
                 params: {
                   screen: 'Settings',
-                  params: { screen: 'SettingsList' },
+                  params: {
+                    screen: 'Billing',
+                    params: { tab: 'packages' },
+                  },
                 },
               }),
             );

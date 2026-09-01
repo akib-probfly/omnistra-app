@@ -7,7 +7,7 @@ import { DashboardScreen } from '../screens/DashboardScreen';
 import { ChannelsStack } from './ChannelsStack';
 import { ContactsStack } from './ContactsStack';
 import { InboxStack, type InboxStackParamList } from './InboxStack';
-import { SettingsStack } from './SettingsStack';
+import { SettingsStack, type SettingsStackParamList } from './SettingsStack';
 import { useWorkspaceAccess } from '../lib/workspace-access';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -16,7 +16,7 @@ export type MainTabParamList = {
   Inbox: NavigatorScreenParams<InboxStackParamList> | undefined;
   Channels: undefined;
   Contacts: undefined;
-  Settings: undefined;
+  Settings: NavigatorScreenParams<SettingsStackParamList> | undefined;
 };
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
