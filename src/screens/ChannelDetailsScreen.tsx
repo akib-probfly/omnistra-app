@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, FileText, LoaderCircle, RefreshCw, RotateCcw } from 'lucide-react-native';
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { ArrowLeft, Camera, ChevronDown, FileText, RefreshCw, RotateCcw, Save, UserRound } from 'lucide-react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +17,7 @@ import {
   syncTikTokChannel,
   syncWhatsappBusinessProfile,
   updateWhatsappBusinessProfile,
+  uploadWhatsappBusinessProfilePhoto,
   type ChannelDetails,
   type TikTokChannelConfiguration,
 } from '../api/channels';
@@ -28,6 +30,7 @@ import { WhatsappCallingTab } from '../components/WhatsappCallingTab';
 import { WhatsappTemplatesTab } from '../components/WhatsappTemplatesTab';
 import type { ChannelsStackParamList } from '../navigation/ChannelsStack';
 import { useTheme } from '../theme/ThemeContext';
+import { apiUrl } from '../api/client';
 
 const STATUS_TONE: Record<string, { bg: string; fg: string }> = {
   CONNECTED: { bg: '#e8fbf3', fg: '#047857' },
@@ -60,6 +63,8 @@ const WHATSAPP_BUSINESS_VERTICAL_OPTIONS = [
   { value: 'RETAIL', label: 'Shopping and Retail' },
   { value: 'TRAVEL', label: 'Travel and Transportation' },
 ];
+
+const PROFILE_IMAGE_MAX_SIZE_BYTES = 5 * 1024 * 1024;
 
 function formatDateLabel(value: string | null | undefined) {
   if (!value) return 'Not available';
@@ -146,7 +151,10 @@ export function ChannelDetailsScreen() {
 
   const [draft, setDraft] = useState({ about: '', address: '', description: '', email: '', websites: '', vertical: '' });
   const [loaded, setLoaded] = useState(false);
-  if (profileData && !loaded) {
+  const [profilePhotoPreviewUri, setProfilePhotoPreviewUri] = useState<string | null>(null);
+  const [profilePhotoAsset, setProfilePhotoAsset] = useState<{ uri: string; name: string; mimeType: string } | null>(null);
+  useEffect(() => {
+    if (!profileData || loaded) return;
     setDraft({
       about: profileData.about ?? '',
       address: profileData.address ?? '',
@@ -156,18 +164,47 @@ export function ChannelDetailsScreen() {
       vertical: WHATSAPP_BUSINESS_VERTICAL_OPTIONS.some((option) => option.value === profileData.vertical) ? profileData.vertical ?? '' : profileData.vertical ? 'OTHER' : '',
     });
     setLoaded(true);
-  }
+  }, [loaded, profileData]);
   const save = useMutation({
-    mutationFn: () => updateWhatsappBusinessProfile(channelId, {
-      about: draft.about.trim() ? draft.about.trim() : null,
-      address: draft.address.trim() ? draft.address.trim() : null,
-      description: draft.description.trim() ? draft.description.trim() : null,
-      email: draft.email.trim() ? draft.email.trim() : null,
-      vertical: draft.vertical.trim() ? draft.vertical.trim() : null,
-      websites: draft.websites.split(/[\n,]/).map((item) => item.trim()).filter(Boolean),
-    }),
-    onSuccess: () => { profile.refetch(); Toast.show({ type: 'success', text1: 'Profile saved', text2: 'Your WhatsApp business profile was updated.' }); },
+    mutationFn: async () => {
+      let profilePictureHandle: string | undefined;
+      if (profilePhotoAsset) {
+        const upload = await uploadWhatsappBusinessProfilePhoto(channelId, profilePhotoAsset.uri, profilePhotoAsset.name, profilePhotoAsset.mimeType);
+        profilePictureHandle = upload.profilePictureHandle;
+      }
+
+      return updateWhatsappBusinessProfile(channelId, {
+        about: draft.about.trim() ? draft.about.trim() : null,
+        address: draft.address.trim() ? draft.address.trim() : null,
+        description: draft.description.trim() ? draft.description.trim() : null,
+        email: draft.email.trim() ? draft.email.trim() : null,
+        vertical: draft.vertical.trim() ? draft.vertical.trim() : null,
+        websites: draft.websites.split(/[\n,]/).map((item) => item.trim()).filter(Boolean),
+        ...(profilePictureHandle ? { profilePictureHandle } : {}),
+      });
+    },
+    onSuccess: () => { setProfilePhotoAsset(null); setProfilePhotoPreviewUri(null); profile.refetch(); Toast.show({ type: 'success', text1: 'Profile saved', text2: 'Your WhatsApp business profile was updated.' }); },
+    onError: (error) => Toast.show({ type: 'error', text1: 'Could not save profile', text2: error instanceof Error ? error.message : 'Please try again.' }),
   });
+
+  const pickProfilePhoto = useCallback(async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Toast.show({ type: 'info', text1: 'Permission needed', text2: 'Allow photo library access to upload a business profile photo.' });
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85, allowsEditing: true, aspect: [1, 1] });
+    if (result.canceled || !result.assets?.length) return;
+    const asset = result.assets[0];
+    if (asset.fileSize && asset.fileSize > PROFILE_IMAGE_MAX_SIZE_BYTES) {
+      Toast.show({ type: 'error', text1: 'Image too large', text2: 'Profile image must be 5 MB or smaller.' });
+      return;
+    }
+    const uri = asset.uri;
+    const mimeType = asset.mimeType ?? (uri.toLowerCase().endsWith('.png') ? 'image/png' : uri.toLowerCase().endsWith('.webp') ? 'image/webp' : 'image/jpeg');
+    setProfilePhotoAsset({ uri, name: asset.fileName ?? 'whatsapp-profile.jpg', mimeType });
+    setProfilePhotoPreviewUri(uri);
+  }, []);
 
   const [verticalPicker, setVerticalPicker] = useState(false);
   const isBusy = pause.isPending || resume.isPending || remove.isPending || restore.isPending || sync.isPending || save.isPending || syncTikTok.isPending || reconnectTikTok.isPending;
@@ -377,33 +414,64 @@ export function ChannelDetailsScreen() {
     );
   };
 
-  const renderBusiness = () => (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+  const renderBusiness = () => {
+    const profileStatusLabel = profileData ? 'Synced' : profile.isLoading ? 'Loading' : 'Not synced';
+    const displayProfilePhotoUrl = profilePhotoPreviewUri ?? apiUrl(profileData?.profilePictureUrl ?? null);
+    const categoryLabel = WHATSAPP_BUSINESS_VERTICAL_OPTIONS.find((option) => option.value === draft.vertical)?.label ?? 'Select category';
+
+    return (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
         <View style={styles.cardHead}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>WhatsApp Business profile</Text>
-          <Pressable style={[styles.syncButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]} onPress={() => sync.mutate()} disabled={isBusy}><RefreshCw color={colors.primary} size={15} /><Text style={[styles.syncText, { color: colors.primary }]}>Sync</Text></Pressable>
+          <Pressable style={[styles.syncButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]} onPress={() => sync.mutate()} disabled={isBusy}>
+            {sync.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <RefreshCw color={colors.primary} size={15} />}
+            <Text style={[styles.syncText, { color: colors.primary }]}>Sync</Text>
+          </Pressable>
         </View>
         <Text style={[styles.cardSub, { color: colors.textSecondary }]}>The public profile of your WhatsApp Business API account.</Text>
 
-        <FieldEdit label="About" value={draft.about} onChange={(text) => setDraft({ ...draft, about: text })} placeholder="What your business is about" multiline />
+        <View style={[styles.profilePreview, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+          <View style={[styles.profilePhoto, { backgroundColor: colors.surface }]}>
+            {displayProfilePhotoUrl ? (
+              <Image source={{ uri: displayProfilePhotoUrl }} style={styles.profilePhotoImage} resizeMode="cover" />
+            ) : (
+              <UserRound color={colors.textSecondary} size={26} />
+            )}
+          </View>
+          <View style={styles.profilePreviewCopy}>
+            <Text style={[styles.profilePreviewName, { color: colors.text }]} numberOfLines={1}>{channel.name}</Text>
+            <Text style={[styles.profilePreviewMeta, { color: colors.textSecondary }]} numberOfLines={2}>
+              {profileStatusLabel} business{primaryAccount?.displayPhoneNumber ? ` - ${primaryAccount.displayPhoneNumber}` : ''}
+            </Text>
+          </View>
+          <Pressable style={[styles.uploadButton, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} onPress={pickProfilePhoto} disabled={isBusy}>
+            <Camera color={colors.primary} size={14} />
+            <Text style={[styles.uploadButtonText, { color: colors.primary }]}>Upload photo</Text>
+          </Pressable>
+        </View>
+
+        <FieldEdit label="About" value={draft.about} onChange={(text) => setDraft({ ...draft, about: text })} placeholder="What your business is about" />
         <FieldEdit label="Email" value={draft.email} onChange={(text) => setDraft({ ...draft, email: text })} placeholder="business@email.com" keyboardType="email-address" />
         <FieldEdit label="Address" value={draft.address} onChange={(text) => setDraft({ ...draft, address: text })} placeholder="Add address" />
         <FieldEdit label="Website" value={draft.websites} onChange={(text) => setDraft({ ...draft, websites: text })} placeholder="https:// (one per line)" />
         <FieldEdit label="Description" value={draft.description} onChange={(text) => setDraft({ ...draft, description: text })} placeholder="Add description" multiline />
+        <Text style={[styles.charHint, { color: colors.textSecondary }]}>Up to 256 characters</Text>
 
         <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Category</Text>
         <Pressable style={[styles.select, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]} onPress={() => setVerticalPicker(true)}>
-          <Text style={draft.vertical ? [styles.selectText, { color: colors.text }] : [styles.selectPlaceholder, { color: colors.textMuted }]}>{WHATSAPP_BUSINESS_VERTICAL_OPTIONS.find((option) => option.value === draft.vertical)?.label ?? 'Select category'}</Text>
+          <Text style={draft.vertical ? [styles.selectText, { color: colors.text }] : [styles.selectPlaceholder, { color: colors.textMuted }]}>{categoryLabel}</Text>
+          <ChevronDown color={colors.textSecondary} size={18} />
         </Pressable>
 
         <Pressable style={[styles.primaryButton, { marginTop: 18, backgroundColor: colors.primary }]} onPress={() => save.mutate()} disabled={isBusy}>
-          {save.isPending ? <LoaderCircle color="#fff" size={16} /> : null}
-          <Text style={styles.primaryButtonText}>Save profile</Text>
+          {save.isPending ? <ActivityIndicator color="#fff" size="small" /> : <Save color="#fff" size={16} />}
+          <Text style={styles.primaryButtonText}>{save.isPending ? 'Saving...' : 'Save profile'}</Text>
         </Pressable>
       </View>
     </ScrollView>
-  );
+    );
+  };
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -607,12 +675,21 @@ const styles = StyleSheet.create({
   mb: { marginBottom: 10 },
   syncButton: { alignItems: 'center', backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 5, paddingHorizontal: 12, paddingVertical: 7 },
   syncText: { color: '#315efb', fontSize: 13, fontWeight: '700' },
+  profilePreview: { alignItems: 'center', backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 12, marginTop: 18, padding: 14 },
+  profilePhoto: { alignItems: 'center', backgroundColor: '#fff', borderRadius: 18, height: 58, justifyContent: 'center', overflow: 'hidden', width: 58 },
+  profilePhotoImage: { height: 58, width: 58 },
+  profilePreviewCopy: { flex: 1, minWidth: 0 },
+  profilePreviewName: { color: '#0f172a', fontSize: 16, fontWeight: '800' },
+  profilePreviewMeta: { color: '#64748b', fontSize: 12, lineHeight: 17, marginTop: 3 },
+  uploadButton: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 13, borderWidth: 1, flexDirection: 'row', flexShrink: 0, gap: 5, paddingHorizontal: 10, paddingVertical: 8 },
+  uploadButtonText: { color: '#2563eb', fontSize: 12, fontWeight: '700' },
   fieldEdit: { marginTop: 14 },
   input: { backgroundColor: '#f8fbff', borderColor: '#cfe1ff', borderRadius: 14, borderWidth: 1, color: '#0f172a', fontSize: 14, height: 46, paddingHorizontal: 14, marginTop: 6 },
   inputMultiline: { backgroundColor: '#f8fbff', borderColor: '#cfe1ff', borderRadius: 14, borderWidth: 1, color: '#0f172a', fontSize: 14, minHeight: 96, paddingHorizontal: 14, paddingVertical: 12, marginTop: 6, textAlignVertical: 'top' },
-  select: { backgroundColor: '#f8fbff', borderColor: '#cfe1ff', borderRadius: 14, borderWidth: 1, height: 46, justifyContent: 'center', paddingHorizontal: 14, marginTop: 6 },
-  selectText: { color: '#0f172a', fontSize: 14 },
-  selectPlaceholder: { color: '#94a3b8', fontSize: 14 },
+  charHint: { color: '#64748b', fontSize: 11, marginTop: 6 },
+  select: { alignItems: 'center', backgroundColor: '#f8fbff', borderColor: '#cfe1ff', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 8, height: 46, justifyContent: 'space-between', paddingHorizontal: 14, marginTop: 6 },
+  selectText: { color: '#0f172a', flex: 1, fontSize: 14 },
+  selectPlaceholder: { color: '#94a3b8', flex: 1, fontSize: 14 },
   modalBackdrop: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'center', padding: 24 },
   modalSheet: { backgroundColor: '#fff', borderRadius: 22, padding: 18 },
   modalTitle: { color: '#0f172a', fontSize: 16, fontWeight: '700', marginBottom: 8 },

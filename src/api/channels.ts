@@ -1,3 +1,5 @@
+import { apiFetch, uploadFile } from './client';
+
 export type ChannelType =
   | 'WHATSAPP'
   | 'MESSENGER'
@@ -168,8 +170,6 @@ export type WhatsAppConnectLaunch = {
   expiresAt: string;
 };
 
-import { apiFetch } from './client';
-
 export function fetchChannels() {
   return apiFetch<ChannelsListResponse>(
     '/channels?page=1&limit=100&sortBy=createdAt&sortOrder=desc',
@@ -204,6 +204,20 @@ export function syncWhatsappBusinessProfile(channelId: string) {
     `/channels/${channelId}/whatsapp/business-profile/sync`,
     { method: 'POST' },
   );
+}
+
+export function uploadWhatsappBusinessProfilePhoto(
+  channelId: string,
+  uri: string,
+  name: string,
+  mimeType: string,
+) {
+  return uploadFile(
+    `/channels/${channelId}/whatsapp/business-profile/profile-picture`,
+    uri,
+    name,
+    mimeType,
+  ) as unknown as Promise<{ profilePictureHandle: string }>;
 }
 
 export function pauseChannel(channelId: string) {
