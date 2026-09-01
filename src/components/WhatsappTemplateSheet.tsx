@@ -183,7 +183,7 @@ function TemplatePreviewBubble({ form }: { form: WhatsappTemplateFormValues }) {
           </View>
           <View style={styles.chatHeaderCopy}>
             <View style={styles.chatHeaderNameRow}>
-              <Text style={[styles.chatHeaderName, { color: colors.text }]}>Omnistra</Text>
+              <Text style={[styles.chatHeaderName, { color: colors.text }]}>Zurvis</Text>
               <BadgeCheck color="#1DA1F2" fill="#1DA1F2" size={15} />
             </View>
           </View>

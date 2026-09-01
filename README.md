@@ -1,6 +1,6 @@
-# Omnistra Mobile
+# Zurvis Mobile
 
-React Native and Expo mobile app for the Omnistra omnichannel inbox.
+React Native and Expo mobile app for the Zurvis omnichannel inbox.
 
 ## Android APK builds with EAS
 
@@ -15,7 +15,7 @@ Build profiles:
 
 Android settings live in `app.json`:
 
-- `android.package`: `com.omnistra.mobile`
+- `android.package`: `com.zurvis.mobile`
 - `android.versionCode`: `1`
 - adaptive icon assets under `assets/`
 

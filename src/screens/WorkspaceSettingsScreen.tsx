@@ -108,7 +108,7 @@ export function WorkspaceSettingsScreen() {
               <Building2 color={colors.primary} size={20} />
             </View>
             <Text style={[styles.cardTitle, { color: colors.text }]}>Workspace details</Text>
-            <Text style={[styles.cardBody, { color: colors.textSecondary }]}>Update how this workspace appears across Omnistra.</Text>
+            <Text style={[styles.cardBody, { color: colors.textSecondary }]}>Update how this workspace appears across Zurvis.</Text>
 
             <Text style={[styles.label, { color: colors.textSecondary }]}>Workspace name</Text>
             <TextInput value={name} onChangeText={setName} placeholder="Workspace name" placeholderTextColor={colors.textMuted} style={[styles.input, { backgroundColor: colors.background, borderColor: colors.inputBorder, color: colors.text }]} />

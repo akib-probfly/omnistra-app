@@ -27,7 +27,7 @@ const DELIVERY_ROWS: Array<{
   {
     key: 'newConversationAlertsEnabled',
     title: 'In-app alerts',
-    description: 'Show live badges and drawer updates while you are inside Omnistra.',
+    description: 'Show live badges and drawer updates while you are inside Zurvis.',
     icon: Bell,
   },
   {
@@ -39,7 +39,7 @@ const DELIVERY_ROWS: Array<{
   {
     key: 'mobilePushNotificationsEnabled',
     title: 'Mobile push notifications',
-    description: 'Deliver device alerts when Omnistra is in the background.',
+    description: 'Deliver device alerts when Zurvis is in the background.',
     icon: Smartphone,
     push: true,
   },
@@ -122,7 +122,7 @@ export function NotificationSettingsScreen() {
           status = requested.status;
         }
         if (status !== 'granted') {
-          showNotice('Permission required', 'Enable notifications for Omnistra in your device settings to receive push alerts.');
+          showNotice('Permission required', 'Enable notifications for Zurvis in your device settings to receive push alerts.');
           return;
         }
         await registerMobilePushDeviceIfPermitted();
