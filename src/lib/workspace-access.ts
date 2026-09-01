@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchMyWorkspaces, type Workspace } from '../api/workspaces';
+import { isBillingLocked } from './billing-lock';
 
 const MANAGEMENT_ROLES = new Set(['super_admin', 'workspace_admin', 'workspace_manager']);
 
@@ -17,7 +18,7 @@ export function useWorkspaceAccess() {
   const workspace = query.data?.items?.[0] ?? null;
   return {
     workspace,
-    loading: query.isPending,
+    loading: query.isPending && !isBillingLocked(),
     canManage: canManageWorkspace(workspace),
   };
 }

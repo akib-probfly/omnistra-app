@@ -1,4 +1,3 @@
-import { CommonActions } from '@react-navigation/native';
 import { CreditCard, Lock, LogOut } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -8,7 +7,13 @@ import { useBillingLockReason } from '../lib/billing-lock';
 import { navigationRef } from '../navigation/navigationRef';
 import { useTheme } from '../theme/ThemeContext';
 
-const UNLOCKED_ROUTES = new Set(['SettingsList', 'Billing', 'BillingPlanDetails', 'BillingCheckout']);
+const UNLOCKED_ROUTES = new Set([
+  'Settings',
+  'SettingsList',
+  'Billing',
+  'BillingPlanDetails',
+  'BillingCheckout',
+]);
 
 export function BillingLockedOverlay() {
   const reason = useBillingLockReason();
@@ -57,17 +62,16 @@ export function BillingLockedOverlay() {
           style={[styles.primary, { backgroundColor: colors.primary }]}
           onPress={() => {
             if (!navigationRef.isReady()) return;
-            navigationRef.dispatch(
-              CommonActions.navigate({
-                name: 'Main',
+            setCurrentRoute('Billing');
+            navigationRef.navigate(
+              'Main',
+              {
+                screen: 'Settings',
                 params: {
-                  screen: 'Settings',
-                  params: {
-                    screen: 'Billing',
-                    params: { tab: 'packages' },
-                  },
+                  screen: 'Billing',
+                  params: { tab: 'packages' },
                 },
-              }),
+              },
             );
           }}
         >
