@@ -97,6 +97,7 @@
       ],
       "expo-video",
       "@config-plugins/react-native-webrtc",
+      "./plugins/enable-r8-optimization",
       [
         "expo-build-properties",
         {
