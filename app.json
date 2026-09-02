@@ -4,18 +4,9 @@
     "slug": "osaas-mobile",
     "version": "1.0.2",
     "scheme": "osaas",
-    "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "backgroundColor": "#f4f7fb",
-    "androidStatusBar": {
-      "backgroundColor": "#f4f7fb",
-      "barStyle": "dark-content"
-    },
-    "androidNavigationBar": {
-      "backgroundColor": "#f4f7fb",
-      "barStyle": "dark-content"
-    },
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -63,6 +54,7 @@
     },
     "plugins": [
       "expo-dev-client",
+      "./plugins/remove-android-large-screen-restrictions",
       [
         "expo-notifications",
         {

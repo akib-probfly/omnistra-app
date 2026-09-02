@@ -186,8 +186,8 @@ function AuthenticatedOverlays() {
 }
 
 function ThemedStatusBar() {
-  const { isDark, colors } = useTheme();
-  return <StatusBar style={isDark ? 'light' : 'dark'} backgroundColor={colors.background} translucent={false} />;
+  const { isDark } = useTheme();
+  return <StatusBar style={isDark ? 'light' : 'dark'} />;
 }
 
 const ROOT_BG = '#f4f7fb';

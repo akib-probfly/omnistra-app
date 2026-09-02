@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { showNotice } from './AppToast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as MediaLibrary from 'expo-media-library';
 import { Download } from 'lucide-react-native';
-import { downloadMedia, getCachedMediaUri, prepareLocalImageForLibrary } from './AuthenticatedImage';
+import { getImageRequestHeaders, prepareLocalImageForLibrary } from './AuthenticatedImage';
 
 export type MediaGalleryItem = { attachId: string; src: string; mediaType: string };
 
@@ -16,18 +17,6 @@ type MediaViewerProps = {
   onClose: () => void;
   onIndex: (index: number) => void;
 };
-
-function useLocalAsset(url: string | null): string | null {
-  const [uri, setUri] = useState<string | null>(url ? getCachedMediaUri(url) : null);
-  useEffect(() => {
-    if (!url) return;
-    let active = true;
-    setUri(getCachedMediaUri(url));
-    downloadMedia(url).then((result) => { if (active) setUri(result); }).catch((error) => console.error('[media] fetch failed', url, error));
-    return () => { active = false; };
-  }, [url]);
-  return uri;
-}
 
 const MIN_SCALE = 1;
 const MAX_SCALE = 4;
@@ -53,6 +42,8 @@ function ZoomableImage({
   stageHeight: number;
   onZoomChange: (zoomed: boolean) => void;
 }) {
+  const [headers, setHeaders] = useState<Record<string, string> | undefined>();
+  const [checkingHeaders, setCheckingHeaders] = useState(true);
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
   const translateX = useSharedValue(0);
@@ -114,6 +105,25 @@ function ZoomableImage({
 
   const composed = Gesture.Simultaneous(pinch, pan);
 
+  useEffect(() => {
+    let active = true;
+    setCheckingHeaders(true);
+    getImageRequestHeaders(src)
+      .then((nextHeaders) => {
+        if (active) {
+          setHeaders(nextHeaders);
+          setCheckingHeaders(false);
+        }
+      })
+      .catch((error) => {
+        if (active) setCheckingHeaders(false);
+        console.error('[media] image auth failed', src, error);
+      });
+    return () => {
+      active = false;
+    };
+  }, [src]);
+
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: translateX.value },
@@ -126,7 +136,11 @@ function ZoomableImage({
     <GestureDetector gesture={composed}>
       <View style={[styles.zoomStage, { width: stageWidth, height: stageHeight }]} collapsable={false}>
         <Animated.View style={[styles.zoomFill, { width: stageWidth, height: stageHeight }, animatedStyle]}>
-          <Image source={{ uri: src }} resizeMode="contain" style={{ width: stageWidth, height: stageHeight }} />
+          {checkingHeaders ? (
+            <ActivityIndicator color="#fff" size="large" />
+          ) : (
+            <Image source={{ uri: src, cacheKey: src, headers }} contentFit="contain" cachePolicy="memory-disk" allowDownscaling style={{ width: stageWidth, height: stageHeight }} />
+          )}
         </Animated.View>
       </View>
     </GestureDetector>
@@ -254,15 +268,7 @@ function MainAsset({
   stageHeight: number;
   onZoomChange: (zoomed: boolean) => void;
 }) {
-  const modified = useLocalAsset(src);
-  if (!modified) {
-    return (
-      <View style={[styles.loader, { width: stageWidth, height: stageHeight }]}>
-        <ActivityIndicator color="#fff" size="large" />
-      </View>
-    );
-  }
-  return <ZoomableImage src={modified} stageWidth={stageWidth} stageHeight={stageHeight} onZoomChange={onZoomChange} />;
+  return <ZoomableImage src={src} stageWidth={stageWidth} stageHeight={stageHeight} onZoomChange={onZoomChange} />;
 }
 
 const styles = StyleSheet.create({

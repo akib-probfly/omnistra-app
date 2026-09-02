@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
-  Platform,
   StyleSheet,
   View,
   type ImageSourcePropType,
@@ -170,7 +169,7 @@ export function SplashScreen({
 
   return (
     <View style={[styles.screen, { backgroundColor }]} onLayout={reveal}>
-      <StatusBar style="dark" backgroundColor={backgroundColor} translucent={Platform.OS === 'android'} />
+      <StatusBar style="dark" />
       <View style={[styles.body, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={styles.center}>
           {showWordmarkOnly ? (

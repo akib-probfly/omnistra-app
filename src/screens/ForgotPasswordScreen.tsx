@@ -52,7 +52,7 @@ export function ForgotPasswordScreen({
 
   return (
     <KeyboardAvoidingView style={styles.screen} behavior="padding">
-      <StatusBar style={isDark ? 'light' : 'dark'} backgroundColor={colors.background} />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <AuthChrome />
       <ScrollView
         contentContainerStyle={styles.scrollContent}

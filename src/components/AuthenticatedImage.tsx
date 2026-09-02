@@ -1,11 +1,13 @@
 import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Image as ExpoImage } from 'expo-image';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, View } from 'react-native';
 import { latestAccessToken } from '../api/client';
 import { useTheme } from '../theme/ThemeContext';
 
 const cache = new Map<string, string>();
+const authHeaderCache = new Map<string, Record<string, string> | undefined>();
 
 function isPublicRemoteUrl(url: string) {
   try {
@@ -153,9 +155,18 @@ export function getCachedMediaUri(url: string): string | null {
   return cache.get(url) ?? null;
 }
 
+export async function getImageRequestHeaders(url: string): Promise<Record<string, string> | undefined> {
+  if (!url || isLocalMediaUri(url) || !shouldSendAuthHeader(url)) return undefined;
+
+  const token = latestAccessToken ?? (await SecureStore.getItemAsync('access-token'));
+  return token ? { Authorization: `Bearer ${token}` } : undefined;
+}
+
 export function prefetchMedia(url: string): void {
-  if (!url || isPublicRemoteUrl(url)) return;
-  void downloadMedia(url).catch(() => {});
+  if (!url || isLocalMediaUri(url)) return;
+  void getImageRequestHeaders(url)
+    .then((headers) => ExpoImage.prefetch(url, { cachePolicy: 'memory-disk', headers }))
+    .catch(() => {});
 }
 
 function fitWithinBounds(width: number, height: number, maxWidth: number, maxHeight: number) {
@@ -194,11 +205,17 @@ export function AuthenticatedImage({
   onError?: () => void;
 }) {
   const { colors } = useTheme();
-  const publicRemote = isPublicRemoteUrl(url);
-  const [localUri, setLocalUri] = useState<string | null>(publicRemote ? url : (cache.get(url) ?? null));
+  const [imageHeaders, setImageHeaders] = useState<Record<string, string> | undefined>(() => authHeaderCache.get(url));
+  const [checkingHeaders, setCheckingHeaders] = useState(() => Boolean(url && shouldSendAuthHeader(url) && !authHeaderCache.has(url)));
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
+  const imageSource = useMemo(() => {
+    if (!url) return null;
+    if (checkingHeaders) return null;
+    if (imageHeaders) return { uri: url, headers: imageHeaders, cacheKey: url };
+    return { uri: url, cacheKey: url };
+  }, [url, checkingHeaders, imageHeaders]);
 
   useEffect(() => {
     let active = true;
@@ -207,38 +224,40 @@ export function AuthenticatedImage({
     setNaturalSize(null);
 
     if (!url) {
-      setLocalUri(null);
+      setImageHeaders(undefined);
+      setCheckingHeaders(false);
       return;
     }
 
-    if (isPublicRemoteUrl(url) || isLocalMediaUri(url)) {
-      setLocalUri(url);
-      return;
-    }
-
-    setLocalUri(cache.get(url) ?? null);
-    downloadMedia(url)
-      .then((uri) => {
-        if (active) setLocalUri(uri);
+    setImageHeaders(authHeaderCache.get(url));
+    setCheckingHeaders(shouldSendAuthHeader(url) && !authHeaderCache.has(url));
+    getImageRequestHeaders(url)
+      .then((headers) => {
+        authHeaderCache.set(url, headers);
+        if (active) {
+          setImageHeaders(headers);
+          setCheckingHeaders(false);
+        }
       })
       .catch((error) => {
         if (active) {
+          setCheckingHeaders(false);
           setFailed(true);
           onError?.();
-          console.error('[media] download failed', url, error);
+          console.error('[media] image auth failed', url, error);
         }
       });
 
     return () => {
       active = false;
     };
-  }, [url]);
+  }, [onError, url]);
 
   useEffect(() => {
-    if (!fitContent || !localUri) return;
+    if (!fitContent || !url) return;
     let active = true;
     Image.getSize(
-      localUri,
+      url,
       (width, height) => {
         if (active) setNaturalSize({ width, height });
       },
@@ -249,7 +268,7 @@ export function AuthenticatedImage({
     return () => {
       active = false;
     };
-  }, [fitContent, localUri]);
+  }, [fitContent, url]);
 
   const flatStyle = useMemo(() => StyleSheet.flatten(style) ?? {}, [style]);
   const fittedSize = useMemo(() => {
@@ -274,13 +293,15 @@ export function AuthenticatedImage({
 
   return (
     <Pressable disabled={!onPress} onPress={onPress} style={containerStyle}>
-      {localUri && !failed ? (
-        <Image
-          source={{ uri: localUri }}
-          resizeMode={fitContent ? 'cover' : resizeMode}
+      {imageSource && !failed ? (
+        <ExpoImage
+          source={imageSource}
+          cachePolicy="memory-disk"
+          allowDownscaling
+          contentFit={fitContent ? 'cover' : resizeMode}
           style={imageStyle}
           onLoad={(event) => {
-            const source = event?.nativeEvent?.source;
+            const source = event?.source;
             if (fitContent && source?.width && source?.height) {
               setNaturalSize({ width: source.width, height: source.height });
             }

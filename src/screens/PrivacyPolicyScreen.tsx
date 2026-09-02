@@ -20,7 +20,7 @@ export function PrivacyPolicyScreen({ onBack }: { onBack?: () => void }) {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <StatusBar style={isDark ? 'light' : 'dark'} backgroundColor={colors.surface} />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <ScreenHeader title="Privacy Policy" subtitle={`Last updated: ${PRIVACY_LAST_UPDATED}`} onBack={handleBack} />
       <ScrollView
         style={styles.scroll}
