@@ -1,3 +1,5 @@
+import { useQuery } from '@tanstack/react-query';
+import { Image } from 'expo-image';
 import {
   Bell,
   Building2,
@@ -24,6 +26,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import { apiUrl } from '../api/client';
+import { fetchMyProfile } from '../api/profile';
 import { useAuth } from '../auth/AuthContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
@@ -119,12 +123,19 @@ export function SettingsScreen() {
   const [signOutOpen, setSignOutOpen] = useState(false);
   /** Groups start collapsed so Sign out stays visible. Only one group can be open. */
   const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const profileQuery = useQuery({
+    queryKey: ['user-profile', 'me'],
+    queryFn: fetchMyProfile,
+    enabled: Boolean(session?.user.email),
+  });
 
   useEffect(() => {
     if (subscriptionExpired) setOpenGroup('Billing');
   }, [subscriptionExpired]);
-  const name = session?.user.name?.trim() || session?.user.email?.trim() || 'User';
-  const email = session?.user.email?.trim() || '';
+  const name = profileQuery.data?.name?.trim() || session?.user.name?.trim() || session?.user.email?.trim() || 'User';
+  const email = profileQuery.data?.email?.trim() || session?.user.email?.trim() || '';
+  const storedAvatarUrl = profileQuery.data?.avatarUrl ?? session?.user.avatarUrl ?? null;
+  const displayAvatarUrl = storedAvatarUrl ? apiUrl(storedAvatarUrl) : null;
 
   const cycleTheme = () => {
     if (mode === 'system') setMode('light');
@@ -179,7 +190,16 @@ export function SettingsScreen() {
       >
         <View style={[styles.profileCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{getInitials(name)}</Text>
+            {displayAvatarUrl ? (
+              <Image
+                source={{ uri: displayAvatarUrl }}
+                style={[styles.avatarImage, { backgroundColor: colors.surfaceSecondary }]}
+                cachePolicy="memory-disk"
+                contentFit="cover"
+              />
+            ) : (
+              <Text style={styles.avatarText}>{getInitials(name)}</Text>
+            )}
           </View>
           <View style={styles.copy}>
             <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{name}</Text>
@@ -320,7 +340,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 16,
   },
-  avatar: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 24, height: 48, justifyContent: 'center', width: 48 },
+  avatar: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 24, height: 48, justifyContent: 'center', overflow: 'hidden', width: 48 },
+  avatarImage: { borderRadius: 24, height: 48, width: 48 },
   avatarText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   copy: { flex: 1, marginLeft: 12, minWidth: 0 },
   name: { color: '#0f172a', fontSize: 16, fontWeight: '700' },
