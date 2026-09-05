@@ -18,6 +18,7 @@ import {
   Sun,
   Tag,
   UserRound,
+  UsersRound,
   Workflow,
   Zap,
   type LucideIcon,
@@ -39,7 +40,7 @@ import { useTheme } from '../theme/ThemeContext';
 
 type BillingTab = 'current' | 'packages' | 'invoices' | 'history';
 
-type GeneralRoute = 'Profile' | 'Workspace' | 'Notifications' | 'InboxAppearance' | 'QuickReplies' | 'Tags' | 'AssignmentPolicy' | 'Broadcast' | 'BroadcastCreate' | '__appearance__';
+type GeneralRoute = 'Profile' | 'Workspace' | 'Members' | 'Notifications' | 'InboxAppearance' | 'QuickReplies' | 'Tags' | 'AssignmentPolicy' | 'Broadcast' | 'BroadcastCreate' | '__appearance__';
 
 type SettingsRow =
   | { kind: 'route'; id: string; label: string; description: string; icon: LucideIcon; iconBg: string; iconColor: string; route: GeneralRoute; badge?: string }
@@ -62,6 +63,12 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
       { kind: 'route', id: 'assignment', label: 'Assignment Policy', description: 'Auto-assign and call routing rules', icon: Workflow, iconBg: '#eef2ff', iconColor: '#4f46e5', route: 'AssignmentPolicy', badge: 'NEW' },
       { kind: 'route', id: 'quick-replies', label: 'Quick Replies', description: 'Create and manage reply snippets', icon: Zap, iconBg: '#fefce8', iconColor: '#ca8a04', route: 'QuickReplies' },
       { kind: 'route', id: 'tags', label: 'Tags', description: 'Organize conversations and contacts', icon: Tag, iconBg: '#fdf2f8', iconColor: '#db2777', route: 'Tags' },
+    ],
+  },
+  {
+    label: 'Team Management',
+    items: [
+      { kind: 'route', id: 'members', label: 'Members', description: 'Team access and performance', icon: UsersRound, iconBg: '#eff6ff', iconColor: '#2563eb', route: 'Members' },
     ],
   },
   {

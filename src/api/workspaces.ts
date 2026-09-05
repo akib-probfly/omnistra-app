@@ -51,14 +51,29 @@ export async function fetchTimezones(countryName?: string): Promise<{ zones?: Ti
 
 export type WorkspaceRosterMember = {
   id: string;
-  kind?: string;
-  workspaceMemberId: string;
-  userId: string;
+  kind?: 'MEMBER' | 'INVITE';
+  workspaceId?: string;
+  workspaceMemberId: string | null;
+  userId: string | null;
   email: string;
   name: string | null;
   avatarUrl?: string | null;
   status: 'ACTIVE' | 'INVITED' | 'DISABLED';
   roleKeys?: string[];
+  roleLabel?: string;
+  accessScope?: 'ALL_CHANNELS' | 'ASSIGNED_CHANNELS' | null;
+  canManageChannelAssignments?: boolean;
+  limitToAssignedConversations?: boolean;
+  channelAssignments?: Array<{
+    channelId: string;
+    channelName: string;
+    channelType: string;
+  }>;
+  createdAt?: string;
+  updatedAt?: string | null;
+  expiresAt?: string | null;
+  acceptedAt?: string | null;
+  revokedAt?: string | null;
 };
 
 export async function fetchWorkspaceRosterMembers(
@@ -67,8 +82,7 @@ export async function fetchWorkspaceRosterMembers(
   limit = 20,
 ): Promise<{ items: WorkspaceRosterMember[] }> {
   const query = new URLSearchParams({
-    kind: 'MEMBER',
-    status: 'ACTIVE',
+    kind: 'ALL',
     page: '1',
     limit: String(limit),
   });
