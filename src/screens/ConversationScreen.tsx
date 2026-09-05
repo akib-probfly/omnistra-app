@@ -587,9 +587,14 @@ export function ConversationScreen() {
   }, [header.conversation, header.unreadCount, messages.isLoading, messages.isError, atBottom, readMutation.isPending, route.params.conversationId]);
 
   useEffect(() => {
+    if (!isFocused) {
+      setActiveConversationId(null);
+      return;
+    }
+
     setActiveConversationId(route.params.conversationId);
     return () => setActiveConversationId(null);
-  }, [route.params.conversationId]);
+  }, [isFocused, route.params.conversationId]);
 
   useEffect(() => {
     if (!isFocused) {
