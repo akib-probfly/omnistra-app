@@ -1,22 +1,43 @@
-import { useQuery } from '@tanstack/react-query';
-import { Globe2, RefreshCw, UsersRound } from 'lucide-react-native';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Check, ChevronDown, Globe2, Layers, Mail, RefreshCw, ShieldCheck, UserPlus2, UsersRound, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  createWorkspaceInvites,
   fetchWorkspaceRosterMembers,
+  validateInviteEmail,
+  type WorkspaceInviteRoleHint,
   type WorkspaceRosterMember,
 } from '../api/workspaces';
+import { fetchChannels } from '../api/channels';
+import { showNotice } from '../components/AppToast';
+import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 import { ChannelLogo } from '../components/ChannelLogo';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ErrorState } from '../components/ErrorState';
 import { ListSkeleton } from '../components/Skeleton';
 import { useWorkspaceAccess } from '../lib/workspace-access';
 import { useTheme } from '../theme/ThemeContext';
-import { AppIconButton, AppSearchField, ScreenHeader } from '../ui';
+import { AppButton, AppIconButton, AppSearchField, ScreenHeader } from '../ui';
 
 const EMPTY_MEMBERS: WorkspaceRosterMember[] = [];
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+const INVITE_LIMIT_MESSAGE = 'Workspace reached its member limit. Please contact your workspace admin to free up a seat or upgrade the plan.';
+
+const ROLE_OPTIONS: Array<{ value: WorkspaceInviteRoleHint; label: string; description: string }> = [
+  { value: 'AGENT', label: 'Agent', description: 'For inbox operators who handle assigned conversations.' },
+  { value: 'MANAGER', label: 'Manager', description: 'For supervisors who monitor team workflow and coverage.' },
+];
+
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function isValidEmail(value: string) {
+  return EMAIL_PATTERN.test(normalizeEmail(value));
+}
 
 function displayName(member: WorkspaceRosterMember) {
   return member.name?.trim() || member.email.split('@')[0] || member.email;
@@ -169,10 +190,21 @@ function MemberCard({ member, index }: { member: WorkspaceRosterMember; index: n
 export function MembersSettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const queryClient = useQueryClient();
   const { colors } = useTheme();
   const { workspace, loading: workspaceLoading } = useWorkspaceAccess();
   const workspaceId = workspace?.id;
   const [search, setSearch] = useState('');
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [emails, setEmails] = useState<string[]>([]);
+  const [emailDraft, setEmailDraft] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [inviteRole, setInviteRole] = useState<WorkspaceInviteRoleHint>('AGENT');
+  const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
+  const [channelSearch, setChannelSearch] = useState('');
+  const [channelsExpanded, setChannelsExpanded] = useState(false);
+  const [limitToAssigned, setLimitToAssigned] = useState(false);
+  const [sendEmail, setSendEmail] = useState(true);
 
   const rosterQuery = useQuery({
     queryKey: ['workspace-roster', 'settings-members', workspaceId, search],
@@ -181,12 +213,178 @@ export function MembersSettingsScreen() {
     staleTime: 20_000,
   });
 
+  const channelsQuery = useQuery({
+    queryKey: ['channels', 'invite', workspaceId],
+    queryFn: fetchChannels,
+    enabled: inviteOpen && Boolean(workspaceId),
+    staleTime: 30_000,
+  });
+
   const members = rosterQuery.data?.items ?? EMPTY_MEMBERS;
   const summary = useMemo(() => ({
     total: members.length,
     active: members.filter((member) => member.status === 'ACTIVE').length,
     invited: members.filter((member) => member.status === 'INVITED').length,
   }), [members]);
+
+  const existingEmailSet = useMemo(
+    () => new Set(members.map((member) => member.email.trim().toLowerCase())),
+    [members],
+  );
+
+  const workspaceChannels = useMemo(
+    () => (channelsQuery.data?.items ?? []).filter((channel) => !workspaceId || channel.workspaceId === workspaceId),
+    [channelsQuery.data, workspaceId],
+  );
+
+  const filteredChannels = useMemo(() => {
+    const query = channelSearch.trim().toLowerCase();
+    if (!query) return workspaceChannels;
+    return workspaceChannels.filter((channel) => {
+      const phone = channel.accounts[0]?.displayPhoneNumber ?? '';
+      return [channel.name, phone, channel.type, channel.status]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [workspaceChannels, channelSearch]);
+
+  const selectedChannels = useMemo(
+    () => workspaceChannels.filter((channel) => selectedChannelIds.includes(channel.id)),
+    [workspaceChannels, selectedChannelIds],
+  );
+
+  const hasRequiredChannels = workspaceChannels.length === 0 || selectedChannelIds.length > 0;
+  const normalizedDraft = normalizeEmail(emailDraft);
+  const hasValidDraft = normalizedDraft ? isValidEmail(normalizedDraft) : false;
+  const hasRecipient = emails.length > 0 || hasValidDraft;
+
+  const openInvite = () => {
+    setEmails([]);
+    setEmailDraft('');
+    setEmailError(null);
+    setInviteRole('AGENT');
+    setSelectedChannelIds([]);
+    setChannelSearch('');
+    setChannelsExpanded(false);
+    setLimitToAssigned(false);
+    setSendEmail(true);
+    setInviteOpen(true);
+  };
+
+  const addEmailsFromText = async (value: string): Promise<boolean> => {
+    const parts = value
+      .split(/[\n,;]+/)
+      .map((item) => normalizeEmail(item))
+      .filter(Boolean);
+
+    if (parts.length === 0) return false;
+
+    const invalidEmail = parts.find((email) => !isValidEmail(email));
+    if (invalidEmail) {
+      setEmailError(`"${invalidEmail}" is not a valid email address.`);
+      return false;
+    }
+
+    const duplicate = parts.find((email) => existingEmailSet.has(email) || emails.includes(email));
+    if (duplicate) {
+      setEmailError(`"${duplicate}" already belongs to this workspace.`);
+      return false;
+    }
+
+    if (workspaceId) {
+      try {
+        const result = await validateInviteEmail(workspaceId, parts[0]);
+        if (result.exists) {
+          setEmailError(result.userExists
+            ? 'A user with this email address already exists in the system.'
+            : 'This email already has a pending invite.');
+          return false;
+        }
+      } catch {
+        return false;
+      }
+    }
+
+    setEmails((current) => Array.from(new Set([...current, ...parts])));
+    setEmailError(null);
+    return true;
+  };
+
+  const commitEmailDraft = async () => {
+    if (!normalizeEmail(emailDraft)) return;
+    if (await addEmailsFromText(emailDraft)) setEmailDraft('');
+  };
+
+  const handleDraftChange = (value: string) => {
+    if (emailError) setEmailError(null);
+    if (/[,;\n]/.test(value)) {
+      void (async () => {
+        const added = await addEmailsFromText(value);
+        setEmailDraft(added ? '' : value);
+      })();
+      return;
+    }
+    setEmailDraft(value);
+  };
+
+  const toggleChannel = (channelId: string) => {
+    setSelectedChannelIds((current) => current.includes(channelId)
+      ? current.filter((id) => id !== channelId)
+      : [...current, channelId]);
+  };
+
+  const inviteMutation = useMutation({
+    mutationFn: async () => {
+      let workingEmails = [...emails];
+      const draft = normalizeEmail(emailDraft);
+      if (draft) {
+        if (!(await addEmailsFromText(draft))) throw new Error('Fix the email addresses before sending.');
+        workingEmails = Array.from(new Set([...workingEmails, draft]));
+        setEmailDraft('');
+      }
+      if (workingEmails.length === 0) throw new Error('Enter at least one email address.');
+      return createWorkspaceInvites({
+        workspaceId: workspaceId!,
+        emails: workingEmails,
+        roleHint: inviteRole,
+        limitToAssignedConversations: inviteRole === 'AGENT' ? limitToAssigned : false,
+        channelIds: selectedChannelIds,
+        sendEmail,
+      });
+    },
+    onSuccess: async (result) => {
+      setInviteOpen(false);
+      setEmails([]);
+      setEmailDraft('');
+      setEmailError(null);
+      setInviteRole('AGENT');
+      setSelectedChannelIds([]);
+      setChannelSearch('');
+      setChannelsExpanded(false);
+      setLimitToAssigned(false);
+      setSendEmail(true);
+      await queryClient.invalidateQueries({ queryKey: ['workspace-roster'] });
+      const count = result.items.length;
+      showNotice(
+        'Workspace invites created',
+        sendEmail
+          ? `${count} invitation ${count === 1 ? 'email was' : 'emails were'} queued.`
+          : 'The invitation links are ready in the roster.',
+      );
+    },
+    onError: (error) => {
+      if (error instanceof Error && error.message === 'Fix the email addresses before sending.') return;
+      if (error instanceof Error && error.message.toLowerCase().includes('member limit')) {
+        showNotice('Workspace is full', INVITE_LIMIT_MESSAGE);
+        return;
+      }
+      showNotice('Could not create invites', error instanceof Error ? error.message : 'Please try again.');
+    },
+  });
+
+  const canSubmit = hasRecipient && hasRequiredChannels && !inviteMutation.isPending;
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -204,16 +402,6 @@ export function MembersSettingsScreen() {
         )}
       />
 
-      <View style={[styles.summaryCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-        <View>
-          <Text style={[styles.summaryTitle, { color: colors.text }]}>Team performance</Text>
-          <Text style={[styles.summarySub, { color: colors.textSecondary }]}>Showing workspace roster</Text>
-        </View>
-        <Text style={[styles.summaryCount, { color: colors.textSecondary }]}>
-          {summary.total} {summary.total === 1 ? 'member' : 'members'}
-        </Text>
-      </View>
-
       <View style={[styles.searchRow, { backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <AppSearchField
           value={search}
@@ -221,6 +409,12 @@ export function MembersSettingsScreen() {
           placeholder="Search members"
           size="sm"
           tone="background"
+        />
+        <AppButton
+          label="Invite"
+          icon={UserPlus2}
+          onPress={openInvite}
+          style={styles.inviteButton}
         />
       </View>
 
@@ -257,37 +451,267 @@ export function MembersSettingsScreen() {
             <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
               <UsersRound color={colors.textMuted} size={30} />
               <Text style={[styles.emptyTitle, { color: colors.text }]}>No members found</Text>
-              <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>Try another search or invite teammates from the web workspace.</Text>
+              <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>Try another search or invite a teammate.</Text>
             </View>
           )}
           renderItem={({ item, index }) => <MemberCard member={item} index={index} />}
         />
       )}
+
+      <BottomSheet visible={inviteOpen} onClose={() => setInviteOpen(false)} sheetStyle={styles.sheet}>
+        <View style={styles.sheetHeader}>
+          <View style={[styles.sheetIcon, { backgroundColor: colors.surfaceSecondary }]}>
+            <UserPlus2 color={colors.primary} size={20} />
+          </View>
+          <View style={styles.sheetCopy}>
+            <Text style={[styles.sheetTitle, { color: colors.text }]}>Invite team members</Text>
+            <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>Send an email invite - they&apos;ll get access right after accepting.</Text>
+          </View>
+        </View>
+
+        <SheetScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
+          <View style={styles.fieldBlock}>
+            <View style={styles.fieldLabelRow}>
+              <Mail color={colors.textMuted} size={14} />
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Email addresses</Text>
+            </View>
+            <View style={[styles.chipBox, { backgroundColor: colors.background, borderColor: emailError ? colors.error : colors.cardBorder }]}>
+              <View style={styles.chipWrap}>
+                {emails.map((email) => (
+                  <View key={email} style={[styles.chip, { backgroundColor: colors.surfaceSecondary }]}>
+                    <Text style={[styles.chipText, { color: colors.primary }]} numberOfLines={1}>{email}</Text>
+                    <Pressable
+                      onPress={() => setEmails((current) => current.filter((item) => item !== email))}
+                      hitSlop={8}
+                      accessibilityLabel={`Remove ${email}`}
+                    >
+                      <X color={colors.textMuted} size={13} />
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+              <TextInput
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                returnKeyType="done"
+                value={emailDraft}
+                onChangeText={handleDraftChange}
+                onBlur={() => void commitEmailDraft()}
+                onSubmitEditing={() => void commitEmailDraft()}
+                placeholder={emails.length === 0 ? 'name@company.com, another@company.com' : 'Add another email'}
+                placeholderTextColor={colors.textMuted}
+                style={[styles.input, { color: colors.text }]}
+              />
+            </View>
+            <Text style={[styles.helperText, { color: colors.textMuted }]}>Press Enter or comma to add multiple addresses.</Text>
+            {emailError ? <Text style={[styles.errorText, { color: colors.error }]}>{emailError}</Text> : null}
+          </View>
+
+          <View style={styles.fieldBlock}>
+            <View style={styles.fieldLabelRow}>
+              <ShieldCheck color={colors.textMuted} size={14} />
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Role</Text>
+            </View>
+            <View style={styles.roleList}>
+              {ROLE_OPTIONS.map((option) => {
+                const selected = inviteRole === option.value;
+                return (
+                  <Pressable
+                    key={option.value}
+                    onPress={() => setInviteRole(option.value)}
+                    style={[
+                      styles.roleCard,
+                      { backgroundColor: colors.background, borderColor: selected ? colors.primary : colors.cardBorder },
+                      selected && styles.roleCardActive,
+                    ]}
+                    accessibilityState={{ selected }}
+                  >
+                    <View style={styles.roleCardTop}>
+                      <Text style={[styles.roleCardLabel, { color: colors.text }]}>{option.label}</Text>
+                      {selected ? <Check color={colors.primary} size={16} /> : null}
+                    </View>
+                    <Text style={[styles.roleCardDescription, { color: colors.textSecondary }]}>{option.description}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.fieldBlock}>
+            <View style={styles.fieldLabelRow}>
+              <Layers color={colors.textMuted} size={14} />
+              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Channels</Text>
+            </View>
+            {channelsQuery.isLoading ? (
+              <Text style={[styles.helperText, { color: colors.textMuted }]}>Loading channels…</Text>
+            ) : workspaceChannels.length === 0 ? (
+              <View style={[styles.noChannels, { borderColor: colors.cardBorder, backgroundColor: colors.surfaceSecondary }]}>
+                <Text style={[styles.helperText, { color: colors.textSecondary }]}>No channels are connected yet. The invite will still work.</Text>
+              </View>
+            ) : (
+              <View style={styles.dropdown}>
+                <Pressable
+                  onPress={() => setChannelsExpanded((current) => !current)}
+                  style={[
+                    styles.dropdownTrigger,
+                    { backgroundColor: colors.background, borderColor: channelsExpanded ? colors.primary : colors.cardBorder },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: channelsExpanded }}
+                  accessibilityLabel={selectedChannels.length === 0 ? 'Select channels' : `${selectedChannels.length} channels selected`}
+                >
+                  <Text
+                    style={[styles.dropdownTriggerText, { color: selectedChannels.length === 0 ? colors.textMuted : colors.text }]}
+                    numberOfLines={1}
+                  >
+                    {selectedChannels.length === 0
+                      ? 'Select channels'
+                      : `${selectedChannels.length} ${selectedChannels.length === 1 ? 'channel' : 'channels'} selected`}
+                  </Text>
+                  <ChevronDown
+                    color={colors.textMuted}
+                    size={18}
+                    style={{ transform: [{ rotate: channelsExpanded ? '180deg' : '0deg' }] }}
+                  />
+                </Pressable>
+                {selectedChannels.length > 0 ? (
+                  <View style={styles.selectedWrap}>
+                    {selectedChannels.map((channel) => (
+                      <View
+                        key={channel.id}
+                        style={[styles.selectedChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}
+                      >
+                        <ChannelLogo type={channel.type} box={20} glyph={11} radius={10} />
+                        <Text style={[styles.selectedChipText, { color: colors.text }]} numberOfLines={1}>
+                          {channel.name}
+                        </Text>
+                        <Pressable
+                          onPress={() => toggleChannel(channel.id)}
+                          hitSlop={8}
+                          accessibilityLabel={`Remove ${channel.name}`}
+                        >
+                          <X color={colors.textMuted} size={13} />
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+                {channelsExpanded ? (
+                  <View style={[styles.dropdownPanel, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+                    <AppSearchField
+                      value={channelSearch}
+                      onChangeText={setChannelSearch}
+                      placeholder="Search channels"
+                      size="sm"
+                      tone="surface"
+                      fill={false}
+                    />
+                    {filteredChannels.map((channel) => {
+                      const selected = selectedChannelIds.includes(channel.id);
+                      const phone = channel.accounts[0]?.displayPhoneNumber;
+                      return (
+                        <Pressable
+                          key={channel.id}
+                          onPress={() => toggleChannel(channel.id)}
+                          style={[
+                            styles.channelRow,
+                            { backgroundColor: colors.surface, borderColor: selected ? colors.primary : colors.cardBorder },
+                          ]}
+                          accessibilityState={{ selected }}
+                        >
+                          <ChannelLogo type={channel.type} box={28} glyph={15} radius={14} />
+                          <View style={styles.channelCopy}>
+                            <Text style={[styles.channelName, { color: colors.text }]} numberOfLines={1}>{channel.name}</Text>
+                            {phone ? <Text style={[styles.channelSub, { color: colors.textMuted }]} numberOfLines={1}>{phone}</Text> : null}
+                          </View>
+                          <View style={[
+                            styles.checkbox,
+                            { borderColor: selected ? colors.primary : colors.cardBorder, backgroundColor: selected ? colors.primary : 'transparent' },
+                          ]}>
+                            {selected ? <Check color="#fff" size={14} /> : null}
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                    {filteredChannels.length === 0 ? (
+                      <Text style={[styles.helperText, { color: colors.textMuted }]}>No channels match your search.</Text>
+                    ) : null}
+                  </View>
+                ) : null}
+                {!hasRequiredChannels ? (
+                  <Text style={[styles.errorText, { color: colors.error }]}>Select at least one channel.</Text>
+                ) : null}
+              </View>
+            )}
+          </View>
+
+          {inviteRole === 'AGENT' ? (
+            <Pressable
+              onPress={() => setLimitToAssigned((current) => !current)}
+              style={[styles.toggleCard, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}
+              accessibilityState={{ checked: limitToAssigned }}
+              accessibilityRole="checkbox"
+            >
+              <View style={[styles.checkbox, { borderColor: limitToAssigned ? colors.primary : colors.cardBorder, backgroundColor: limitToAssigned ? colors.primary : 'transparent' }]}>
+                {limitToAssigned ? <Check color="#fff" size={14} /> : null}
+              </View>
+              <View style={styles.toggleCopy}>
+                <Text style={[styles.toggleTitle, { color: colors.text }]}>Agents can see only assigned conversations</Text>
+                <Text style={[styles.toggleSub, { color: colors.textSecondary }]}>
+                  {limitToAssigned ? 'On - agents only see conversations assigned to them.' : 'Off - agents can see all conversations in their channels.'}
+                </Text>
+              </View>
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            onPress={() => setSendEmail((current) => !current)}
+            style={[styles.toggleCard, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}
+            accessibilityState={{ checked: sendEmail }}
+            accessibilityRole="checkbox"
+          >
+            <View style={[styles.checkbox, { borderColor: sendEmail ? colors.primary : colors.cardBorder, backgroundColor: sendEmail ? colors.primary : 'transparent' }]}>
+              {sendEmail ? <Check color="#fff" size={14} /> : null}
+            </View>
+            <View style={styles.toggleCopy}>
+              <Text style={[styles.toggleTitle, { color: colors.text }]}>Send invite email</Text>
+            </View>
+          </Pressable>
+        </SheetScrollView>
+
+        <View style={[styles.sheetFooter, { borderTopColor: colors.cardBorder }]}>
+          <Text style={[styles.footerSummary, { color: colors.textMuted }]}>
+            {emails.length + (hasValidDraft ? 1 : 0)} {emails.length + (hasValidDraft ? 1 : 0) === 1 ? 'recipient' : 'recipients'} · {selectedChannelIds.length} {selectedChannelIds.length === 1 ? 'channel' : 'channels'}
+          </Text>
+          <View style={styles.sheetActions}>
+            <AppButton variant="secondary" label="Cancel" onPress={() => setInviteOpen(false)} />
+            <AppButton
+              label={inviteMutation.isPending ? 'Sending...' : sendEmail ? 'Send invite email' : 'Generate invitation links'}
+              icon={Mail}
+              loading={inviteMutation.isPending}
+              disabled={!canSubmit}
+              onPress={() => inviteMutation.mutate()}
+            />
+          </View>
+        </View>
+      </BottomSheet>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  summaryCard: {
-    alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginHorizontal: 16,
-    marginTop: 14,
-    padding: 14,
-  },
-  summaryTitle: { fontSize: 15, fontWeight: '800' },
-  summarySub: { fontSize: 12, marginTop: 3 },
-  summaryCount: { fontSize: 12, fontWeight: '600' },
   searchRow: {
+    alignItems: 'center',
     borderBottomWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
     marginTop: 12,
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
+  inviteButton: { paddingHorizontal: 14 },
   statsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 12 },
   stat: { borderRadius: 14, borderWidth: 1, flex: 1, padding: 12 },
   statValue: { fontSize: 20, fontWeight: '800' },
@@ -331,4 +755,46 @@ const styles = StyleSheet.create({
   emptyCard: { alignItems: 'center', borderRadius: 18, borderWidth: 1, padding: 28 },
   emptyTitle: { fontSize: 16, fontWeight: '800', marginTop: 12 },
   emptyBody: { fontSize: 13, lineHeight: 19, marginTop: 4, textAlign: 'center' },
+  sheet: { paddingBottom: 12, paddingHorizontal: 20, paddingTop: 6 },
+  sheetHeader: { alignItems: 'center', flexDirection: 'row', marginBottom: 12 },
+  sheetIcon: { alignItems: 'center', borderRadius: 18, height: 42, justifyContent: 'center', width: 42 },
+  sheetCopy: { flex: 1, marginLeft: 12, minWidth: 0 },
+  sheetTitle: { fontSize: 18, fontWeight: '800' },
+  sheetSubtitle: { fontSize: 12, marginTop: 2 },
+  sheetBody: { gap: 18, paddingBottom: 16, paddingTop: 4 },
+  fieldBlock: { gap: 8 },
+  fieldLabelRow: { alignItems: 'center', flexDirection: 'row', gap: 6 },
+  fieldLabel: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
+  chipBox: { borderRadius: 14, borderWidth: 1, gap: 4, paddingHorizontal: 12, paddingVertical: 10 },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: { alignItems: 'center', borderRadius: 8, flexDirection: 'row', gap: 6, maxWidth: '100%', paddingHorizontal: 8, paddingVertical: 5 },
+  chipText: { flexShrink: 1, fontSize: 12, fontWeight: '700' },
+  input: { fontSize: 14, minHeight: 32, paddingVertical: 4, textAlignVertical: 'top' },
+  helperText: { fontSize: 11 },
+  errorText: { fontSize: 12, fontWeight: '600' },
+  roleList: { gap: 8 },
+  roleCard: { borderRadius: 14, borderWidth: 1, padding: 12 },
+  roleCardActive: { borderWidth: 1.5 },
+  roleCardTop: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  roleCardLabel: { fontSize: 13, fontWeight: '800' },
+  roleCardDescription: { fontSize: 11, lineHeight: 16, marginTop: 3 },
+  noChannels: { borderRadius: 12, borderStyle: 'dashed', borderWidth: 1, paddingHorizontal: 12, paddingVertical: 12 },
+  dropdown: { gap: 8 },
+  dropdownTrigger: { alignItems: 'center', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 8, minHeight: 46, paddingHorizontal: 12, paddingVertical: 11 },
+  dropdownTriggerText: { flex: 1, fontSize: 14, fontWeight: '600', minWidth: 0 },
+  selectedWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  selectedChip: { alignItems: 'center', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 6, maxWidth: '100%', paddingLeft: 4, paddingRight: 6, paddingVertical: 4 },
+  selectedChipText: { flexShrink: 1, fontSize: 12, fontWeight: '700' },
+  dropdownPanel: { borderRadius: 14, borderWidth: 1, gap: 8, padding: 10 },
+  channelRow: { alignItems: 'center', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 10, padding: 10 },
+  channelCopy: { flex: 1, minWidth: 0 },
+  channelSub: { fontSize: 11, marginTop: 2 },
+  toggleCard: { alignItems: 'flex-start', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 10, padding: 12 },
+  toggleCopy: { flex: 1, minWidth: 0 },
+  toggleTitle: { fontSize: 13, fontWeight: '800' },
+  toggleSub: { fontSize: 11, lineHeight: 16, marginTop: 3 },
+  checkbox: { alignItems: 'center', borderRadius: 6, borderWidth: 1, height: 22, justifyContent: 'center', marginTop: 1, width: 22 },
+  sheetFooter: { borderTopWidth: 1, gap: 10, paddingTop: 12 },
+  footerSummary: { fontSize: 11 },
+  sheetActions: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
 });

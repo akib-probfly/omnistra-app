@@ -82,7 +82,8 @@ export function showNotice(text1: string, text2?: string) {
     || lower.includes('permission')
     || lower.includes('too large')
     || lower.includes('unavailable')
-    || lower.includes('locked')
+    ||     lower.includes('locked')
+    || lower.includes('is full')
     || lower.startsWith('fix')
       ? 'error'
       : lower.includes('saved')

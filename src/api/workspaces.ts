@@ -76,6 +76,30 @@ export type WorkspaceRosterMember = {
   revokedAt?: string | null;
 };
 
+export type WorkspaceInviteRoleHint = 'MANAGER' | 'AGENT';
+
+export type WorkspaceInviteItem = {
+  id: string;
+  email: string;
+  roleHint: WorkspaceInviteRoleHint;
+  inviteUrl: string;
+  limitToAssignedConversations: boolean;
+  expiresAt: string;
+  createdAt: string;
+  emailQueued: boolean;
+  channelAssignments: Array<{
+    channelId: string;
+    channelName: string;
+    channelType: string;
+  }>;
+};
+
+export type WorkspaceInvitesCreateResponse = {
+  workspaceId: string;
+  workspaceName: string;
+  items: WorkspaceInviteItem[];
+};
+
 export async function fetchWorkspaceRosterMembers(
   workspaceId: string,
   search?: string,
@@ -88,6 +112,40 @@ export async function fetchWorkspaceRosterMembers(
   });
   if (search?.trim()) query.set('search', search.trim());
   return apiFetch(`/workspaces/${workspaceId}/roster?${query.toString()}`);
+}
+
+export async function createWorkspaceInvites(values: {
+  workspaceId: string;
+  emails: string[];
+  roleHint: WorkspaceInviteRoleHint;
+  limitToAssignedConversations: boolean;
+  channelIds: string[];
+  sendEmail: boolean;
+}): Promise<WorkspaceInvitesCreateResponse> {
+  return apiFetch(`/workspaces/${values.workspaceId}/invites`, {
+    method: 'POST',
+    body: JSON.stringify({
+      emails: values.emails,
+      roleHint: values.roleHint,
+      limitToAssignedConversations: values.limitToAssignedConversations,
+      channelIds: values.channelIds,
+      sendEmail: values.sendEmail,
+    }),
+  });
+}
+
+export type ValidateInviteEmailResponse = {
+  exists: boolean;
+  userExists: boolean;
+  pendingInviteInAnyWorkspace: boolean;
+  pendingInviteInThisWorkspace: boolean;
+};
+
+export async function validateInviteEmail(workspaceId: string, email: string): Promise<ValidateInviteEmailResponse> {
+  return apiFetch(`/workspaces/${workspaceId}/invites/validate-email`, {
+    method: 'POST',
+    body: JSON.stringify({ email, workspaceId }),
+  });
 }
 
 export function workspaceCanUpdateSettings(workspace?: Pick<Workspace, 'roleKeys'> | null) {
