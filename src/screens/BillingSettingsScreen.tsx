@@ -673,9 +673,9 @@ function HistoryRow({ item }: { item: SubscriptionView }) {
   const tone = statusTone(String(item.status));
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-      <View style={styles.rowBetween}>
-        <Text style={[styles.planName, { color: colors.text }]}>{item.planKey}</Text>
-        <View style={[styles.statusPill, { backgroundColor: tone.bg }]}>
+      <View style={styles.historyHeader}>
+        <Text style={[styles.historyPlanName, { color: colors.text }]} numberOfLines={2}>{item.planKey}</Text>
+        <View style={[styles.statusPill, styles.historyStatusPill, { backgroundColor: tone.bg }]}>
           <Text style={[styles.statusPillText, { color: tone.text }]}>{String(item.status)}</Text>
         </View>
       </View>
@@ -906,6 +906,9 @@ const styles = StyleSheet.create({
   emptyTitle: { color: '#0f172a', fontSize: 16, fontWeight: '800', marginTop: 12 },
   emptyBody: { color: '#64748b', fontSize: 13, marginTop: 4, textAlign: 'center' },
   rowBetween: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  historyHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
+  historyPlanName: { color: '#0f172a', flex: 1, flexShrink: 1, fontSize: 18, fontWeight: '800', lineHeight: 22, minWidth: 0 },
+  historyStatusPill: { flexShrink: 0, marginTop: 2 },
   statusPill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   statusPillText: { fontSize: 11, fontWeight: '700' },
 });
