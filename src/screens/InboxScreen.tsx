@@ -13,7 +13,7 @@ import { DateRangeFilter } from '../components/DateRangeFilter';
 import { InboxCallsPane } from '../components/InboxCallsPane';
 import { ListSkeleton, PanelSkeleton } from '../components/Skeleton';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { fetchConversations, fetchConversationCount, fetchConversationUnreadCount, fetchAssigneeOptions, type ConversationCallSession, type ConversationListItem } from '../api/inbox';
+import { fetchConversations, fetchConversationCount, fetchConversationUnreadCount, fetchAssigneeOptions, markConversationRead, type ConversationCallSession, type ConversationListItem } from '../api/inbox';
 import { fetchWorkspaceTags } from '../api/conversationDetails';
 import { apiFetch } from '../api/client';
 import { type Channel } from '../api/channels';
@@ -28,7 +28,7 @@ import {
 } from '../lib/conversation-last-interaction';
 import { isConversationCustomerWindowExpired } from '../lib/inbox-utils';
 import { applyUnreadOverrideToPage } from '../lib/unread-count-override';
-import { optimisticMarkConversationReadInCache } from '../lib/inbox-unread-cache';
+import { optimisticMarkConversationReadInCache, setConversationUnreadInCache } from '../lib/inbox-unread-cache';
 import { pollingWhileUnlocked } from '../lib/billing-lock';
 import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { useTheme } from '../theme/ThemeContext';
@@ -760,6 +760,16 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
   const onPress = useCallback(() => {
     if (conversation.unreadCount > 0) {
       optimisticMarkConversationReadInCache(queryClient, conversation.id, conversation.unreadCount);
+      void markConversationRead(conversation.id)
+        .then((updated) => {
+          const nextUnreadCount = typeof updated?.unreadCount === 'number' ? updated.unreadCount : 0;
+          setConversationUnreadInCache(queryClient, conversation.id, nextUnreadCount);
+          void queryClient.invalidateQueries({ queryKey: ['inbox-unread-count'], refetchType: 'active' });
+        })
+        .catch(() => {
+          void queryClient.invalidateQueries({ queryKey: ['conversations'], refetchType: 'active' });
+          void queryClient.invalidateQueries({ queryKey: ['inbox-unread-count'], refetchType: 'active' });
+        });
     }
     navigation.navigate('Conversation', {
       conversationId: conversation.id,
