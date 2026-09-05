@@ -153,6 +153,73 @@ export function workspaceCanUpdateSettings(workspace?: Pick<Workspace, 'roleKeys
   return roles.includes('workspace_admin') || roles.includes('workspace_manager');
 }
 
+export type WorkspaceMemberStatusUpdate = 'ACTIVE' | 'DISABLED';
+
+export async function updateWorkspaceMemberChannelAssignments(values: {
+  workspaceId: string;
+  workspaceMemberId: string;
+  channelIds: string[];
+  limitToAssignedConversations: boolean;
+}) {
+  return apiFetch(`/workspaces/${values.workspaceId}/members/${values.workspaceMemberId}/channel-assignments`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      channelIds: values.channelIds,
+      limitToAssignedConversations: values.limitToAssignedConversations,
+    }),
+  });
+}
+
+export async function updateWorkspaceMemberRole(values: {
+  workspaceId: string;
+  workspaceMemberId: string;
+  role: 'workspace_manager' | 'workspace_agent';
+  limitToAssignedConversations: boolean;
+}) {
+  return apiFetch(`/workspaces/${values.workspaceId}/members/${values.workspaceMemberId}/role`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      role: values.role,
+      limitToAssignedConversations: values.limitToAssignedConversations,
+    }),
+  });
+}
+
+export async function updateWorkspaceMemberStatus(values: {
+  workspaceId: string;
+  workspaceMemberId: string;
+  status: WorkspaceMemberStatusUpdate;
+}) {
+  return apiFetch(`/workspaces/${values.workspaceId}/members/${values.workspaceMemberId}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: values.status }),
+  });
+}
+
+export async function deleteWorkspaceMember(values: {
+  workspaceId: string;
+  workspaceMemberId: string;
+}) {
+  return apiFetch<{ deleted: boolean }>(
+    `/workspaces/${values.workspaceId}/members/${values.workspaceMemberId}`,
+    { method: 'DELETE' },
+  );
+}
+
+export async function refreshWorkspaceInviteLink(workspaceId: string, inviteId: string) {
+  return apiFetch<{ inviteId: string; workspaceId: string; email: string; inviteUrl: string; expiresAt: string }>(
+    `/workspaces/${workspaceId}/invites/${inviteId}/link`,
+    { method: 'POST' },
+  );
+}
+
+export async function deleteWorkspaceInvite(workspaceId: string, inviteId: string) {
+  return apiFetch<{ deleted: boolean }>(
+    `/workspaces/${workspaceId}/invites/${inviteId}`,
+    { method: 'DELETE' },
+  );
+}
+
 export function formatGmtOffset(offsetSeconds: number) {
   const sign = offsetSeconds >= 0 ? '+' : '-';
   const absoluteSeconds = Math.abs(offsetSeconds);

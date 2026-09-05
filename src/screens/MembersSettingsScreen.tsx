@@ -1,21 +1,31 @@
+import * as Clipboard from 'expo-clipboard';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, ChevronDown, Globe2, Layers, Mail, RefreshCw, ShieldCheck, UserPlus2, UsersRound, X } from 'lucide-react-native';
+import { Check, ChevronDown, ChevronRight, Copy, Globe2, Layers, Mail, Pencil, RefreshCw, ShieldCheck, Trash2, UserCheck, UserPlus2, UsersRound, UserX, X, type LucideIcon } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   createWorkspaceInvites,
+  deleteWorkspaceInvite,
+  deleteWorkspaceMember,
   fetchWorkspaceRosterMembers,
+  refreshWorkspaceInviteLink,
+  updateWorkspaceMemberChannelAssignments,
+  updateWorkspaceMemberRole,
+  updateWorkspaceMemberStatus,
   validateInviteEmail,
   type WorkspaceInviteRoleHint,
+  type WorkspaceMemberStatusUpdate,
   type WorkspaceRosterMember,
 } from '../api/workspaces';
-import { fetchChannels } from '../api/channels';
+import { fetchChannels, type Channel } from '../api/channels';
+import { fetchMyProfile } from '../api/profile';
 import { showNotice } from '../components/AppToast';
 import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 import { ChannelLogo } from '../components/ChannelLogo';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ErrorState } from '../components/ErrorState';
 import { ListSkeleton } from '../components/Skeleton';
 import { useWorkspaceAccess } from '../lib/workspace-access';
@@ -37,6 +47,23 @@ function normalizeEmail(value: string) {
 
 function isValidEmail(value: string) {
   return EMAIL_PATTERN.test(normalizeEmail(value));
+}
+
+function isInviteRow(member: WorkspaceRosterMember) {
+  return (member.kind ?? 'MEMBER') === 'INVITE';
+}
+
+function isEditableRosterMember(member: WorkspaceRosterMember) {
+  return !isInviteRow(member) && Boolean(member.workspaceMemberId);
+}
+
+function isAgentRosterMember(member: WorkspaceRosterMember) {
+  const roles = member.roleKeys ?? [];
+  return roles.includes('workspace_agent') || (!roles.includes('workspace_admin') && !roles.includes('workspace_manager'));
+}
+
+function memberActionName(member: WorkspaceRosterMember) {
+  return member.name?.trim() || member.email;
 }
 
 function displayName(member: WorkspaceRosterMember) {
@@ -129,7 +156,201 @@ function AccessPill({ member }: { member: WorkspaceRosterMember }) {
   );
 }
 
-function MemberCard({ member, index }: { member: WorkspaceRosterMember; index: number }) {
+function ChannelOptionRow({
+  channel,
+  selected,
+  onToggle,
+}: {
+  channel: Channel;
+  selected: boolean;
+  onToggle: (channelId: string) => void;
+}) {
+  const { colors } = useTheme();
+  const phone = channel.accounts[0]?.displayPhoneNumber;
+  return (
+    <Pressable
+      onPress={() => onToggle(channel.id)}
+      style={[
+        styles.channelRow,
+        { backgroundColor: selected ? colors.surfaceSecondary : colors.surface, borderColor: selected ? colors.primary : colors.cardBorder },
+      ]}
+      accessibilityState={{ selected }}
+    >
+      <ChannelLogo type={channel.type} box={24} glyph={13} radius={12} />
+      <View style={styles.channelCopy}>
+        <Text style={[styles.channelName, { color: colors.text }]} numberOfLines={1}>{channel.name}</Text>
+        {phone ? <Text style={[styles.channelSub, { color: colors.textMuted }]} numberOfLines={1}>{phone}</Text> : null}
+      </View>
+      <View style={[
+        styles.checkbox,
+        { borderColor: selected ? colors.primary : colors.cardBorder, backgroundColor: selected ? colors.primary : 'transparent' },
+      ]}>
+        {selected ? <Check color="#fff" size={12} /> : null}
+      </View>
+    </Pressable>
+  );
+}
+
+function ChannelSelectDropdown({
+  channels,
+  selectedIds,
+  onToggle,
+  loading = false,
+}: {
+  channels: Channel[];
+  selectedIds: string[];
+  onToggle: (channelId: string) => void;
+  loading?: boolean;
+}) {
+  const { colors } = useTheme();
+  const [expanded, setExpanded] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return channels;
+    return channels.filter((channel) => {
+      const phone = channel.accounts[0]?.displayPhoneNumber ?? '';
+      return [channel.name, phone, channel.type, channel.status]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [channels, search]);
+
+  const selected = useMemo(
+    () => channels.filter((channel) => selectedIds.includes(channel.id)),
+    [channels, selectedIds],
+  );
+
+  if (loading) {
+    return <Text style={[styles.helperText, { color: colors.textMuted }]}>Loading channels…</Text>;
+  }
+
+  if (channels.length === 0) {
+    return (
+      <View style={[styles.noChannels, { borderColor: colors.cardBorder, backgroundColor: colors.surfaceSecondary }]}>
+        <Text style={[styles.helperText, { color: colors.textSecondary }]}>No channels are connected yet. The invite will still work.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.dropdown}>
+      <Pressable
+        onPress={() => setExpanded((current) => !current)}
+        style={[
+          styles.dropdownTrigger,
+          { backgroundColor: colors.background, borderColor: expanded ? colors.primary : colors.cardBorder },
+        ]}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityLabel={selected.length === 0 ? 'Select channels' : `${selected.length} channels selected`}
+      >
+        <Text
+          style={[styles.dropdownTriggerText, { color: selected.length === 0 ? colors.textMuted : colors.text }]}
+          numberOfLines={1}
+        >
+          {selected.length === 0
+            ? 'Select channels'
+            : `${selected.length} ${selected.length === 1 ? 'channel' : 'channels'} selected`}
+        </Text>
+        <ChevronDown
+          color={colors.textMuted}
+          size={18}
+          style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}
+        />
+      </Pressable>
+      {selected.length > 0 ? (
+        <View style={styles.selectedWrap}>
+          {selected.map((channel) => (
+            <View
+              key={channel.id}
+              style={[styles.selectedChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}
+            >
+              <ChannelLogo type={channel.type} box={20} glyph={11} radius={10} />
+              <Text style={[styles.selectedChipText, { color: colors.text }]} numberOfLines={1}>
+                {channel.name}
+              </Text>
+              <Pressable
+                onPress={() => onToggle(channel.id)}
+                hitSlop={8}
+                accessibilityLabel={`Remove ${channel.name}`}
+              >
+                <X color={colors.textMuted} size={13} />
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {expanded ? (
+        <View style={[styles.dropdownPanel, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+          <AppSearchField
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search channels"
+            size="sm"
+            tone="surface"
+            fill={false}
+          />
+          <SheetScrollView
+            style={styles.optionsList}
+            contentContainerStyle={styles.optionsContent}
+            nestedScrollEnabled
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator
+          >
+            {filtered.map((channel) => (
+              <ChannelOptionRow
+                key={channel.id}
+                channel={channel}
+                selected={selectedIds.includes(channel.id)}
+                onToggle={onToggle}
+              />
+            ))}
+            {filtered.length === 0 ? (
+              <Text style={[styles.helperText, { color: colors.textMuted }]}>No channels match your search.</Text>
+            ) : null}
+          </SheetScrollView>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function SheetActionRow({
+  icon: Icon,
+  label,
+  danger = false,
+  onPress,
+}: {
+  icon: LucideIcon;
+  label: string;
+  danger?: boolean;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.actionRow,
+        { backgroundColor: pressed ? colors.surfaceSecondary : colors.background, borderColor: colors.cardBorder },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <View style={[styles.actionIcon, { backgroundColor: danger ? '#fff1f2' : colors.surfaceSecondary }]}>
+        <Icon color={danger ? '#e11d48' : colors.primary} size={15} />
+      </View>
+      <Text style={[styles.actionLabel, { color: danger ? '#e11d48' : colors.text }]}>{label}</Text>
+      <ChevronRight color={colors.textMuted} size={16} />
+    </Pressable>
+  );
+}
+
+function MemberCard({ member, index, onSelect }: { member: WorkspaceRosterMember; index: number; onSelect: (member: WorkspaceRosterMember) => void }) {
   const { colors } = useTheme();
   const name = displayName(member);
   const status = statusTheme(member.status);
@@ -137,7 +358,15 @@ function MemberCard({ member, index }: { member: WorkspaceRosterMember; index: n
   const barColor = performance.rate >= 80 ? '#22c55e' : '#2563eb';
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+    <Pressable
+      onPress={() => onSelect(member)}
+      style={({ pressed }) => [
+        styles.card,
+        { backgroundColor: colors.surface, borderColor: colors.cardBorder, opacity: pressed ? 0.85 : 1 },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel={`Manage ${displayName(member)}`}
+    >
       <View style={styles.memberHeader}>
         <View style={styles.avatarWrap}>
           <ColorfulAvatar name={name} url={member.avatarUrl} size={42} />
@@ -151,6 +380,7 @@ function MemberCard({ member, index }: { member: WorkspaceRosterMember; index: n
           <View style={[styles.statusDot, { backgroundColor: status.dot }]} />
           <Text style={[styles.statusText, { color: status.fg }]}>{statusLabel(member.status)}</Text>
         </View>
+        <ChevronRight color={colors.textMuted} size={16} />
       </View>
 
       <View style={styles.metaRow}>
@@ -183,7 +413,7 @@ function MemberCard({ member, index }: { member: WorkspaceRosterMember; index: n
           </View>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -201,10 +431,22 @@ export function MembersSettingsScreen() {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [inviteRole, setInviteRole] = useState<WorkspaceInviteRoleHint>('AGENT');
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
-  const [channelSearch, setChannelSearch] = useState('');
-  const [channelsExpanded, setChannelsExpanded] = useState(false);
   const [limitToAssigned, setLimitToAssigned] = useState(false);
   const [sendEmail, setSendEmail] = useState(true);
+  const [actionMember, setActionMember] = useState<WorkspaceRosterMember | null>(null);
+  const [editMember, setEditMember] = useState<WorkspaceRosterMember | null>(null);
+  const [editChannelIds, setEditChannelIds] = useState<string[]>([]);
+  const [editLimitToAssigned, setEditLimitToAssigned] = useState(false);
+  const [roleMember, setRoleMember] = useState<WorkspaceRosterMember | null>(null);
+  const [roleSelection, setRoleSelection] = useState<WorkspaceInviteRoleHint>('AGENT');
+  const [roleLimitToAssigned, setRoleLimitToAssigned] = useState(false);
+  const [pendingAction, setPendingAction] = useState<
+    | { kind: 'status'; member: WorkspaceRosterMember; status: WorkspaceMemberStatusUpdate }
+    | { kind: 'delete'; member: WorkspaceRosterMember }
+    | null
+  >(null);
+  const [isProcessingMemberAction, setIsProcessingMemberAction] = useState(false);
+  const [copyingInviteId, setCopyingInviteId] = useState<string | null>(null);
 
   const rosterQuery = useQuery({
     queryKey: ['workspace-roster', 'settings-members', workspaceId, search],
@@ -216,8 +458,14 @@ export function MembersSettingsScreen() {
   const channelsQuery = useQuery({
     queryKey: ['channels', 'invite', workspaceId],
     queryFn: fetchChannels,
-    enabled: inviteOpen && Boolean(workspaceId),
+    enabled: (inviteOpen || editMember !== null) && Boolean(workspaceId),
     staleTime: 30_000,
+  });
+
+  const profileQuery = useQuery({
+    queryKey: ['me-profile'],
+    queryFn: fetchMyProfile,
+    staleTime: 60_000,
   });
 
   const members = rosterQuery.data?.items ?? EMPTY_MEMBERS;
@@ -237,24 +485,6 @@ export function MembersSettingsScreen() {
     [channelsQuery.data, workspaceId],
   );
 
-  const filteredChannels = useMemo(() => {
-    const query = channelSearch.trim().toLowerCase();
-    if (!query) return workspaceChannels;
-    return workspaceChannels.filter((channel) => {
-      const phone = channel.accounts[0]?.displayPhoneNumber ?? '';
-      return [channel.name, phone, channel.type, channel.status]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(query);
-    });
-  }, [workspaceChannels, channelSearch]);
-
-  const selectedChannels = useMemo(
-    () => workspaceChannels.filter((channel) => selectedChannelIds.includes(channel.id)),
-    [workspaceChannels, selectedChannelIds],
-  );
-
   const hasRequiredChannels = workspaceChannels.length === 0 || selectedChannelIds.length > 0;
   const normalizedDraft = normalizeEmail(emailDraft);
   const hasValidDraft = normalizedDraft ? isValidEmail(normalizedDraft) : false;
@@ -266,8 +496,6 @@ export function MembersSettingsScreen() {
     setEmailError(null);
     setInviteRole('AGENT');
     setSelectedChannelIds([]);
-    setChannelSearch('');
-    setChannelsExpanded(false);
     setLimitToAssigned(false);
     setSendEmail(true);
     setInviteOpen(true);
@@ -361,8 +589,6 @@ export function MembersSettingsScreen() {
       setEmailError(null);
       setInviteRole('AGENT');
       setSelectedChannelIds([]);
-      setChannelSearch('');
-      setChannelsExpanded(false);
       setLimitToAssigned(false);
       setSendEmail(true);
       await queryClient.invalidateQueries({ queryKey: ['workspace-roster'] });
@@ -386,6 +612,191 @@ export function MembersSettingsScreen() {
 
   const canSubmit = hasRecipient && hasRequiredChannels && !inviteMutation.isPending;
 
+  const myRoleKeys = workspace?.roleKeys ?? [];
+  const isAdmin = myRoleKeys.includes('super_admin') || myRoleKeys.includes('workspace_admin');
+  const isManager = myRoleKeys.includes('workspace_manager');
+  const canManageAssignments = isAdmin;
+  const canManageRoleChange = isAdmin;
+  const canManageLifecycle = isAdmin || isManager;
+
+  const getMemberPermissions = (member: WorkspaceRosterMember) => {
+    const roles = member.roleKeys ?? [];
+    const targetIsAdmin = roles.includes('super_admin') || roles.includes('workspace_admin');
+    const targetIsManager = roles.includes('workspace_manager');
+    const targetIsAgent = roles.includes('workspace_agent') || (!targetIsAdmin && !targetIsManager);
+    const profile = profileQuery.data;
+    const profileEmail = profile?.email.trim().toLowerCase();
+    const isCurrentUser = profile != null && (
+      (member.userId != null && profile.id === member.userId)
+      || (profileEmail != null && profileEmail === member.email.trim().toLowerCase())
+    );
+    return {
+      isCurrentUser,
+      canEditAccess: canManageAssignments && member.canManageChannelAssignments !== false && !isCurrentUser,
+      canChangeRole: canManageRoleChange && !isCurrentUser && !targetIsAdmin && (targetIsManager || targetIsAgent),
+      canManageLifecycle: canManageLifecycle && !isCurrentUser
+        && (isAdmin || (isManager && !targetIsAdmin && !targetIsManager)),
+    };
+  };
+
+  const invalidateRoster = () => queryClient.invalidateQueries({ queryKey: ['workspace-roster'] });
+
+  const openEditAccess = (member: WorkspaceRosterMember) => {
+    setActionMember(null);
+    setEditChannelIds((member.channelAssignments ?? []).map((assignment) => assignment.channelId));
+    setEditLimitToAssigned(member.limitToAssignedConversations ?? false);
+    setEditMember(member);
+  };
+
+  const openChangeRole = (member: WorkspaceRosterMember) => {
+    setActionMember(null);
+    const roles = member.roleKeys ?? [];
+    setRoleSelection(roles.includes('workspace_manager') ? 'MANAGER' : 'AGENT');
+    setRoleLimitToAssigned(member.limitToAssignedConversations ?? false);
+    setRoleMember(member);
+  };
+
+  const editAccessMutation = useMutation({
+    mutationFn: () => updateWorkspaceMemberChannelAssignments({
+      workspaceId: workspaceId!,
+      workspaceMemberId: editMember!.workspaceMemberId!,
+      channelIds: editChannelIds,
+      limitToAssignedConversations: editLimitToAssigned,
+    }),
+    onSuccess: async () => {
+      setEditMember(null);
+      await invalidateRoster();
+      await queryClient.invalidateQueries({ queryKey: ['channels'] });
+      showNotice('Member access updated');
+    },
+    onError: (error) => {
+      showNotice('Could not update member access', error instanceof Error ? error.message : 'Please try again.');
+    },
+  });
+
+  const changeRoleMutation = useMutation({
+    mutationFn: () => updateWorkspaceMemberRole({
+      workspaceId: workspaceId!,
+      workspaceMemberId: roleMember!.workspaceMemberId!,
+      role: roleSelection === 'MANAGER' ? 'workspace_manager' : 'workspace_agent',
+      limitToAssignedConversations: roleSelection === 'MANAGER' ? false : roleLimitToAssigned,
+    }),
+    onSuccess: async () => {
+      setRoleMember(null);
+      await invalidateRoster();
+      showNotice('Member role updated');
+    },
+    onError: (error) => {
+      showNotice('Could not update member role', error instanceof Error ? error.message : 'Please try again.');
+    },
+  });
+
+  const performMemberStatusUpdate = async (member: WorkspaceRosterMember, status: WorkspaceMemberStatusUpdate) => {
+    if (!workspaceId || !member.workspaceMemberId) return;
+    const isDeactivate = status === 'DISABLED';
+    try {
+      setIsProcessingMemberAction(true);
+      await updateWorkspaceMemberStatus({ workspaceId, workspaceMemberId: member.workspaceMemberId, status });
+      showNotice(isDeactivate ? 'Member deactivated' : 'Member reactivated');
+      await invalidateRoster();
+    } catch (error) {
+      if (error instanceof Error && error.message.toLowerCase().includes('member limit')) {
+        showNotice('Workspace is full', INVITE_LIMIT_MESSAGE);
+        return;
+      }
+      showNotice(
+        isDeactivate ? 'Could not deactivate member' : 'Could not reactivate member',
+        error instanceof Error ? error.message : 'Please try again.',
+      );
+    } finally {
+      setIsProcessingMemberAction(false);
+      setPendingAction(null);
+    }
+  };
+
+  const handleToggleMemberStatus = (member: WorkspaceRosterMember) => {
+    setActionMember(null);
+    if (member.status === 'DISABLED') {
+      void performMemberStatusUpdate(member, 'ACTIVE');
+      return;
+    }
+    setPendingAction({ kind: 'status', member, status: 'DISABLED' });
+  };
+
+  const waitForMemberRemoval = async (workspaceMemberId: string) => {
+    const deadline = Date.now() + 30_000;
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+      try {
+        await queryClient.refetchQueries({ queryKey: ['workspace-roster'] });
+      } catch {
+        continue;
+      }
+      const snapshots = queryClient.getQueriesData<{ items?: WorkspaceRosterMember[] }>({
+        queryKey: ['workspace-roster'],
+      });
+      const stillPresent = snapshots.some(([, data]) => data?.items?.some((item) => item.workspaceMemberId === workspaceMemberId));
+      if (!stillPresent) return true;
+    }
+    return false;
+  };
+
+  const performDeleteMember = async (member: WorkspaceRosterMember) => {
+    if (!workspaceId || !member.workspaceMemberId) return;
+    try {
+      setIsProcessingMemberAction(true);
+      await deleteWorkspaceMember({ workspaceId, workspaceMemberId: member.workspaceMemberId });
+    } catch (error) {
+      showNotice('Could not delete member', error instanceof Error ? error.message : 'Please try again.');
+      setIsProcessingMemberAction(false);
+      setPendingAction(null);
+      return;
+    }
+    const removed = await waitForMemberRemoval(member.workspaceMemberId);
+    if (removed) {
+      showNotice('Member deleted');
+    } else {
+      showNotice('Member deletion is still processing', 'The member will disappear from the roster once the deletion completes.');
+    }
+    await invalidateRoster();
+    setIsProcessingMemberAction(false);
+    setPendingAction(null);
+  };
+
+  const handleCopyInviteLink = async (member: WorkspaceRosterMember) => {
+    if (!workspaceId) return;
+    setActionMember(null);
+    try {
+      setCopyingInviteId(member.id);
+      const result = await refreshWorkspaceInviteLink(workspaceId, member.id);
+      await Clipboard.setStringAsync(result.inviteUrl);
+      showNotice('Invitation link copied');
+      await invalidateRoster();
+    } catch (error) {
+      showNotice('Could not copy invitation link', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setCopyingInviteId(null);
+    }
+  };
+
+  const handleRemoveInvite = async (member: WorkspaceRosterMember) => {
+    if (!workspaceId) return;
+    setActionMember(null);
+    try {
+      await deleteWorkspaceInvite(workspaceId, member.id);
+      showNotice('Invite removed');
+      await invalidateRoster();
+    } catch (error) {
+      showNotice('Could not remove invite', error instanceof Error ? error.message : 'Please try again.');
+    }
+  };
+
+  const actionPermissions = actionMember ? getMemberPermissions(actionMember) : null;
+  const actionIsInvite = actionMember ? isInviteRow(actionMember) : false;
+  const actionIsEditable = actionMember ? isEditableRosterMember(actionMember) : false;
+  const pendingName = pendingAction ? memberActionName(pendingAction.member) : '';
+  const pendingIsDelete = pendingAction?.kind === 'delete';
+
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <ScreenHeader
@@ -403,13 +814,15 @@ export function MembersSettingsScreen() {
       />
 
       <View style={[styles.searchRow, { backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
-        <AppSearchField
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search members"
-          size="sm"
-          tone="background"
-        />
+        <View style={styles.searchFieldWrap}>
+          <AppSearchField
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search members"
+            size="sm"
+            tone="background"
+          />
+        </View>
         <AppButton
           label="Invite"
           icon={UserPlus2}
@@ -454,7 +867,7 @@ export function MembersSettingsScreen() {
               <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>Try another search or invite a teammate.</Text>
             </View>
           )}
-          renderItem={({ item, index }) => <MemberCard member={item} index={index} />}
+          renderItem={({ item, index }) => <MemberCard member={item} index={index} onSelect={setActionMember} />}
         />
       )}
 
@@ -543,107 +956,15 @@ export function MembersSettingsScreen() {
               <Layers color={colors.textMuted} size={14} />
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Channels</Text>
             </View>
-            {channelsQuery.isLoading ? (
-              <Text style={[styles.helperText, { color: colors.textMuted }]}>Loading channels…</Text>
-            ) : workspaceChannels.length === 0 ? (
-              <View style={[styles.noChannels, { borderColor: colors.cardBorder, backgroundColor: colors.surfaceSecondary }]}>
-                <Text style={[styles.helperText, { color: colors.textSecondary }]}>No channels are connected yet. The invite will still work.</Text>
-              </View>
-            ) : (
-              <View style={styles.dropdown}>
-                <Pressable
-                  onPress={() => setChannelsExpanded((current) => !current)}
-                  style={[
-                    styles.dropdownTrigger,
-                    { backgroundColor: colors.background, borderColor: channelsExpanded ? colors.primary : colors.cardBorder },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: channelsExpanded }}
-                  accessibilityLabel={selectedChannels.length === 0 ? 'Select channels' : `${selectedChannels.length} channels selected`}
-                >
-                  <Text
-                    style={[styles.dropdownTriggerText, { color: selectedChannels.length === 0 ? colors.textMuted : colors.text }]}
-                    numberOfLines={1}
-                  >
-                    {selectedChannels.length === 0
-                      ? 'Select channels'
-                      : `${selectedChannels.length} ${selectedChannels.length === 1 ? 'channel' : 'channels'} selected`}
-                  </Text>
-                  <ChevronDown
-                    color={colors.textMuted}
-                    size={18}
-                    style={{ transform: [{ rotate: channelsExpanded ? '180deg' : '0deg' }] }}
-                  />
-                </Pressable>
-                {selectedChannels.length > 0 ? (
-                  <View style={styles.selectedWrap}>
-                    {selectedChannels.map((channel) => (
-                      <View
-                        key={channel.id}
-                        style={[styles.selectedChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}
-                      >
-                        <ChannelLogo type={channel.type} box={20} glyph={11} radius={10} />
-                        <Text style={[styles.selectedChipText, { color: colors.text }]} numberOfLines={1}>
-                          {channel.name}
-                        </Text>
-                        <Pressable
-                          onPress={() => toggleChannel(channel.id)}
-                          hitSlop={8}
-                          accessibilityLabel={`Remove ${channel.name}`}
-                        >
-                          <X color={colors.textMuted} size={13} />
-                        </Pressable>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-                {channelsExpanded ? (
-                  <View style={[styles.dropdownPanel, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
-                    <AppSearchField
-                      value={channelSearch}
-                      onChangeText={setChannelSearch}
-                      placeholder="Search channels"
-                      size="sm"
-                      tone="surface"
-                      fill={false}
-                    />
-                    {filteredChannels.map((channel) => {
-                      const selected = selectedChannelIds.includes(channel.id);
-                      const phone = channel.accounts[0]?.displayPhoneNumber;
-                      return (
-                        <Pressable
-                          key={channel.id}
-                          onPress={() => toggleChannel(channel.id)}
-                          style={[
-                            styles.channelRow,
-                            { backgroundColor: colors.surface, borderColor: selected ? colors.primary : colors.cardBorder },
-                          ]}
-                          accessibilityState={{ selected }}
-                        >
-                          <ChannelLogo type={channel.type} box={28} glyph={15} radius={14} />
-                          <View style={styles.channelCopy}>
-                            <Text style={[styles.channelName, { color: colors.text }]} numberOfLines={1}>{channel.name}</Text>
-                            {phone ? <Text style={[styles.channelSub, { color: colors.textMuted }]} numberOfLines={1}>{phone}</Text> : null}
-                          </View>
-                          <View style={[
-                            styles.checkbox,
-                            { borderColor: selected ? colors.primary : colors.cardBorder, backgroundColor: selected ? colors.primary : 'transparent' },
-                          ]}>
-                            {selected ? <Check color="#fff" size={14} /> : null}
-                          </View>
-                        </Pressable>
-                      );
-                    })}
-                    {filteredChannels.length === 0 ? (
-                      <Text style={[styles.helperText, { color: colors.textMuted }]}>No channels match your search.</Text>
-                    ) : null}
-                  </View>
-                ) : null}
-                {!hasRequiredChannels ? (
-                  <Text style={[styles.errorText, { color: colors.error }]}>Select at least one channel.</Text>
-                ) : null}
-              </View>
-            )}
+            <ChannelSelectDropdown
+              channels={workspaceChannels}
+              selectedIds={selectedChannelIds}
+              onToggle={toggleChannel}
+              loading={channelsQuery.isLoading}
+            />
+            {!hasRequiredChannels ? (
+              <Text style={[styles.errorText, { color: colors.error }]}>Select at least one channel.</Text>
+            ) : null}
           </View>
 
           {inviteRole === 'AGENT' ? (
@@ -696,6 +1017,257 @@ export function MembersSettingsScreen() {
           </View>
         </View>
       </BottomSheet>
+
+      <BottomSheet visible={actionMember !== null} onClose={() => setActionMember(null)} sheetStyle={styles.sheet}>
+        {actionMember ? (
+          <View style={styles.actionBody}>
+            <View style={styles.sheetHeader}>
+              <ColorfulAvatar name={displayName(actionMember)} url={actionMember.avatarUrl} size={44} />
+              <View style={styles.sheetCopy}>
+                <Text style={[styles.sheetTitle, { color: colors.text }]} numberOfLines={1}>{displayName(actionMember)}</Text>
+                <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>{actionMember.email}</Text>
+              </View>
+            </View>
+            <View style={styles.actionList}>
+              {actionIsInvite ? (
+                <>
+                  <SheetActionRow
+                    icon={Copy}
+                    label={copyingInviteId === actionMember.id ? 'Copying...' : 'Copy invite link'}
+                    onPress={() => void handleCopyInviteLink(actionMember)}
+                  />
+                  {canManageLifecycle ? (
+                    <SheetActionRow
+                      icon={Trash2}
+                      label="Remove invite"
+                      danger
+                      onPress={() => void handleRemoveInvite(actionMember)}
+                    />
+                  ) : null}
+                </>
+              ) : actionIsEditable && actionPermissions ? (
+                <>
+                  {actionPermissions.canEditAccess ? (
+                    <SheetActionRow
+                      icon={Pencil}
+                      label="Edit access"
+                      onPress={() => openEditAccess(actionMember)}
+                    />
+                  ) : null}
+                  {actionPermissions.canChangeRole ? (
+                    <SheetActionRow
+                      icon={ShieldCheck}
+                      label="Change role"
+                      onPress={() => openChangeRole(actionMember)}
+                    />
+                  ) : null}
+                  {actionPermissions.canManageLifecycle ? (
+                    <>
+                      {actionMember.status === 'DISABLED' ? (
+                        <SheetActionRow
+                          icon={UserCheck}
+                          label="Activate"
+                          onPress={() => handleToggleMemberStatus(actionMember)}
+                        />
+                      ) : (
+                        <SheetActionRow
+                          icon={UserX}
+                          label="Deactivate"
+                          onPress={() => handleToggleMemberStatus(actionMember)}
+                        />
+                      )}
+                      <SheetActionRow
+                        icon={Trash2}
+                        label="Delete"
+                        danger
+                        onPress={() => {
+                          const target = actionMember;
+                          setActionMember(null);
+                          setPendingAction({ kind: 'delete', member: target });
+                        }}
+                      />
+                    </>
+                  ) : null}
+                  {!actionPermissions.canEditAccess && !actionPermissions.canChangeRole && !actionPermissions.canManageLifecycle ? (
+                    <View style={[styles.viewOnly, { borderColor: colors.cardBorder, backgroundColor: colors.surfaceSecondary }]}>
+                      <ShieldCheck color={colors.textMuted} size={15} />
+                      <Text style={[styles.viewOnlyText, { color: colors.textMuted }]}>View only</Text>
+                    </View>
+                  ) : null}
+                </>
+              ) : (
+                <View style={[styles.viewOnly, { borderColor: colors.cardBorder, backgroundColor: colors.surfaceSecondary }]}>
+                  <ShieldCheck color={colors.textMuted} size={15} />
+                  <Text style={[styles.viewOnlyText, { color: colors.textMuted }]}>View only</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        ) : null}
+      </BottomSheet>
+
+      <BottomSheet visible={editMember !== null} onClose={() => setEditMember(null)} sheetStyle={styles.sheet}>
+        {editMember ? (
+          <View style={styles.actionBody}>
+            <View style={styles.sheetHeader}>
+              <ColorfulAvatar name={displayName(editMember)} url={editMember.avatarUrl} size={44} />
+              <View style={styles.sheetCopy}>
+                <Text style={[styles.sheetTitle, { color: colors.text }]} numberOfLines={1}>Edit access for {memberActionName(editMember)}</Text>
+                <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>Update channel visibility and agent inbox scope in one place.</Text>
+              </View>
+            </View>
+            <SheetScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
+              <View style={styles.fieldBlock}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Channels</Text>
+                <Text style={[styles.helperText, { color: colors.textMuted }]}>Search and tap to add or remove channel access.</Text>
+                <ChannelSelectDropdown
+                  channels={workspaceChannels}
+                  selectedIds={editChannelIds}
+                  onToggle={(channelId) => setEditChannelIds((current) => current.includes(channelId)
+                    ? current.filter((id) => id !== channelId)
+                    : [...current, channelId])}
+                  loading={channelsQuery.isLoading}
+                />
+              </View>
+              {isAgentRosterMember(editMember) ? (
+                <Pressable
+                  onPress={() => setEditLimitToAssigned((current) => !current)}
+                  style={[styles.toggleCard, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}
+                  accessibilityState={{ checked: editLimitToAssigned }}
+                  accessibilityRole="checkbox"
+                >
+                  <View style={[styles.checkbox, { borderColor: editLimitToAssigned ? colors.primary : colors.cardBorder, backgroundColor: editLimitToAssigned ? colors.primary : 'transparent' }]}>
+                    {editLimitToAssigned ? <Check color="#fff" size={14} /> : null}
+                  </View>
+                  <View style={styles.toggleCopy}>
+                    <Text style={[styles.toggleTitle, { color: colors.text }]}>Only show assigned conversations</Text>
+                    <Text style={[styles.toggleSub, { color: colors.textSecondary }]}>
+                      Search, filters, unread updates, and new messages stay limited to this agent&apos;s assigned inbox conversations.
+                    </Text>
+                  </View>
+                </Pressable>
+              ) : null}
+            </SheetScrollView>
+            <View style={[styles.sheetFooter, { borderTopColor: colors.cardBorder }]}>
+              <View style={styles.sheetActions}>
+                <AppButton variant="secondary" label="Cancel" onPress={() => setEditMember(null)} />
+                <AppButton
+                  label={editAccessMutation.isPending ? 'Saving...' : 'Save access changes'}
+                  loading={editAccessMutation.isPending}
+                  onPress={() => editAccessMutation.mutate()}
+                />
+              </View>
+            </View>
+          </View>
+        ) : null}
+      </BottomSheet>
+
+      <BottomSheet visible={roleMember !== null} onClose={() => setRoleMember(null)} sheetStyle={styles.sheet}>
+        {roleMember ? (
+          <View style={styles.actionBody}>
+            <View style={styles.sheetHeader}>
+              <ColorfulAvatar name={displayName(roleMember)} url={roleMember.avatarUrl} size={44} />
+              <View style={styles.sheetCopy}>
+                <Text style={[styles.sheetTitle, { color: colors.text }]} numberOfLines={1}>Change role for {memberActionName(roleMember)}</Text>
+                <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>Conversations stay assigned. Only the workspace role changes.</Text>
+              </View>
+            </View>
+            <SheetScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
+              <View style={styles.fieldBlock}>
+                <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Role</Text>
+                <View style={styles.roleList}>
+                  {ROLE_OPTIONS.map((option) => {
+                    const selected = roleSelection === option.value;
+                    return (
+                      <Pressable
+                        key={option.value}
+                        onPress={() => setRoleSelection(option.value)}
+                        style={[
+                          styles.roleCard,
+                          { backgroundColor: colors.background, borderColor: selected ? colors.primary : colors.cardBorder },
+                          selected && styles.roleCardActive,
+                        ]}
+                        accessibilityState={{ selected }}
+                      >
+                        <View style={styles.roleCardTop}>
+                          <Text style={[styles.roleCardLabel, { color: colors.text }]}>{option.label}</Text>
+                          {selected ? <Check color={colors.primary} size={16} /> : null}
+                        </View>
+                        <Text style={[styles.roleCardDescription, { color: colors.textSecondary }]}>{option.description}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+              {roleSelection === 'AGENT' ? (
+                <Pressable
+                  onPress={() => setRoleLimitToAssigned((current) => !current)}
+                  style={[styles.toggleCard, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}
+                  accessibilityState={{ checked: roleLimitToAssigned }}
+                  accessibilityRole="checkbox"
+                >
+                  <View style={[styles.checkbox, { borderColor: roleLimitToAssigned ? colors.primary : colors.cardBorder, backgroundColor: roleLimitToAssigned ? colors.primary : 'transparent' }]}>
+                    {roleLimitToAssigned ? <Check color="#fff" size={14} /> : null}
+                  </View>
+                  <View style={styles.toggleCopy}>
+                    <Text style={[styles.toggleTitle, { color: colors.text }]}>Agents can see only assigned conversations</Text>
+                    <Text style={[styles.toggleSub, { color: colors.textSecondary }]}>
+                      Turn this on to keep the member scoped to assigned inbox conversations only.
+                    </Text>
+                  </View>
+                </Pressable>
+              ) : (
+                <View style={[styles.infoNote, { borderColor: colors.cardBorder, backgroundColor: colors.surfaceSecondary }]}>
+                  <Text style={[styles.infoNoteText, { color: colors.textSecondary }]}>
+                    Managers keep their existing channel access and can continue to work with the same assigned conversations.
+                  </Text>
+                </View>
+              )}
+              <View style={[styles.warningNote, { borderColor: '#fcd34d', backgroundColor: '#fffbeb' }]}>
+                <Text style={[styles.warningNoteText, { color: '#92400e' }]}>
+                  This will not unassign conversations or remove channel access. Permissions will update immediately after save.
+                </Text>
+              </View>
+            </SheetScrollView>
+            <View style={[styles.sheetFooter, { borderTopColor: colors.cardBorder }]}>
+              <Text style={[styles.footerSummary, { color: colors.textMuted }]}>
+                Current role: {(roleMember.roleKeys ?? []).includes('workspace_manager') ? 'Manager' : 'Agent'}
+              </Text>
+              <View style={styles.sheetActions}>
+                <AppButton variant="secondary" label="Cancel" onPress={() => setRoleMember(null)} />
+                <AppButton
+                  label={changeRoleMutation.isPending ? 'Saving...' : 'Save role'}
+                  loading={changeRoleMutation.isPending}
+                  onPress={() => changeRoleMutation.mutate()}
+                />
+              </View>
+            </View>
+          </View>
+        ) : null}
+      </BottomSheet>
+
+      <ConfirmDialog
+        visible={pendingAction !== null}
+        title={pendingIsDelete ? 'Delete member?' : 'Deactivate member?'}
+        body={pendingIsDelete
+          ? `This will remove ${pendingName} from the workspace. Their assigned conversations will be unassigned first. Deletion runs in the background and can take a moment.`
+          : `This will disable ${pendingName} so they can no longer log in until reactivated.`}
+        confirmLabel={isProcessingMemberAction ? (pendingIsDelete ? 'Deleting...' : 'Deactivating...') : (pendingIsDelete ? 'Delete' : 'Deactivate')}
+        destructive={pendingIsDelete}
+        loading={isProcessingMemberAction}
+        icon={pendingIsDelete ? Trash2 : UserX}
+        onClose={() => {
+          if (!isProcessingMemberAction) setPendingAction(null);
+        }}
+        onConfirm={() => {
+          if (!pendingAction || isProcessingMemberAction) return;
+          if (pendingAction.kind === 'delete') {
+            void performDeleteMember(pendingAction.member);
+          } else {
+            void performMemberStatusUpdate(pendingAction.member, pendingAction.status);
+          }
+        }}
+      />
     </View>
   );
 }
@@ -711,7 +1283,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
-  inviteButton: { paddingHorizontal: 14 },
+  searchFieldWrap: { flex: 1, minWidth: 0 },
+  inviteButton: { height: 38, paddingHorizontal: 14 },
   statsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingTop: 12 },
   stat: { borderRadius: 14, borderWidth: 1, flex: 1, padding: 12 },
   statValue: { fontSize: 20, fontWeight: '800' },
@@ -785,8 +1358,10 @@ const styles = StyleSheet.create({
   selectedWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   selectedChip: { alignItems: 'center', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 6, maxWidth: '100%', paddingLeft: 4, paddingRight: 6, paddingVertical: 4 },
   selectedChipText: { flexShrink: 1, fontSize: 12, fontWeight: '700' },
-  dropdownPanel: { borderRadius: 14, borderWidth: 1, gap: 8, padding: 10 },
-  channelRow: { alignItems: 'center', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 10, padding: 10 },
+  dropdownPanel: { borderRadius: 14, borderWidth: 1, gap: 6, padding: 8 },
+  optionsList: { maxHeight: 248 },
+  optionsContent: { gap: 6 },
+  channelRow: { alignItems: 'center', borderRadius: 10, borderWidth: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 8, paddingVertical: 6 },
   channelCopy: { flex: 1, minWidth: 0 },
   channelSub: { fontSize: 11, marginTop: 2 },
   toggleCard: { alignItems: 'flex-start', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 10, padding: 12 },
@@ -797,4 +1372,15 @@ const styles = StyleSheet.create({
   sheetFooter: { borderTopWidth: 1, gap: 10, paddingTop: 12 },
   footerSummary: { fontSize: 11 },
   sheetActions: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
+  actionBody: { gap: 12, paddingBottom: 8 },
+  actionList: { gap: 6 },
+  actionRow: { alignItems: 'center', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 10, paddingHorizontal: 10, paddingVertical: 8 },
+  actionIcon: { alignItems: 'center', borderRadius: 10, height: 32, justifyContent: 'center', width: 32 },
+  actionLabel: { flex: 1, fontSize: 13, fontWeight: '700' },
+  viewOnly: { alignItems: 'center', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 8, justifyContent: 'center', paddingVertical: 10 },
+  viewOnlyText: { fontSize: 13, fontWeight: '700' },
+  infoNote: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10 },
+  infoNoteText: { fontSize: 12, lineHeight: 18 },
+  warningNote: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10 },
+  warningNoteText: { fontSize: 12, lineHeight: 18 },
 });
