@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
-import { ArrowLeft, Camera, ChevronDown, FileText, RefreshCw, RotateCcw, Save, UserRound } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
+import { ArrowLeft, Camera, Check, ChevronDown, Copy, Link2, MessageSquare, Phone, RefreshCw, RotateCcw, Save, Unlink2, UserRound } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Toast from 'react-native-toast-message';
@@ -71,6 +72,22 @@ function formatDateLabel(value: string | null | undefined) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function formatConfigStatus(value: string | null | undefined) {
+  return (value ?? 'UNKNOWN')
+    .replaceAll('_', ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function whatsappChatLink(phone: string | null | undefined) {
+  const digits = phone?.replace(/\D/g, '') ?? '';
+  return digits ? `https://wa.me/${digits}` : 'Not linked';
+}
+
+function messengerPageLink(pageId: string | null | undefined) {
+  return pageId ? `https://facebook.com/${pageId}` : 'Not linked';
 }
 
 export function ChannelDetailsScreen() {
@@ -248,50 +265,33 @@ export function ChannelDetailsScreen() {
       const config = channel.configuration as { pageId?: string | null; pageName?: string | null; businessAccountId?: string | null; webhookSubscriptionStatus?: string | null; lastWebhookError?: string | null } | null;
       return (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
-          <View style={[styles.titleCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-            <ChannelLogo type={channel.type} box={52} glyph={26} radius={18} />
-            <View style={styles.titleCopy}>
-              <Text style={[styles.channelName, { color: colors.text }]}>{channel.name}</Text>
-              <View style={styles.badges}>
-                <View style={[styles.badge, { backgroundColor: statusTone.bg }]}><Text style={[styles.badgeText, { color: statusTone.fg }]}>{channel.status}</Text></View>
-                {lifecycle.isPaused ? <View style={[styles.badge, { backgroundColor: '#fff7df' }]}><Text style={[styles.badgeText, { color: '#b45309' }]}>Paused</Text></View> : null}
-              </View>
-            </View>
-          </View>
-
-          {lifecycle.isRemoved ? (
-            <View style={[styles.dangerCard, { backgroundColor: isDark ? colors.surface : '#fff1f2', borderColor: isDark ? colors.surfaceSecondary : '#fecdd3' }]}>
-              <Text style={[styles.dangerTitle, { color: colors.error }]}>Removal scheduled</Text>
-              <Text style={[styles.dangerText, { color: colors.textSecondary }]}>This channel is pending permanent deletion. {lifecycle.removeReason ? `Reason: ${lifecycle.removeReason}` : ''}</Text>
-              <Pressable style={[styles.primaryButton, { marginTop: 12, backgroundColor: colors.primary }]} onPress={() => restore.mutate()}><RotateCcw color="#fff" size={15} /><Text style={styles.primaryButtonText}>Restore channel</Text></Pressable>
-            </View>
-          ) : null}
+          <ChannelConfigurationHero
+            channel={channel}
+            subtitle="Messenger channel configuration"
+            statusTone={statusTone}
+            lifecycle={lifecycle}
+            isDark={isDark}
+            colors={colors}
+            onRestore={() => restore.mutate()}
+          />
 
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Overview</Text>
-            <View style={styles.grid}>
-              <Summary title="Page ID" value={config?.pageId ?? 'Not linked'} detail="Meta page identifier" />
-              <Summary title="Webhook" value={config?.webhookSubscriptionStatus ?? 'UNKNOWN'} detail={config?.lastWebhookError ?? 'No recent webhook errors'} />
-              <Summary title="Workspace" value={channel.workspaceName ?? '—'} detail="Parent workspace" />
-              <Summary title="Inbox status" value={lifecycle.canProcessEvents ? 'Active' : 'Stopped'} detail={formatDateLabel(channel.updatedAt)} />
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Channel configuration</Text>
+            <Text style={[styles.cardSub, { color: colors.textSecondary }]}>Manage channel information and settings.</Text>
+            <View style={styles.statusGrid}>
+              <StatusTile icon="message" title="Messenger" value={formatConfigStatus(channel.status)} tone={lifecycle.canProcessEvents ? 'success' : 'neutral'} />
+              <StatusTile icon={config?.webhookSubscriptionStatus === 'CONNECTED' ? 'link' : 'unlink'} title="Webhook" value={formatConfigStatus(config?.webhookSubscriptionStatus)} tone={config?.webhookSubscriptionStatus === 'CONNECTED' ? 'success' : 'warning'} />
             </View>
-          </View>
-
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Connection details</Text>
-            <Field label="Current state" value={channel.status} />
-            <Field label="Page name" value={config?.pageName ?? 'Not linked'} />
-            <Field label="Page ID" value={config?.pageId ?? 'Not linked'} />
-            <Field label="Webhook error" value={config?.lastWebhookError ?? 'None'} />
-          </View>
-
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Workspace snapshot</Text>
-            <Field label="Workspace" value={channel.workspaceName ?? '—'} />
-            <Field label="Channel type" value={channel.type} />
-            <Field label="Accounts" value={String(channel.accounts.length)} />
-            <Field label="Updated" value={formatDateLabel(channel.updatedAt)} />
-            <Field label="Event processing" value={lifecycle.canProcessEvents ? 'Active' : 'Stopped'} />
+            <View style={styles.configFields}>
+              <ConfigField label="Page link" value={messengerPageLink(config?.pageId)} copy />
+              <ConfigField label="Channel name" value={channel.name} />
+              <ConfigField label="Page name" value={config?.pageName ?? 'Not linked'} />
+              <ConfigField label="Provider" value="Meta Messenger" />
+              <ConfigField label="Page ID" value={config?.pageId ?? 'Not linked'} copy mono />
+              <ConfigField label="Account ID" value={config?.businessAccountId ?? primaryAccount?.externalAccountId ?? 'Not linked'} copy mono />
+              <ConfigField label="Connected" value={formatDateLabel(primaryAccount?.connectedAt ?? channel.createdAt)} />
+              <ConfigField label="Webhook error" value={config?.lastWebhookError ?? 'No webhook failures recorded'} />
+            </View>
           </View>
         </ScrollView>
       );
@@ -302,34 +302,31 @@ export function ChannelDetailsScreen() {
       const accountLabel = config?.accountDisplayName || config?.accountUsername || primaryAccount?.displayName || 'TikTok Business account';
       return (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
-          <View style={[styles.titleCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-            <ChannelLogo type={channel.type} box={52} glyph={26} radius={18} />
-            <View style={styles.titleCopy}>
-              <Text style={[styles.channelName, { color: colors.text }]}>{channel.name}</Text>
-              <Text style={[styles.cardSub, { color: colors.textSecondary, marginTop: 2 }]}>TikTok Business Messaging</Text>
-              <View style={styles.badges}>
-                <View style={[styles.badge, { backgroundColor: statusTone.bg }]}><Text style={[styles.badgeText, { color: statusTone.fg }]}>{channel.status.replaceAll('_', ' ')}</Text></View>
-                {lifecycle.isPaused ? <View style={[styles.badge, { backgroundColor: '#fff7df' }]}><Text style={[styles.badgeText, { color: '#b45309' }]}>Paused</Text></View> : null}
-              </View>
+          <ChannelConfigurationHero
+            channel={channel}
+            subtitle="TikTok Business Messaging"
+            statusTone={statusTone}
+            lifecycle={lifecycle}
+            isDark={isDark}
+            colors={colors}
+            onRestore={() => restore.mutate()}
+          />
+
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Channel configuration</Text>
+            <Text style={[styles.cardSub, { color: colors.textSecondary }]}>Manage channel information and settings.</Text>
+            <View style={styles.statusGrid}>
+              <StatusTile icon="message" title="TikTok" value={formatConfigStatus(channel.status)} tone={lifecycle.canProcessEvents ? 'success' : 'neutral'} />
+              <StatusTile icon={config?.lastSyncStatus === 'FAILED' ? 'unlink' : 'link'} title="Sync" value={formatConfigStatus(config?.lastSyncStatus ?? 'PENDING')} tone={config?.lastSyncStatus === 'FAILED' ? 'danger' : 'success'} />
             </View>
-          </View>
-
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Configuration</Text>
-            <Field label="Business ID" value={config?.businessId ?? primaryAccount?.externalAccountId ?? 'Not available'} />
-            <Field label="Account" value={accountLabel} />
-            <Field label="Status" value={channel.status.replaceAll('_', ' ')} />
-            <Field label="Supported replies" value="Text and JPEG/PNG image messages" />
-          </View>
-
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Messaging health</Text>
-            <Text style={[styles.cardSub, { color: colors.textSecondary, marginTop: 8 }]}>
-              {config?.lastSyncedAt ? `Last sync: ${formatDateLabel(config.lastSyncedAt)}` : 'No manual sync has run yet.'}
-            </Text>
-            {config?.lastSyncStatus === 'FAILED' && config.lastSyncError ? (
-              <Text style={[styles.dangerText, { color: colors.error, marginTop: 8 }]}>{config.lastSyncError}</Text>
-            ) : null}
+            <View style={styles.configFields}>
+              <ConfigField label="Channel name" value={channel.name} />
+              <ConfigField label="Account" value={accountLabel} />
+              <ConfigField label="Business ID" value={config?.businessId ?? primaryAccount?.externalAccountId ?? 'Not available'} copy mono />
+              <ConfigField label="Supported replies" value="Text and JPEG/PNG image messages" />
+              <ConfigField label="Last synced" value={formatDateLabel(config?.lastSyncedAt)} />
+              <ConfigField label="Sync error" value={config?.lastSyncError ?? 'None'} />
+            </View>
           </View>
         </ScrollView>
       );
@@ -340,75 +337,32 @@ export function ChannelDetailsScreen() {
     const callingSetting = channel.callBusinessCallingSetting;
     return (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
-        <View style={[styles.titleCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-          <ChannelLogo type={channel.type} box={52} glyph={26} radius={18} />
-          <View style={styles.titleCopy}>
-            <Text style={[styles.channelName, { color: colors.text }]}>{channel.name}</Text>
-            <View style={styles.badges}>
-              <View style={[styles.badge, { backgroundColor: statusTone.bg }]}><Text style={[styles.badgeText, { color: statusTone.fg }]}>{channel.status}</Text></View>
-              {lifecycle.isPaused ? <View style={[styles.badge, { backgroundColor: '#fff7df' }]}><Text style={[styles.badgeText, { color: '#b45309' }]}>Paused</Text></View> : null}
-              {lifecycle.isRemoved ? <View style={[styles.badge, { backgroundColor: '#ffe4e6' }]}><Text style={[styles.badgeText, { color: '#be123c' }]}>Removed</Text></View> : null}
-            </View>
-          </View>
-        </View>
-
-        {lifecycle.isRemoved ? (
-          <View style={[styles.dangerCard, { backgroundColor: isDark ? colors.surface : '#fff1f2', borderColor: isDark ? colors.surfaceSecondary : '#fecdd3' }]}>
-            <Text style={[styles.dangerTitle, { color: colors.error }]}>Removal scheduled</Text>
-            <Text style={[styles.dangerText, { color: colors.textSecondary }]}>This channel is pending permanent deletion. {lifecycle.removeReason ? `Reason: ${lifecycle.removeReason}` : ''}</Text>
-            <Pressable style={[styles.primaryButton, { marginTop: 12, backgroundColor: colors.primary }]} onPress={() => restore.mutate()}><RotateCcw color="#fff" size={15} /><Text style={styles.primaryButtonText}>Restore channel</Text></Pressable>
-          </View>
-        ) : null}
+        <ChannelConfigurationHero
+          channel={channel}
+          subtitle="WhatsApp channel configuration"
+          statusTone={statusTone}
+          lifecycle={lifecycle}
+          isDark={isDark}
+          colors={colors}
+          onRestore={() => restore.mutate()}
+        />
 
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Overview</Text>
-          <View style={styles.grid}>
-            <Summary title="Phone line" value={config?.displayPhoneNumber ?? primaryAccount?.displayPhoneNumber ?? 'Not linked'} detail={config?.phoneNumberId ?? primaryAccount?.phoneNumberId ?? 'Phone number id unavailable'} />
-            <Summary title="Templates" value={templateCounts ? String(templateCounts.total) : '—'} detail={templateCounts ? `${templateCounts.approved} approved · ${templateCounts.pending} pending` : 'No template counts'} />
-            <Summary title="Webhooks" value={primaryAccount?.webhookStatus ?? 'UNKNOWN'} detail={channel.lastWebhookError ?? primaryAccount?.lastWebhookError ?? 'No recent webhook errors'} />
-            <Summary title="Business calling" value={callingSetting?.status ?? 'Not configured'} detail={callingSetting?.lastError ?? 'Managed by Meta'} />
-            <Summary title="Event processing" value={lifecycle.canProcessEvents ? 'Active' : 'Stopped'} detail={formatDateLabel(channel.updatedAt)} />
-            <Summary title="Messages 24h" value={channel.messagesLast24h != null ? String(channel.messagesLast24h) : '—'} detail={channel.type} />
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Channel configuration</Text>
+          <Text style={[styles.cardSub, { color: colors.textSecondary }]}>Manage channel information and settings.</Text>
+          <View style={styles.statusGrid}>
+            <StatusTile icon="phone" title="Business calling" value={callingSetting?.status === 'ENABLED' ? 'Enabled' : 'Disabled'} tone={callingSetting?.status === 'ENABLED' ? 'success' : 'neutral'} />
+            <StatusTile icon="message" title="MM Lite" value={templateCounts ? 'Yes' : 'No'} tone={templateCounts ? 'success' : 'neutral'} />
+            <StatusTile icon={primaryAccount?.webhookStatus === 'CONNECTED' ? 'link' : 'unlink'} title="Webhook" value={formatConfigStatus(primaryAccount?.webhookStatus)} tone={primaryAccount?.webhookStatus === 'CONNECTED' ? 'success' : 'warning'} />
           </View>
-          <View style={styles.overviewActions}>
-            {isWhatsapp ? <Pressable style={[styles.primaryButton, { flex: 1, paddingHorizontal: 14, paddingVertical: 9, backgroundColor: colors.primary }]} onPress={() => setTab('templates')}><FileText color="#fff" size={14} /><Text style={styles.primaryButtonText}>Open templates</Text></Pressable> : null}
-            <Pressable style={[styles.outlineButton, { flex: 1, paddingHorizontal: 14, paddingVertical: 9, backgroundColor: colors.surface, borderColor: colors.cardBorder }]} onPress={() => details.refetch()}><RefreshCw color={colors.primary} size={14} /><Text style={[styles.outlineButtonText, { color: colors.primary }]}>Refresh details</Text></Pressable>
+          <View style={styles.configFields}>
+            <ConfigField label="Chat link" value={whatsappChatLink(config?.displayPhoneNumber ?? primaryAccount?.displayPhoneNumber)} copy />
+            <ConfigField label="Channel name" value={channel.name} />
+            <ConfigField label="WhatsApp phone number" value={config?.displayPhoneNumber ?? primaryAccount?.displayPhoneNumber ?? 'Not linked'} />
+            <ConfigField label="Verified name" value={primaryAccount?.displayName ?? config?.displayPhoneNumber ?? primaryAccount?.displayPhoneNumber ?? 'Not available'} />
+            <ConfigField label="WABA ID" value={primaryAccount?.wabaId ?? 'Not linked'} copy mono />
+            <ConfigField label="Phone number ID" value={config?.phoneNumberId ?? primaryAccount?.phoneNumberId ?? 'Not linked'} copy mono />
           </View>
-        </View>
-
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Business information</Text>
-          <Text style={[styles.cardSub, { color: colors.textSecondary }]}>Phone numbers and Meta-linked account details for this WhatsApp channel.</Text>
-          {channel.accounts.length > 0 ? (
-            channel.accounts.map((account) => (
-              <View key={account.id} style={[styles.account, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
-                <View style={[styles.accountHead, { borderBottomColor: colors.cardBorder }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.accountName, { color: colors.text }]} numberOfLines={1}>{account.displayPhoneNumber ?? 'Linked WhatsApp account'}</Text>
-                    <Text style={[styles.accountMeta, { color: colors.textSecondary }]}>{account.provider}</Text>
-                  </View>
-                  <View style={[styles.badge, { backgroundColor: (STATUS_TONE[account.webhookStatus] ?? STATUS_TONE.PENDING).bg }]}><Text style={[styles.badgeText, { color: (STATUS_TONE[account.webhookStatus] ?? STATUS_TONE.PENDING).fg }]}>Webhook {account.webhookStatus}</Text></View>
-                </View>
-                <Field label="WABA ID" value={account.wabaId ?? 'Not linked'} />
-                <Field label="Phone number ID" value={account.phoneNumberId ?? 'Not linked'} />
-                <Field label="Connected" value={formatDateLabel(account.connectedAt)} />
-                <Field label="Disconnected" value={formatDateLabel(account.disconnectedAt)} />
-              </View>
-            ))
-          ) : (
-            <Text style={[styles.emptyField, { color: colors.textSecondary }]}>No business account is linked to this channel.</Text>
-          )}
-        </View>
-
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Workspace snapshot</Text>
-          <Text style={[styles.cardSub, { color: colors.textSecondary }]}>Channel facts and quick controls.</Text>
-          <Field label="Workspace" value={channel.workspaceName ?? '—'} />
-          <Field label="Channel type" value={channel.type} />
-          <Field label="Status" value={channel.status} />
-          <Field label="Accounts" value={String(channel.accounts.length)} />
-          <Field label="Updated" value={formatDateLabel(channel.updatedAt)} />
-          <Field label="Event processing" value={lifecycle.canProcessEvents ? 'Active' : 'Stopped'} />
         </View>
       </ScrollView>
     );
@@ -608,14 +562,103 @@ function TabButton({ label, active, onPress }: { label: string; active: boolean;
   );
 }
 
-function Summary({ title, value, detail }: { title: string; value: string; detail?: string | null }) {
-  const { colors } = useTheme();
-  return <View style={[styles.summary, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}><Text style={[styles.summaryTitle, { color: colors.textSecondary }]}>{title}</Text><Text style={[styles.summaryValue, { color: colors.text }]} numberOfLines={1}>{value}</Text>{detail ? <Text style={[styles.summaryDetail, { color: colors.textSecondary }]} numberOfLines={2}>{detail}</Text> : null}</View>;
+function ChannelConfigurationHero({
+  channel,
+  subtitle,
+  statusTone,
+  lifecycle,
+  isDark,
+  colors,
+  onRestore,
+}: {
+  channel: ChannelDetails;
+  subtitle: string;
+  statusTone: { bg: string; fg: string };
+  lifecycle: ChannelDetails['lifecycle'];
+  isDark: boolean;
+  colors: ReturnType<typeof useTheme>['colors'];
+  onRestore: () => void;
+}) {
+  return (
+    <>
+      <View style={[styles.configurationHero, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+        <ChannelLogo type={channel.type} box={52} glyph={26} radius={18} />
+        <View style={styles.titleCopy}>
+          <Text style={[styles.channelName, { color: colors.text }]}>{channel.name}</Text>
+          <Text style={[styles.heroSub, { color: colors.textSecondary }]}>{subtitle}</Text>
+          <View style={styles.badges}>
+            <View style={[styles.badge, { backgroundColor: statusTone.bg }]}>
+              <Text style={[styles.badgeText, { color: statusTone.fg }]}>{formatConfigStatus(channel.status)}</Text>
+            </View>
+            {lifecycle.isPaused ? <View style={[styles.badge, { backgroundColor: '#fff7df' }]}><Text style={[styles.badgeText, { color: '#b45309' }]}>Paused</Text></View> : null}
+            {lifecycle.isRemoved ? <View style={[styles.badge, { backgroundColor: '#ffe4e6' }]}><Text style={[styles.badgeText, { color: '#be123c' }]}>Removed</Text></View> : null}
+          </View>
+        </View>
+      </View>
+
+      {lifecycle.isRemoved ? (
+        <View style={[styles.dangerCard, { backgroundColor: isDark ? colors.surface : '#fff1f2', borderColor: isDark ? colors.surfaceSecondary : '#fecdd3' }]}>
+          <Text style={[styles.dangerTitle, { color: colors.error }]}>Removal scheduled</Text>
+          <Text style={[styles.dangerText, { color: colors.textSecondary }]}>This channel is pending permanent deletion. {lifecycle.removeReason ? `Reason: ${lifecycle.removeReason}` : ''}</Text>
+          <Pressable style={[styles.primaryButton, { marginTop: 12, backgroundColor: colors.primary }]} onPress={onRestore}>
+            <RotateCcw color="#fff" size={15} />
+            <Text style={styles.primaryButtonText}>Restore channel</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </>
+  );
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function StatusTile({ icon, title, value, tone = 'neutral' }: { icon: 'phone' | 'message' | 'link' | 'unlink'; title: string; value: string; tone?: 'success' | 'warning' | 'danger' | 'neutral' }) {
   const { colors } = useTheme();
-  return <View style={styles.field}><Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{label}</Text><Text style={[styles.fieldValue, { color: colors.textSecondary }]}>{value}</Text></View>;
+  const Icon = icon === 'phone' ? Phone : icon === 'message' ? MessageSquare : icon === 'link' ? Link2 : Unlink2;
+  const toneColor = tone === 'success' ? '#059669' : tone === 'warning' ? '#d97706' : tone === 'danger' ? colors.error : colors.textSecondary;
+  const toneBg = tone === 'success' ? '#ecfdf5' : tone === 'warning' ? '#fffbeb' : tone === 'danger' ? '#fff1f2' : colors.surfaceSecondary;
+
+  return (
+    <View style={[styles.statusTile, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+      <View style={[styles.statusTileIcon, { backgroundColor: toneBg }]}>
+        <Icon color={toneColor} size={17} />
+      </View>
+      <Text style={[styles.statusTileTitle, { color: colors.textSecondary }]} numberOfLines={1}>{title}</Text>
+      <Text style={[styles.statusTileValue, { color: colors.text }]} numberOfLines={1}>{value}</Text>
+    </View>
+  );
+}
+
+function ConfigCopyButton({ value }: { value: string }) {
+  const { colors } = useTheme();
+  const [copied, setCopied] = useState(false);
+
+  const copyValue = async () => {
+    await Clipboard.setStringAsync(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  };
+
+  return (
+    <Pressable onPress={copyValue} style={[styles.configCopyButton, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} hitSlop={8}>
+      {copied ? <Check color={colors.primary} size={15} /> : <Copy color={colors.textSecondary} size={15} />}
+    </Pressable>
+  );
+}
+
+function ConfigField({ label, value, copy = false, mono = false }: { label: string; value: string; copy?: boolean; mono?: boolean }) {
+  const { colors } = useTheme();
+  const canCopy = copy && !['Not linked', 'Not available', 'None', 'No webhook failures recorded'].includes(value);
+
+  return (
+    <View style={styles.configField}>
+      <Text style={[styles.configLabel, { color: colors.textSecondary }]}>{label}</Text>
+      <View style={styles.configFieldRow}>
+        <View style={[styles.configValueBox, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.configValue, mono && styles.configValueMono, { color: colors.text }]} numberOfLines={2}>{value}</Text>
+        </View>
+        {canCopy ? <ConfigCopyButton value={value} /> : null}
+      </View>
+    </View>
+  );
 }
 
 function FieldEdit({ label, value, onChange, placeholder, multiline = false, keyboardType }: { label: string; value: string; onChange: (text: string) => void; placeholder: string; multiline?: boolean; keyboardType?: 'email-address' }) {
@@ -641,9 +684,10 @@ const styles = StyleSheet.create({
   tabText: { color: '#64748b', fontSize: 13, fontWeight: '600' },
   tabTextActive: { color: '#2563eb', fontWeight: '700' },
   content: { padding: 16, paddingBottom: 40 },
-  titleCard: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 20, borderWidth: 1, flexDirection: 'row', padding: 16 },
+  configurationHero: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, flexDirection: 'row', padding: 14 },
   titleCopy: { flex: 1, marginLeft: 14 },
   channelName: { color: '#0f172a', fontSize: 19, fontWeight: '800' },
+  heroSub: { color: '#64748b', fontSize: 12, lineHeight: 17, marginTop: 2 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
   badge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 },
   badgeText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
@@ -651,20 +695,20 @@ const styles = StyleSheet.create({
   cardHead: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   cardTitle: { color: '#0f172a', fontSize: 16, fontWeight: '700' },
   cardSub: { color: '#64748b', fontSize: 13, lineHeight: 19, marginTop: 4 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
-  summary: { backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 14, borderWidth: 1, padding: 12, width: '48%' },
-  summaryTitle: { color: '#64748b', fontSize: 10, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' },
-  summaryValue: { color: '#0f172a', fontSize: 16, fontWeight: '800', marginTop: 4 },
-  summaryDetail: { color: '#64748b', fontSize: 11, lineHeight: 16, marginTop: 2 },
-  overviewActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },
-  account: { backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 16, borderWidth: 1, marginTop: 12, padding: 14 },
-  accountHead: { alignItems: 'flex-start', borderBottomColor: '#d8e6fb', borderBottomWidth: 1, flexDirection: 'row', gap: 10, justifyContent: 'space-between', paddingBottom: 12 },
-  accountName: { color: '#0f172a', fontSize: 15, fontWeight: '700' },
-  accountMeta: { color: '#64748b', fontSize: 12, marginTop: 2 },
-  field: { alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, gap: 12 },
+  statusGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },
+  statusTile: { backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 14, borderWidth: 1, flexGrow: 1, minWidth: '30%', padding: 12 },
+  statusTileIcon: { alignItems: 'center', borderRadius: 10, height: 32, justifyContent: 'center', marginBottom: 10, width: 32 },
+  statusTileTitle: { color: '#64748b', fontSize: 11, fontWeight: '700' },
+  statusTileValue: { color: '#0f172a', fontSize: 13, fontWeight: '800', marginTop: 3 },
+  configFields: { gap: 12, marginTop: 16 },
+  configField: { gap: 6 },
+  configLabel: { color: '#64748b', fontSize: 12, fontWeight: '600' },
+  configFieldRow: { alignItems: 'stretch', flexDirection: 'row', gap: 8 },
+  configValueBox: { backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 12, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 42, paddingHorizontal: 12, paddingVertical: 8 },
+  configValue: { color: '#0f172a', fontSize: 13, fontWeight: '600', lineHeight: 18 },
+  configValueMono: { fontFamily: 'monospace', fontSize: 12 },
+  configCopyButton: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 12, borderWidth: 1, height: 42, justifyContent: 'center', width: 42 },
   fieldLabel: { color: '#64748b', fontSize: 12, marginTop: 12 },
-  fieldValue: { color: '#334155', flex: 1, fontSize: 13, fontWeight: '600', textAlign: 'right' },
-  emptyField: { color: '#64748b', fontSize: 13, marginTop: 12 },
   dangerCard: { backgroundColor: '#fff1f2', borderColor: '#fecdd3', borderRadius: 16, borderWidth: 1, marginTop: 16, padding: 14 },
   dangerTitle: { color: '#be123c', fontSize: 15, fontWeight: '700' },
   dangerText: { color: '#881337', fontSize: 13, lineHeight: 19, marginTop: 4 },
