@@ -464,17 +464,23 @@ export function InboxScreen() {
                   </View>
                   <Text style={[styles.selectedCount, { color: colors.textSecondary }]}>{selectedTagIds.length} selected</Text>
                   {tagsQuery.isLoading ? <PanelSkeleton rows={4} /> : (
-                    <View style={styles.optionList}>
+                    <View style={styles.tagCloud}>
                       {visibleTagOptions.map((tag) => {
                         const active = selectedTagIds.includes(tag.id);
+                        const tagColor = tag.color?.trim() || colors.textMuted;
                         return (
                           <Pressable
                             key={tag.id}
-                            style={[styles.optionRow, active && styles.optionRowActive, active && { backgroundColor: colors.primary }]}
+                            style={[
+                              styles.tagPill,
+                              { backgroundColor: colors.surface, borderColor: colors.cardBorder },
+                              active && [styles.tagPillActive, { borderColor: colors.primary, backgroundColor: `${colors.primary}12` }],
+                            ]}
                             onPress={() => setSelectedTagIds((current) => active ? current.filter((id) => id !== tag.id) : [...current, tag.id])}
                           >
-                            <View style={[styles.tagDot, { backgroundColor: tag.color || colors.textMuted }]} />
-                            <Text style={[styles.optionRowText, { color: active ? '#fff' : colors.textSecondary }, active && styles.optionRowTextActive]} numberOfLines={1}>{tag.text}</Text>
+                            <View style={[styles.tagPillDot, { backgroundColor: tagColor }]} />
+                            <Text style={[styles.tagPillText, { color: active ? colors.primary : colors.textSecondary }, active && styles.tagPillTextActive]} numberOfLines={1}>{tag.text}</Text>
+                            {active ? <Check color={colors.primary} size={12} strokeWidth={3} /> : null}
                           </Pressable>
                         );
                       })}
@@ -925,6 +931,14 @@ const styles = StyleSheet.create({
   optionRowText: { color: '#334155', flex: 1, fontSize: 14, fontWeight: '500' },
   optionRowTextActive: { color: '#1d4ed8', fontWeight: '700' },
   tagDot: { borderRadius: 5, height: 10, width: 10 },
+  tagSwatch: { alignItems: 'center', borderRadius: 10, height: 34, justifyContent: 'center', width: 34 },
+  tagSwatchDot: { borderRadius: 7, height: 14, width: 14 },
+  tagCloud: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tagPill: { alignItems: 'center', backgroundColor: '#fff', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 6, maxWidth: '100%', paddingHorizontal: 12, paddingVertical: 8 },
+  tagPillActive: { borderWidth: 1.5 },
+  tagPillDot: { borderRadius: 4, height: 8, width: 8 },
+  tagPillText: { color: '#334155', flexShrink: 1, fontSize: 13, fontWeight: '500' },
+  tagPillTextActive: { fontWeight: '700' },
   userRow: { alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 10, paddingHorizontal: 10, paddingVertical: 9 },
   userRowActive: { borderWidth: 1.5 },
   userCopy: { flex: 1, minWidth: 0 },
