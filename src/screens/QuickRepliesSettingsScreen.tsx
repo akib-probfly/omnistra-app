@@ -585,20 +585,45 @@ export function QuickRepliesSettingsScreen() {
               })}
 
               <Text style={[styles.label, { color: colors.textSecondary }]}>Preview</Text>
-              <View style={[styles.previewCard, { backgroundColor: colors.primary }]}>
-                <Text style={styles.previewBubbleText}>{previewText || 'Your message preview will appear here.'}</Text>
-                {form.attachments.filter(isQuickReplyImageAttachment).slice(0, 4).map((attachment) => {
-                  const previewUrl = quickReplyAttachmentPreviewUrl(attachment);
-                  if (!previewUrl) return null;
+              <View style={[styles.previewStage, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+                {(() => {
+                  const imageAttachments = form.attachments.filter(isQuickReplyImageAttachment);
+                  const fileAttachments = form.attachments.filter((attachment) => !isQuickReplyImageAttachment(attachment));
+                  const hasBody = previewText.trim().length > 0;
                   return (
-                    <AuthenticatedImage
-                      key={attachment.id}
-                      url={previewUrl}
-                      style={styles.previewImage}
-                      resizeMode="cover"
-                    />
+                    <View style={[styles.previewBubble, { backgroundColor: colors.primary }]}>
+                      {imageAttachments.length === 1 ? (() => {
+                        const previewUrl = quickReplyAttachmentPreviewUrl(imageAttachments[0]);
+                        if (!previewUrl) return null;
+                        return <AuthenticatedImage url={previewUrl} style={styles.previewImage} resizeMode="cover" />;
+                      })() : imageAttachments.length > 1 ? (
+                        <View style={styles.previewImageGrid}>
+                          {imageAttachments.map((attachment) => {
+                            const previewUrl = quickReplyAttachmentPreviewUrl(attachment);
+                            if (!previewUrl) return null;
+                            return <AuthenticatedImage key={attachment.id} url={previewUrl} style={styles.previewImageCell} resizeMode="cover" adaptive />;
+                          })}
+                        </View>
+                      ) : null}
+                      {hasBody ? (
+                        <Text style={styles.previewText}>{previewText}</Text>
+                      ) : imageAttachments.length === 0 && fileAttachments.length === 0 ? (
+                        <Text style={styles.previewPlaceholder}>Your message will look like this…</Text>
+                      ) : null}
+                      {fileAttachments.map((attachment) => (
+                        <View key={attachment.id} style={styles.previewFileRow}>
+                          <Paperclip color="#dbeafe" size={15} />
+                          <Text style={styles.previewFileName} numberOfLines={1}>{attachment.originalName || attachment.id}</Text>
+                        </View>
+                      ))}
+                      <View style={styles.previewMeta}>
+                        <Text style={styles.previewMetaText}>Sent</Text>
+                        <Check color="#dbeafe" size={13} />
+                        <Text style={styles.previewMetaText}>{new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Text>
+                      </View>
+                    </View>
                   );
-                })}
+                })()}
               </View>
             </SheetScrollView>
 
@@ -734,8 +759,15 @@ const styles = StyleSheet.create({
   attachmentThumb: { borderRadius: 8, height: 44, marginRight: 10, width: 44 },
   attachmentThumbFallback: { alignItems: 'center', justifyContent: 'center' },
   attachmentName: { flex: 1, fontSize: 13, marginRight: 8 },
-  previewCard: { borderRadius: 18, marginBottom: 4, padding: 14 },
-  previewBubbleText: { color: '#fff', fontSize: 14, lineHeight: 20 },
-  previewImage: { borderRadius: 12, height: 140, marginTop: 10, width: '100%' },
-  previewText: { fontSize: 14, lineHeight: 20 },
+  previewStage: { borderRadius: 18, borderWidth: 1, marginBottom: 4, padding: 12 },
+  previewBubble: { alignSelf: 'flex-end', backgroundColor: '#315efb', borderBottomLeftRadius: 20, borderBottomRightRadius: 6, borderTopLeftRadius: 20, borderTopRightRadius: 20, elevation: 1, maxWidth: '85%', overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 10, shadowColor: '#0f172a', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 10 },
+  previewText: { color: '#fff', fontSize: 15 },
+  previewPlaceholder: { color: '#dbeafe', fontSize: 14, fontStyle: 'italic' },
+  previewImage: { borderRadius: 12, height: 180, marginBottom: 8, width: '100%' },
+  previewImageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 8 },
+  previewImageCell: { borderRadius: 8, height: 76, width: 76 },
+  previewFileRow: { alignItems: 'center', flexDirection: 'row', gap: 10, marginTop: 8 },
+  previewFileName: { color: '#dbeafe', flex: 1, fontSize: 13, fontWeight: '600' },
+  previewMeta: { alignItems: 'center', flexDirection: 'row', gap: 4, justifyContent: 'flex-end', marginTop: 6 },
+  previewMetaText: { color: '#dbeafe', fontSize: 11 },
 });
