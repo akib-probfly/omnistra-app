@@ -359,7 +359,6 @@ export function ChannelDetailsScreen() {
             <ConfigField label="Chat link" value={whatsappChatLink(config?.displayPhoneNumber ?? primaryAccount?.displayPhoneNumber)} copy />
             <ConfigField label="Channel name" value={channel.name} />
             <ConfigField label="WhatsApp phone number" value={config?.displayPhoneNumber ?? primaryAccount?.displayPhoneNumber ?? 'Not linked'} />
-            <ConfigField label="Verified name" value={primaryAccount?.displayName ?? config?.displayPhoneNumber ?? primaryAccount?.displayPhoneNumber ?? 'Not available'} />
             <ConfigField label="WABA ID" value={primaryAccount?.wabaId ?? 'Not linked'} copy mono />
             <ConfigField label="Phone number ID" value={config?.phoneNumberId ?? primaryAccount?.phoneNumberId ?? 'Not linked'} copy mono />
           </View>
