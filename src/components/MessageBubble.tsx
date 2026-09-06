@@ -59,13 +59,12 @@ export function MessageBubble(props: any) {
 
 function StandardMessageBubble({ message, outgoing, attachments, replyPreview, reactions, onImage, onVideo, onLongPress, onReplyPress, channelName, channelType }: any) {
   const { colors } = useTheme();
-  const mediaType = (message.type ?? '').toUpperCase();
-  const templateDisplay = isTemplateLikeMessage(message) ? getTemplateMessageDisplay(message) : null;
+  const mediaType = (message.type ?? '').toUpperCase();  const templateDisplay = isTemplateLikeMessage(message) ? getTemplateMessageDisplay(message) : null;
   const templateHeaderUrl = templateDisplay?.headerMediaUrl ?? null;
   const isTemplateHeaderAttachment = (attachment: any) => {
     if (!templateDisplay) return false;
     const attachmentMediaType = (attachment.mediaType ?? '').toUpperCase();
-    if (!['IMAGE', 'VIDEO', 'DOCUMENT', 'STICKER'].includes(attachmentMediaType) && !(attachment.mimeType ?? '').startsWith('image/') && !(attachment.mimeType ?? '').startsWith('video/')) {
+    if (!['IMAGE', 'VIDEO', 'DOCUMENT', 'STICKER'].includes(attachmentMediaType) && !(attachment.mimeType ?? '').toLowerCase().startsWith('image/') && !(attachment.mimeType ?? '').toLowerCase().startsWith('video/')) {
       return false;
     }
     if (!templateHeaderUrl) return false;
@@ -74,9 +73,12 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
     const urls = rawUrls.map((value) => resolveMediaUrl(process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.zurvis.io/api/v1', value));
     return urls.includes(templateHeaderUrl);
   };
-  const imageAttachments = (attachments ?? []).filter((a: any) => (a.mediaType === 'IMAGE' || a.mediaType === 'STICKER' || (a.mimeType ?? '').startsWith('image/')) && !isTemplateHeaderAttachment(a));
-  const voiceAttachments = (attachments ?? []).filter((a: any) => a.mediaType === 'VOICE' || a.mediaType === 'AUDIO');
-  const videoAttachments = (attachments ?? []).filter((a: any) => (a.mediaType === 'VIDEO' || (a.mimeType ?? '').startsWith('video/')) && !isTemplateHeaderAttachment(a));
+  const imageAttachments = (attachments ?? []).filter((a: any) => isImageAttachment(a) && !isTemplateHeaderAttachment(a));
+  const voiceAttachments = (attachments ?? []).filter((a: any) => {
+    const mt = (a.mediaType ?? '').toUpperCase();
+    return mt === 'VOICE' || mt === 'AUDIO';
+  });
+  const videoAttachments = (attachments ?? []).filter((a: any) => isVideoAttachment(a) && !isTemplateHeaderAttachment(a));
   const documentAttachments = (attachments ?? []).filter((a: any) => !imageAttachments.includes(a) && !voiceAttachments.includes(a) && !videoAttachments.includes(a) && !isTemplateHeaderAttachment(a));
 
   const referralPreview = useMemo(
@@ -370,10 +372,41 @@ function ReplyPreviewBody({ text, mediaType, outgoing, colors }: { text?: string
   );
 }
 
+const IMAGE_FILE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif', '.bmp'];
+
+function isImageAttachment(attachment: any): boolean {
+  const mediaType = (attachment?.mediaType ?? '').toUpperCase();
+  if (mediaType === 'IMAGE' || mediaType === 'STICKER') return true;
+  const mime = (attachment?.mimeType ?? '').toLowerCase();
+  if (mime.startsWith('image/')) return true;
+  // WhatsApp images sent as document often arrive as DOCUMENT/FILE with an
+  // image filename (or no mime at all) — still render them inline as images.
+  const name = (attachment?.originalName ?? '').toLowerCase();
+  if (IMAGE_FILE_EXTENSIONS.some((ext) => name.endsWith(ext))) return true;
+  return false;
+}
+
+function isVideoAttachment(attachment: any): boolean {
+  const mediaType = (attachment?.mediaType ?? '').toUpperCase();
+  if (mediaType === 'VIDEO') return true;
+  const mime = (attachment?.mimeType ?? '').toLowerCase();
+  if (mime.startsWith('video/')) return true;
+  const name = (attachment?.originalName ?? '').toLowerCase();
+  if (['.mp4', '.mov', '.webm'].some((ext) => name.endsWith(ext))) return true;
+  return false;
+}
+
+function toDownloadUrl(value?: string | null): string {
+  if (!value) return '';
+  // WhatsApp document-images frequently have no preview variant generated;
+  // the full download endpoint is the reliable source (same as the gallery).
+  return value.replace(/\/preview\/?(?:\?.*)?$/i, '/download');
+}
+
 function previewUrl(attachment: any): string {
   const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.zurvis.io/api/v1';
-  const value = attachment.previewUrl ?? attachment.thumbnailUrl ?? attachment.downloadUrl;
-  return resolveMediaUrl(base, value);
+  const value = attachment.downloadUrl ?? attachment.previewUrl ?? attachment.thumbnailUrl;
+  return resolveMediaUrl(base, toDownloadUrl(value) || value);
 }
 
 function videoPosterUrl(attachment: any): string {

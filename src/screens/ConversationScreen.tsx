@@ -691,7 +691,15 @@ export function ConversationScreen() {
     if (messages.data.nextCursor && !olderCursor) setOlderCursor(messages.data.nextCursor);
   }, [messages.data, olderCursor, hasMoreOlder]);
 
-  const imageUrls = useMemo(() => allMessages.flatMap((message) => (message.attachments ?? []).filter((attachment) => ['IMAGE', 'STICKER'].includes(attachment.mediaType.toUpperCase()) || attachment.mimeType?.startsWith('image/')).map((attachment) => {
+  const imageUrls = useMemo(() => allMessages.flatMap((message) => (message.attachments ?? []).filter((attachment) => {
+    const mediaType = (attachment.mediaType ?? '').toUpperCase();
+    if (mediaType === 'IMAGE' || mediaType === 'STICKER') return true;
+    const mime = (attachment.mimeType ?? '').toLowerCase();
+    if (mime.startsWith('image/')) return true;
+    // Images sent as WhatsApp documents (DOCUMENT/FILE + image filename).
+    const name = (attachment.originalName ?? '').toLowerCase();
+    return ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif', '.bmp'].some((ext) => name.endsWith(ext));
+  }).map((attachment) => {
     const raw = attachment.downloadUrl || attachment.previewUrl || attachment.thumbnailUrl;
     const preferred = typeof raw === 'string' ? raw.replace(/\/preview\/?(?:\?.*)?$/i, '/download') : raw;
     const src = apiUrl(preferred);
@@ -1193,7 +1201,7 @@ const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, 
       campaignName: replyTarget?.campaignName,
     }),
     mediaType: replyTarget?.attachments?.[0]?.mediaType ?? replyTarget?.type ?? quotedSource.type,
-    imageUrl: replyTarget ? apiUrl(replyTarget.attachments?.find((a: any) => a.mediaType === 'IMAGE' || a.mimeType?.startsWith('image/'))?.previewUrl ?? replyTarget.attachments?.find((a: any) => a.mediaType === 'IMAGE' || a.mimeType?.startsWith('image/'))?.thumbnailUrl ?? null) : null,
+    imageUrl: replyTarget ? apiUrl(replyTarget.attachments?.find((a: any) => (a.mediaType ?? '').toUpperCase() === 'IMAGE' || (a.mimeType ?? '').toLowerCase()?.startsWith('image/'))?.previewUrl ?? replyTarget.attachments?.find((a: any) => (a.mediaType ?? '').toUpperCase() === 'IMAGE' || (a.mimeType ?? '').toLowerCase()?.startsWith('image/'))?.thumbnailUrl ?? null) : null,
   } : null;
   return (
     <ReanimatedSwipeable
