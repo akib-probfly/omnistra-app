@@ -445,7 +445,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
                           const src = apiUrl(attachment.previewUrl ?? attachment.thumbnailUrl ?? attachment.downloadUrl ?? null);
                           return (
                             <Pressable key={attachment.id} onPress={() => setLightbox(src)} style={styles.mediaTile}>
-                              {src ? <AuthenticatedImage url={src} resizeMode="cover" style={styles.mediaThumb} /> : <View style={[styles.mediaThumb, styles.mediaThumbEmpty, { backgroundColor: colors.surfaceSecondary }]}><Text style={[styles.mediaThumbEmptyText, { color: colors.textMuted }]}>{attachment.mediaType?.[0] ?? '?'}</Text></View>}
+                              {src ? <AuthenticatedImage url={src} resizeMode="cover" style={styles.mediaThumb} adaptive /> : <View style={[styles.mediaThumb, styles.mediaThumbEmpty, { backgroundColor: colors.surfaceSecondary }]}><Text style={[styles.mediaThumbEmptyText, { color: colors.textMuted }]}>{attachment.mediaType?.[0] ?? '?'}</Text></View>}
                             </Pressable>
                           );
                         })}
@@ -594,8 +594,8 @@ const styles = StyleSheet.create({
   filterTabText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
   filterTabTextActive: { color: '#334155' },
   mediaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
-  mediaTile: { borderRadius: 12, height: 96, overflow: 'hidden', width: 96 },
-  mediaThumb: { height: 96, width: 96 },
+  mediaTile: { aspectRatio: 1, borderRadius: 12, overflow: 'hidden', width: '31.5%' },
+  mediaThumb: { height: '100%', width: '100%' },
   mediaThumbEmpty: { alignItems: 'center', backgroundColor: '#e8eef7', justifyContent: 'center' },
   mediaThumbEmptyText: { color: '#94a3b8', fontSize: 18, fontWeight: '700' },
   docRow: { alignItems: 'center', borderRadius: 16, borderColor: '#e4ebf5', borderWidth: 1, flexDirection: 'row', gap: 10, marginTop: 10, padding: 10 },
