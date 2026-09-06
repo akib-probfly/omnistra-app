@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDownLeft, ArrowUpRight, Ban, CheckCircle2, CircleSlash, Filter, Image as ImageIcon, Inbox, Mail, MessageSquareText, Mic, Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Search, Star, Video } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Ban, Check, CheckCircle2, CircleSlash, Filter, Image as ImageIcon, Inbox, Mail, MessageSquareText, Mic, Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Search, Star, Video } from 'lucide-react-native';
 import { Animated, Easing, FlatList, Pressable, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -45,6 +45,12 @@ const FILTER_LAYERS: Array<{ id: FilterLayer; label: string }> = [
   { id: 'users', label: 'Users' },
   { id: 'more', label: 'More' },
 ];
+
+const ASSIGNEE_ROLE_LABELS: Record<string, string> = {
+  workspace_admin: 'Admin',
+  workspace_manager: 'Manager',
+  workspace_agent: 'Agent',
+};
 
 export function InboxScreen() {
   const insets = useSafeAreaInsets();
@@ -126,9 +132,15 @@ export function InboxScreen() {
   const assigneeOptions = assigneesQuery.data ?? [];
   const visibleAssigneeOptions = useMemo(() => {
     const query = userSearchInput.trim().toLowerCase();
-    if (!query) return assigneeOptions;
-    return assigneeOptions.filter((member) => `${member.name ?? ''} ${member.email}`.toLowerCase().includes(query));
-  }, [assigneeOptions, userSearchInput]);
+    const matches = (member: (typeof assigneeOptions)[number]) => {
+      if (!query) return true;
+      return `${member.name ?? ''} ${member.email}`.toLowerCase().includes(query);
+    };
+    // Selected members stay pinned on top (same as the tags tab), then the rest.
+    const selected = assigneeOptions.filter((member) => assigneeIds.includes(member.workspaceMemberId) && matches(member));
+    const rest = assigneeOptions.filter((member) => !assigneeIds.includes(member.workspaceMemberId) && matches(member));
+    return [...selected, ...rest];
+  }, [assigneeOptions, userSearchInput, assigneeIds]);
 
   const tagsQuery = useQuery({
     queryKey: ['workspace-tags'],
@@ -484,19 +496,37 @@ export function InboxScreen() {
                       style={[styles.inlineSearchInput, { color: colors.text }]}
                     />
                   </View>
+                  <Text style={[styles.selectedCount, { color: colors.textSecondary }]}>{assigneeIds.length} selected</Text>
                   {assigneesQuery.isLoading ? <PanelSkeleton rows={4} /> : assigneesQuery.isError ? (
                     <Text style={[styles.emptyFilterHint, { color: colors.textMuted }]}>Could not load assignee options.</Text>
                   ) : (
                     <View style={styles.optionList}>
                       {visibleAssigneeOptions.map((member) => {
                         const active = assigneeIds.includes(member.workspaceMemberId);
+                        const displayName = member.name?.trim() || member.email;
                         return (
                           <Pressable
                             key={member.workspaceMemberId}
-                            style={[styles.optionRow, active && styles.optionRowActive, active && { backgroundColor: colors.primary }]}
+                            style={[
+                              styles.userRow,
+                              { backgroundColor: colors.surface, borderColor: colors.cardBorder },
+                              active && [styles.userRowActive, { borderColor: colors.primary, backgroundColor: `${colors.primary}12` }],
+                            ]}
                             onPress={() => setAssigneeIds((current) => active ? current.filter((id) => id !== member.workspaceMemberId) : [...current, member.workspaceMemberId])}
                           >
-                            <Text style={[styles.optionRowText, { color: active ? '#fff' : colors.textSecondary }, active && styles.optionRowTextActive]} numberOfLines={1}>{member.name ?? member.email}</Text>
+                            <ColorfulAvatar name={displayName} size={38} url={member.avatarUrl} />
+                            <View style={styles.userCopy}>
+                              <View style={styles.userNameRow}>
+                                <Text style={[styles.userName, { color: colors.text }]} numberOfLines={1}>{displayName}</Text>
+                                <View style={[styles.roleChip, { backgroundColor: colors.surfaceSecondary }]}>
+                                  <Text style={[styles.roleChipText, { color: active ? colors.primary : colors.textSecondary }]}>{ASSIGNEE_ROLE_LABELS[member.roleKey] ?? 'Agent'}</Text>
+                                </View>
+                              </View>
+                              <Text style={[styles.userEmail, { color: colors.textMuted }]} numberOfLines={1}>{member.email}</Text>
+                            </View>
+                            <View style={[styles.userCheck, { borderColor: active ? colors.primary : colors.cardBorder, backgroundColor: active ? colors.primary : 'transparent' }]}>
+                              {active ? <Check color="#fff" size={14} strokeWidth={3} /> : null}
+                            </View>
                           </Pressable>
                         );
                       })}
@@ -895,6 +925,15 @@ const styles = StyleSheet.create({
   optionRowText: { color: '#334155', flex: 1, fontSize: 14, fontWeight: '500' },
   optionRowTextActive: { color: '#1d4ed8', fontWeight: '700' },
   tagDot: { borderRadius: 5, height: 10, width: 10 },
+  userRow: { alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 10, paddingHorizontal: 10, paddingVertical: 9 },
+  userRowActive: { borderWidth: 1.5 },
+  userCopy: { flex: 1, minWidth: 0 },
+  userNameRow: { alignItems: 'center', flexDirection: 'row', gap: 6 },
+  userName: { color: '#0f172a', flex: 1, fontSize: 14, fontWeight: '700', minWidth: 0 },
+  userEmail: { color: '#64748b', fontSize: 12, marginTop: 2 },
+  roleChip: { backgroundColor: '#f1f5f9', borderRadius: 999, flexShrink: 0, paddingHorizontal: 7, paddingVertical: 2 },
+  roleChipText: { fontSize: 10, fontWeight: '700' },
+  userCheck: { alignItems: 'center', borderRadius: 999, borderWidth: 1.5, height: 22, justifyContent: 'center', width: 22 },
   emptyFilterHint: { color: '#94a3b8', fontSize: 13, paddingVertical: 12 },
   sectionLabel: { color: '#64748b', fontSize: 12, fontWeight: '700', letterSpacing: 0.4, marginBottom: 8, marginTop: 4, textTransform: 'uppercase' },
   dateFilterWrap: { marginBottom: 8 },
