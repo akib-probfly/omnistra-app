@@ -2,7 +2,7 @@
   "expo": {
     "name": "Zurvis",
     "slug": "osaas-mobile",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "scheme": "osaas",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -29,7 +29,7 @@
       "softwareKeyboardLayoutMode": "resize",
       "backgroundColor": "#f4f7fb",
       "package": "com.zurvis.mobile",
-      "versionCode": 8,
+      "versionCode": 10,
       "predictiveBackGestureEnabled": false,
       "adaptiveIcon": {
         "backgroundColor": "#1d4ed8",
@@ -85,14 +85,6 @@
         {
           "photosPermission": "Allow Zurvis to access your photos to share images and videos.",
           "cameraPermission": "Allow Zurvis to access your camera to send photos and videos."
-        }
-      ],
-      [
-        "expo-media-library",
-        {
-          "photosPermission": "Allow Zurvis to access your photos.",
-          "savePhotosPermission": "Allow Zurvis to save images to your photo library.",
-          "granularPermissions": ["photo", "video"]
         }
       ],
       "expo-video",

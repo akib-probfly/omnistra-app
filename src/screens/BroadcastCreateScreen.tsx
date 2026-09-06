@@ -342,11 +342,6 @@ export function BroadcastCreateScreen() {
     try {
       let picked: { uri: string; name: string; mimeType: string } | null = null;
       if (headerType === 'IMAGE' || headerType === 'VIDEO') {
-        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!permission.granted) {
-          showNotice('Permission required', 'Allow photo library access to attach header media.');
-          return;
-        }
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: headerType === 'IMAGE' ? ['images'] : ['videos'],
           quality: 0.9,

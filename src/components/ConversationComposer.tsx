@@ -256,11 +256,6 @@ export function ConversationComposer({
   }
 
   async function chooseImage() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      showNotice('Permission required', 'Allow photo library access to attach images and videos.');
-      return;
-    }
     if (remainingAttachmentSlots <= 0) {
       showNotice('Attachment limit', `You can attach up to ${COMPOSER_MAX_ATTACHMENT_COUNT} files at once.`);
       return;

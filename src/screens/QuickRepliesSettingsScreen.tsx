@@ -238,11 +238,6 @@ export function QuickRepliesSettingsScreen() {
 
     let files: Array<{ uri: string; name: string; mimeType: string; size?: number | null }> = [];
     if (source === 'image') {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        Toast.show({ type: 'info', text1: 'Permission required', text2: 'Allow photo library access to attach images.' });
-        return;
-      }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images', 'videos'],
         quality: 0.85,

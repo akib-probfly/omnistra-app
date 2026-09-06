@@ -75,11 +75,6 @@ export function ProfileScreen() {
   });
 
   const handlePickAvatar = useCallback(async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      showNotice('Permission needed', 'Allow access to your photo library to change your profile picture.');
-      return;
-    }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85, allowsEditing: true, aspect: [1, 1] });
     if (result.canceled || !result.assets?.length) return;
     const asset = result.assets[0];

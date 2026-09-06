@@ -205,11 +205,6 @@ export function ChannelDetailsScreen() {
   });
 
   const pickProfilePhoto = useCallback(async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Toast.show({ type: 'info', text1: 'Permission needed', text2: 'Allow photo library access to upload a business profile photo.' });
-      return;
-    }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85, allowsEditing: true, aspect: [1, 1] });
     if (result.canceled || !result.assets?.length) return;
     const asset = result.assets[0];

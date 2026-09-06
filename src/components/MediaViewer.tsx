@@ -181,11 +181,6 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
     setSaving(true);
     try {
       const localUri = await prepareLocalImageForLibrary(current.src);
-      const permission = await MediaLibrary.requestPermissionsAsync(true);
-      if (permission.status !== 'granted') {
-        showNotice('Permission required', 'Allow photo library access to save images.');
-        return;
-      }
       await MediaLibrary.saveToLibraryAsync(localUri);
       showNotice('Saved', 'Image saved to your photos.');
     } catch (error) {
