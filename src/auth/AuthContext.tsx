@@ -88,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           save(
             await apiFetch<Session>('/auth/login', {
               method: 'POST',
+              auth: false,
               headers: { 'x-auth-transport': 'body' },
               body: JSON.stringify({
                 email: email.trim().toLowerCase(),
