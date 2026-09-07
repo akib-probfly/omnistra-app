@@ -223,7 +223,10 @@ export function ConversationScreen() {
     enabled: isFocused,
     staleTime: 60_000,
     gcTime: 10 * 60_000,
-    refetchOnMount: false,
+    // The inbox preview can be updated independently by realtime events. Always
+    // refresh the first message page when opening the thread so it cannot render
+    // an older cached page than the sidebar.
+    refetchOnMount: 'always',
     refetchOnReconnect: false,
     // Realtime updates the open thread; keep a slow poll as a safety net for zombie sockets.
     // Briefly poll faster after send for delivery receipts.
@@ -593,8 +596,12 @@ export function ConversationScreen() {
     }
 
     setActiveConversationId(route.params.conversationId);
+    void queryClient.invalidateQueries({
+      queryKey: ['messages', route.params.conversationId],
+      refetchType: 'active',
+    });
     return () => setActiveConversationId(null);
-  }, [isFocused, route.params.conversationId]);
+  }, [isFocused, route.params.conversationId, queryClient]);
 
   useEffect(() => {
     if (!isFocused) {

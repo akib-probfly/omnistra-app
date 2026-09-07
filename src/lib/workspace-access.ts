@@ -12,13 +12,20 @@ export function canManageWorkspace(workspace?: Pick<Workspace, 'roleKeys'> | nul
 export function useWorkspaceAccess() {
   const query = useQuery({
     queryKey: ['workspaces', 'mine'],
-    queryFn: fetchMyWorkspaces,
+    queryFn: async () => {
+      const timeout = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Workspace request timed out. Check your internet connection and try again.')), 15000);
+      });
+      return Promise.race([fetchMyWorkspaces(), timeout]);
+    },
     staleTime: 30_000,
   });
   const workspace = query.data?.items?.[0] ?? null;
   return {
     workspace,
     loading: query.isPending && !isBillingLocked(),
+    error: query.error,
+    refetch: query.refetch,
     canManage: canManageWorkspace(workspace),
   };
 }

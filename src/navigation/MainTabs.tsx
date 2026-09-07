@@ -1,7 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { getFocusedRouteNameFromRoute, type NavigatorScreenParams } from '@react-navigation/native';
 import { BarChart3, ContactRound, Inbox, Radio, Settings } from 'lucide-react-native';
-import { ActivityIndicator, Pressable, View, type PressableProps } from 'react-native';
+import { ActivityIndicator, Pressable, Text, type PressableProps, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { ChannelsStack } from './ChannelsStack';
@@ -52,13 +52,25 @@ function TabBarButton({
 export function MainTabs() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
-  const { canManage, loading } = useWorkspaceAccess();
+  const { canManage, loading, error, refetch } = useWorkspaceAccess();
   const bottomPad = Math.max(insets.bottom, 8) + 4;
 
   if (loading) {
     return (
       <View style={{ alignItems: 'center', backgroundColor: colors.surface, flex: 1, justifyContent: 'center' }}>
         <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={{ alignItems: 'center', backgroundColor: colors.surface, flex: 1, justifyContent: 'center', padding: 24 }}>
+        <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600', marginBottom: 8, textAlign: 'center' }}>Unable to load your workspace</Text>
+        <Text style={{ color: colors.textSecondary, fontSize: 13, marginBottom: 16, textAlign: 'center' }}>{error instanceof Error ? error.message : 'Please check your connection and try again.'}</Text>
+        <Pressable onPress={() => void refetch()} style={{ backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 18, paddingVertical: 10 }}>
+          <Text style={{ color: colors.primaryText, fontWeight: '600' }}>Retry</Text>
+        </Pressable>
       </View>
     );
   }

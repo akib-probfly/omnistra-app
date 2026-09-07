@@ -38,8 +38,8 @@ export function useBillingLockReason() {
   return reason;
 }
 
-export function pollingWhileUnlocked<T extends number | false>(interval: T | ((...args: never[]) => T)) {
-  return ((...args: never[]) => {
+export function pollingWhileUnlocked<T extends number | false>(interval: T | ((...args: unknown[]) => T)) {
+  return ((...args: unknown[]) => {
     if (isBillingLocked()) return false as const;
     return typeof interval === 'function' ? interval(...args) : interval;
   }) as T extends number ? () => T | false : typeof interval;

@@ -86,7 +86,7 @@ export async function downloadMedia(url: string): Promise<string> {
     return url;
   }
   const token = shouldSendAuthHeader(url)
-    ? ((await SecureStore.getItemAsync('access-token')) ?? latestAccessToken)
+    ? (latestAccessToken ?? await SecureStore.getItemAsync('access-token'))
     : null;
   const cacheDir = FileSystem.cacheDirectory;
   if (!cacheDir) throw new Error('Media cache directory is unavailable');

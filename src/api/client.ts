@@ -78,7 +78,10 @@ export async function uploadFile(path: string, uri: string, name: string, mimeTy
 
 export async function apiFetch<T>(path: string, init: RequestInit & { auth?: boolean } = {}): Promise<T> {
   const { auth = true, ...fetchInit } = init;
-  const token = auth ? await SecureStore.getItemAsync('access-token') : null;
+  // Reuse the token set during login/session restore. This avoids an unnecessary
+  // SecureStore bridge call on every request, which can fail in minified Android
+  // release builds while the in-memory session is already valid.
+  const token = auth ? (latestAccessToken ?? await SecureStore.getItemAsync('access-token')) : null;
   if (auth) setLatestAccessToken(token);
   if (__DEV__) console.log(`[api] request ${fetchInit.method ?? 'GET'} ${path}`, { authenticated: Boolean(token) });
   const response = await fetch(`${API_BASE_URL}${path}`, {
