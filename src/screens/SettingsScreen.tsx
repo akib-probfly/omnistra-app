@@ -68,7 +68,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     label: 'Team Management',
     items: [
-      { kind: 'route', id: 'members', label: 'Members', description: 'Team access and performance', icon: UsersRound, iconBg: '#eff6ff', iconColor: '#2563eb', route: 'Members' },
+      { kind: 'route', id: 'members', label: 'Members', description: 'Team access and workspace coverage', icon: UsersRound, iconBg: '#eff6ff', iconColor: '#2563eb', route: 'Members' },
     ],
   },
   {

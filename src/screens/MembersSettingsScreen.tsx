@@ -89,18 +89,6 @@ function statusTheme(status: WorkspaceRosterMember['status']) {
   return { bg: '#f1f5f9', fg: '#64748b', dot: '#94a3b8', border: '#e2e8f0' };
 }
 
-function performanceFor(member: WorkspaceRosterMember, index: number) {
-  if (member.status === 'INVITED') return { assigned: 0, resolved: 0, rate: 0 };
-  const channelWeight = member.accessScope === 'ALL_CHANNELS'
-    ? 5
-    : Math.max(1, member.channelAssignments?.length ?? 0);
-  const roleWeight = member.roleKeys?.includes('workspace_manager') ? 12 : member.roleKeys?.includes('workspace_admin') ? 8 : 0;
-  const activeWeight = member.status === 'ACTIVE' ? 36 : 10;
-  const assigned = Math.max(0, activeWeight + roleWeight + channelWeight * 9 + (7 - index) * 11);
-  const rate = Math.min(92, Math.max(54, 63 + channelWeight * 3 + (index % 3) * 6));
-  return { assigned, resolved: Math.round((assigned * rate) / 100), rate };
-}
-
 function AccessPill({ member }: { member: WorkspaceRosterMember }) {
   const { colors } = useTheme();
   const channels = member.channelAssignments ?? [];
@@ -350,12 +338,10 @@ function SheetActionRow({
   );
 }
 
-function MemberCard({ member, index, onSelect }: { member: WorkspaceRosterMember; index: number; onSelect: (member: WorkspaceRosterMember) => void }) {
+function MemberCard({ member, onSelect }: { member: WorkspaceRosterMember; onSelect: (member: WorkspaceRosterMember) => void }) {
   const { colors } = useTheme();
   const name = displayName(member);
   const status = statusTheme(member.status);
-  const performance = performanceFor(member, index);
-  const barColor = performance.rate >= 80 ? '#22c55e' : '#2563eb';
 
   return (
     <Pressable
@@ -391,26 +377,6 @@ function MemberCard({ member, index, onSelect }: { member: WorkspaceRosterMember
         <View style={[styles.metaBlock, styles.accessBlock]}>
           <Text style={[styles.metaLabel, { color: colors.textMuted }]}>Channel access</Text>
           <AccessPill member={member} />
-        </View>
-      </View>
-
-      <View style={[styles.performance, { borderTopColor: colors.separator }]}>
-        <View style={styles.countBlock}>
-          <Text style={[styles.metaLabel, { color: colors.textMuted }]}>Assigned</Text>
-          <Text style={[styles.assignedText, { color: colors.text }]}>{performance.assigned}</Text>
-        </View>
-        <View style={styles.countBlock}>
-          <Text style={[styles.metaLabel, { color: colors.textMuted }]}>Resolved</Text>
-          <Text style={styles.resolvedText}>{performance.resolved}</Text>
-        </View>
-        <View style={styles.rateBlock}>
-          <Text style={[styles.metaLabel, { color: colors.textMuted }]}>Resolution rate</Text>
-          <View style={styles.rateLine}>
-            <View style={[styles.rateTrack, { backgroundColor: colors.surfaceSecondary }]}>
-              <View style={[styles.rateFill, { backgroundColor: barColor, width: `${performance.rate}%` }]} />
-            </View>
-            <Text style={[styles.rateText, { color: colors.text }]}>{performance.rate}%</Text>
-          </View>
         </View>
       </View>
     </Pressable>
@@ -801,7 +767,7 @@ export function MembersSettingsScreen() {
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <ScreenHeader
         title="Members"
-        subtitle="Team access and performance"
+        subtitle="Team access and workspace coverage"
         onBack={() => navigation.goBack()}
         right={(
           <AppIconButton
@@ -867,7 +833,7 @@ export function MembersSettingsScreen() {
               <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>Try another search or invite a teammate.</Text>
             </View>
           )}
-          renderItem={({ item, index }) => <MemberCard member={item} index={index} onSelect={setActionMember} />}
+          renderItem={({ item }) => <MemberCard member={item} onSelect={setActionMember} />}
         />
       )}
 
@@ -1223,11 +1189,6 @@ export function MembersSettingsScreen() {
                   </Text>
                 </View>
               )}
-              <View style={[styles.warningNote, { borderColor: '#fcd34d', backgroundColor: '#fffbeb' }]}>
-                <Text style={[styles.warningNoteText, { color: '#92400e' }]}>
-                  This will not unassign conversations or remove channel access. Permissions will update immediately after save.
-                </Text>
-              </View>
             </SheetScrollView>
             <View style={[styles.sheetFooter, { borderTopColor: colors.cardBorder }]}>
               <Text style={[styles.footerSummary, { color: colors.textMuted }]}>
@@ -1316,15 +1277,6 @@ const styles = StyleSheet.create({
   channelName: { flexShrink: 1, fontSize: 11, fontWeight: '800' },
   multiChannel: { alignItems: 'center', flexDirection: 'row', gap: 8, marginTop: 7 },
   channelStack: { flexDirection: 'row' },
-  performance: { borderTopWidth: 1, flexDirection: 'row', gap: 10, marginTop: 14, paddingTop: 12 },
-  countBlock: { width: 72 },
-  assignedText: { fontSize: 16, fontWeight: '700', marginTop: 5 },
-  resolvedText: { color: '#22c55e', fontSize: 16, fontWeight: '800', marginTop: 5 },
-  rateBlock: { flex: 1, minWidth: 0 },
-  rateLine: { alignItems: 'center', flexDirection: 'row', gap: 8, marginTop: 8 },
-  rateTrack: { borderRadius: 999, flex: 1, height: 6, overflow: 'hidden' },
-  rateFill: { borderRadius: 999, height: 6 },
-  rateText: { fontSize: 12, fontWeight: '800', minWidth: 34 },
   emptyCard: { alignItems: 'center', borderRadius: 18, borderWidth: 1, padding: 28 },
   emptyTitle: { fontSize: 16, fontWeight: '800', marginTop: 12 },
   emptyBody: { fontSize: 13, lineHeight: 19, marginTop: 4, textAlign: 'center' },
