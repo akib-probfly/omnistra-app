@@ -42,6 +42,17 @@ function toTimeString(date: Date) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
+function formatTimeLabel(value: string) {
+  const [rawHour = '0', rawMinute = '00'] = value.split(':');
+  const hour24 = Number.parseInt(rawHour, 10);
+  const safeHour24 = Number.isFinite(hour24) ? Math.min(23, Math.max(0, hour24)) : 0;
+  const period = safeHour24 >= 12 ? 'PM' : 'AM';
+  const hour12 = safeHour24 % 12 || 12;
+  const minute = rawMinute.padStart(2, '0').slice(0, 2);
+
+  return `${String(hour12).padStart(2, '0')}:${minute} ${period}`;
+}
+
 export function QuickAutomationTab({ channelId, channelType }: { channelId: string; channelType: ChannelType }) {
   const { colors } = useTheme();
   const queryClient = useQueryClient();
@@ -189,11 +200,11 @@ export function QuickAutomationTab({ channelId, channelType }: { channelId: stri
             />
             <Text style={[styles.dayLabel, { color: colors.textSecondary }]}>{day}</Text>
             <Pressable disabled={!draft.businessHours[day].enabled} onPress={() => setPicker({ day, slot: 'from' })} style={[styles.timeChip, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, !draft.businessHours[day].enabled && styles.timeChipDisabled]}>
-              <Text style={[styles.timeChipText, { color: colors.text }]}>{draft.businessHours[day].from}</Text>
+              <Text style={[styles.timeChipText, { color: colors.text }]}>{formatTimeLabel(draft.businessHours[day].from)}</Text>
             </Pressable>
-            <Text style={[styles.dayDash, { color: colors.textMuted }]}>—</Text>
+            <Text style={[styles.dayDash, { color: colors.textMuted }]}>to</Text>
             <Pressable disabled={!draft.businessHours[day].enabled} onPress={() => setPicker({ day, slot: 'to' })} style={[styles.timeChip, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, !draft.businessHours[day].enabled && styles.timeChipDisabled]}>
-              <Text style={[styles.timeChipText, { color: colors.text }]}>{draft.businessHours[day].to}</Text>
+              <Text style={[styles.timeChipText, { color: colors.text }]}>{formatTimeLabel(draft.businessHours[day].to)}</Text>
             </Pressable>
           </View>
         ))}
@@ -203,7 +214,7 @@ export function QuickAutomationTab({ channelId, channelType }: { channelId: stri
         <DateTimePicker
           value={parseTimeToDate(draft.businessHours[picker.day][picker.slot], picker.slot)}
           mode="time"
-          is24Hour
+          is24Hour={false}
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={(event, date) => {
             if (Platform.OS === 'android') setPicker(null);
