@@ -90,6 +90,17 @@ function messengerPageLink(pageId: string | null | undefined) {
   return pageId ? `https://facebook.com/${pageId}` : 'Not linked';
 }
 
+function tiktokProfileLink(username: string | null | undefined) {
+  const handle = username?.trim().replace(/^@/, '') ?? '';
+  return handle ? `https://www.tiktok.com/@${handle}` : 'Not linked';
+}
+
+function tiktokUsername(username: string | null | undefined) {
+  const value = username?.trim();
+  if (!value) return 'Not available';
+  return value.startsWith('@') ? value : `@${value}`;
+}
+
 export function ChannelDetailsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -294,12 +305,15 @@ export function ChannelDetailsScreen() {
 
     if (isTikTok) {
       const config = (channel.configuration ?? null) as TikTokChannelConfiguration | null;
-      const accountLabel = config?.accountDisplayName || config?.accountUsername || primaryAccount?.displayName || 'TikTok Business account';
+      const accountLabel = config?.accountDisplayName?.trim() || config?.accountUsername?.trim() || channel.name;
+      const webhookStatus = config?.webhookSubscriptionStatus ?? primaryAccount?.webhookStatus ?? channel.status;
+      const username = tiktokUsername(config?.accountUsername);
       return (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
           <ChannelConfigurationHero
             channel={channel}
             subtitle="TikTok Business Messaging"
+            title={accountLabel}
             statusTone={statusTone}
             lifecycle={lifecycle}
             isDark={isDark}
@@ -309,18 +323,18 @@ export function ChannelDetailsScreen() {
 
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
             <Text style={[styles.cardTitle, { color: colors.text }]}>Channel configuration</Text>
-            <Text style={[styles.cardSub, { color: colors.textSecondary }]}>Manage channel information and settings.</Text>
+            <Text style={[styles.cardSub, { color: colors.textSecondary }]}>View the connected TikTok account and webhook details.</Text>
             <View style={styles.statusGrid}>
-              <StatusTile icon="message" title="TikTok" value={formatConfigStatus(channel.status)} tone={lifecycle.canProcessEvents ? 'success' : 'neutral'} />
-              <StatusTile icon={config?.lastSyncStatus === 'FAILED' ? 'unlink' : 'link'} title="Sync" value={formatConfigStatus(config?.lastSyncStatus ?? 'PENDING')} tone={config?.lastSyncStatus === 'FAILED' ? 'danger' : 'success'} />
+              <StatusTile icon="message" title="Account" value={accountLabel} />
+              <StatusTile icon="message" title="Inbox status" value={formatConfigStatus(channel.status)} tone={channel.status === 'CONNECTED' ? 'success' : 'warning'} />
+              <StatusTile icon={webhookStatus === 'CONNECTED' ? 'link' : 'unlink'} title="Webhook" value={formatConfigStatus(webhookStatus)} tone={webhookStatus === 'CONNECTED' ? 'success' : 'warning'} />
             </View>
             <View style={styles.configFields}>
-              <ConfigField label="Channel name" value={channel.name} />
-              <ConfigField label="Account" value={accountLabel} />
+              <ConfigField label="Profile link" value={tiktokProfileLink(config?.accountUsername)} copy />
+              <ConfigField label="Account name" value={accountLabel} />
+              <ConfigField label="Username" value={username} copy />
               <ConfigField label="Business ID" value={config?.businessId ?? primaryAccount?.externalAccountId ?? 'Not available'} copy mono />
-              <ConfigField label="Supported replies" value="Text and JPEG/PNG image messages" />
-              <ConfigField label="Last synced" value={formatDateLabel(config?.lastSyncedAt)} />
-              <ConfigField label="Sync error" value={config?.lastSyncError ?? 'None'} />
+              <ConfigField label="Connected at" value={formatDateLabel(primaryAccount?.connectedAt ?? channel.createdAt)} />
             </View>
           </View>
         </ScrollView>
@@ -559,6 +573,7 @@ function TabButton({ label, active, onPress }: { label: string; active: boolean;
 function ChannelConfigurationHero({
   channel,
   subtitle,
+  title,
   statusTone,
   lifecycle,
   isDark,
@@ -567,6 +582,7 @@ function ChannelConfigurationHero({
 }: {
   channel: ChannelDetails;
   subtitle: string;
+  title?: string;
   statusTone: { bg: string; fg: string };
   lifecycle: ChannelDetails['lifecycle'];
   isDark: boolean;
@@ -578,7 +594,7 @@ function ChannelConfigurationHero({
       <View style={[styles.configurationHero, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
         <ChannelLogo type={channel.type} box={52} glyph={26} radius={18} />
         <View style={styles.titleCopy}>
-          <Text style={[styles.channelName, { color: colors.text }]}>{channel.name}</Text>
+          <Text style={[styles.channelName, { color: colors.text }]}>{title ?? channel.name}</Text>
           <Text style={[styles.heroSub, { color: colors.textSecondary }]}>{subtitle}</Text>
           <View style={styles.badges}>
             <View style={[styles.badge, { backgroundColor: statusTone.bg }]}>

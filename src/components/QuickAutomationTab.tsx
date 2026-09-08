@@ -13,7 +13,6 @@ import {
   type ChannelType,
 } from '../api/channels';
 import { useTheme } from '../theme/ThemeContext';
-import { AppSegmentedControl } from '../ui';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 const FREQUENCIES = [
@@ -132,11 +131,22 @@ export function QuickAutomationTab({ channelId, channelType }: { channelId: stri
               style={[styles.inputMultiline, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]}
             />
             <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Send frequency</Text>
-            <AppSegmentedControl
-              options={FREQUENCIES}
-              value={draft.welcomeSendFrequency}
-              onChange={(welcomeSendFrequency) => setDraft({ ...draft, welcomeSendFrequency })}
-            />
+            <View style={[styles.frequencySelect, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+              {FREQUENCIES.map((option) => {
+                const active = option.value === draft.welcomeSendFrequency;
+                return (
+                  <Pressable
+                    key={option.value}
+                    onPress={() => setDraft({ ...draft, welcomeSendFrequency: option.value })}
+                    style={[styles.frequencyOption, active && { backgroundColor: colors.primary }]}
+                  >
+                    <Text style={[styles.frequencyOptionText, { color: active ? colors.primaryText : colors.textSecondary }]} numberOfLines={2}>
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </>
         ) : null}
       </View>
@@ -221,6 +231,9 @@ const styles = StyleSheet.create({
   toggleLabel: { color: '#0f172a', fontSize: 15, fontWeight: '600' },
   fieldLabel: { color: '#64748b', fontSize: 12, marginTop: 14 },
   inputMultiline: { backgroundColor: '#f8fbff', borderColor: '#cfe1ff', borderRadius: 14, borderWidth: 1, color: '#0f172a', fontSize: 14, minHeight: 88, paddingHorizontal: 14, paddingVertical: 12, marginTop: 6, textAlignVertical: 'top' },
+  frequencySelect: { borderColor: '#d8e6fb', borderRadius: 16, borderWidth: 1, flexDirection: 'row', gap: 4, marginTop: 6, padding: 4 },
+  frequencyOption: { alignItems: 'center', borderRadius: 12, flex: 1, justifyContent: 'center', minHeight: 42, paddingHorizontal: 6, paddingVertical: 8 },
+  frequencyOptionText: { color: '#64748b', fontSize: 12, fontWeight: '700', lineHeight: 16, textAlign: 'center' },
   dayRow: { alignItems: 'center', flexDirection: 'row', gap: 10, marginTop: 12 },
   dayLabel: { color: '#334155', flex: 1, fontSize: 14, fontWeight: '600' },
   timeChip: { alignItems: 'center', backgroundColor: '#f8fbff', borderColor: '#cfe1ff', borderRadius: 10, borderWidth: 1, minWidth: 64, paddingHorizontal: 10, paddingVertical: 7 },
