@@ -1,11 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Ban, Check, ChevronDown, ChevronUp, Download, File, FileText, Film, Music, Pencil, Plus, RotateCcw, Sparkles } from 'lucide-react-native';
+import { Ban, Check, ChevronDown, ChevronUp, File, FileText, Film, Music, Pencil, Plus, RotateCcw, Sparkles } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import Toast from 'react-native-toast-message';
 import { apiUrl } from '../api/client';
 import { attachConversationTag, banCrmContact, createConversationNote, createConversationTag, deleteConversationNote, detachConversationTag, fetchConversationAttachments, fetchConversationNotes, fetchConversationTags, fetchWorkspaceTags, unbanCrmContact, updateConversationNote, updateCrmContact, type ConversationAttachment, type ConversationTag } from '../api/conversationDetails';
-import { AuthenticatedImage, downloadMedia } from './AuthenticatedImage';
+import { AuthenticatedImage } from './AuthenticatedImage';
 import { BottomSheet, SheetScrollView } from './BottomSheet';
 import { ConfirmDialog } from './ConfirmDialog';
 import { ColorfulAvatar } from './ColorfulAvatar';
@@ -13,6 +12,7 @@ import { MediaViewer, type MediaGalleryItem } from './MediaViewer';
 import { PanelSkeleton } from './Skeleton';
 import { VideoPlayerModal } from './VideoPlayer';
 import { useTheme } from '../theme/ThemeContext';
+import Toast from 'react-native-toast-message';
 
 export function formatPhoneNumberDisplay(phone: string | null | undefined): string | null {
   if (!phone) return null;
@@ -72,7 +72,6 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   const [gallery, setGallery] = useState<MediaGalleryItem[]>([]);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState(TAG_COLOR_OPTIONS[0]);
   const [optimisticBlockedAt, setOptimisticBlockedAt] = useState<string | null | undefined>(undefined);
   const [banOpen, setBanOpen] = useState(false);
@@ -234,20 +233,6 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   const saveNote = () => { const content = noteDraft.trim(); if (!content) return; createNoteMutation.mutate(content); };
   const saveEditingNote = () => { if (!editingNoteId) return; const content = editingNoteDraft.trim(); if (!content) return; updateNoteMutation.mutate({ noteId: editingNoteId, content }); };
 
-  const downloadDocument = async (attachment: ConversationAttachment) => {
-    if (!attachment.downloadUrl) return;
-    if (downloadingId) return;
-    setDownloadingId(attachment.id);
-    try {
-      const uri = await downloadMedia(apiUrl(attachment.downloadUrl) ?? '');
-      Toast.show({ type: 'success', text1: 'Downloaded', text2: `Saved to:\n${uri}` });
-    } catch (error) {
-      Toast.show({ type: 'error', text1: 'Download failed', text2: error instanceof Error ? error.message : 'Please try again.' });
-    } finally {
-      setDownloadingId(null);
-    }
-  };
-
   const openMedia = (attachment: ConversationAttachment) => {
     const mediaType = (attachment.mediaType ?? '').toUpperCase();
     const mime = (attachment.mimeType ?? '').toLowerCase();
@@ -263,7 +248,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
 
   const resetState = () => {
     setCustomerOpen(true); setTagsOpen(true); setNotesOpen(true); setFilesOpen(false);
-    setTagInput(''); setNoteDraft(''); setEditingNoteId(null); setEditingPhone(false); setEditingEmail(false); setGallery([]); setGalleryIndex(0); setVideoUrl(null); setDownloadingId(null);
+    setTagInput(''); setNoteDraft(''); setEditingNoteId(null); setEditingPhone(false); setEditingEmail(false); setGallery([]); setGalleryIndex(0); setVideoUrl(null);
     setOptimisticBlockedAt(undefined);
     setBanOpen(false);
     setPendingDeleteNoteId(null);
@@ -493,9 +478,6 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
                             <Text style={[styles.docName, { color: colors.text }]} numberOfLines={1}>{attachment.originalName ?? 'Attachment'}</Text>
                             <Text style={[styles.docMeta, { color: colors.textMuted }]}>{formatAttachmentSize(attachment.sizeBytes) ?? 'Unknown size'}</Text>
                           </View>
-                          <Pressable onPress={() => downloadDocument(attachment)} disabled={downloadingId === attachment.id} hitSlop={8} style={styles.docDownload}>
-                            {downloadingId === attachment.id ? <ActivityIndicator color={colors.primary} size="small" /> : <Download color={colors.textSecondary} size={15} />}
-                          </Pressable>
                         </View>
                       );
                     })
@@ -627,7 +609,6 @@ const styles = StyleSheet.create({
   docInfo: { flex: 1, minWidth: 0 },
   docName: { color: '#0f172a', fontSize: 12, fontWeight: '700' },
   docMeta: { color: '#94a3b8', fontSize: 10, letterSpacing: 0.4, marginTop: 2, textTransform: 'uppercase' },
-  docDownload: { alignItems: 'center', height: 34, justifyContent: 'center', width: 34 },
   statusBar: { backgroundColor: '#fff', borderTopColor: '#e2e8f0', borderTopWidth: 1, paddingHorizontal: 16, paddingTop: 12 },
   statusBtn: { alignItems: 'center', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 8, height: 48, justifyContent: 'center' },
   statusBtnOpen: { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' },

@@ -22,6 +22,7 @@ import {
 import { LinkPreviewCard } from './LinkPreviewCard';
 import { MessageReferralPreviewCard } from './MessageReferralPreviewCard';
 import { findFirstUrlInText } from '../lib/link-preview';
+import { openDownloadedAttachment } from '../lib/open-attachment';
 import { useTheme } from '../theme/ThemeContext';
 
 const COLLAPSED_LINE_COUNT = 4;
@@ -102,6 +103,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
   const failedReason = outgoing && statusMeta?.showFailed ? getMessageFailureReason(message) : null;
   const [expanded, setExpanded] = useState(false);
   const [canExpand, setCanExpand] = useState(false);
+  const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null);
   useEffect(() => {
     setExpanded(false);
     setCanExpand(false);
@@ -137,6 +139,16 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
         ) : null}
       </View>
     );
+  }
+
+  async function openDocument(attachment: any) {
+    if (openingDocumentId) return;
+    setOpeningDocumentId(attachment.id);
+    try {
+      await openDownloadedAttachment(attachment.downloadUrl ?? attachment.previewUrl ?? attachment.thumbnailUrl, attachment.mimeType);
+    } finally {
+      setOpeningDocumentId(null);
+    }
   }
 
   const isTemplate = templateDisplay !== null;
@@ -292,12 +304,42 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
         ) : null}
         {documentAttachments.length ? (
           <View style={styles.docList}>
-            {documentAttachments.map((attachment: any) => (
-              <View key={attachment.id} style={styles.file}>
-                <FileText color={outgoing ? '#cfe0ff' : colors.primary} size={18} />
-                <Text numberOfLines={1} style={[styles.fileName, outgoing && styles.outgoingMuted, !outgoing && { color: colors.text }]}>{attachment.originalName ?? attachment.mediaType ?? 'Document'}</Text>
-              </View>
-            ))}
+            {documentAttachments.map((attachment: any) => {
+              const docPreviewUrl = documentPreviewUrl(attachment);
+              return (
+                <Pressable
+                  key={attachment.id}
+                  onPress={() => void openDocument(attachment)}
+                  disabled={openingDocumentId === attachment.id}
+                  style={[
+                    styles.documentCard,
+                    outgoing && styles.documentCardOutgoing,
+                    !outgoing && { backgroundColor: colors.surface, borderColor: colors.cardBorder },
+                  ]}
+                >
+                  {docPreviewUrl ? (
+                    <View style={[styles.documentPreview, { backgroundColor: colors.surfaceSecondary }]}>
+                      <AuthenticatedImage
+                        url={docPreviewUrl}
+                        style={styles.documentPreviewImage}
+                        resizeMode="cover"
+                      />
+                    </View>
+                  ) : null}
+                  <View style={styles.documentFooter}>
+                    <View style={[styles.documentIcon, outgoing && styles.documentIconOutgoing]}>
+                      <FileText color={outgoing ? '#dbeafe' : colors.primary} size={16} />
+                    </View>
+                    <View style={styles.documentCopy}>
+                      <Text numberOfLines={1} style={[styles.fileName, outgoing && styles.outgoingText, !outgoing && { color: colors.text }]}>{attachment.originalName ?? attachment.mediaType ?? 'Document'}</Text>
+                      <Text numberOfLines={1} style={[styles.fileMeta, outgoing && styles.outgoingMuted, !outgoing && { color: colors.textSecondary }]}>
+                        {attachment.mimeType || attachment.mediaType || 'Document'}
+                      </Text>
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
         ) : null}
         {isTikTokUnsupportedInboundVoice ? (
@@ -418,6 +460,12 @@ function videoPosterUrl(attachment: any): string {
   return resolveMediaUrl(base, value);
 }
 
+function documentPreviewUrl(attachment: any): string | null {
+  const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.zurvis.io/api/v1';
+  const value = attachment.previewUrl ?? attachment.thumbnailUrl;
+  return value ? resolveMediaUrl(base, value) : null;
+}
+
 function audioUrl(attachment: any): string {
   const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.zurvis.io/api/v1';
   return resolveMediaUrl(base, attachment.downloadUrl ?? attachment.previewUrl ?? attachment.thumbnailUrl);
@@ -528,8 +576,17 @@ const styles = StyleSheet.create({
   gridImage: { width: 123, height: 123 },
   voiceWrap: { gap: 6, maxWidth: 260 },
   docList: { gap: 6 },
+  documentCard: { borderColor: '#d7e6fb', borderRadius: 16, borderWidth: 1, overflow: 'hidden', width: 250 },
+  documentCardOutgoing: { backgroundColor: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.24)' },
+  documentPreview: { backgroundColor: '#f8fafc', height: 170, width: '100%' },
+  documentPreviewImage: { height: '100%', width: '100%' },
+  documentFooter: { alignItems: 'center', flexDirection: 'row', gap: 10, paddingHorizontal: 12, paddingVertical: 10 },
+  documentIcon: { alignItems: 'center', backgroundColor: '#eef4ff', borderRadius: 13, height: 36, justifyContent: 'center', width: 36 },
+  documentIconOutgoing: { backgroundColor: 'rgba(255,255,255,0.16)' },
+  documentCopy: { flex: 1, minWidth: 0 },
   file: { alignItems: 'center', flexDirection: 'row', gap: 10, paddingVertical: 2 },
   fileName: { color: '#17233a', flex: 1, fontSize: 14 },
+  fileMeta: { color: '#64748b', fontSize: 11, marginTop: 2 },
   missingMedia: { color: '#94a3b8', fontSize: 13, fontStyle: 'italic' },
   metaRow: { alignItems: 'center', flexDirection: 'row', gap: 6, marginTop: 6 },
   metaRight: { alignItems: 'center', flexDirection: 'row', gap: 6, marginLeft: 'auto' },

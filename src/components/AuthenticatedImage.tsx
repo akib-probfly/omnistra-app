@@ -59,6 +59,15 @@ function extensionFromContentType(contentType: string | null) {
   if (type === 'audio/ogg' || type === 'audio/opus') return 'ogg';
   if (type === 'audio/mp4' || type === 'audio/aac' || type === 'audio/x-m4a') return 'm4a';
   if (type === 'audio/wav' || type === 'audio/x-wav' || type === 'audio/wave') return 'wav';
+  if (type === 'application/pdf') return 'pdf';
+  if (type === 'text/plain') return 'txt';
+  if (type === 'text/csv') return 'csv';
+  if (type === 'application/msword') return 'doc';
+  if (type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return 'docx';
+  if (type === 'application/vnd.ms-excel') return 'xls';
+  if (type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') return 'xlsx';
+  if (type === 'application/vnd.ms-powerpoint') return 'ppt';
+  if (type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') return 'pptx';
   return null;
 }
 
@@ -116,7 +125,7 @@ function guessMediaExtension(url: string) {
     const match = pathname.match(/\.([a-z0-9]+)$/);
     if (match) {
       const ext = match[1];
-      if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'bmp', 'mp4', 'mov', 'webm'].includes(ext)) {
+      if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'bmp', 'mp4', 'mov', 'webm', 'pdf', 'txt', 'csv', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext)) {
         return ext === 'jpeg' ? 'jpg' : ext;
       }
     }
