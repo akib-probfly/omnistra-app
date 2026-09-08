@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ban, Check, ChevronDown, ChevronUp, Download, File, FileText, Film, Music, Pencil, Plus, RotateCcw, Sparkles } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { apiUrl } from '../api/client';
 import { attachConversationTag, banCrmContact, createConversationNote, createConversationTag, deleteConversationNote, detachConversationTag, fetchConversationAttachments, fetchConversationNotes, fetchConversationTags, fetchWorkspaceTags, unbanCrmContact, updateConversationNote, updateCrmContact, type ConversationAttachment, type ConversationTag } from '../api/conversationDetails';
@@ -9,7 +9,9 @@ import { AuthenticatedImage, downloadMedia } from './AuthenticatedImage';
 import { BottomSheet, SheetScrollView } from './BottomSheet';
 import { ConfirmDialog } from './ConfirmDialog';
 import { ColorfulAvatar } from './ColorfulAvatar';
+import { MediaViewer, type MediaGalleryItem } from './MediaViewer';
 import { PanelSkeleton } from './Skeleton';
+import { VideoPlayerModal } from './VideoPlayer';
 import { useTheme } from '../theme/ThemeContext';
 
 export function formatPhoneNumberDisplay(phone: string | null | undefined): string | null {
@@ -67,7 +69,9 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   const [emailDraft, setEmailDraft] = useState('');
   const [editingPhone, setEditingPhone] = useState(false);
   const [editingEmail, setEditingEmail] = useState(false);
-  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [gallery, setGallery] = useState<MediaGalleryItem[]>([]);
+  const [galleryIndex, setGalleryIndex] = useState(0);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState(TAG_COLOR_OPTIONS[0]);
   const [optimisticBlockedAt, setOptimisticBlockedAt] = useState<string | null | undefined>(undefined);
@@ -105,6 +109,15 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   const workspaceTags = useMemo(() => [...(workspaceTagsQuery.data?.items ?? [])].sort((a, b) => a.text.localeCompare(b.text)), [workspaceTagsQuery.data?.items]);
   const mediaAttachments = useMemo(() => (attachmentsQuery.data?.items ?? []).filter((a) => ['IMAGE', 'VIDEO', 'STICKER'].includes(a.mediaType?.toUpperCase?.() ?? '')), [attachmentsQuery.data?.items]);
   const documentAttachments = useMemo(() => (attachmentsQuery.data?.items ?? []).filter((a) => !['IMAGE', 'VIDEO', 'STICKER'].includes(a.mediaType?.toUpperCase?.() ?? '')), [attachmentsQuery.data?.items]);
+  const mediaGallery = useMemo(() => mediaAttachments.filter((attachment) => {
+    const mediaType = (attachment.mediaType ?? '').toUpperCase();
+    return mediaType === 'IMAGE' || mediaType === 'STICKER' || (attachment.mimeType ?? '').toLowerCase().startsWith('image/');
+  }).map((attachment) => {
+    const raw = attachment.downloadUrl || attachment.previewUrl || attachment.thumbnailUrl;
+    const preferred = typeof raw === 'string' ? raw.replace(/\/preview\/?(?:\?.*)?$/i, '/download') : raw;
+    const src = apiUrl(preferred ?? null);
+    return src ? { attachId: attachment.id, src, mediaType: attachment.mediaType ?? 'IMAGE' } : null;
+  }).filter((item): item is MediaGalleryItem => Boolean(item)), [mediaAttachments]);
 
   const displayPhone = conversation.contact.primaryPhone ?? null;
   const displayEmail = conversation.contact.primaryEmail ?? null;
@@ -235,9 +248,22 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
     }
   };
 
+  const openMedia = (attachment: ConversationAttachment) => {
+    const mediaType = (attachment.mediaType ?? '').toUpperCase();
+    const mime = (attachment.mimeType ?? '').toLowerCase();
+    if (mediaType === 'VIDEO' || mime.startsWith('video/')) {
+      setVideoUrl(apiUrl(attachment.downloadUrl ?? attachment.previewUrl ?? null));
+      return;
+    }
+    const index = mediaGallery.findIndex((media) => media.attachId === attachment.id);
+    if (index < 0) return;
+    setGallery(mediaGallery);
+    setGalleryIndex(index);
+  };
+
   const resetState = () => {
     setCustomerOpen(true); setTagsOpen(true); setNotesOpen(true); setFilesOpen(false);
-    setTagInput(''); setNoteDraft(''); setEditingNoteId(null); setEditingPhone(false); setEditingEmail(false); setLightbox(null); setDownloadingId(null);
+    setTagInput(''); setNoteDraft(''); setEditingNoteId(null); setEditingPhone(false); setEditingEmail(false); setGallery([]); setGalleryIndex(0); setVideoUrl(null); setDownloadingId(null);
     setOptimisticBlockedAt(undefined);
     setBanOpen(false);
     setPendingDeleteNoteId(null);
@@ -444,7 +470,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
                         {mediaAttachments.map((attachment) => {
                           const src = apiUrl(attachment.previewUrl ?? attachment.thumbnailUrl ?? attachment.downloadUrl ?? null);
                           return (
-                            <Pressable key={attachment.id} onPress={() => setLightbox(src)} style={styles.mediaTile}>
+                            <Pressable key={attachment.id} onPress={() => openMedia(attachment)} style={styles.mediaTile}>
                               {src ? <AuthenticatedImage url={src} resizeMode="cover" style={styles.mediaThumb} adaptive /> : <View style={[styles.mediaThumb, styles.mediaThumbEmpty, { backgroundColor: colors.surfaceSecondary }]}><Text style={[styles.mediaThumbEmptyText, { color: colors.textMuted }]}>{attachment.mediaType?.[0] ?? '?'}</Text></View>}
                             </Pressable>
                           );
@@ -508,11 +534,8 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
         onClose={() => setPendingDeleteNoteId(null)}
         onConfirm={() => pendingDeleteNoteId && deleteNoteMutation.mutate(pendingDeleteNoteId)}
       />
-      <Modal visible={Boolean(lightbox)} transparent animationType="fade" onRequestClose={() => setLightbox(null)}>
-        <Pressable style={styles.lightbox} onPress={() => setLightbox(null)}>
-          {lightbox ? <Image source={{ uri: lightbox }} resizeMode="contain" style={styles.lightboxImage} /> : null}
-        </Pressable>
-      </Modal>
+      <MediaViewer images={gallery} index={galleryIndex} onClose={() => setGallery([])} onIndex={setGalleryIndex} />
+      <VideoPlayerModal url={videoUrl} visible={Boolean(videoUrl)} onClose={() => setVideoUrl(null)} />
     </>
   );
 }
@@ -612,8 +635,6 @@ const styles = StyleSheet.create({
   statusBtnText: { fontSize: 15, fontWeight: '700' },
   statusBtnTextOpen: { color: '#10b981' },
   statusBtnTextClosed: { color: '#2563eb' },
-  lightbox: { alignItems: 'center', backgroundColor: '#050505', flex: 1, justifyContent: 'center' },
-  lightboxImage: { height: '100%', width: '100%' },
   banModalOverlay: { alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'center', paddingHorizontal: 20 },
   banModalCard: { backgroundColor: '#fff', borderRadius: 28, maxWidth: 420, paddingHorizontal: 22, paddingVertical: 24, width: '100%' },
   banModalClose: { position: 'absolute', right: 14, top: 14, zIndex: 2 },

@@ -154,6 +154,8 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
   const [saving, setSaving] = useState(false);
   const [pagerLocked, setPagerLocked] = useState(false);
   const [stage, setStage] = useState({ width: winW, height: winH });
+  const [downloadComplete, setDownloadComplete] = useState(false);
+  const downloadNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const visible = images.length > 0 && index >= 0 && index < images.length;
   const current = visible ? images[index] : null;
   const stageW = stage.width || winW;
@@ -166,6 +168,12 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
   useEffect(() => {
     setPagerLocked(false);
   }, [index]);
+
+  useEffect(() => {
+    return () => {
+      if (downloadNoticeTimerRef.current) clearTimeout(downloadNoticeTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!visible || !listRef.current) return;
@@ -182,7 +190,9 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
     try {
       const localUri = await prepareLocalImageForLibrary(current.src);
       await MediaLibrary.saveToLibraryAsync(localUri);
-      showNotice('Saved', 'Image saved to your photos.');
+      setDownloadComplete(true);
+      if (downloadNoticeTimerRef.current) clearTimeout(downloadNoticeTimerRef.current);
+      downloadNoticeTimerRef.current = setTimeout(() => setDownloadComplete(false), 1800);
     } catch (error) {
       console.error('[media] save failed', current.src, error);
       showNotice('Download failed', error instanceof Error ? error.message : 'Please try again.');
@@ -247,6 +257,11 @@ export function MediaViewer({ images, index, onClose, onIndex }: MediaViewerProp
             {saving ? <ActivityIndicator color="#fff" size="small" /> : <Download color="#fff" size={18} />}
           </Pressable>
         </View>
+        {downloadComplete ? (
+          <View style={[styles.downloadNotice, { bottom: Math.max(insets.bottom, 16) + 18 }]} pointerEvents="none">
+            <Text style={styles.downloadNoticeText}>Download complete</Text>
+          </View>
+        ) : null}
       </GestureHandlerRootView>
     </Modal>
   );
@@ -278,4 +293,6 @@ const styles = StyleSheet.create({
   closeText: { color: '#fff', fontSize: 18, lineHeight: 20 },
   counter: { color: '#fff', fontSize: 14, fontWeight: '600' },
   actionDisabled: { opacity: 0.6 },
+  downloadNotice: { alignSelf: 'center', backgroundColor: 'rgba(15,23,42,0.9)', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10, position: 'absolute' },
+  downloadNoticeText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 });

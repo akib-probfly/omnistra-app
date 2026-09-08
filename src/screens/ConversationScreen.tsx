@@ -34,6 +34,7 @@ import { MessageBubble } from '../components/MessageBubble';
 import { AssignmentHistoryItem } from '../components/AssignmentHistoryItem';
 import { ReactionPicker } from '../components/ReactionPicker';
 import { fetchConversationAssignmentEvents, fetchConversationCallSessions, fetchMessagesPage, markConversationRead, markConversationUnread, sendReaction, sendTemplateMessage, updateConversationAssignment, updateConversationStar, updateConversationStatus, type AssigneeFilterOption, type ConversationCallSession } from '../api/inbox';
+import { fetchConversationAttachments } from '../api/conversationDetails';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { InboxStackParamList } from '../navigation/InboxStack';
 import type { MainTabParamList } from '../navigation/MainTabs';
@@ -237,6 +238,12 @@ export function ConversationScreen() {
       return realtimeStatus === 'connected' ? 45_000 : 15_000;
     }),
     refetchOnWindowFocus: false,
+  });
+  const attachmentsQuery = useQuery({
+    queryKey: ['conversation-attachments', route.params.conversationId],
+    queryFn: () => fetchConversationAttachments({ conversationId: route.params.conversationId, limit: 100 }),
+    enabled: isFocused,
+    staleTime: 15000,
   });
 
   const unreadCountOverridden = useRef(false);
@@ -699,7 +706,16 @@ export function ConversationScreen() {
     if (messages.data.nextCursor && !olderCursor) setOlderCursor(messages.data.nextCursor);
   }, [messages.data, olderCursor, hasMoreOlder]);
 
-  const imageUrls = useMemo(() => allMessages.flatMap((message) => (message.attachments ?? []).filter((attachment) => {
+  const messageImageAttachments = useMemo(() => allMessages.flatMap((message) => message.attachments ?? []), [allMessages]);
+  const gallerySourceAttachments = useMemo(() => {
+    const seen = new Set<string>();
+    return [...(attachmentsQuery.data?.items ?? []), ...messageImageAttachments].filter((attachment) => {
+      if (seen.has(attachment.id)) return false;
+      seen.add(attachment.id);
+      return true;
+    });
+  }, [attachmentsQuery.data?.items, messageImageAttachments]);
+  const imageUrls = useMemo(() => gallerySourceAttachments.filter((attachment) => {
     const mediaType = (attachment.mediaType ?? '').toUpperCase();
     if (mediaType === 'IMAGE' || mediaType === 'STICKER') return true;
     const mime = (attachment.mimeType ?? '').toLowerCase();
@@ -710,9 +726,9 @@ export function ConversationScreen() {
   }).map((attachment) => {
     const raw = attachment.downloadUrl || attachment.previewUrl || attachment.thumbnailUrl;
     const preferred = typeof raw === 'string' ? raw.replace(/\/preview\/?(?:\?.*)?$/i, '/download') : raw;
-    const src = apiUrl(preferred);
+    const src = apiUrl(preferred ?? null);
     return src ? { attachId: attachment.id, src, mediaType: attachment.mediaType } as MediaItem : null;
-  }).filter((item): item is MediaItem => Boolean(item))), [allMessages]);
+  }).filter((item): item is MediaItem => Boolean(item)), [gallerySourceAttachments]);
 
   const openImage = useCallback((attachId: string) => {
     setGallery(imageUrls);
