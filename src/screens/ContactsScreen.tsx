@@ -1,8 +1,12 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Ban, CheckCircle2, CircleSlash, ContactRound, Filter, Mail, Phone, Plus, Search, X } from 'lucide-react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import { Ban, CheckCircle2, CheckSquare, CircleSlash, ContactRound, Download, EllipsisVertical, Filter, Import, Mail, Phone, Plus, Search, Trash2, X } from 'lucide-react-native';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   RefreshControl,
@@ -19,9 +23,15 @@ import { apiFetch } from '../api/client';
 import { type Channel } from '../api/channels';
 import {
   createCrmContact,
+  deleteCrmContacts,
+  exportCrmContacts,
+  fetchCrmExport,
   fetchCrmContacts,
+  fetchCrmExports,
   formatPhoneNumberDisplay,
   getContactTitle,
+  importCrmContacts,
+  type CrmExportJob,
   type CrmContactListItem,
 } from '../api/contacts';
 import { fetchAssigneeOptions } from '../api/inbox';
@@ -89,6 +99,7 @@ export function ContactsScreen() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [filterLayer, setFilterLayer] = useState<FilterLayer>('channels');
   const [assignment, setAssignment] = useState<AssignmentFilter>('all');
@@ -110,6 +121,7 @@ export function ContactsScreen() {
   const [addTags, setAddTags] = useState<Array<{ text: string; color?: string | null }>>([]);
   const [addChannelSearch, setAddChannelSearch] = useState('');
   const [addTagSearch, setAddTagSearch] = useState('');
+  const [dismissedExportId, setDismissedExportId] = useState<string | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => () => {
@@ -172,6 +184,13 @@ export function ContactsScreen() {
     queryFn: () => fetchWorkspaceTags(),
     enabled: filterOpen || addOpen,
     staleTime: 60_000,
+  });
+
+  const exportsQuery = useQuery({
+    queryKey: ['crm-exports'],
+    queryFn: () => fetchCrmExports(),
+    refetchInterval: 2000,
+    staleTime: 0,
   });
 
   const items = useMemo(() => (contactsQuery.data?.pages ?? []).flatMap((page) => page.items), [contactsQuery.data]);
@@ -305,6 +324,119 @@ export function ContactsScreen() {
     onError: (error: Error) => showNotice('Could not create contact', error.message),
   });
 
+  const importMutation = useMutation({
+    mutationFn: (csvText: string) => importCrmContacts({ csvText, duplicateStrategy: 'merge' }),
+    onSuccess: async (job) => {
+      setActionsOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ['crm-contacts'] });
+      showNotice(
+        job.status === 'COMPLETED' ? 'Import completed' : 'Import started',
+        job.totalRows > 0 ? `${job.totalRows} contact row${job.totalRows === 1 ? '' : 's'} submitted.` : 'Your CSV is being processed.',
+      );
+    },
+    onError: (error: Error) => showNotice('Could not import contacts', error.message),
+  });
+
+  const exportMutation = useMutation({
+    mutationFn: (mode: 'all' | 'filtered') => exportCrmContacts({
+      mode,
+      filters: mode === 'filtered' ? filters : undefined,
+      includeNotes: false,
+    }),
+    onSuccess: (job) => {
+      setActionsOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['crm-exports'] });
+      showNotice(
+        job.status === 'READY' ? 'Export ready' : 'Export queued',
+        job.status === 'READY' && job.csvContent ? `${job.fileName} is ready.` : 'We will notify you when the CSV is ready.',
+      );
+    },
+    onError: (error: Error) => showNotice('Could not export contacts', error.message),
+  });
+
+  const deleteAllMutation = useMutation({
+    mutationFn: () => deleteCrmContacts({ all: true, expectedCount: totalCount }),
+    onSuccess: async (result) => {
+      setActionsOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ['crm-contacts'] });
+      const count = result.queuedCount ?? result.deletedCount;
+      showNotice('Deletion started', `${count} contact${count === 1 ? '' : 's'} queued for deletion.`);
+    },
+    onError: (error: Error) => showNotice('Could not delete contacts', error.message),
+  });
+
+  const downloadExportMutation = useMutation({
+    mutationFn: async (job: CrmExportJob) => {
+      const exportDetail = job.csvContent ? job : await fetchCrmExport(job.id);
+      if (!exportDetail.csvContent) throw new Error('CSV is not ready yet.');
+      const safeFileName = (exportDetail.fileName || `contacts-export-${job.id}.csv`).replace(/[\\/:*?"<>|]/g, '-');
+      const targetUri = `${FileSystem.cacheDirectory ?? FileSystem.documentDirectory}${safeFileName}`;
+      await FileSystem.writeAsStringAsync(targetUri, exportDetail.csvContent);
+      if (!(await Sharing.isAvailableAsync())) {
+        throw new Error('Sharing is not available on this device.');
+      }
+      await Sharing.shareAsync(targetUri, {
+        dialogTitle: 'Save contact export',
+        mimeType: 'text/csv',
+        UTI: 'public.comma-separated-values-text',
+      });
+      return { fileName: safeFileName };
+    },
+    onSuccess: ({ fileName }) => {
+      showNotice('CSV ready', `${fileName} opened in the save/share sheet.`);
+    },
+    onError: (error: Error) => showNotice('Could not download CSV', error.message),
+  });
+
+  const pickImportFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        multiple: false,
+        type: ['text/csv', 'text/comma-separated-values', 'application/vnd.ms-excel', 'text/plain'],
+      });
+      if (result.canceled || !result.assets.length) return;
+      const asset = result.assets[0];
+      const csvText = await FileSystem.readAsStringAsync(asset.uri);
+      if (!csvText.trim()) {
+        showNotice('Import file is empty');
+        return;
+      }
+      importMutation.mutate(csvText);
+    } catch (error) {
+      showNotice('Could not read import file', error instanceof Error ? error.message : undefined);
+    }
+  };
+
+  const confirmDeleteAll = () => {
+    if (totalCount === 0) {
+      showNotice('No contacts to delete');
+      return;
+    }
+    Alert.alert(
+      'Delete all contacts?',
+      `This will delete ${totalCount.toLocaleString()} contact${totalCount === 1 ? '' : 's'} from this workspace.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete all', style: 'destructive', onPress: () => deleteAllMutation.mutate() },
+      ],
+    );
+  };
+
+  const actionBusy = importMutation.isPending || exportMutation.isPending || deleteAllMutation.isPending;
+  const activeExportJob = useMemo(() => {
+    const mutationJob = exportMutation.data;
+    if (mutationJob?.status === 'PENDING' || mutationJob?.status === 'PROCESSING') return mutationJob;
+    return (exportsQuery.data?.items ?? []).find((job) => job.status === 'PENDING' || job.status === 'PROCESSING') ?? null;
+  }, [exportMutation.data, exportsQuery.data?.items]);
+  const latestReadyExportJob = useMemo(
+    () => {
+      const latest = (exportsQuery.data?.items ?? []).find((job) => job.status === 'READY') ?? null;
+      return latest?.id === dismissedExportId ? null : latest;
+    },
+    [dismissedExportId, exportsQuery.data?.items],
+  );
+
   const onRefresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ['crm-contacts'] });
   }, [queryClient]);
@@ -314,11 +446,13 @@ export function ContactsScreen() {
       <View style={[styles.topbar, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <View style={styles.topbarCopy}>
           <Text style={[styles.title, { color: colors.text }]}>Contacts</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Manage and organize your contact database</Text>
         </View>
         <View style={styles.topbarActions}>
           <Pressable style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={() => setAddOpen(true)} hitSlop={8}>
             <Plus color="#fff" size={18} />
+          </Pressable>
+          <Pressable style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]} onPress={() => setActionsOpen(true)} hitSlop={8}>
+            <EllipsisVertical color={colors.textSecondary} size={18} />
           </Pressable>
           <NotificationBell onOpen={() => setNotificationsOpen(true)} />
         </View>
@@ -340,6 +474,16 @@ export function ContactsScreen() {
       <Text style={[styles.countLabel, { color: colors.textSecondary }]}>
         {contactsQuery.isLoading ? 'Loading contacts...' : `${totalCount.toLocaleString()} contacts`}
       </Text>
+
+      <ContactsExportProgressCard job={activeExportJob} />
+      {!activeExportJob ? (
+        <ContactsExportDownloads
+          job={latestReadyExportJob}
+          downloadingId={downloadExportMutation.isPending ? downloadExportMutation.variables?.id ?? null : null}
+          onDismiss={(jobId) => setDismissedExportId(jobId)}
+          onDownload={(job) => downloadExportMutation.mutate(job)}
+        />
+      ) : null}
 
       {contactsQuery.isError ? (
         <ErrorState
@@ -531,6 +675,20 @@ export function ContactsScreen() {
             </Pressable>
         </BottomSheet>
 
+      <BottomSheet visible={actionsOpen} onClose={() => setActionsOpen(false)} sheetStyle={styles.actionsSheet}>
+        <View style={styles.sheetHeader}>
+          <Text style={[styles.sheetTitle, { color: colors.text }]}>Contact actions</Text>
+        </View>
+        <View style={styles.actionList}>
+          <ActionRow icon={Import} label="Import" disabled={actionBusy} loading={importMutation.isPending} onPress={pickImportFile} />
+          <ActionRow icon={Download} label="Export" disabled={actionBusy} loading={exportMutation.isPending} onPress={() => exportMutation.mutate('all')} />
+          <ActionRow icon={Download} label="Export filtered" disabled={actionBusy} loading={exportMutation.isPending} onPress={() => exportMutation.mutate('filtered')} />
+          <ActionRow icon={CheckSquare} label="Export selected" disabled />
+          <View style={[styles.actionDivider, { backgroundColor: colors.cardBorder }]} />
+          <ActionRow icon={Trash2} label="Delete all contacts" destructive disabled={actionBusy} loading={deleteAllMutation.isPending} onPress={confirmDeleteAll} />
+        </View>
+      </BottomSheet>
+
       <BottomSheet visible={addOpen} onClose={() => setAddOpen(false)} sheetStyle={styles.sheetSurface}>
             <View style={styles.sheetHeader}>
               <Text style={[styles.sheetTitle, { color: colors.text }]}>Add contact</Text>
@@ -717,6 +875,132 @@ const ContactRow = memo(function ContactRow({ contact, navigation }: { contact: 
   );
 });
 
+function ActionRow({
+  destructive = false,
+  disabled = false,
+  icon: Icon,
+  label,
+  loading = false,
+  onPress,
+}: {
+  destructive?: boolean;
+  disabled?: boolean;
+  icon: React.ComponentType<{ color: string; size: number }>;
+  label: string;
+  loading?: boolean;
+  onPress?: () => void;
+}) {
+  const { colors } = useTheme();
+  const color = destructive ? colors.error : disabled ? colors.textMuted : colors.text;
+
+  return (
+    <Pressable
+      disabled={disabled || loading}
+      onPress={onPress}
+      style={[styles.actionRow, (disabled || loading) && styles.actionRowDisabled]}
+    >
+      {loading ? <ActivityIndicator color={color} size="small" /> : <Icon color={color} size={17} />}
+      <Text style={[styles.actionLabel, { color }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function ContactsExportProgressCard({ job }: { job: CrmExportJob | null }) {
+  const { colors } = useTheme();
+  if (!job || (job.status !== 'PENDING' && job.status !== 'PROCESSING')) return null;
+
+  const totalRows = Math.max(job.totalRows, 0);
+  const processedRows = Math.max(job.processedRows ?? 0, 0);
+  const visibleProcessedRows = totalRows > 0 ? Math.min(processedRows, totalRows) : 0;
+  const progress = totalRows > 0 ? Math.min(100, Math.round((visibleProcessedRows / totalRows) * 100)) : 0;
+  const isQueued = job.status === 'PENDING';
+  const modeLabel: Record<string, string> = {
+    all: 'All contacts',
+    filtered: 'Filtered contacts',
+    selected: 'Selected contacts',
+    single: 'Single contact',
+  };
+
+  return (
+    <View style={[styles.progressCard, { backgroundColor: colors.surface, borderColor: colors.primary }]}>
+      <View style={styles.progressTop}>
+        <View style={styles.progressCopyRow}>
+          <View style={styles.progressIcon}>
+            <ActivityIndicator color={colors.primary} size="small" />
+          </View>
+          <View style={styles.progressCopy}>
+            <View style={styles.progressTitleRow}>
+              <Text style={[styles.progressTitle, { color: colors.text }]}>{isQueued ? 'Export queued' : 'Exporting contacts'}</Text>
+              <View style={[styles.progressBadge, { backgroundColor: colors.surfaceSecondary }]}>
+                <Text style={[styles.progressBadgeText, { color: colors.textSecondary }]}>{modeLabel[job.exportMode] ?? 'Contacts'}</Text>
+              </View>
+            </View>
+            <Text style={[styles.progressDetail, { color: colors.textSecondary }]}>
+              {totalRows > 0
+                ? `${visibleProcessedRows.toLocaleString()} of ${totalRows.toLocaleString()} contacts processed`
+                : 'Preparing contact count...'}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.progressPercentWrap}>
+          <Text style={[styles.progressPercent, { color: colors.text }]}>{totalRows > 0 ? `${progress}%` : '-'}</Text>
+          <Text style={[styles.progressState, { color: colors.textSecondary }]}>{isQueued ? 'waiting' : 'in progress'}</Text>
+        </View>
+      </View>
+      <View style={styles.progressTrack}>
+        <View style={[styles.progressFill, { backgroundColor: colors.primary, width: `${progress}%` }]} />
+      </View>
+      <Text style={[styles.progressHint, { color: colors.textSecondary }]}>
+        You can keep working while the export is being processed.
+      </Text>
+    </View>
+  );
+}
+
+function ContactsExportDownloads({
+  downloadingId,
+  job,
+  onDismiss,
+  onDownload,
+}: {
+  downloadingId: string | null;
+  job: CrmExportJob | null;
+  onDismiss: (jobId: string) => void;
+  onDownload: (job: CrmExportJob) => void;
+}) {
+  const { colors } = useTheme();
+  if (!job) return null;
+
+  return (
+    <View style={styles.downloadsSection}>
+      <View style={[styles.downloadCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+        <View style={styles.downloadTop}>
+          <View style={styles.downloadIcon}>
+            <Download color="#0891b2" size={15} />
+          </View>
+          <View style={styles.downloadCopy}>
+            <Text style={[styles.downloadTitle, { color: colors.text }]} numberOfLines={1}>Export ready</Text>
+            <Text style={[styles.downloadMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+              {job.fileName || 'contacts.csv'}
+            </Text>
+          </View>
+          <Pressable
+            disabled={downloadingId === job.id}
+            onPress={() => onDownload(job)}
+            style={[styles.downloadButton, { borderColor: '#a5f3fc' }, downloadingId === job.id && styles.actionRowDisabled]}
+          >
+            {downloadingId === job.id ? <ActivityIndicator color="#0891b2" size="small" /> : <Download color="#0891b2" size={13} />}
+            <Text style={styles.downloadButtonText}>Download</Text>
+          </Pressable>
+          <Pressable onPress={() => onDismiss(job.id)} hitSlop={8} style={styles.downloadDismiss}>
+            <X color={colors.textMuted} size={16} />
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { backgroundColor: '#eef4fb', flex: 1 },
   topbar: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e8eef7', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 14, paddingHorizontal: 18 },
@@ -725,11 +1009,38 @@ const styles = StyleSheet.create({
   title: { color: '#0f172a', fontSize: 24, fontWeight: '800' },
   subtitle: { color: '#64748b', fontSize: 13, marginTop: 4 },
   addButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
+  iconButton: { alignItems: 'center', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, height: 36, justifyContent: 'center', width: 36 },
   searchRow: { alignItems: 'center', flexDirection: 'row', gap: 10, marginHorizontal: 16, marginTop: 16 },
   filterButton: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 18, borderWidth: 1, height: 44, justifyContent: 'center', position: 'relative', width: 44 },
   filterButtonActive: { borderColor: '#2563eb' },
   filterDot: { backgroundColor: '#2563eb', borderRadius: 4, height: 8, position: 'absolute', right: 8, top: 8, width: 8 },
   countLabel: { color: '#64748b', fontSize: 12, fontWeight: '600', marginHorizontal: 18, marginTop: 12 },
+  progressCard: { borderColor: '#315efb', borderRadius: 18, borderWidth: 1, marginHorizontal: 16, marginTop: 12, padding: 14 },
+  progressTop: { alignItems: 'flex-start', flexDirection: 'row', gap: 12, justifyContent: 'space-between' },
+  progressCopyRow: { flex: 1, flexDirection: 'row', gap: 10, minWidth: 0 },
+  progressIcon: { alignItems: 'center', backgroundColor: '#e8f0ff', borderRadius: 12, height: 36, justifyContent: 'center', width: 36 },
+  progressCopy: { flex: 1, minWidth: 0 },
+  progressTitleRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  progressTitle: { color: '#0f172a', fontSize: 14, fontWeight: '800' },
+  progressBadge: { backgroundColor: '#f1f5f9', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  progressBadgeText: { color: '#64748b', fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
+  progressDetail: { color: '#64748b', fontSize: 13, lineHeight: 18, marginTop: 5 },
+  progressPercentWrap: { alignItems: 'flex-end', minWidth: 64 },
+  progressPercent: { color: '#0f172a', fontSize: 22, fontWeight: '800' },
+  progressState: { color: '#64748b', fontSize: 11, marginTop: 1 },
+  progressTrack: { backgroundColor: '#e8eefb', borderRadius: 999, height: 7, marginTop: 14, overflow: 'hidden' },
+  progressFill: { backgroundColor: '#315efb', borderRadius: 999, height: '100%' },
+  progressHint: { color: '#64748b', fontSize: 12, lineHeight: 17, marginTop: 9 },
+  downloadsSection: { marginHorizontal: 16, marginTop: 10 },
+  downloadCard: { borderColor: '#d8e6fb', borderRadius: 16, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10 },
+  downloadTop: { alignItems: 'center', flexDirection: 'row', gap: 9 },
+  downloadIcon: { alignItems: 'center', backgroundColor: '#cffafe', borderRadius: 14, height: 32, justifyContent: 'center', width: 32 },
+  downloadCopy: { flex: 1, minWidth: 0 },
+  downloadTitle: { color: '#0f172a', fontSize: 13, fontWeight: '800' },
+  downloadMeta: { color: '#64748b', fontSize: 11, lineHeight: 15, marginTop: 2 },
+  downloadButton: { alignItems: 'center', borderColor: '#a5f3fc', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 5, paddingHorizontal: 10, paddingVertical: 6 },
+  downloadButtonText: { color: '#0891b2', fontSize: 12, fontWeight: '800' },
+  downloadDismiss: { alignItems: 'center', height: 28, justifyContent: 'center', width: 24 },
   listFill: { flex: 1 },
   list: { gap: 10, paddingBottom: 24, paddingHorizontal: 16, paddingTop: 12 },
   card: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 12, padding: 14 },
@@ -753,8 +1064,14 @@ const styles = StyleSheet.create({
   loader: { marginTop: 60 },
   sheetOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },
   sheetSurface: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 },
+  actionsSheet: { paddingBottom: 24, paddingHorizontal: 20, paddingTop: 8 },
   sheetHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   sheetTitle: { color: '#0f172a', fontSize: 18, fontWeight: '800' },
+  actionList: { gap: 4 },
+  actionRow: { alignItems: 'center', borderRadius: 14, flexDirection: 'row', gap: 12, minHeight: 44, paddingHorizontal: 12, paddingVertical: 10 },
+  actionRowDisabled: { opacity: 0.48 },
+  actionLabel: { color: '#0f172a', flex: 1, fontSize: 14, fontWeight: '700' },
+  actionDivider: { backgroundColor: '#e2e8f0', height: 1, marginVertical: 6 },
   layerTabs: { backgroundColor: '#f1f5f9', borderRadius: 14, flexDirection: 'row', gap: 4, marginBottom: 12, padding: 4 },
   layerTab: { alignItems: 'center', borderRadius: 10, flex: 1, paddingVertical: 8 },
   layerTabActive: { backgroundColor: '#fff', elevation: 1, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4 },

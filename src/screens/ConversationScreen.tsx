@@ -287,6 +287,7 @@ export function ConversationScreen() {
     updateAwaitingDelivery(messages.data?.items ?? []);
   }, [messages.data?.items]);
 
+  const reactionChannelType = (header.conversation ?? (messages.data as any)?.conversation ?? null)?.channel?.channelType ?? route.params.channelType;
   const allMessages = useMemo(() => {
     const seen = new Set<string>();
     const merged: Message[] = [];
@@ -301,7 +302,7 @@ export function ConversationScreen() {
   }, [olderMessages, messages.data?.items]);
   latestMessageIdsRef.current = new Set((messages.data?.items ?? []).map((message) => message.id));
   hasMoreRef.current = messages.data?.hasMore ?? false;
-  const reactionGroups = useMemo(() => buildReactionGroups(allMessages, channelType), [allMessages, channelType]);
+  const reactionGroups = useMemo(() => buildReactionGroups(allMessages, reactionChannelType), [allMessages, reactionChannelType]);
 
   const messageById = useMemo(() => { const map = new Map<string, Message>(); allMessages.forEach((message) => map.set(message.id, message)); return map; }, [allMessages]);
 

@@ -70,6 +70,38 @@ export type CrmContactsListResponse = {
   pageInfo?: { nextCursor?: string | null; hasMore?: boolean };
 };
 
+export type CrmImportJob = {
+  id: string;
+  workspaceId: string;
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  totalRows: number;
+  processedRows: number;
+  importedRows: number;
+  skippedRows: number;
+  mergedRows: number;
+  overwrittenRows: number;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+};
+
+export type CrmExportJob = {
+  id: string;
+  workspaceId: string;
+  fileName: string;
+  status: 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED';
+  exportMode: string;
+  filtersJson: unknown;
+  totalRows: number;
+  processedRows: number;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+  csvContent?: string | null;
+};
+
 export type CrmContactsFilters = {
   workspaceId?: string;
   search?: string;
@@ -226,4 +258,41 @@ export async function deleteCrmContacts(input: {
     method: 'POST',
     body: JSON.stringify(input),
   });
+}
+
+export async function importCrmContacts(input: {
+  workspaceId?: string;
+  csvText: string;
+  duplicateStrategy?: 'skip' | 'merge' | 'overwrite' | 'update';
+  overwriteFields?: string[];
+  columnMapping?: Record<string, string>;
+  tags?: string[];
+  channels?: string[];
+}): Promise<CrmImportJob> {
+  return apiFetch('/crm/imports/contacts', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function exportCrmContacts(input: {
+  workspaceId?: string;
+  mode?: 'all' | 'filtered' | 'selected' | 'single';
+  contactId?: string;
+  contactIds?: string[];
+  filters?: Record<string, unknown>;
+  includeNotes?: boolean;
+}): Promise<CrmExportJob> {
+  return apiFetch('/crm/exports/contacts', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function fetchCrmExports(workspaceId?: string): Promise<{ items: CrmExportJob[] }> {
+  return apiFetch(`/crm/exports${buildQueryString({ workspaceId })}`);
+}
+
+export async function fetchCrmExport(exportId: string): Promise<CrmExportJob> {
+  return apiFetch(`/crm/exports/${exportId}`);
 }
