@@ -301,7 +301,7 @@ export function ConversationScreen() {
   }, [olderMessages, messages.data?.items]);
   latestMessageIdsRef.current = new Set((messages.data?.items ?? []).map((message) => message.id));
   hasMoreRef.current = messages.data?.hasMore ?? false;
-  const reactionGroups = useMemo(() => buildReactionGroups(allMessages), [allMessages]);
+  const reactionGroups = useMemo(() => buildReactionGroups(allMessages, channelType), [allMessages, channelType]);
 
   const messageById = useMemo(() => { const map = new Map<string, Message>(); allMessages.forEach((message) => map.set(message.id, message)); return map; }, [allMessages]);
 

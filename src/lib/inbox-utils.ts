@@ -146,20 +146,41 @@ export function isInlineReactionMessage(message: MessageLike): boolean {
 }
 
 export type ReactionGroup = { emoji: string; count: number };
-export function buildReactionGroups(messages: MessageLike[]): Record<string, ReactionGroup[]> {
-  const byTarget = new Map<string, Map<string, Set<string>>>();
+function getMessageTimestamp(message: MessageLike) {
+  const timestamp = Date.parse(message.sentAt ?? message.createdAt ?? '');
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+export function buildReactionGroups(messages: MessageLike[], channelType?: string | null): Record<string, ReactionGroup[]> {
+  const latestReactionByActorAndTarget = new Map<string, MessageLike>();
   messages.forEach((message) => {
     if (!isInlineReactionMessage(message) || !message.replyToMessageId) return;
+    const actorKey =
+      channelType === 'MESSENGER' && message.direction === 'OUTBOUND'
+        ? 'messenger:page'
+        : message.direction === 'INBOUND'
+          ? `contact:${message.senderType ?? ''}`
+          : `member:${message.senderWorkspaceMemberId ?? 'self'}`;
+    const mapKey = `${message.replyToMessageId}:${actorKey}`;
+    const previous = latestReactionByActorAndTarget.get(mapKey);
+    const previousTimestamp = previous ? getMessageTimestamp(previous) : null;
+    const nextTimestamp = getMessageTimestamp(message);
+
+    if (!previous || nextTimestamp === null || previousTimestamp === null || nextTimestamp >= previousTimestamp) {
+      latestReactionByActorAndTarget.set(mapKey, message);
+    }
+  });
+  const byTarget = new Map<string, Map<string, number>>();
+  latestReactionByActorAndTarget.forEach((message) => {
+    if (!message.replyToMessageId) return;
     const emoji = message.text?.trim() || '👍';
-    const actorKey = message.direction === 'INBOUND' ? `contact:${message.senderType ?? ''}` : `member:${message.senderWorkspaceMemberId ?? 'self'}`;
     if (!byTarget.has(message.replyToMessageId)) byTarget.set(message.replyToMessageId, new Map());
     const emojiMap = byTarget.get(message.replyToMessageId)!;
-    if (!emojiMap.has(emoji)) emojiMap.set(emoji, new Set());
-    emojiMap.get(emoji)!.add(actorKey);
+    emojiMap.set(emoji, (emojiMap.get(emoji) ?? 0) + 1);
   });
   const result: Record<string, ReactionGroup[]> = {};
   byTarget.forEach((emojiMap, targetId) => {
-    result[targetId] = [...emojiMap.entries()].map(([emoji, actors]) => ({ emoji, count: actors.size }));
+    result[targetId] = [...emojiMap.entries()].map(([emoji, count]) => ({ emoji, count }));
   });
   return result;
 }
