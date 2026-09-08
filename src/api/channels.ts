@@ -115,8 +115,19 @@ export type TikTokChannelConfiguration = {
   lastSyncError?: string | null;
 };
 
+export type InstagramChannelConfiguration = {
+  provider: string;
+  instagramUserId: string | null;
+  pageId: string | null;
+  pageName: string | null;
+  accountUsername: string | null;
+  accountDisplayName?: string | null;
+  webhookSubscriptionStatus: ChannelConnectionStatus | null;
+  lastWebhookError: string | null;
+};
+
 export type ChannelDetails = Channel & {
-  configuration?: WhatsappChannelConfiguration | MessengerChannelConfiguration | TikTokChannelConfiguration | null;
+  configuration?: WhatsappChannelConfiguration | MessengerChannelConfiguration | TikTokChannelConfiguration | InstagramChannelConfiguration | null;
   lifecycle: ChannelLifecycle;
   capabilities?: ChannelCapabilities | null;
   templateCounts?: WhatsappChannelTemplateCounts | null;

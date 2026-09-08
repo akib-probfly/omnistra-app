@@ -20,6 +20,7 @@ import {
   updateWhatsappBusinessProfile,
   uploadWhatsappBusinessProfilePhoto,
   type ChannelDetails,
+  type InstagramChannelConfiguration,
   type TikTokChannelConfiguration,
 } from '../api/channels';
 import { ChannelLogo } from '../components/ChannelLogo';
@@ -260,7 +261,8 @@ export function ChannelDetailsScreen() {
   const isMessenger = channel.type === 'MESSENGER';
   const isWhatsapp = channel.type === 'WHATSAPP';
   const isTikTok = channel.type === 'TIKTOK';
-  const tabs = isMessenger || isTikTok
+  const isInstagram = channel.type === 'INSTAGRAM';
+  const tabs = isMessenger || isTikTok || isInstagram
     ? [{ key: 'overview', label: 'Configuration' }, { key: 'automation', label: 'Quick Automation' }, { key: 'access', label: 'Troubleshoot' }]
     : isWhatsapp
       ? [{ key: 'overview', label: 'Configuration' }, { key: 'templates', label: 'Templates' }, { key: 'business', label: 'Profile' }, { key: 'calling', label: 'Calls' }, { key: 'automation', label: 'Quick Automation' }, { key: 'access', label: 'Troubleshoot' }]
@@ -334,6 +336,41 @@ export function ChannelDetailsScreen() {
               <ConfigField label="Account name" value={accountLabel} />
               <ConfigField label="Username" value={username} copy />
               <ConfigField label="Business ID" value={config?.businessId ?? primaryAccount?.externalAccountId ?? 'Not available'} copy mono />
+              <ConfigField label="Connected at" value={formatDateLabel(primaryAccount?.connectedAt ?? channel.createdAt)} />
+            </View>
+          </View>
+        </ScrollView>
+      );
+    }
+
+    if (isInstagram) {
+      const config = (channel.configuration ?? null) as InstagramChannelConfiguration | null;
+      const accountLabel = config?.accountDisplayName?.trim() || config?.accountUsername?.trim() || channel.name;
+      const webhookStatus = config?.webhookSubscriptionStatus ?? primaryAccount?.webhookStatus ?? channel.status;
+      return (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+          <ChannelConfigurationHero
+            channel={channel}
+            subtitle="Instagram channel"
+            title={accountLabel}
+            statusTone={statusTone}
+            lifecycle={lifecycle}
+            isDark={isDark}
+            colors={colors}
+            onRestore={() => restore.mutate()}
+          />
+
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.cardTitle, { color: colors.text }]}>Channel configuration</Text>
+            <Text style={[styles.cardSub, { color: colors.textSecondary }]}>View the connected Instagram account and webhook details.</Text>
+            <View style={styles.statusGrid}>
+              <StatusTile icon="message" title="Account" value={accountLabel} />
+              <StatusTile icon="message" title="Inbox status" value={formatConfigStatus(channel.status)} tone={channel.status === 'CONNECTED' ? 'success' : 'warning'} />
+              <StatusTile icon={webhookStatus === 'CONNECTED' ? 'link' : 'unlink'} title="Webhook" value={formatConfigStatus(webhookStatus)} tone={webhookStatus === 'CONNECTED' ? 'success' : 'warning'} />
+            </View>
+            <View style={styles.configFields}>
+              <ConfigField label="Account name" value={accountLabel} />
+              <ConfigField label="Instagram user ID" value={config?.instagramUserId ?? primaryAccount?.externalAccountId ?? 'Not available'} copy mono />
               <ConfigField label="Connected at" value={formatDateLabel(primaryAccount?.connectedAt ?? channel.createdAt)} />
             </View>
           </View>
