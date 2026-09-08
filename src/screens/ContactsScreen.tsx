@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -67,6 +68,7 @@ const FILTER_LAYERS: Array<{ id: FilterLayer; label: string }> = [
   { id: 'users', label: 'Users' },
   { id: 'more', label: 'More' },
 ];
+const DISMISSED_EXPORT_STORAGE_KEY = 'contacts.dismissedExportId';
 
 function formatRelativeActivity(value: string | null) {
   if (!value) return 'No activity';
@@ -124,8 +126,25 @@ export function ContactsScreen() {
   const [dismissedExportId, setDismissedExportId] = useState<string | null>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem(DISMISSED_EXPORT_STORAGE_KEY)
+      .then((stored) => {
+        if (active) setDismissedExportId(stored);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
   useEffect(() => () => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
+  }, []);
+
+  const dismissExportDownload = useCallback((jobId: string) => {
+    setDismissedExportId(jobId);
+    void AsyncStorage.setItem(DISMISSED_EXPORT_STORAGE_KEY, jobId).catch(() => {});
   }, []);
 
   const onSearchChange = (value: string) => {
@@ -480,7 +499,7 @@ export function ContactsScreen() {
         <ContactsExportDownloads
           job={latestReadyExportJob}
           downloadingId={downloadExportMutation.isPending ? downloadExportMutation.variables?.id ?? null : null}
-          onDismiss={(jobId) => setDismissedExportId(jobId)}
+          onDismiss={dismissExportDownload}
           onDownload={(job) => downloadExportMutation.mutate(job)}
         />
       ) : null}
