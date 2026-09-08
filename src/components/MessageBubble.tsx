@@ -153,8 +153,11 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
           styles.bubble,
           outgoing ? styles.bubbleOutgoing : styles.bubbleIncoming,
           (showLinkPreview || referralPreview) && styles.linkPreviewBubble,
+          !outgoing && referralPreview && styles.referralBubble,
           isTemplate ? (outgoing ? styles.outgoingTemplate : styles.incomingTemplate) : (outgoing ? styles.outgoing : styles.incoming),
-          !outgoing && { backgroundColor: colors.surface, borderColor: colors.cardBorder },
+          !outgoing && (referralPreview
+            ? { backgroundColor: '#fffbeb', borderColor: '#f6d78d' }
+            : { backgroundColor: colors.surface, borderColor: colors.cardBorder }),
         ]}>
         {message.campaignId ? (
           <View style={styles.broadcastBadge}>
@@ -475,6 +478,7 @@ const styles = StyleSheet.create({
   },
   linkPreviewBubble: { width: '100%' },
   incoming: { backgroundColor: '#fff', borderColor: '#d7e6fb', borderWidth: 1 },
+  referralBubble: { borderColor: '#f6d78d', borderWidth: 1, paddingHorizontal: 10, paddingVertical: 9 },
   outgoing: { backgroundColor: '#315efb' },
   incomingTemplate: { backgroundColor: '#fff', borderColor: '#d7e6fb', borderWidth: 1, padding: 6 },
   outgoingTemplate: { backgroundColor: '#315efb', padding: 6 },
