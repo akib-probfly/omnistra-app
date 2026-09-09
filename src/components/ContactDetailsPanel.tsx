@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Ban, Check, ChevronDown, ChevronUp, File, FileText, Film, Music, Pencil, Plus, RotateCcw, Sparkles } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
+import { Ban, Check, ChevronDown, ChevronUp, Copy, File, FileText, Film, Music, Pencil, Plus, RotateCcw, Sparkles } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { apiUrl, isApiErrorWithStatus } from '../api/client';
@@ -8,6 +9,7 @@ import { AuthenticatedImage } from './AuthenticatedImage';
 import { BottomSheet, SheetScrollView } from './BottomSheet';
 import { ConfirmDialog } from './ConfirmDialog';
 import { ColorfulAvatar } from './ColorfulAvatar';
+import { toastConfig } from './AppToast';
 import { MediaViewer, type MediaGalleryItem } from './MediaViewer';
 import { PanelSkeleton } from './Skeleton';
 import { VideoPlayerModal } from './VideoPlayer';
@@ -127,6 +129,8 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   }).filter((item): item is MediaGalleryItem => Boolean(item)), [mediaAttachments]);
 
   const displayPhone = conversation.contact.primaryPhone ?? null;
+  const displayPhoneNumber = formatPhoneNumberDisplay(displayPhone) ?? formatPhoneNumberDisplay(conversation.channel.displayPhoneNumber);
+  const copyPhoneNumber = displayPhone ?? conversation.channel.displayPhoneNumber ?? displayPhoneNumber ?? null;
   const displayEmail = conversation.contact.primaryEmail ?? null;
   const canEditPhone = conversation.channel.channelType !== 'WHATSAPP';
   const channelType = (conversation.channel.channelType ?? '').toUpperCase();
@@ -259,6 +263,16 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   const handleAttach = (tag: ConversationTag) => { if (!conversationTagIds.has(tag.id)) attachMutation.mutate(tag.id); };
   const handleDetach = (tagId: string) => { if (conversationTagIds.has(tagId)) detachMutation.mutate(tagId); };
 
+  const copyPhone = async () => {
+    const value = copyPhoneNumber?.trim();
+    if (!value) {
+      Toast.show({ type: 'info', text1: 'No phone number to copy' });
+      return;
+    }
+    await Clipboard.setStringAsync(value);
+    Toast.show({ type: 'copy', text1: 'Phone number copied', position: 'bottom', visibilityTime: 1600 });
+  };
+
   const savePhone = () => { const trimmed = phoneDraft.trim(); if (!trimmed) { setEditingPhone(false); return; } phoneMutation.mutate(trimmed); };
   const saveEmail = () => { const trimmed = emailDraft.trim(); if (!trimmed) { setEditingEmail(false); return; } emailMutation.mutate(trimmed); };
 
@@ -335,7 +349,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
                     </View>
                     <View style={styles.customerIdentity}>
                       <Text style={[styles.customerName, { color: colors.text }]} numberOfLines={1}>{contactTitle}</Text>
-                      <Text style={[styles.customerMeta, { color: colors.textSecondary }]} numberOfLines={1}>{formatPhoneNumberDisplay(displayPhone) ?? formatPhoneNumberDisplay(conversation.channel.displayPhoneNumber) ?? conversation.channel.channelName}</Text>
+                      <Text style={[styles.customerMeta, { color: colors.textSecondary }]} numberOfLines={1}>{displayPhoneNumber ?? conversation.channel.channelName}</Text>
                       {displayEmail ? <Text style={[styles.customerEmail, { color: colors.textMuted }]} numberOfLines={1}>{displayEmail}</Text> : null}
                     </View>
                   </View>
@@ -353,7 +367,10 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
                         </View>
                       ) : (
                         <View style={styles.infoValueWrap}>
-                          <Text style={[styles.infoValue, { color: colors.text }]} numberOfLines={1}>{formatPhoneNumberDisplay(displayPhone) ?? formatPhoneNumberDisplay(conversation.channel.displayPhoneNumber) ?? 'Not available'}</Text>
+                          <Text style={[styles.infoValue, { color: colors.text }]} numberOfLines={1}>{displayPhoneNumber ?? 'Not available'}</Text>
+                          {displayPhoneNumber ? (
+                            <Pressable onPress={copyPhone} accessibilityLabel="Copy phone number" hitSlop={8} style={styles.iconBtn}><Copy color={colors.textMuted} size={13} /></Pressable>
+                          ) : null}
                           {canEditPhone ? (
                             <Pressable onPress={() => { setPhoneDraft(displayPhone ?? ''); setEditingPhone(true); }} hitSlop={8} style={styles.editBtn}><Pencil color={colors.textMuted} size={13} /></Pressable>
                           ) : null}
@@ -526,6 +543,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
           </Pressable>
         </View>
         </View>
+        <Toast config={toastConfig} position="bottom" bottomOffset={28} visibilityTime={1600} />
       </BottomSheet>
       <ConfirmDialog
         visible={banOpen}
@@ -586,6 +604,7 @@ const styles = StyleSheet.create({
   infoLabel: { color: '#64748b', fontSize: 13 },
   infoValueWrap: { alignItems: 'center', flexDirection: 'row', gap: 6, maxWidth: '68%' },
   infoValue: { color: '#0f172a', flexShrink: 1, fontSize: 13, fontWeight: '700', textAlign: 'right' },
+  iconBtn: { alignItems: 'center', height: 26, justifyContent: 'center', width: 26 },
   editBtn: { alignItems: 'center', height: 26, justifyContent: 'center', width: 26 },
   editFieldWrap: { alignItems: 'center', flexDirection: 'row', gap: 6, maxWidth: '70%' },
   editInput: { backgroundColor: '#fff', borderColor: '#c9def8', borderRadius: 10, borderWidth: 1, color: '#0f172a', flex: 1, fontSize: 12, fontWeight: '600', height: 34, paddingHorizontal: 10 },

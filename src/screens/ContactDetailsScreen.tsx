@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Ban, Globe, Mail, MessageSquareText, Phone, Plus, Search, Trash2, X } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
+import { AlertTriangle, Ban, Copy, Globe, Mail, MessageSquareText, Phone, Plus, Search, Trash2, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -90,6 +91,7 @@ export function ContactDetailsScreen() {
   const contact = contactQuery.data;
   const title = contact ? getContactTitle(contact) : contactName;
   const phone = formatPhoneNumberDisplay(contact?.primaryPhone);
+  const copyPhoneNumber = contact?.primaryPhone ?? phone ?? null;
   const countryCode = contact ? resolveContactCountryCode(contact) : 'BD';
   const countryName = getCountryLabel(countryCode);
   const contactTags = useMemo(() => (contact?.tags ?? []).filter((tag) => !tag.isArchived), [contact?.tags]);
@@ -307,6 +309,16 @@ export function ContactDetailsScreen() {
     openConversation(latest.id);
   };
 
+  const copyPhone = async () => {
+    const value = copyPhoneNumber?.trim();
+    if (!value) {
+      Toast.show({ type: 'info', text1: 'No phone number to copy' });
+      return;
+    }
+    await Clipboard.setStringAsync(value);
+    Toast.show({ type: 'copy', text1: 'Phone number copied', position: 'bottom', visibilityTime: 1600 });
+  };
+
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <ScreenHeader
@@ -351,6 +363,11 @@ export function ContactDetailsScreen() {
               <View style={[styles.metaChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
                 <Phone color={colors.textSecondary} size={14} />
                 <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>{phone ?? 'No phone'}</Text>
+                {phone ? (
+                  <Pressable onPress={copyPhone} accessibilityLabel="Copy phone number" hitSlop={8} style={styles.metaCopyButton}>
+                    <Copy color={colors.textMuted} size={13} />
+                  </Pressable>
+                ) : null}
               </View>
               <View style={[styles.metaChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
                 <Mail color={colors.textSecondary} size={14} />
@@ -383,7 +400,15 @@ export function ContactDetailsScreen() {
               keyboardType="email-address"
               style={[styles.fieldInput, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder, color: colors.text }]}
             />
-            <Text style={[styles.helperText, { color: colors.textSecondary }]}>Phone: {phone ?? '-'}</Text>
+            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Phone</Text>
+            <View style={[styles.phoneField, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+              <Text style={[styles.phoneFieldText, { color: phone ? colors.text : colors.textMuted }]} numberOfLines={1}>{phone ?? '-'}</Text>
+              {phone ? (
+                <Pressable onPress={copyPhone} accessibilityLabel="Copy phone number" hitSlop={8} style={styles.phoneCopyButton}>
+                  <Copy color={colors.textMuted} size={14} />
+                </Pressable>
+              ) : null}
+            </View>
             <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Country</Text>
             <View style={[styles.countryRow, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
               <View style={[styles.countryCodeBadge, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
@@ -695,11 +720,15 @@ const styles = StyleSheet.create({
   profileMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 14 },
   metaChip: { alignItems: 'center', backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 6, paddingHorizontal: 10, paddingVertical: 6 },
   metaChipText: { color: '#475569', fontSize: 12, fontWeight: '600' },
+  metaCopyButton: { alignItems: 'center', height: 22, justifyContent: 'center', width: 22 },
   section: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, padding: 16 },
   sectionTitle: { color: '#0f172a', fontSize: 15, fontWeight: '800', marginBottom: 10 },
   fieldLabel: { color: '#64748b', fontSize: 12, fontWeight: '700', marginBottom: 6, marginTop: 8 },
   fieldInput: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, color: '#0f172a', paddingHorizontal: 12, paddingVertical: 11 },
   helperText: { color: '#64748b', fontSize: 12, marginTop: 8 },
+  phoneField: { alignItems: 'center', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 11 },
+  phoneFieldText: { color: '#0f172a', flex: 1, fontSize: 14 },
+  phoneCopyButton: { alignItems: 'center', height: 26, justifyContent: 'center', width: 26 },
   countryRow: { alignItems: 'center', backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 10, paddingHorizontal: 12, paddingVertical: 10 },
   countryCodeBadge: { backgroundColor: '#fff', borderColor: '#e2e8f0', borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
   countryCodeText: { color: '#475569', fontSize: 11, fontWeight: '700' },
