@@ -129,7 +129,7 @@ export function InboxScreen() {
     enabled: filterOpen,
     staleTime: 60_000,
   });
-  const assigneeOptions = assigneesQuery.data ?? [];
+  const assigneeOptions = useMemo(() => assigneesQuery.data ?? [], [assigneesQuery.data]);
   const visibleAssigneeOptions = useMemo(() => {
     const query = userSearchInput.trim().toLowerCase();
     const matches = (member: (typeof assigneeOptions)[number]) => {
@@ -158,7 +158,7 @@ export function InboxScreen() {
     () => groupChannelsByType(channelsQuery.data?.items ?? []),
     [channelsQuery.data?.items],
   );
-  const workspaceTags = tagsQuery.data?.items ?? [];
+  const workspaceTags = useMemo(() => tagsQuery.data?.items ?? [], [tagsQuery.data?.items]);
   const visibleTagOptions = useMemo(() => {
     const query = tagTextInput.trim().toLowerCase();
     const active = workspaceTags.filter((tag) => selectedTagIds.includes(tag.id));

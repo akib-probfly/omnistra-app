@@ -90,7 +90,7 @@ export function TagsSettingsScreen() {
     staleTime: 20_000,
   });
 
-  const tags = tagsQuery.data?.items ?? [];
+  const tags = useMemo(() => tagsQuery.data?.items ?? [], [tagsQuery.data?.items]);
   const filteredTags = useMemo(() => {
     const query = search.trim().toLowerCase();
     const matched = query

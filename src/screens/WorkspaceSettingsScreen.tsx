@@ -47,7 +47,7 @@ export function WorkspaceSettingsScreen() {
     if (!workspace) return;
     setName(workspace.name ?? '');
     setTimezone(workspace.timezone ?? '');
-  }, [workspace?.id, workspace?.updatedAt]);
+  }, [workspace]);
 
   const timezonesQuery = useQuery({
     queryKey: ['timezones'],

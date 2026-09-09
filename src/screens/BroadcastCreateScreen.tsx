@@ -217,19 +217,19 @@ export function BroadcastCreateScreen() {
     : textVars.every((variable) => hasMappedValue(textVariables[variable]));
   const hasMessage = contentType === 'TEXT' ? Boolean(bodyText.trim()) : selectedTemplateIds.length > 0;
   const detailsComplete = name.trim().length > 0 && Boolean(channelId);
-  const stepValid: Record<StepKey, boolean> = {
+  const stepValid = useMemo<Record<StepKey, boolean>>(() => ({
     details: detailsComplete,
     message: hasMessage,
     mapping: hasMessage && mappingsValid,
     audience: hasMessage && mappingsValid,
     review: detailsComplete && hasMessage && mappingsValid,
-  };
+  }), [detailsComplete, hasMessage, mappingsValid]);
 
   useEffect(() => {
     const firstInvalid = STEPS.findIndex((item) => !stepValid[item.key]);
     const maxAllowed = firstInvalid === -1 ? STEPS.length - 1 : firstInvalid;
     setFurthestIndex((current) => Math.min(current, maxAllowed));
-  }, [detailsComplete, hasMessage, mappingsValid]);
+  }, [stepValid]);
 
   useEffect(() => {
     const currentIndex = STEPS.findIndex((item) => item.key === step);
@@ -244,7 +244,7 @@ export function BroadcastCreateScreen() {
       unlocked = index;
     }
     setFurthestIndex(unlocked);
-  }, [isEditing, hydrated]);
+  }, [isEditing, hydrated, stepValid]);
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['broadcast'] });

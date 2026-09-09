@@ -93,7 +93,7 @@ export function ContactDetailsScreen() {
   useEffect(() => {
     if (!contact) return;
     setSelectedTagIds(contactTags.map((tag) => tag.id));
-  }, [contact?.id, contactTags]);
+  }, [contact, contactTags]);
 
   const selectedTags = useMemo(() => {
     const byId = new Map<string, { id: string; text: string; color?: string | null }>();

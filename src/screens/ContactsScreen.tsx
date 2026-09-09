@@ -218,7 +218,7 @@ export function ContactsScreen() {
     [navigation],
   );
   const totalCount = contactsQuery.data?.pages?.[0]?.totalCount ?? items.length;
-  const channelOptions = channelsQuery.data?.items ?? [];
+  const channelOptions = useMemo(() => channelsQuery.data?.items ?? [], [channelsQuery.data?.items]);
   const channelFilterGroups = useMemo(() => groupChannelsByType(channelOptions), [channelOptions]);
   const whatsappAccountOptions = useMemo(() => {
     const options: WhatsappAccountOption[] = [];
