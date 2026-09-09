@@ -7,8 +7,9 @@ import {
   UserRound,
   Workflow,
 } from 'lucide-react-native';
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useMemo, useState } from 'react';
 import {
+  type ListRenderItem,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -30,6 +31,7 @@ import {
 import {
   fetchMyWorkspaces,
   fetchWorkspaceRosterMembers,
+  type WorkspaceRosterMember,
   workspaceCanUpdateSettings,
 } from '../api/workspaces';
 import { AppToggle } from '../components/AppToggle';
@@ -67,6 +69,8 @@ const CALL_CARDS: Array<{
     icon: UserRound,
   },
 ];
+
+const keyExtractorOwner = (item: WorkspaceRosterMember) => item.userId ?? item.id;
 
 function ModeCard({
   title,
@@ -154,6 +158,30 @@ function AssignmentPolicyForm({
       || policy?.defaultOwner?.email
       || (defaultOwnerUserId ? 'Selected owner' : 'Select default owner');
   }, [defaultOwnerUserId, owners, policy?.defaultOwner]);
+
+  const closeOwnerPicker = useCallback(() => {
+    setOwnerPickerOpen(false);
+  }, []);
+
+  const renderOwnerItem = useCallback<ListRenderItem<WorkspaceRosterMember>>(({ item }) => {
+    const selected = item.userId === defaultOwnerUserId;
+    return (
+      <Pressable
+        style={[styles.ownerRow, selected && { backgroundColor: colors.surfaceSecondary }]}
+        onPress={() => {
+          setDefaultOwnerUserId(item.userId);
+          setOwnerPickerOpen(false);
+          setOwnerSearch('');
+        }}
+      >
+        <View style={styles.flexCopy}>
+          <Text style={[styles.ownerName, { color: colors.text }]}>{item.name?.trim() || item.email}</Text>
+          {item.name?.trim() ? <Text style={[styles.ownerEmail, { color: colors.textSecondary }]}>{item.email}</Text> : null}
+        </View>
+        {selected ? <Check color={colors.primary} size={18} /> : null}
+      </Pressable>
+    );
+  }, [colors.primary, colors.surfaceSecondary, colors.text, colors.textSecondary, defaultOwnerUserId]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -346,7 +374,7 @@ function AssignmentPolicyForm({
         />
       </ScrollView>
 
-      <BottomSheet visible={ownerPickerOpen} onClose={() => setOwnerPickerOpen(false)} sheetStyle={styles.sheetSurface}>
+      <BottomSheet visible={ownerPickerOpen} onClose={closeOwnerPicker} sheetStyle={styles.sheetSurface}>
             <Text style={[styles.sheetTitle, { color: colors.text }]}>Select default owner</Text>
             <TextInput
               value={ownerSearch}
@@ -360,28 +388,10 @@ function AssignmentPolicyForm({
             ) : (
               <SheetFlatList
                 data={owners}
-                keyExtractor={(item) => item.userId}
+                keyExtractor={keyExtractorOwner}
                 style={{ marginTop: 10, maxHeight: 360 }}
                 keyboardShouldPersistTaps="handled"
-                renderItem={({ item }) => {
-                  const selected = item.userId === defaultOwnerUserId;
-                  return (
-                    <Pressable
-                      style={[styles.ownerRow, selected && { backgroundColor: colors.surfaceSecondary }]}
-                      onPress={() => {
-                        setDefaultOwnerUserId(item.userId);
-                        setOwnerPickerOpen(false);
-                        setOwnerSearch('');
-                      }}
-                    >
-                      <View style={styles.flexCopy}>
-                        <Text style={[styles.ownerName, { color: colors.text }]}>{item.name?.trim() || item.email}</Text>
-                        {item.name?.trim() ? <Text style={[styles.ownerEmail, { color: colors.textSecondary }]}>{item.email}</Text> : null}
-                      </View>
-                      {selected ? <Check color={colors.primary} size={18} /> : null}
-                    </Pressable>
-                  );
-                }}
+                renderItem={renderOwnerItem}
                 ListEmptyComponent={<Text style={[styles.emptyOwners, { color: colors.textMuted }]}>No active members match your search.</Text>}
               />
             )}
@@ -450,7 +460,6 @@ export function AssignmentPolicySettingsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  loader: { marginTop: 80 },
   content: { gap: 12, padding: 16 },
   infoBanner: { alignItems: 'flex-start', backgroundColor: '#fff7ed', borderColor: '#fed7aa', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 8, padding: 12 },
   infoBannerText: { color: '#c2410c', flex: 1, fontSize: 13, lineHeight: 18 },
@@ -465,7 +474,6 @@ const styles = StyleSheet.create({
   badgeOff: { backgroundColor: '#f1f5f9', color: '#64748b' },
   modeList: { gap: 10, marginTop: 14 },
   modeCard: { alignItems: 'center', borderRadius: 16, borderWidth: 1, flexDirection: 'row', gap: 12, padding: 12 },
-  modeCardSelected: { backgroundColor: '#f3f7ff' },
   modeIcon: { alignItems: 'center', backgroundColor: '#edf4ff', borderRadius: 14, height: 40, justifyContent: 'center', width: 40 },
   modeCopy: { flex: 1, minWidth: 0 },
   modeTitleRow: { alignItems: 'center', flexDirection: 'row', gap: 6 },
@@ -483,7 +491,6 @@ const styles = StyleSheet.create({
   fallbackIcon: { alignItems: 'center', backgroundColor: '#fffbeb', borderRadius: 999, height: 32, justifyContent: 'center', width: 32 },
   saveButtonSpacing: { marginTop: 4 },
   disabled: { opacity: 0.55 },
-  sheetOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },
   sheetSurface: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 },
   sheetTitle: { fontSize: 18, fontWeight: '800', marginBottom: 12 },
   searchInput: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 12 },

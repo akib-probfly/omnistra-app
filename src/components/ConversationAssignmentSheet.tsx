@@ -84,7 +84,7 @@ export function ConversationAssignmentSheet({
     staleTime: 60_000,
   });
 
-  const members = assigneesQuery.data ?? [];
+  const members = useMemo(() => assigneesQuery.data ?? [], [assigneesQuery.data]);
   const currentUserEmail = session?.user?.email?.toLowerCase() ?? null;
   const currentUserLabel = session?.user?.name ?? session?.user?.email ?? 'me';
   const currentUserOption = useMemo(
