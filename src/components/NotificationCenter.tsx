@@ -94,6 +94,12 @@ function getNotificationChannelType(
 
 function getNotificationRowCopy(notification: NotificationListItem) {
   const title = notification.title?.trim() || 'Notification';
+  const body = notification.body?.trim();
+
+  if (notification.type === 'NEW_MESSAGE' && body) {
+    return { title, body };
+  }
+
   const actor = getNotificationActorLabel(notification);
   const context = getNotificationContextLabel(notification);
   return { title, body: context ? `${actor} · ${context}` : actor };
@@ -287,11 +293,14 @@ export function NotificationCenter({ visible, onClose }: { visible: boolean; onC
     return map;
   }, [channelsQuery.data?.items]);
 
+  const refetchNotifications = notificationsQuery.refetch;
+  const refetchUnreadCount = unreadCountQuery.refetch;
+
   useEffect(() => {
     if (!visible) return;
-    void notificationsQuery.refetch();
-    void unreadCountQuery.refetch();
-  }, [visible]);
+    void refetchNotifications();
+    void refetchUnreadCount();
+  }, [visible, refetchNotifications, refetchUnreadCount]);
 
   const notifications = useMemo(() => {
     const items = notificationsQuery.data?.items ?? [];
