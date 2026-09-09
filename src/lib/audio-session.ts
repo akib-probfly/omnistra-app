@@ -9,7 +9,7 @@ import { stopIncomingCallRingtone } from './notificationSound';
 
 let lifecycleInstalled = false;
 let callAudioHeld = false;
-let callSpeakerPreferred = true;
+let callSpeakerPreferred = false;
 
 /**
  * iOS deactivates AVAudioSession when the app leaves the foreground.
@@ -81,8 +81,15 @@ export function scheduleCallAudioReapply() {
 export async function routeCallAudio(speaker: boolean) {
   callSpeakerPreferred = speaker;
   if (Platform.OS === 'ios') {
-    const routed = await setNativeCallSpeaker(speaker);
-    if (routed) return;
+    try {
+      const routed = await setNativeCallSpeaker(speaker);
+      if (routed) return;
+    } catch {
+      // Speaker override can fail if the session was interrupted.
+      // Fall back to a full re-activation so iOS audio comes back.
+      const recovered = await activateNativeCallAudio(speaker).catch(() => false);
+      if (recovered) return;
+    }
   }
 
   await setAudioModeAsync({
@@ -97,7 +104,7 @@ export async function routeCallAudio(speaker: boolean) {
 export async function activateCallSession() {
   ensureAudioSessionLifecycle();
   callAudioHeld = true;
-  callSpeakerPreferred = true;
+  callSpeakerPreferred = false;
   stopIncomingCallRingtone();
 
   if (Platform.OS === 'ios') {
@@ -106,7 +113,7 @@ export async function activateCallSession() {
     } catch {
       // expo-audio may already have released the session.
     }
-    const configured = await activateNativeCallAudio(true);
+    const configured = await activateNativeCallAudio(false);
     if (configured) {
       scheduleCallAudioReapply();
       return;
@@ -119,7 +126,7 @@ export async function activateCallSession() {
     allowsRecording: true,
     shouldPlayInBackground: true,
     interruptionMode: 'doNotMix',
-    shouldRouteThroughEarpiece: false,
+    shouldRouteThroughEarpiece: true,
   });
 }
 

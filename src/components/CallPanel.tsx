@@ -341,7 +341,7 @@ export function CallPanel({
   useSyncExternalStore(subscribeCallChrome, getCallUiRevision);
   const [expanded, setExpanded] = useState(false);
   const [incomingExpanded, setIncomingExpanded] = useState(true);
-  const [speakerOn, setSpeakerOn] = useState(true);
+  const [speakerOn, setSpeakerOn] = useState(false);
   const [speakerError, setSpeakerError] = useState<string | null>(null);
 
   const label = getCallPartyLabel(conversation, activeCallSession);
@@ -397,7 +397,7 @@ export function CallPanel({
   useEffect(() => {
     if (!isOngoing) {
       setExpanded(false);
-      setSpeakerOn(true);
+      setSpeakerOn(false);
       setSpeakerError(null);
     }
   }, [isOngoing]);
