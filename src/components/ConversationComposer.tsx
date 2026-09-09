@@ -29,6 +29,7 @@ import { BottomSheet, SheetFlatList } from './BottomSheet';
 import { PanelSkeleton } from './Skeleton';
 import { WhatsappTemplateSendModal, type TemplateSendPayload } from './WhatsappTemplateSendModal';
 import { useTheme } from '../theme/ThemeContext';
+import { AppSearchField } from '../ui';
 
 export type SendAttachment = {
   uri: string;
@@ -576,7 +577,17 @@ export function ConversationComposer({
             <Text style={styles.pickerCount}>{quickReplies.data?.items?.length ?? 0}</Text>
             <View style={styles.spacer} />
           </View>
-          <TextInput autoFocus placeholder="Search by keyword, message" placeholderTextColor={colors.textMuted} value={quickQuery} onChangeText={setQuickQuery} style={[styles.pickerSearch, { backgroundColor: colors.background, color: colors.text }]} />
+          <View style={styles.pickerSearchWrap}>
+            <AppSearchField
+              autoFocus
+              value={quickQuery}
+              onChangeText={setQuickQuery}
+              placeholder="Search by keyword, message"
+              size="sm"
+              tone="background"
+              fill={false}
+            />
+          </View>
           {quickReplies.isLoading ? <PanelSkeleton rows={4} /> : quickReplies.isError ? <Text style={[styles.pickerError, { color: colors.textSecondary }]}>Could not load quick replies.</Text> : (
             <QuickRepliesList
               items={quickReplies.data?.items ?? []}
@@ -1043,7 +1054,7 @@ const styles = StyleSheet.create({
   closeBtn: { alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 18, height: 34, justifyContent: 'center', width: 34 },
   pickerTitle: { color: '#17233a', fontSize: 15, fontWeight: '700' },
   pickerCount: { backgroundColor: '#eef4ff', borderRadius: 10, color: '#2563eb', fontSize: 11, paddingHorizontal: 6, paddingVertical: 2 },
-  pickerSearch: { backgroundColor: '#f5f5f5', borderRadius: 10, color: '#17233a', height: 42, marginTop: 12, paddingHorizontal: 12 },
+  pickerSearchWrap: { marginTop: 12 },
   pickerList: { flexGrow: 0, marginTop: 6, maxHeight: 480 },
   pickerError: { color: '#64748b', fontSize: 13, paddingVertical: 18, textAlign: 'center' },
   pickerRow: { alignItems: 'center', borderBottomColor: '#eef2f7', borderBottomWidth: 1, flexDirection: 'row', gap: 10, paddingVertical: 10 },

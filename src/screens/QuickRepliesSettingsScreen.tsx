@@ -8,7 +8,6 @@ import {
   Paperclip,
   PencilLine,
   Plus,
-  Search,
   Trash2,
   X,
 } from 'lucide-react-native';
@@ -26,7 +25,7 @@ import Toast from 'react-native-toast-message';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
-import { AppButton, ScreenHeader } from '../ui';
+import { AppButton, AppSearchField, ScreenHeader } from '../ui';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import {
   createQuickReply,
@@ -382,7 +381,6 @@ export function QuickRepliesSettingsScreen() {
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <ScreenHeader
         title="Quick Replies"
-        subtitle="Saved snippets for faster replies"
         onBack={() => navigation.goBack()}
         right={
           <Pressable style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={openCreate}>
@@ -400,14 +398,13 @@ export function QuickRepliesSettingsScreen() {
         />
       ) : (
         <>
-          <View style={[styles.searchWrap, { backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
-            <Search color={colors.textMuted} size={16} />
-            <TextInput
+          <View style={[styles.searchRow, { backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
+            <AppSearchField
               value={search}
               onChangeText={setSearch}
               placeholder="Search by name or message"
-              placeholderTextColor={colors.textMuted}
-              style={[styles.searchInput, { color: colors.text }]}
+              size="sm"
+              tone="background"
             />
           </View>
 
@@ -706,8 +703,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   addButton: { alignItems: 'center', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   loader: { marginTop: 60 },
-  searchWrap: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10 },
-  searchInput: { flex: 1, fontSize: 14, paddingVertical: 8 },
+  searchRow: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10 },
   listContent: { gap: 10, padding: 16 },
   emptyCard: { alignItems: 'center', borderRadius: 18, borderWidth: 1, padding: 28 },
   emptyTitle: { fontSize: 16, fontWeight: '800', marginTop: 12 },

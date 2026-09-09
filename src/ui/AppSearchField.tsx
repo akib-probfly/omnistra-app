@@ -15,6 +15,7 @@ type Props = {
   onClear?: () => void;
   /** Fill remaining space in a toolbar row. Turn off inside column layouts like sheets. */
   fill?: boolean;
+  autoFocus?: boolean;
 };
 
 export function AppSearchField({
@@ -26,6 +27,7 @@ export function AppSearchField({
   showClear = true,
   onClear,
   fill = true,
+  autoFocus,
 }: Props) {
   const { colors } = useTheme();
   const height = size === 'sm' ? 38 : 44;
@@ -41,6 +43,8 @@ export function AppSearchField({
     <View style={[styles.wrap, !fill && styles.wrapFlush, { backgroundColor: background, borderColor: colors.cardBorder, height }]}>
       <Search color={colors.textMuted} size={iconSize} />
       <TextInput
+        autoFocus={autoFocus}
+        underlineColorAndroid="transparent"
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
