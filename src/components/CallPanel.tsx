@@ -18,6 +18,8 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactN
 import { ActivityIndicator, Animated, Easing, Modal, Platform, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ConversationCallConversation, ConversationCallSession, ConversationCallSignalSession } from '../api/inbox';
+import { useCallRingtone } from '../hooks/useCallRingtone';
+import { setCallChrome, getFocusedCallConversationId, getCallPartyHint, getCallUiRevision, subscribeCallChrome, isGenericCallLabel } from '../lib/call-chrome';
 import { getCallSessionStatusLabel, isCallSessionTerminal } from '../lib/inbox-utils';
 import type { CallConnectionState } from '../hooks/useWhatsappCallController';
 import { ColorfulAvatar } from './ColorfulAvatar';
@@ -31,8 +33,6 @@ function resolveModalTopInset(topInset: number) {
   if (Platform.OS !== 'android') return topInset;
   return Math.max(topInset, StatusBar.currentHeight ?? 24);
 }
-import { useCallRingtone } from '../hooks/useCallRingtone';
-import { setCallChrome, getFocusedCallConversationId, getCallPartyHint, getCallUiRevision, subscribeCallChrome, isGenericCallLabel } from '../lib/call-chrome';
 
 type Props = {
   conversation: ConversationCallConversation;

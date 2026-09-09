@@ -38,7 +38,7 @@ import { fetchConversationAttachments } from '../api/conversationDetails';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { InboxStackParamList } from '../navigation/InboxStack';
 import type { MainTabParamList } from '../navigation/MainTabs';
-import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getCallSessionTimelineTimestamp, getConversationTitle, getConversationWindowLabel, getMessengerMessagingAvailability, getReplyPreviewBody, getVoiceCallButtonState, isConversationCustomerWindowExpired, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
+import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getConversationTitle, getConversationWindowLabel, getMessengerMessagingAvailability, getReplyPreviewBody, getVoiceCallButtonState, isConversationCustomerWindowExpired, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
 import { CallHistoryItem } from '../components/CallHistoryItem';
 import { useCallController } from '../providers/CallControllerProvider';
 import { getCallChrome, setFocusedCallConversationId, subscribeCallChrome, rememberCallParty, getCallUiRevision } from '../lib/call-chrome';
@@ -595,7 +595,7 @@ export function ConversationScreen() {
         lastAutoMarkedReadSignatureRef.current = null;
       },
     });
-  }, [header.conversation, header.unreadCount, messages.isLoading, messages.isError, atBottom, readMutation.isPending, route.params.conversationId]);
+  }, [header.conversation, header.unreadCount, messages.isLoading, messages.isError, atBottom, readMutation, readMutation.isPending, route.params.conversationId]);
 
   useEffect(() => {
     if (!isFocused) {
@@ -813,14 +813,14 @@ export function ConversationScreen() {
     staleTime: 15_000,
     refetchOnMount: 'always',
   });
-  const callSessions: ConversationCallSession[] = callsQuery.data?.items ?? [];
+  const callSessions: ConversationCallSession[] = useMemo(() => callsQuery.data?.items ?? [], [callsQuery.data?.items]);
   const assignmentHistoryQuery = useQuery({
     queryKey: ['assignment-events', route.params.conversationId],
     queryFn: () => fetchConversationAssignmentEvents({ conversationId: route.params.conversationId, limit: 100 }),
     staleTime: 5 * 60 * 1000,
     refetchOnMount: false,
   });
-  const assignmentEvents = assignmentHistoryQuery.data?.items ?? [];
+  const assignmentEvents = useMemo(() => assignmentHistoryQuery.data?.items ?? [], [assignmentHistoryQuery.data?.items]);
   // Match web: only RINGING/CONNECTED count as an active call for the start-call button.
   // PERMISSION_REQUESTED is handled separately via latestCallSession (granted → enable).
   const activeCallSession = useMemo(

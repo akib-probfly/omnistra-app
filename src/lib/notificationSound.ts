@@ -15,23 +15,6 @@ type ToneKey = keyof typeof TONE_SOURCES;
 const players = new Map<ToneKey, ReturnType<typeof createAudioPlayer>>();
 let modeConfigured = false;
 
-function toneForNotificationType(type: NotificationType | string): ToneKey {
-  switch (type) {
-    case 'CONVERSATION_ASSIGNED':
-      return 'assignment';
-    case 'CONVERSATION_UNASSIGNED':
-      return 'unassignment';
-    case 'INCOMING_CALL':
-      return 'call';
-    case 'CONTACT_EXPORT_READY':
-    case 'CAMPAIGN_EXPORT_READY':
-      return 'export';
-    case 'NEW_MESSAGE':
-    default:
-      return 'message';
-  }
-}
-
 async function ensureMode() {
   if (modeConfigured) return;
   try {
