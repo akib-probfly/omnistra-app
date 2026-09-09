@@ -52,6 +52,15 @@ export type ConversationAttachment = {
   createdAt?: string;
 };
 
+export type CrmConversationBanResponse = {
+  id: string;
+  conversationId: string;
+  workspaceId: string;
+  contactId: string;
+  blockedAt: string | null;
+  blockedReason: string | null;
+};
+
 type PageInfo = { nextCursor?: string | null; hasMore?: boolean };
 
 export async function fetchConversationNotes(params: { conversationId: string; limit?: number; search?: string; cursor?: string }): Promise<{ items: ConversationNote[]; pageInfo?: PageInfo }> {
@@ -146,14 +155,14 @@ export async function updateCrmContact(contactId: string, input: { primaryPhone?
   return apiFetch(`/crm/contacts/${contactId}`, { method: 'PATCH', body: JSON.stringify(input) });
 }
 
-export async function banCrmContact(conversationId: string, reason?: string) {
+export async function banCrmContact(conversationId: string, reason?: string): Promise<CrmConversationBanResponse> {
   return apiFetch(`/crm/conversations/${conversationId}/ban`, {
     method: 'POST',
     body: JSON.stringify({ reason }),
   });
 }
 
-export async function unbanCrmContact(conversationId: string) {
+export async function unbanCrmContact(conversationId: string): Promise<CrmConversationBanResponse> {
   return apiFetch(`/crm/conversations/${conversationId}/unban`, {
     method: 'POST',
     body: JSON.stringify({}),

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ban, Check, ChevronDown, ChevronUp, File, FileText, Film, Music, Pencil, Plus, RotateCcw, Sparkles } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { apiUrl } from '../api/client';
+import { apiUrl, isApiErrorWithStatus } from '../api/client';
 import { attachConversationTag, banCrmContact, createConversationNote, createConversationTag, deleteConversationNote, detachConversationTag, fetchConversationAttachments, fetchConversationNotes, fetchConversationTags, fetchWorkspaceTags, unbanCrmContact, updateConversationNote, updateCrmContact, type ConversationAttachment, type ConversationTag } from '../api/conversationDetails';
 import { AuthenticatedImage } from './AuthenticatedImage';
 import { BottomSheet, SheetScrollView } from './BottomSheet';
@@ -46,12 +46,19 @@ type PanelProps = {
     workspaceId?: string;
     status?: string;
     blockedAt?: string | null;
-    contact: { id: string; displayName: string | null; avatarUrl: string | null; primaryPhone?: string | null; primaryEmail?: string | null; blockedAt?: string | null };
+    blockedReason?: string | null;
+    contact: { id: string; displayName: string | null; avatarUrl: string | null; primaryPhone?: string | null; primaryEmail?: string | null; blockedAt?: string | null; blockedReason?: string | null };
     channel: { channelId?: string; channelType: string; channelName: string; displayPhoneNumber: string | null };
   };
   isUpdatingStatus?: boolean;
   onToggleStatus: () => void;
 };
+
+type BanAction = 'ban' | 'unban';
+
+function getBanResponseBlockedAt(data: { blockedAt?: string | null } | null | undefined, fallback: string | null) {
+  return data && Object.prototype.hasOwnProperty.call(data, 'blockedAt') ? data.blockedAt ?? null : fallback;
+}
 
 export function ContactDetailsPanel({ visible, onClose, conversation, isUpdatingStatus = false, onToggleStatus }: PanelProps) {
   const queryClient = useQueryClient();
@@ -75,6 +82,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   const [selectedColor, setSelectedColor] = useState(TAG_COLOR_OPTIONS[0]);
   const [optimisticBlockedAt, setOptimisticBlockedAt] = useState<string | null | undefined>(undefined);
   const [banOpen, setBanOpen] = useState(false);
+  const [pendingBanAction, setPendingBanAction] = useState<BanAction>('ban');
   const [pendingDeleteNoteId, setPendingDeleteNoteId] = useState<string | null>(null);
 
   // Only fetch sidebar data when the panel is open (matches web: notes/files load on expand).
@@ -123,7 +131,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   const canEditPhone = conversation.channel.channelType !== 'WHATSAPP';
   const channelType = (conversation.channel.channelType ?? '').toUpperCase();
   const canToggleBan = channelType === 'WHATSAPP' || channelType === 'MESSENGER';
-  const serverBlockedAt = conversation.blockedAt ?? conversation.contact.blockedAt ?? null;
+  const serverBlockedAt = conversation.blockedAt ?? null;
   const isBlocked = (optimisticBlockedAt !== undefined ? optimisticBlockedAt : serverBlockedAt) != null;
   const contactTitle = conversation.contact.displayName?.trim() || formatPhoneNumberDisplay(displayPhone) || formatPhoneNumberDisplay(conversation.channel.displayPhoneNumber) || conversation.channel.channelName || 'Contact';
 
@@ -162,9 +170,11 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
         conversation: {
           ...current.conversation,
           blockedAt,
+          blockedReason: blockedAt ? (current.conversation.blockedReason ?? null) : null,
           contact: {
             ...(current.conversation.contact ?? {}),
             blockedAt,
+            blockedReason: blockedAt ? (current.conversation.contact?.blockedReason ?? null) : null,
           },
         },
       };
@@ -181,7 +191,12 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
               : {
                   ...item,
                   blockedAt,
-                  contact: { ...(item.contact ?? {}), blockedAt },
+                  blockedReason: blockedAt ? (item.blockedReason ?? null) : null,
+                  contact: {
+                    ...(item.contact ?? {}),
+                    blockedAt,
+                    blockedReason: blockedAt ? (item.contact?.blockedReason ?? null) : null,
+                  },
                 }
           )),
         })),
@@ -190,22 +205,38 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
   }, [conversation.id, queryClient]);
 
   const banMutation = useMutation({
-    mutationFn: async () => (isBlocked ? unbanCrmContact(conversation.id) : banCrmContact(conversation.id)),
-    onMutate: () => {
+    mutationFn: async (action: BanAction) => {
+      try {
+        return action === 'unban' ? await unbanCrmContact(conversation.id) : await banCrmContact(conversation.id);
+      } catch (error) {
+        if (isApiErrorWithStatus(error, 409)) {
+          return null;
+        }
+        throw error;
+      }
+    },
+    onMutate: (action) => {
       const previous = serverBlockedAt;
-      const nextBlockedAt = isBlocked ? null : new Date().toISOString();
+      const nextBlockedAt = action === 'unban' ? null : new Date().toISOString();
       setOptimisticBlockedAt(nextBlockedAt);
       patchBlockedState(nextBlockedAt);
       return { previous };
     },
-    onSuccess: (_data, _vars, context) => {
+    onSuccess: (data, action, context) => {
       setBanOpen(false);
-      const nextBlockedAt = context?.previous ? null : new Date().toISOString();
+      const fallbackBlockedAt = data
+        ? action === 'unban' ? null : new Date().toISOString()
+        : action === 'unban' ? null : (context?.previous ?? new Date().toISOString());
+      const nextBlockedAt = getBanResponseBlockedAt(data, fallbackBlockedAt);
       setOptimisticBlockedAt(nextBlockedAt);
       patchBlockedState(nextBlockedAt);
-      Toast.show({ type: 'success', text1: context?.previous ? 'Customer unbanned' : 'Customer banned' });
+      Toast.show({ type: 'success', text1: nextBlockedAt ? 'Customer banned' : 'Customer unbanned' });
       void queryClient.invalidateQueries({ queryKey: ['messages', conversation.id] });
       void queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      void queryClient.invalidateQueries({ queryKey: ['crm-contacts'] });
+      if (conversation.contact.id) {
+        void queryClient.invalidateQueries({ queryKey: ['crm-contact', conversation.contact.id] });
+      }
     },
     onError: (error: Error, _vars, context) => {
       setOptimisticBlockedAt(context?.previous ?? null);
@@ -221,6 +252,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
       }
       return;
     }
+    setPendingBanAction(isBlocked ? 'unban' : 'ban');
     setBanOpen(true);
   };
 
@@ -504,7 +536,7 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
         loading={banMutation.isPending}
         icon={Ban}
         onClose={() => setBanOpen(false)}
-        onConfirm={() => banMutation.mutate()}
+        onConfirm={() => banMutation.mutate(pendingBanAction)}
       />
       <ConfirmDialog
         visible={Boolean(pendingDeleteNoteId)}

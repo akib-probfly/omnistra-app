@@ -26,6 +26,7 @@ import {
   updateCrmContactDetail,
 } from '../api/contacts';
 import { banCrmContact, createWorkspaceTag, fetchWorkspaceTags, unbanCrmContact } from '../api/conversationDetails';
+import { isApiErrorWithStatus } from '../api/client';
 import { ChannelLogo } from '../components/ChannelLogo';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
@@ -36,6 +37,12 @@ import { useTheme } from '../theme/ThemeContext';
 import { ScreenHeader } from '../ui';
 
 const TAG_COLOR_OPTIONS = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#64748b'];
+
+type BanAction = 'ban' | 'unban';
+
+function getBanResponseBlockedAt(data: { blockedAt?: string | null } | null | undefined, fallback: string | null) {
+  return data && Object.prototype.hasOwnProperty.call(data, 'blockedAt') ? data.blockedAt ?? null : fallback;
+}
 
 function formatDateTime(value: string | null | undefined) {
   if (!value) return '-';
@@ -66,6 +73,7 @@ export function ContactDetailsScreen() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirmValue, setDeleteConfirmValue] = useState('');
   const [banOpen, setBanOpen] = useState(false);
+  const [pendingBanAction, setPendingBanAction] = useState<BanAction>('ban');
 
   const contactQuery = useQuery({
     queryKey: ['crm-contact', contactId],
@@ -144,7 +152,14 @@ export function ContactDetailsScreen() {
     return normalized === 'whatsapp' || normalized === 'messenger';
   });
   const banConversationId = contact?.latestConversationId ?? conversations[0]?.id ?? null;
-  const isBlocked = Boolean(contact?.blockedAt ?? conversations[0]?.blockedAt);
+  // Ban/unban act on a single conversation, so read the blocked flag from that
+  // same conversation first. Falling back to contact-level state caused
+  // `unban` 409s ("Conversation is not blocked") when the contact flag was set
+  // but the target conversation was not.
+  const banTargetConversation = conversations.find((item) => item.id === banConversationId) ?? conversations[0] ?? null;
+  const targetBlockedAt = banTargetConversation?.blockedAt ?? null;
+  const isBlocked = Boolean(targetBlockedAt);
+  const showBlockedBadge = Boolean(contact?.blockedAt ?? targetBlockedAt);
 
   const updateMutation = useMutation({
     mutationFn: (input: { displayName?: string | null; primaryEmail?: string | null; tagIds?: string[] }) => updateCrmContactDetail(contactId, input),
@@ -206,18 +221,47 @@ export function ContactDetailsScreen() {
   });
 
   const banMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (action: BanAction) => {
       if (!banConversationId) throw new Error('No conversation available to ban for this contact.');
-      return isBlocked ? unbanCrmContact(banConversationId) : banCrmContact(banConversationId);
+      try {
+        return action === 'unban' ? await unbanCrmContact(banConversationId) : await banCrmContact(banConversationId);
+      } catch (error) {
+        if (isApiErrorWithStatus(error, 409)) {
+          return null;
+        }
+        throw error;
+      }
     },
-    onSuccess: async () => {
+    onSuccess: async (data, action) => {
       setBanOpen(false);
+      const nextBlockedAt = getBanResponseBlockedAt(
+        data,
+        action === 'unban' ? null : new Date().toISOString(),
+      );
+      queryClient.setQueryData(['crm-contact', contactId], (current: any) => {
+        if (!current) return current;
+        return {
+          ...current,
+          blockedAt: nextBlockedAt,
+          blockedReason: nextBlockedAt ? (current.blockedReason ?? null) : null,
+          conversations: (current.conversations ?? []).map((item: any) => (
+            item.id === banConversationId
+              ? {
+                  ...item,
+                  blockedAt: nextBlockedAt,
+                  blockedReason: nextBlockedAt ? (item.blockedReason ?? null) : null,
+                }
+              : item
+          )),
+        };
+      });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['crm-contact', contactId] }),
         queryClient.invalidateQueries({ queryKey: ['crm-contacts'] }),
         queryClient.invalidateQueries({ queryKey: ['conversations'] }),
+        ...(banConversationId ? [queryClient.invalidateQueries({ queryKey: ['messages', banConversationId] })] : []),
       ]);
-      Toast.show({ type: 'success', text1: isBlocked ? 'Contact unbanned' : 'Contact banned' });
+      Toast.show({ type: 'success', text1: action === 'unban' ? 'Contact unbanned' : 'Contact banned' });
     },
     onError: (error: Error) => {
       Toast.show({ type: 'error', text1: 'Could not update contact access', text2: error.message });
@@ -233,6 +277,7 @@ export function ContactDetailsScreen() {
       Toast.show({ type: 'info', text1: 'No conversation available to ban for this contact.' });
       return;
     }
+    setPendingBanAction(isBlocked ? 'unban' : 'ban');
     setBanOpen(true);
   };
 
@@ -295,7 +340,7 @@ export function ContactDetailsScreen() {
               ) : null}
             </View>
             <Text style={[styles.profileName, { color: colors.text }]}>{title}</Text>
-            {isBlocked ? (
+            {showBlockedBadge ? (
               <View style={styles.bannedBadge}>
                 <Ban color="#e11d48" size={12} />
                 <Text style={styles.bannedBadgeText}>Banned</Text>
@@ -564,7 +609,7 @@ export function ContactDetailsScreen() {
         loading={banMutation.isPending}
         icon={Ban}
         onClose={() => setBanOpen(false)}
-        onConfirm={() => banMutation.mutate()}
+        onConfirm={() => banMutation.mutate(pendingBanAction)}
       />
 
       <Modal visible={deleteOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => !deleteMutation.isPending && setDeleteOpen(false)}>
