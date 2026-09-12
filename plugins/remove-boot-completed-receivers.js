@@ -40,6 +40,8 @@ const RECEIVER_OVERRIDES = [
   },
 ];
 
+const UNUSED_MEDIA_PROJECTION_SERVICE = 'com.oney.WebRTCModule.MediaProjectionService';
+
 function buildReceiverNode({ name, attrs, actions }) {
   return {
     $: {
@@ -78,6 +80,26 @@ module.exports = function removeBootCompletedReceivers(config) {
     RECEIVER_OVERRIDES.forEach((override) =>
       upsertReceiverOverride(application.receiver, override),
     );
+
+    // react-native-webrtc ships optional screen-sharing support via a
+    // mediaProjection foreground service. Zurvis does not expose screen share,
+    // so remove the service from release manifests instead of declaring an
+    // unused Play Console foreground-service use case.
+    application.service = application.service ?? [];
+    const mediaProjectionServiceIndex = application.service.findIndex(
+      (service) => service?.$?.['android:name'] === UNUSED_MEDIA_PROJECTION_SERVICE,
+    );
+    const mediaProjectionServiceRemoval = {
+      $: {
+        'android:name': UNUSED_MEDIA_PROJECTION_SERVICE,
+        'tools:node': 'remove',
+      },
+    };
+    if (mediaProjectionServiceIndex >= 0) {
+      application.service[mediaProjectionServiceIndex] = mediaProjectionServiceRemoval;
+    } else {
+      application.service.push(mediaProjectionServiceRemoval);
+    }
 
     return configWithManifest;
   });
