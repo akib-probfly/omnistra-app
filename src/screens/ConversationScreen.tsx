@@ -35,9 +35,8 @@ import { AssignmentHistoryItem } from '../components/AssignmentHistoryItem';
 import { ReactionPicker } from '../components/ReactionPicker';
 import { fetchConversationAssignmentEvents, fetchConversationCallSessions, fetchMessagesPage, markConversationRead, markConversationUnread, sendReaction, sendTemplateMessage, updateConversationAssignment, updateConversationStar, updateConversationStatus, type AssigneeFilterOption, type ConversationCallSession } from '../api/inbox';
 import { fetchConversationAttachments } from '../api/conversationDetails';
-import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { InboxStackParamList } from '../navigation/InboxStack';
-import type { MainTabParamList } from '../navigation/MainTabs';
 import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel, getConversationTitle, getConversationWindowLabel, getMessengerMessagingAvailability, getReplyPreviewBody, getVoiceCallButtonState, isConversationCustomerWindowExpired, isInlineReactionMessage, isLiveCallSession, type ConversationTimelineEntry, type MessengerMessagingMode } from '../lib/inbox-utils';
 import { CallHistoryItem } from '../components/CallHistoryItem';
 import { useCallController } from '../providers/CallControllerProvider';
@@ -129,7 +128,7 @@ const apiUrl = (value: string | null) => {
 };
 
 export function ConversationScreen() {
-  const insets = useSafeAreaInsets(); const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>(); const route = useRoute<RouteProp<InboxStackParamList, 'Conversation'>>(); const queryClient = useQueryClient();
+  const insets = useSafeAreaInsets(); const navigation = useNavigation<NativeStackNavigationProp<InboxStackParamList, 'Conversation'>>(); const route = useRoute<RouteProp<InboxStackParamList, 'Conversation'>>(); const queryClient = useQueryClient();
   const isFocused = useIsFocused();
   const realtimeStatus = useSyncExternalStore(subscribeRealtimeConnectionStatus, getRealtimeConnectionStatus);
   const { session } = useAuth();
@@ -168,6 +167,14 @@ export function ConversationScreen() {
   const pendingOptimisticRef = useRef<Map<string, Message>>(new Map());
   const awaitingDeliveryRef = useRef(false);
   const deliveryPollUntilRef = useRef(0);
+
+  const handleBack = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.replace('InboxList');
+  }, [navigation]);
 
   const updateAwaitingDelivery = (items: Message[]) => {
     const cutoff = Date.now() - 90_000;
@@ -931,11 +938,11 @@ export function ConversationScreen() {
             label: title || callChrome.label,
             avatarUrl: header.conversation?.contact?.avatarUrl ?? callChrome.avatarUrl,
           }}
-          onBack={() => navigation.navigate('Inbox', { screen: 'InboxList' })}
+          onBack={handleBack}
         />
       ) : (
       <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
-        <Pressable onPress={() => navigation.navigate('Inbox', { screen: 'InboxList' })}><ArrowLeft color={colors.textSecondary} size={23} /></Pressable>
+        <Pressable onPress={handleBack}><ArrowLeft color={colors.textSecondary} size={23} /></Pressable>
         <Pressable
           onPress={() => { if (header.conversation) setDetailsOpen(true); }}
           style={styles.headerIdentity}
