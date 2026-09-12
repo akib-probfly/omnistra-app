@@ -265,15 +265,22 @@ export function AuthenticatedImage({
   useEffect(() => {
     if (!fitContent || !url) return;
     let active = true;
-    Image.getSize(
-      url,
-      (width, height) => {
-        if (active) setNaturalSize({ width, height });
-      },
-      () => {
-        // Keep placeholder size if measurement fails; onLoad may still fill it in.
-      },
-    );
+    downloadMedia(url)
+      .then((localUri) => {
+        if (!active) return;
+        Image.getSize(
+          localUri,
+          (width, height) => {
+            if (active) setNaturalSize({ width, height });
+          },
+          () => {
+            // Keep placeholder size if measurement fails; onLoad may still fill it in.
+          },
+        );
+      })
+      .catch(() => {
+        // Keep placeholder size if the authenticated size probe fails.
+      });
     return () => {
       active = false;
     };
