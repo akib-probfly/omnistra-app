@@ -28,6 +28,13 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormSkeleton } from '../components/Skeleton';
 import { QuickAutomationTab } from '../components/QuickAutomationTab';
 import { TroubleshootTab } from '../components/TroubleshootTab';
+import {
+  WebchatAppearanceSection,
+  WebchatConfigurationSection,
+  WebchatFeaturesSection,
+  WebchatFormsSection,
+  WebchatSnippetSection,
+} from '../components/WebchatChannelTab';
 import { WhatsappCallingTab } from '../components/WhatsappCallingTab';
 import { WhatsappTemplatesTab } from '../components/WhatsappTemplatesTab';
 import type { ChannelsStackParamList } from '../navigation/ChannelsStack';
@@ -262,7 +269,10 @@ export function ChannelDetailsScreen() {
   const isWhatsapp = channel.type === 'WHATSAPP';
   const isTikTok = channel.type === 'TIKTOK';
   const isInstagram = channel.type === 'INSTAGRAM';
-  const tabs = isMessenger || isTikTok || isInstagram
+  const isWebchat = channel.type === 'WEBCHAT';
+  const tabs = isWebchat
+    ? [{ key: 'overview', label: 'Configuration' }, { key: 'appearance', label: 'Appearance' }, { key: 'features', label: 'Widget Features' }, { key: 'forms', label: 'Forms' }, { key: 'snippet', label: 'Code Snippet' }, { key: 'automation', label: 'Quick Automation' }, { key: 'access', label: 'Troubleshoot' }]
+    : isMessenger || isTikTok || isInstagram
     ? [{ key: 'overview', label: 'Configuration' }, { key: 'automation', label: 'Quick Automation' }, { key: 'access', label: 'Troubleshoot' }]
     : isWhatsapp
       ? [{ key: 'overview', label: 'Configuration' }, { key: 'templates', label: 'Templates' }, { key: 'business', label: 'Profile' }, { key: 'calling', label: 'Calls' }, { key: 'automation', label: 'Quick Automation' }, { key: 'access', label: 'Troubleshoot' }]
@@ -490,7 +500,11 @@ export function ChannelDetailsScreen() {
       </View>
 
       <View style={styles.tabContent}>
-        {tab === 'overview' ? renderOverview() : null}
+        {tab === 'overview' ? (isWebchat ? <WebchatConfigurationSection channel={channel} lifecycle={lifecycle} /> : renderOverview()) : null}
+        {tab === 'appearance' && isWebchat ? <WebchatAppearanceSection channel={channel} lifecycle={lifecycle} /> : null}
+        {tab === 'features' && isWebchat ? <WebchatFeaturesSection channelId={channelId} /> : null}
+        {tab === 'forms' && isWebchat ? <WebchatFormsSection channelId={channelId} /> : null}
+        {tab === 'snippet' && isWebchat ? <WebchatSnippetSection channelId={channelId} /> : null}
         {tab === 'business' ? renderBusiness() : null}
         {tab === 'templates' ? <WhatsappTemplatesTab channelId={channelId} /> : null}
         {tab === 'calling' ? <WhatsappCallingTab channelId={channelId} callingSetting={channel.callBusinessCallingSetting} callDisabledReason={channel.capabilities?.callDisabledReason} /> : null}

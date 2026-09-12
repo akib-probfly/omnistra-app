@@ -181,6 +181,86 @@ export type WhatsAppConnectLaunch = {
   expiresAt: string;
 };
 
+export type WebchatFormFieldType =
+  | 'TEXT'
+  | 'EMAIL'
+  | 'PHONE'
+  | 'PARAGRAPH'
+  | 'NUMBER'
+  | 'RATING';
+
+export type WebchatFormField = {
+  id: string;
+  label: string;
+  type: WebchatFormFieldType;
+  required: boolean;
+  enabled: boolean;
+  locked?: boolean;
+};
+
+export type WebchatFormConfig = {
+  name: string;
+  enabled: boolean;
+  fields: WebchatFormField[];
+};
+
+export type WebchatSettings = {
+  name: string;
+  welcomeTitle: string;
+  welcomeMessage: string | null;
+  description: string | null;
+  showDescription: boolean;
+  brandName: string;
+  brandLogoUrl: string | null;
+  showAgentGroupAvatar: boolean;
+  chatInitiationText: string;
+  onlineStatusText: string;
+  offlineStatusText: string;
+  buttonShape: 'DEFAULT' | 'CUSTOM_CORNER' | 'CUSTOM_BANNER';
+  cornerRadius: number;
+  showEyeCatcher: boolean;
+  showDesktopLabel: boolean;
+  desktopOnlineLabel: string;
+  desktopOfflineLabel: string;
+  accentColor: string;
+  position: 'BOTTOM_RIGHT' | 'BOTTOM_LEFT';
+  voiceCall: boolean;
+  videoCall: boolean;
+  closeFromVisitor: boolean;
+  screenSharing: boolean;
+  coBrowsing: boolean;
+  preChatForm: WebchatFormConfig;
+  postChatForm: WebchatFormConfig;
+  domain: string;
+};
+
+export type WebchatSettingsUpdateInput = Partial<Omit<WebchatSettings, 'domain'>>;
+
+export type WebchatInstallation = {
+  channelId: string;
+  channelKey: string;
+  scriptUrl: string;
+  domain: string;
+  widgetId: string;
+  directChatUrl: string;
+  code: string;
+};
+
+export function fetchWebchatSettings(channelId: string) {
+  return apiFetch<WebchatSettings>(`/channels/${channelId}/webchat/settings`);
+}
+
+export function updateWebchatSettings(channelId: string, values: WebchatSettingsUpdateInput) {
+  return apiFetch<WebchatSettings>(`/channels/${channelId}/webchat/settings`, {
+    method: 'PATCH',
+    body: JSON.stringify(values),
+  });
+}
+
+export function fetchWebchatInstallation(channelId: string) {
+  return apiFetch<WebchatInstallation>(`/channels/${channelId}/webchat/installation`);
+}
+
 export function fetchChannels() {
   return apiFetch<ChannelsListResponse>(
     '/channels?page=1&limit=100&sortBy=createdAt&sortOrder=desc',
