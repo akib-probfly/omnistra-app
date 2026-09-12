@@ -37,7 +37,8 @@
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
         "android.permission.READ_MEDIA_AUDIO",
-        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED"
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.RECEIVE_BOOT_COMPLETED"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#1d4ed8",
@@ -54,7 +55,11 @@
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.INTERNET",
         "android.permission.BLUETOOTH",
-        "android.permission.BLUETOOTH_CONNECT"
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"
       ]
     },
     "web": {
@@ -63,6 +68,9 @@
     "plugins": [
       "expo-dev-client",
       "./plugins/remove-android-large-screen-restrictions",
+      "./plugins/remove-boot-completed-receivers",
+      "./plugins/exclude-dev-client-from-release-autolinking",
+      "./plugins/enable-r8-optimization",
       [
         "expo-notifications",
         {
@@ -105,6 +113,8 @@
             "targetSdkVersion": 36,
             "buildToolsVersion": "36.0.0",
             "enablePngCrunchInReleaseBuilds": true,
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
             "buildArchs": ["armeabi-v7a", "arm64-v8a"]
           }
         }
