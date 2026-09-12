@@ -124,6 +124,8 @@ export function ContactsScreen() {
   const [addChannelSearch, setAddChannelSearch] = useState('');
   const [addTagSearch, setAddTagSearch] = useState('');
   const [dismissedExportId, setDismissedExportId] = useState<string | null>(null);
+  const [sessionExportIds, setSessionExportIds] = useState<string[]>([]);
+  const [trackedExportIds, setTrackedExportIds] = useState<string[]>([]);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -364,6 +366,7 @@ export function ContactsScreen() {
     }),
     onSuccess: (job) => {
       setActionsOpen(false);
+      setSessionExportIds((current) => current.includes(job.id) ? current : [job.id, ...current]);
       queryClient.invalidateQueries({ queryKey: ['crm-exports'] });
       showNotice(
         job.status === 'READY' ? 'Export ready' : 'Export queued',
@@ -444,16 +447,38 @@ export function ContactsScreen() {
 
   const actionBusy = importMutation.isPending || exportMutation.isPending || deleteAllMutation.isPending;
   const activeExportJob = useMemo(() => {
+    const liveJob = (exportsQuery.data?.items ?? []).find((job) => job.status === 'PENDING' || job.status === 'PROCESSING');
+    if (liveJob) {
+      return liveJob;
+    }
     const mutationJob = exportMutation.data;
-    if (mutationJob?.status === 'PENDING' || mutationJob?.status === 'PROCESSING') return mutationJob;
-    return (exportsQuery.data?.items ?? []).find((job) => job.status === 'PENDING' || job.status === 'PROCESSING') ?? null;
-  }, [exportMutation.data, exportsQuery.data?.items]);
+    if (!mutationJob || !sessionExportIds.includes(mutationJob.id)) return null;
+    if ((exportsQuery.data?.items ?? []).some((job) => job.id === mutationJob.id)) return null;
+    return mutationJob.status === 'PENDING' || mutationJob.status === 'PROCESSING' ? mutationJob : null;
+  }, [exportMutation.data, exportsQuery.data?.items, sessionExportIds]);
+  useEffect(() => {
+    const activeIds = (exportsQuery.data?.items ?? [])
+      .filter((job) => job.status === 'PENDING' || job.status === 'PROCESSING')
+      .map((job) => job.id);
+    if (!activeIds.length) return;
+    setTrackedExportIds((current) => {
+      const next = [...current];
+      for (const id of activeIds) {
+        if (!next.includes(id)) next.push(id);
+      }
+      return next.length === current.length ? current : next;
+    });
+  }, [exportsQuery.data?.items]);
   const latestReadyExportJob = useMemo(
     () => {
-      const latest = (exportsQuery.data?.items ?? []).find((job) => job.status === 'READY') ?? null;
+      const visibleReadyIds = new Set([...sessionExportIds, ...trackedExportIds]);
+      const latestLiveJob = (exportsQuery.data?.items ?? []).find((job) => visibleReadyIds.has(job.id) && job.status === 'READY') ?? null;
+      const mutationJob = exportMutation.data;
+      const latestMutationJob = mutationJob?.status === 'READY' && sessionExportIds.includes(mutationJob.id) ? mutationJob : null;
+      const latest = latestLiveJob ?? latestMutationJob;
       return latest?.id === dismissedExportId ? null : latest;
     },
-    [dismissedExportId, exportsQuery.data?.items],
+    [dismissedExportId, exportMutation.data, exportsQuery.data?.items, sessionExportIds, trackedExportIds],
   );
 
   const onRefresh = useCallback(async () => {
