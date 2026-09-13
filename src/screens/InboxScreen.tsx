@@ -78,7 +78,6 @@ export function InboxScreen() {
   const [userSearchInput, setUserSearchInput] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const tagTextTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const includeEmpty = Boolean(
     debouncedSearch.trim()
@@ -204,9 +203,14 @@ export function InboxScreen() {
 
   const onTagTextChange = (value: string) => {
     setTagTextInput(value);
-    if (tagTextTimer.current) clearTimeout(tagTextTimer.current);
-    tagTextTimer.current = setTimeout(() => setDebouncedTagText(value), 250);
   };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedTagText(tagTextInput.trim());
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [tagTextInput]);
 
   const realtimeStatus = useSyncExternalStore(subscribeRealtimeConnectionStatus, getRealtimeConnectionStatus);
   // Realtime should drive updates; keep a slow poll even when "connected" because mobile
@@ -300,7 +304,6 @@ export function InboxScreen() {
 
   useEffect(() => () => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (tagTextTimer.current) clearTimeout(tagTextTimer.current);
   }, []);
 
   return (
