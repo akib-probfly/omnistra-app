@@ -119,6 +119,7 @@ export function ConversationComposer({
   const [attachmentPickerOpen, setAttachmentPickerOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const [quickQuery, setQuickQuery] = useState('');
+  const [debouncedQuickQuery, setDebouncedQuickQuery] = useState('');
   const [templateOpen, setTemplateOpen] = useState(false);
   const [templateQuery, setTemplateQuery] = useState('');
   const [messengerModeOpen, setMessengerModeOpen] = useState(false);
@@ -158,13 +159,25 @@ export function ConversationComposer({
   const isMessengerChannel = (channelType ?? '').toUpperCase() === 'MESSENGER';
   const isTikTokChannel = (channelType ?? '').toUpperCase() === 'TIKTOK';
   const imageOnlyAttachments = isTikTokChannel;
+
+  useEffect(() => {
+    if (!quickOpen) {
+      setDebouncedQuickQuery('');
+      return;
+    }
+    const timer = setTimeout(() => {
+      setDebouncedQuickQuery(quickQuery.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [quickOpen, quickQuery]);
+
   const quickReplies = useQuery({
-    queryKey: ['quick-replies', 'picker', workspaceId, conversationId, channelType, quickQuery],
+    queryKey: ['quick-replies', 'picker', workspaceId, conversationId, channelType, debouncedQuickQuery],
     queryFn: () => fetchQuickReplyPicker({
       workspaceId,
       conversationId,
       channelType: channelType ? channelType.toUpperCase() : undefined,
-      search: quickQuery || undefined,
+      search: debouncedQuickQuery || undefined,
       limit: 20,
     }),
     enabled: quickOpen && Boolean(workspaceId),
