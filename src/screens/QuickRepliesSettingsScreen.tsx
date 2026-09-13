@@ -11,7 +11,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react-native';
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -99,7 +99,7 @@ export function QuickRepliesSettingsScreen() {
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
-  const deferredSearch = useDeferredValue(search.trim());
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<QuickReplySnippet | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
@@ -147,9 +147,16 @@ export function QuickRepliesSettingsScreen() {
     );
   }, [channelAccountOptions, channelSearch]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const listQuery = useQuery({
-    queryKey: ['quick-replies', 'settings', workspaceId, deferredSearch],
-    queryFn: () => fetchQuickRepliesList({ workspaceId, search: deferredSearch || undefined, limit: 100 }),
+    queryKey: ['quick-replies', 'settings', workspaceId, debouncedSearch],
+    queryFn: () => fetchQuickRepliesList({ workspaceId, search: debouncedSearch || undefined, limit: 100 }),
     enabled: Boolean(workspaceId),
     staleTime: 20_000,
   });
