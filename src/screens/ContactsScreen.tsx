@@ -207,11 +207,21 @@ export function ContactsScreen() {
     staleTime: 60_000,
   });
 
+  const shouldLoadExports = actionsOpen || sessionExportIds.length > 0 || trackedExportIds.length > 0;
+
   const exportsQuery = useQuery({
     queryKey: ['crm-exports'],
     queryFn: () => fetchCrmExports(),
-    refetchInterval: 2000,
-    staleTime: 0,
+    enabled: shouldLoadExports,
+    refetchInterval: (query) => {
+      const watchedIds = new Set([...sessionExportIds, ...trackedExportIds]);
+      if (!watchedIds.size) return false;
+      const jobs = (query.state.data as { items?: CrmExportJob[] } | undefined)?.items ?? [];
+      return jobs.some((job) => watchedIds.has(job.id) && (job.status === 'PENDING' || job.status === 'PROCESSING'))
+        ? 2000
+        : false;
+    },
+    staleTime: shouldLoadExports ? 0 : 30_000,
   });
 
   const items = useMemo(() => (contactsQuery.data?.pages ?? []).flatMap((page) => page.items), [contactsQuery.data]);
