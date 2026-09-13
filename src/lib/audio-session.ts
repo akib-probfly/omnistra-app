@@ -5,11 +5,18 @@ import {
   deactivateNativeCallAudio,
   setNativeCallSpeaker,
 } from './call-audio-native';
-import { stopIncomingCallRingtone } from './notificationSound';
+import { suppressCallSounds } from './notificationSound';
 
 let lifecycleInstalled = false;
 let callAudioHeld = false;
 let callSpeakerPreferred = false;
+let callAudioGeneration = 0;
+let reapplyTimers: ReturnType<typeof setTimeout>[] = [];
+
+function cancelAudioReapply() {
+  reapplyTimers.forEach(clearTimeout);
+  reapplyTimers = [];
+}
 
 /**
  * iOS deactivates AVAudioSession when the app leaves the foreground.
@@ -31,7 +38,7 @@ export function ensureAudioSessionLifecycle() {
   };
 
   AppState.addEventListener('change', restore);
-  if (AppState.currentState === 'active') {
+  if (AppState.currentState === 'active' && !callAudioHeld) {
     void setIsAudioActiveAsync(true).catch(() => {});
   }
 }
@@ -44,6 +51,7 @@ export async function activatePlaybackSession() {
   if (callAudioHeld) return;
   ensureAudioSessionLifecycle();
   await setIsAudioActiveAsync(true);
+  if (callAudioHeld) return;
   await setAudioModeAsync({
     playsInSilentMode: true,
     allowsRecording: false,
@@ -56,6 +64,7 @@ export async function activateRecordingSession() {
   if (callAudioHeld) return;
   ensureAudioSessionLifecycle();
   await setIsAudioActiveAsync(true);
+  if (callAudioHeld) return;
   await setAudioModeAsync({
     playsInSilentMode: true,
     allowsRecording: true,
@@ -71,15 +80,20 @@ export async function reapplyCallAudio() {
 
 export function scheduleCallAudioReapply() {
   if (!callAudioHeld || Platform.OS !== 'ios') return;
+  cancelAudioReapply();
+  const generation = callAudioGeneration;
   for (const delayMs of [200, 600, 1200]) {
-    setTimeout(() => {
+    reapplyTimers.push(setTimeout(() => {
+      if (generation !== callAudioGeneration) return;
       void reapplyCallAudio().catch(() => {});
-    }, delayMs);
+    }, delayMs));
   }
 }
 
 export async function routeCallAudio(speaker: boolean) {
   callSpeakerPreferred = speaker;
+  if (!callAudioHeld) return;
+  const generation = callAudioGeneration;
   if (Platform.OS === 'ios') {
     try {
       const routed = await setNativeCallSpeaker(speaker);
@@ -87,9 +101,11 @@ export async function routeCallAudio(speaker: boolean) {
     } catch {
       // Speaker override can fail if the session was interrupted.
       // Fall back to a full re-activation so iOS audio comes back.
+      if (!callAudioHeld || generation !== callAudioGeneration) return;
       const recovered = await activateNativeCallAudio(speaker).catch(() => false);
       if (recovered) return;
     }
+    throw new Error('Could not route iOS call audio.');
   }
 
   await setAudioModeAsync({
@@ -102,22 +118,26 @@ export async function routeCallAudio(speaker: boolean) {
 }
 
 export async function activateCallSession() {
-  ensureAudioSessionLifecycle();
+  const generation = ++callAudioGeneration;
+  cancelAudioReapply();
   callAudioHeld = true;
+  ensureAudioSessionLifecycle();
   callSpeakerPreferred = false;
-  stopIncomingCallRingtone();
+  await suppressCallSounds(true);
+  if (generation !== callAudioGeneration || !callAudioHeld) {
+    throw new Error('Call audio setup was cancelled.');
+  }
 
   if (Platform.OS === 'ios') {
-    try {
-      await setIsAudioActiveAsync(false);
-    } catch {
-      // expo-audio may already have released the session.
-    }
     const configured = await activateNativeCallAudio(false);
+    if (generation !== callAudioGeneration || !callAudioHeld) {
+      throw new Error('Call audio setup was cancelled.');
+    }
     if (configured) {
       scheduleCallAudioReapply();
       return;
     }
+    throw new Error('This iOS build is missing call audio support. Install a new native build.');
   }
 
   await setIsAudioActiveAsync(true);
@@ -131,10 +151,14 @@ export async function activateCallSession() {
 }
 
 export async function releaseCallSession() {
+  const generation = ++callAudioGeneration;
+  cancelAudioReapply();
   callAudioHeld = false;
   if (Platform.OS === 'ios') {
     await deactivateNativeCallAudio().catch(() => {});
   }
+  if (generation !== callAudioGeneration) return;
+  await suppressCallSounds(false);
   await activatePlaybackSession();
 }
 

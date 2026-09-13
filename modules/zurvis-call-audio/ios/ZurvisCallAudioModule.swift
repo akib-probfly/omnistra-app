@@ -3,6 +3,7 @@ import ExpoModulesCore
 import WebRTC
 
 public class ZurvisCallAudioModule: Module {
+  private static var ownsActivation = false
   public func definition() -> ModuleDefinition {
     Name("ZurvisCallAudio")
 
@@ -41,38 +42,39 @@ public class ZurvisCallAudioModule: Module {
 #else
     options.insert(.allowBluetooth)
 #endif
-    options.insert(.allowBluetoothA2DP)
     return options
   }
 
   private static func applySession(speaker: Bool) throws {
-    // NOTE: do not reset RTCAudioSessionConfiguration here — it is installed once
-    // in OnCreate. Re-setting it while a call is active can glitch iOS audio.
-    let session = AVAudioSession.sharedInstance()
-    // The ringtone/voice-note session may still be active in playback mode.
-    // iOS will not reliably switch to PlayAndRecord without deactivating first
-    // (Android has no such constraint, which is why Android worked).
-    try? session.setActive(false, options: .notifyOthersOnDeactivation)
-    try session.setCategory(.playAndRecord, mode: .voiceChat, options: categoryOptions())
-    try session.setActive(true, options: [])
-    RTCAudioSession.sharedInstance().audioSessionDidActivate(session)
-    // With useManualAudio = true WebRTC never starts capture/render on its own.
-    // Without this there is no mic or remote audio on iOS (Android is unaffected).
-    RTCAudioSession.sharedInstance().isAudioEnabled = true
-    try overrideSpeaker(speaker)
+    let rtc = RTCAudioSession.sharedInstance()
+    rtc.lockForConfiguration()
+    defer { rtc.unlockForConfiguration() }
+    try rtc.setCategory(AVAudioSession.Category.playAndRecord.rawValue,
+                        with: categoryOptions())
+    try rtc.setMode(AVAudioSession.Mode.voiceChat.rawValue)
+    // Acquire exactly one activation. Reapply must not interrupt a running audio
+    // unit or increment WebRTC's activation counter on every connection event.
+    if !ownsActivation {
+      try rtc.setActive(true)
+      ownsActivation = true
+    }
+    rtc.isAudioEnabled = true
+    try rtc.overrideOutputAudioPort(speaker ? .speaker : .none)
   }
 
   private static func overrideSpeaker(_ speaker: Bool) throws {
-    // Re-assert audio enabled so a speaker toggle after an interruption restores sound.
-    RTCAudioSession.sharedInstance().isAudioEnabled = true
-    try AVAudioSession.sharedInstance().overrideOutputAudioPort(speaker ? .speaker : .none)
+    guard ownsActivation else { return }
+    try applySession(speaker: speaker)
   }
 
   private static func releaseSession() {
-    let session = AVAudioSession.sharedInstance()
-    RTCAudioSession.sharedInstance().isAudioEnabled = false
-    RTCAudioSession.sharedInstance().audioSessionDidDeactivate(session)
-    try? session.overrideOutputAudioPort(.none)
-    try? session.setActive(false, options: .notifyOthersOnDeactivation)
+    guard ownsActivation else { return }
+    let rtc = RTCAudioSession.sharedInstance()
+    rtc.lockForConfiguration()
+    defer { rtc.unlockForConfiguration() }
+    rtc.isAudioEnabled = false
+    try? rtc.overrideOutputAudioPort(.none)
+    try? rtc.setActive(false)
+    ownsActivation = false
   }
 }

@@ -14,23 +14,46 @@ type ToneKey = keyof typeof TONE_SOURCES;
 
 const players = new Map<ToneKey, ReturnType<typeof createAudioPlayer>>();
 let modeConfigured = false;
+let modePromise: Promise<void> | null = null;
+let soundsSuppressed = false;
+let ringtoneGeneration = 0;
 
 async function ensureMode() {
   if (modeConfigured) return;
-  try {
-    await setAudioModeAsync({ playsInSilentMode: true, interruptionMode: 'mixWithOthers' });
-  } catch {
-    // playback may still work
+  if (!modePromise) {
+    modePromise = setAudioModeAsync({
+      playsInSilentMode: true,
+      allowsRecording: true,
+      shouldPlayInBackground: true,
+      interruptionMode: 'doNotMix',
+    }).then(() => { modeConfigured = true; }).finally(() => { modePromise = null; });
   }
-  modeConfigured = true;
+  await modePromise;
+}
+
+// Drain pending ringtone configuration before WebRTC takes session ownership.
+export async function suppressCallSounds(suppressed: boolean) {
+  soundsSuppressed = suppressed;
+  if (suppressed) {
+    stopIncomingCallRingtone();
+    for (const player of players.values()) {
+      try { player.pause(); } catch { /* already stopped */ }
+    }
+    await modePromise?.catch(() => {});
+  } else {
+    modeConfigured = false;
+  }
 }
 
 async function playTone(tone: ToneKey) {
+  if (soundsSuppressed) return;
+  const generation = ringtoneGeneration;
   try {
     await ensureMode();
+    if (soundsSuppressed || generation !== ringtoneGeneration) return;
     let player = players.get(tone);
     if (!player) {
-      player = createAudioPlayer(TONE_SOURCES[tone]);
+      player = createAudioPlayer(TONE_SOURCES[tone], { keepAudioSessionActive: true });
       players.set(tone, player);
     }
     player.seekTo(0);
@@ -48,11 +71,16 @@ export async function playNotificationSound(type: NotificationType | string = 'N
 let ringingPlayer: ReturnType<typeof createAudioPlayer> | null = null;
 
 export async function startIncomingCallRingtone() {
+  if (soundsSuppressed) return;
+  const generation = ringtoneGeneration;
   try {
     await ensureMode();
+    if (soundsSuppressed || generation !== ringtoneGeneration) return;
+    if (ringingPlayer?.playing) return;
     if (!ringingPlayer) {
-      ringingPlayer = createAudioPlayer(TONE_SOURCES.call);
+      ringingPlayer = createAudioPlayer(TONE_SOURCES.call, { keepAudioSessionActive: true });
       ringingPlayer.loop = true;
+      ringingPlayer.volume = 0.85;
     }
     ringingPlayer.seekTo(0);
     ringingPlayer.play();
@@ -62,6 +90,7 @@ export async function startIncomingCallRingtone() {
 }
 
 export function stopIncomingCallRingtone() {
+  ringtoneGeneration += 1;
   const player = ringingPlayer;
   ringingPlayer = null;
   if (!player) return;

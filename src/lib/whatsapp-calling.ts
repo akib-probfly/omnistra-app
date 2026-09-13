@@ -62,7 +62,7 @@ export async function createWhatsappCallPeerContext(): Promise<WhatsappCallPeerC
 
   // iOS getUserMedia fails if AVAudioSession is still in playback-only mode
   // (ringtone or a voice note). Android is more forgiving of that mismatch.
-  // On iOS we also release expo-audio first so WebRTC can own PlayAndRecord.
+  // Drain ringtone setup before WebRTC takes ownership of PlayAndRecord.
   await activateCallSession();
   await new Promise((resolve) => setTimeout(resolve, Platform.OS === 'ios' ? 160 : 80));
 
