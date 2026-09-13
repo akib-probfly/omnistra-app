@@ -134,7 +134,7 @@ export function useWhatsappCallController() {
 
   const initializePeerContext = useCallback(async () => {
     if (!isWhatsappCallSupported()) {
-      throw new Error('WhatsApp calling requires a custom Expo build with WebRTC.');
+      throw new Error('Voice calling requires a custom Expo build with WebRTC.');
     }
     resetPeerContext({ restoreAudio: false });
     const peerContext = await createWhatsappCallPeerContext();
@@ -150,6 +150,9 @@ export function useWhatsappCallController() {
     if (appliedRemoteSignalRef.current === signature) return;
 
     const peerConnection = peerContextRef.current.peerConnection;
+    // Ignore echoed local answers and stale realtime signals, matching web.
+    if ((signal.sdpType === 'answer' && peerConnection.signalingState !== 'have-local-offer')
+      || (signal.sdpType === 'offer' && peerConnection.signalingState !== 'stable')) return;
     await peerConnection.setRemoteDescription(new RTCSessionDescription({
       type: signal.sdpType,
       sdp: signal.sdp,
@@ -184,7 +187,7 @@ export function useWhatsappCallController() {
       } else {
         Toast.show({
           type: 'success',
-          text1: 'WhatsApp call started',
+          text1: session.provider?.toLowerCase() === 'webchat' ? 'Web chat call started' : 'WhatsApp call started',
           text2: session.status === 'CONNECTED' ? 'The call connected successfully.' : 'The call is ringing now.',
         });
       }
@@ -198,8 +201,8 @@ export function useWhatsappCallController() {
     } catch (error) {
       resetPeerContext();
       setConnectionState('failed');
-      const message = error instanceof Error ? error.message : 'Could not start the WhatsApp call';
-      Toast.show({ type: 'error', text1: 'Could not start the WhatsApp call', text2: message });
+      const message = error instanceof Error ? error.message : 'Could not start the voice call';
+      Toast.show({ type: 'error', text1: 'Could not start the voice call', text2: message });
       setErrorMessage(message);
     }
   }, [applyRemoteSignal, clearError, initializePeerContext, resetPeerContext, startCallMutation]);
@@ -230,7 +233,7 @@ export function useWhatsappCallController() {
     } catch (error) {
       resetPeerContext();
       setConnectionState('failed');
-      const message = error instanceof Error ? error.message : 'Could not answer the WhatsApp call';
+      const message = error instanceof Error ? error.message : 'Could not answer the voice call';
       Toast.show({ type: 'error', text1: 'Could not answer the call', text2: message });
       setErrorMessage(message);
     }
@@ -244,7 +247,7 @@ export function useWhatsappCallController() {
       return session;
     } catch (error) {
       setConnectionState('failed');
-      const message = error instanceof Error ? error.message : 'Could not decline the WhatsApp call';
+      const message = error instanceof Error ? error.message : 'Could not decline the voice call';
       setErrorMessage(message);
     }
   }, [clearError, declineCallMutation, resetPeerContext]);
@@ -257,7 +260,7 @@ export function useWhatsappCallController() {
       return session;
     } catch (error) {
       setConnectionState('failed');
-      const message = error instanceof Error ? error.message : 'Could not end the WhatsApp call';
+      const message = error instanceof Error ? error.message : 'Could not end the voice call';
       setErrorMessage(message);
     }
   }, [clearError, endCallMutation, resetPeerContext]);

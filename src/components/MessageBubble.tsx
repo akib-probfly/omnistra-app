@@ -5,6 +5,7 @@ import { AuthenticatedImage } from './AuthenticatedImage';
 import { VideoThumb } from './VideoThumb';
 import { VoiceNotePlayer } from './VoiceNotePlayer';
 import {
+  readWebchatPostchatForm,
   isEmojiOnlyMessage,
   parseMessageTextParts,
   getOutboundStatusMeta,
@@ -53,7 +54,7 @@ function SystemMessageBubble({ message }: { message: any }) {
 // Dispatches before any hooks run, so the two branches never share a hook order.
 export function MessageBubble(props: any) {
   const { message } = props;
-  const isSystem = message.senderType === 'SYSTEM' && !message.campaignId;
+  const isSystem = message.senderType === 'SYSTEM' && !message.campaignId && !readWebchatPostchatForm(message.metadata);
   if (isSystem) return <SystemMessageBubble message={message} />;
   return <StandardMessageBubble {...props} />;
 }
@@ -86,6 +87,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
     () => getMessageReferralPreview(message, channelName),
     [message, channelName],
   );
+  const postchatForm = readWebchatPostchatForm(message.metadata);
   const body = (message.text ?? '').trim();
   const isTikTokUnsupportedInboundVoice =
     !outgoing &&
@@ -93,7 +95,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
     mediaType === 'FILE' &&
     (attachments ?? []).length === 0 &&
     (body.length === 0 || ATTACHMENT_ONLY_PLACEHOLDERS.has(body.toLowerCase()));
-  const showBody = templateDisplay
+  const showBody = templateDisplay || postchatForm
     ? false
     : !isTikTokUnsupportedInboundVoice &&
       body.length > 0 &&
@@ -153,7 +155,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
 
   const isTemplate = templateDisplay !== null;
   const firstUrl = useMemo(() => findFirstUrlInText(message.text ?? ''), [message.text]);
-  const showLinkPreview = !isTemplate && !referralPreview && firstUrl && !imageAttachments.length && !videoAttachments.length;
+  const showLinkPreview = !postchatForm && !isTemplate && !referralPreview && firstUrl && !imageAttachments.length && !videoAttachments.length;
 
   const hasReactions = Boolean(reactions?.length);
   const reactionItems: Array<{ emoji: string; count: number }> = hasReactions ? reactions : [];
@@ -175,6 +177,23 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
           <View style={styles.broadcastBadge}>
             <Megaphone color="#fff" size={11} />
             <Text style={styles.broadcastBadgeText}>Broadcast</Text>
+          </View>
+        ) : null}
+        {postchatForm ? (
+          <View style={{ gap: 12, padding: 12, borderRadius: 12, backgroundColor: colors.surface, borderColor: colors.cardBorder, borderWidth: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <FileText size={20} color={colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 11 }}>Post-chat form</Text>
+                <Text style={{ color: colors.text, fontWeight: '700' }}>{postchatForm.formName}</Text>
+              </View>
+            </View>
+            {postchatForm.values.length ? postchatForm.values.map((field) => (
+              <View key={field.id} style={{ gap: 3 }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600' }}>{field.label}</Text>
+                <Text selectable style={{ color: colors.text, fontSize: 13, lineHeight: 20 }}>{field.value}</Text>
+              </View>
+            )) : <Text style={{ color: colors.textSecondary }}>No additional feedback provided.</Text>}
           </View>
         ) : null}
         {referralPreview ? (

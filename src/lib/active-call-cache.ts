@@ -11,6 +11,7 @@ export type CallSessionUpdatedEvent = {
   callSessionId: string;
   status: ConversationCallSession['status'] | string;
   direction?: 'INBOUND' | 'OUTBOUND';
+  provider?: string;
   providerCallId?: string | null;
   providerSessionId?: string | null;
   permissionStatus?: ConversationCallSession['permissionStatus'];
@@ -86,7 +87,7 @@ export function upsertActiveCallSessionCache(queryClient: QueryClient, payload: 
         initiatedBy: null,
         claimedBy: null,
         direction: payload.direction ?? 'INBOUND',
-        provider: 'WHATSAPP',
+        provider: payload.provider ?? (payload.conversation?.channel.channelType === 'WEBCHAT' ? 'webchat' : 'WHATSAPP'),
         providerCallId: payload.providerCallId ?? null,
         providerSessionId: payload.providerSessionId ?? null,
         permissionRequestMessageId: payload.permissionRequestMessageId ?? null,
@@ -106,6 +107,7 @@ export function upsertActiveCallSessionCache(queryClient: QueryClient, payload: 
         createdAt: payload.createdAt ?? payload.updatedAt ?? new Date().toISOString(),
         updatedAt: payload.updatedAt ?? new Date().toISOString(),
       }),
+      provider: payload.provider ?? (payload.conversation?.channel.channelType === 'WEBCHAT' ? 'webchat' : existing?.provider ?? 'WHATSAPP'),
       providerCallId: payload.providerCallId ?? existing?.providerCallId ?? null,
       providerSessionId: payload.providerSessionId ?? existing?.providerSessionId ?? null,
       permissionRequestMessageId: payload.permissionRequestMessageId ?? existing?.permissionRequestMessageId ?? null,
@@ -164,12 +166,14 @@ export function syncIncomingCallPromptFromSession(
     channelId: payload.conversation?.channel?.channelId ?? null,
     targetScope: 'USER',
     title: 'Incoming call',
-    body: contactDisplayName || contactPhone || 'Incoming WhatsApp call',
+    body: contactDisplayName || contactPhone || (payload.conversation?.channel.channelType === 'WEBCHAT' || payload.provider?.toLowerCase() === 'webchat' ? 'Incoming Web chat call' : 'Incoming WhatsApp call'),
     createdAt: payload.updatedAt ?? payload.createdAt ?? new Date().toISOString(),
     metadata: {
       contactDisplayName,
       contactPhone,
       channelName,
+      channelType: payload.conversation?.channel.channelType,
+      provider: payload.provider ?? (payload.conversation?.channel.channelType === 'WEBCHAT' ? 'webchat' : 'WHATSAPP'),
       ...(payload.metadata && typeof payload.metadata === 'object' && !Array.isArray(payload.metadata)
         ? payload.metadata as Record<string, unknown>
         : {}),

@@ -789,6 +789,9 @@ export type VoiceCallButtonState = {
 
 export function getVoiceCallButtonState(input: {
   isWhatsAppConversation: boolean;
+  isWebchatConversation?: boolean;
+  webchatVoiceCallEnabled?: boolean;
+  isWebchatSettingsLoading?: boolean;
   canManageCalls: boolean;
   isCallSessionsLoading: boolean;
   isCallControllerBusy: boolean;
@@ -800,16 +803,20 @@ export function getVoiceCallButtonState(input: {
   if (input.isCallSessionsLoading) {
     return { canStartVoiceCall: false, tooltipMessage: 'Loading call status...' };
   }
-  if (!input.isWhatsAppConversation) {
-    return { canStartVoiceCall: false, tooltipMessage: 'Voice calls are only available for WhatsApp conversations right now.' };
+  if (!input.isWhatsAppConversation && !input.isWebchatConversation) {
+    return { canStartVoiceCall: false, tooltipMessage: 'Voice calls are only available for WhatsApp and Web Chat conversations.' };
   }
   if (!input.canManageCalls) {
     return { canStartVoiceCall: false, tooltipMessage: 'You do not have permission to start voice calls.' };
   }
-  if (input.businessCallingDisabledReason) {
+  if (input.isWebchatConversation) {
+    if (input.isWebchatSettingsLoading) return { canStartVoiceCall: false, tooltipMessage: 'Loading Web Chat voice settings...' };
+    if (!input.webchatVoiceCallEnabled) return { canStartVoiceCall: false, tooltipMessage: 'Voice calling is disabled for this Web Chat channel.' };
+  }
+  if (input.isWhatsAppConversation && input.businessCallingDisabledReason) {
     return { canStartVoiceCall: false, tooltipMessage: input.businessCallingDisabledReason };
   }
-  if (input.businessCallingStatus === 'DISABLED') {
+  if (input.isWhatsAppConversation && input.businessCallingStatus === 'DISABLED') {
     return { canStartVoiceCall: false, tooltipMessage: 'Business calling is disabled for this WhatsApp number.' };
   }
   if (input.isCallControllerBusy) {
@@ -1249,4 +1256,22 @@ export function buildConversationTimeline<TMessage extends MessageLike>(
   }
   entries.sort((a, b) => (a.timestamp - b.timestamp) || a.id.localeCompare(b.id));
   return entries;
+}
+
+/** Read the submitted webchat form using its original field labels. */
+export function readWebchatPostchatForm(metadata: unknown) {
+  const record = (value: unknown): Record<string, unknown> | null =>
+    value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+  const data = record(metadata);
+  const fields = record(data?.fields);
+  if (data?.source !== 'webchat_postchat' || !fields) return null;
+  const labels = record(data.fieldLabels);
+  return {
+    formName: typeof data.formName === 'string' && data.formName.trim() ? data.formName.trim() : 'Post-chat form',
+    values: Object.entries(fields).flatMap(([id, value]) => {
+      if (typeof value !== 'string' || !value.trim()) return [];
+      const label = labels?.[id];
+      return [{ id, label: typeof label === 'string' && label.trim() ? label.trim() : id.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/^\w/, (c) => c.toUpperCase()), value: value.trim() }];
+    }),
+  };
 }

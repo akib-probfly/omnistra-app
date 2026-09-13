@@ -66,7 +66,7 @@ function getCallPartyLabel(
     const trimmed = value?.trim();
     if (trimmed && !isGenericCallLabel(trimmed)) return trimmed;
   }
-  return 'WhatsApp call';
+  return conversation.channel.channelType === 'WEBCHAT' ? 'Webchat visitor' : 'WhatsApp call';
 }
 
 function formatDuration(totalSeconds: number) {
@@ -138,6 +138,7 @@ async function applySpeakerMode(loud: boolean) {
 }
 
 function IncomingCallScreen({
+  callLabel,
   label,
   avatarUrl,
   channelName,
@@ -156,6 +157,7 @@ function IncomingCallScreen({
   hideDock = false,
   remoteAudio = null,
 }: {
+  callLabel: string;
   label: string;
   avatarUrl?: string | null;
   channelName?: string | null;
@@ -274,7 +276,7 @@ function IncomingCallScreen({
               </View>
             </View>
 
-            <Text style={styles.incomingEyebrow}>WhatsApp call</Text>
+            <Text style={styles.incomingEyebrow}>{callLabel}</Text>
             <Text style={styles.incomingName}>{label}</Text>
             <Text style={styles.incomingSubtitle}>is calling you</Text>
 
@@ -508,11 +510,13 @@ export function CallPanel({
     <RTCView streamURL={remoteStreamUrl} style={styles.hiddenAudio} objectFit="cover" />
   ) : null;
 
+  const callLabel = conversation.channel.channelType === 'WEBCHAT' || activeCallSession?.provider?.toLowerCase() === 'webchat' ? 'Web chat call' : 'WhatsApp call';
   if (isIncomingCall) {
     return (
       <>
         {incomingExpanded ? null : remoteAudio}
         <IncomingCallScreen
+          callLabel={callLabel}
           label={label}
           avatarUrl={conversation.contact.avatarUrl}
           channelName={conversation.channel.channelName || conversation.channel.displayPhoneNumber}
@@ -579,7 +583,7 @@ export function CallPanel({
               <ChevronDown color="#fff" size={22} />
               <Text style={styles.minimizeLabel}>Minimize</Text>
             </Pressable>
-            <Text style={styles.expandedBadge}>WhatsApp call</Text>
+            <Text style={styles.expandedBadge}>{callLabel}</Text>
           </View>
 
           <View style={styles.expandedBody}>

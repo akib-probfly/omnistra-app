@@ -96,7 +96,8 @@ function buildPromptedCallSession(prompt: IncomingCallPrompt): ConversationCallS
     : null;
   const contactDisplayName = typeof metadata?.contactDisplayName === 'string' ? metadata.contactDisplayName : null;
   const contactPhone = typeof metadata?.contactPhone === 'string' ? metadata.contactPhone : null;
-  const channelName = typeof metadata?.channelName === 'string' ? metadata.channelName : 'WhatsApp';
+  const isWebchat = String(metadata?.channelType ?? metadata?.provider ?? '').toUpperCase() === 'WEBCHAT';
+  const channelName = typeof metadata?.channelName === 'string' ? metadata.channelName : isWebchat ? 'Web chat' : 'WhatsApp';
 
   return {
     id: prompt.entityId,
@@ -110,7 +111,7 @@ function buildPromptedCallSession(prompt: IncomingCallPrompt): ConversationCallS
     initiatedBy: null,
     claimedBy: null,
     direction: 'INBOUND',
-    provider: 'WHATSAPP',
+    provider: isWebchat ? 'webchat' : 'WHATSAPP',
     providerCallId: null,
     providerSessionId: null,
     permissionRequestMessageId: null,
@@ -140,7 +141,7 @@ function buildPromptedCallSession(prompt: IncomingCallPrompt): ConversationCallS
           },
           channel: {
             channelId: prompt.channelId ?? '',
-            channelType: 'WHATSAPP',
+            channelType: isWebchat ? 'WEBCHAT' : 'WHATSAPP',
             channelName,
             displayPhoneNumber: null,
           },
@@ -166,8 +167,8 @@ function fallbackConversation(session: ConversationCallSession): ConversationCal
     },
     channel: {
       channelId: session.channelAccountId,
-      channelType: 'WHATSAPP',
-      channelName: 'WhatsApp',
+      channelType: session.provider?.toLowerCase() === 'webchat' ? 'WEBCHAT' : 'WHATSAPP',
+      channelName: session.provider?.toLowerCase() === 'webchat' ? 'Web chat' : 'WhatsApp',
       displayPhoneNumber: null,
     },
     assignee: null,

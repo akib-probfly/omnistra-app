@@ -41,6 +41,7 @@ import { buildConversationTimeline, buildReactionGroups, formatTimelineDayLabel,
 import { CallHistoryItem } from '../components/CallHistoryItem';
 import { useCallController } from '../providers/CallControllerProvider';
 import { getCallChrome, setFocusedCallConversationId, subscribeCallChrome, rememberCallParty, getCallUiRevision } from '../lib/call-chrome';
+import { fetchWebchatSettings } from '../api/channels';
 import { isWhatsappCallSupported } from '../lib/whatsapp-calling';
 import { useInboxAppearance } from '../hooks/useInboxAppearance';
 import { useTheme } from '../theme/ThemeContext';
@@ -751,6 +752,12 @@ export function ConversationScreen() {
   const channelType = currentConversation?.channel?.channelType ?? route.params.channelType;
   const channelId = currentConversation?.channel?.channelId ?? currentConversation?.channel?.id ?? route.params.channelId;
   const isWhatsAppConversation = (channelType ?? '').toUpperCase() === 'WHATSAPP';
+  const isWebchatConversation = (channelType ?? '').toUpperCase() === 'WEBCHAT';
+  const webchatSettingsQuery = useQuery({
+    queryKey: ['channel-webchat-settings', channelId],
+    queryFn: () => fetchWebchatSettings(channelId!),
+    enabled: isWebchatConversation && Boolean(channelId),
+  });
   const isMessengerConversation = (channelType ?? '').toUpperCase() === 'MESSENGER';
   const isTikTokConversation = (channelType ?? '').toUpperCase() === 'TIKTOK';
   const headerMessagingLoaded = Boolean(currentConversation?.messaging);
@@ -816,7 +823,7 @@ export function ConversationScreen() {
   const callsQuery = useQuery({
     queryKey: ['conversation-calls', route.params.conversationId],
     queryFn: () => fetchConversationCallSessions({ conversationId: route.params.conversationId, limit: 100 }),
-    enabled: isWhatsAppConversation,
+    enabled: isWhatsAppConversation || isWebchatConversation,
     staleTime: 15_000,
     refetchOnMount: 'always',
   });
@@ -842,6 +849,9 @@ export function ConversationScreen() {
   // enabled and the backend enforces calling capability on start.
   const voiceCallButton = getVoiceCallButtonState({
     isWhatsAppConversation,
+    isWebchatConversation,
+    webchatVoiceCallEnabled: webchatSettingsQuery.data?.voiceCall === true,
+    isWebchatSettingsLoading: webchatSettingsQuery.isLoading,
     canManageCalls: Boolean(session),
     isCallSessionsLoading: callsQuery.isLoading && !callsQuery.data,
     isCallControllerBusy: callController.isBusy,
@@ -859,7 +869,7 @@ export function ConversationScreen() {
       Toast.show({
         type: 'error',
         text1: 'Custom build required',
-        text2: 'WhatsApp calling needs a development build with WebRTC (not Expo Go).',
+        text2: 'Voice calling needs a development build with WebRTC (not Expo Go).',
       });
       return;
     }
@@ -988,7 +998,7 @@ export function ConversationScreen() {
           </View>
         </Pressable>
         <View style={styles.headerActions}>
-          {isWhatsAppConversation ? (
+          {isWhatsAppConversation || isWebchatConversation ? (
             <Pressable
               onPress={startVoiceCall}
               hitSlop={6}

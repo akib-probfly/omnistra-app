@@ -51,13 +51,13 @@ export function extractWhatsappCallSignal(value: unknown): ConversationCallSigna
 
 export async function createWhatsappCallPeerContext(): Promise<WhatsappCallPeerContext> {
   if (!isWhatsappCallSupported()) {
-    throw new Error('WhatsApp calling is not supported on this device build. Use a custom Expo dev client.');
+    throw new Error('Voice calling is not supported on this device build. Use a custom Expo dev client.');
   }
 
   stopIncomingCallRingtone();
   const permission = await requestRecordingPermissionsAsync();
   if (!permission.granted) {
-    throw new Error('Microphone permission is required for WhatsApp calls.');
+    throw new Error('Microphone permission is required for voice calls.');
   }
 
   // iOS getUserMedia fails if AVAudioSession is still in playback-only mode
