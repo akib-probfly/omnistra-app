@@ -267,6 +267,12 @@ export function fetchChannels() {
   );
 }
 
+export function fetchChannelsPage({ page = 1, limit = 100 }: { page?: number; limit?: number } = {}) {
+  return apiFetch<ChannelsListResponse>(
+    `/channels?page=${page}&limit=${limit}&sortBy=createdAt&sortOrder=desc`,
+  );
+}
+
 export function fetchChannelDetails(channelId: string) {
   return apiFetch<ChannelDetails>(`/channels/${channelId}`);
 }

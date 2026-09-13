@@ -26,6 +26,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { showNotice } from '../components/AppToast';
 import { AppToggle } from '../components/AppToggle';
 import { BottomSheet, SheetFlatList } from '../components/BottomSheet';
+import { ChannelLogo } from '../components/ChannelLogo';
 import { ErrorState } from '../components/ErrorState';
 import { FormSkeleton } from '../components/Skeleton';
 import {
@@ -43,7 +44,7 @@ import {
   type CampaignContentType,
   type CreateCampaignInput,
 } from '../api/broadcast';
-import { fetchChannels } from '../api/channels';
+import { fetchChannelsPage } from '../api/channels';
 import { fetchWorkspaceTags, type ConversationTag } from '../api/conversationDetails';
 import { fetchMyWorkspaces } from '../api/workspaces';
 import { fetchWhatsappTemplates, type WhatsappTemplate, type WhatsappTemplateCategory } from '../api/whatsappTemplates';
@@ -132,13 +133,15 @@ export function BroadcastCreateScreen() {
 
   const channelsQuery = useQuery({
     queryKey: ['channels'],
-    queryFn: fetchChannels,
+    queryFn: () => fetchChannelsPage({ limit: 500 }),
     staleTime: 30_000,
   });
   const whatsappChannels = useMemo(
-    () => (channelsQuery.data?.items ?? []).filter((channel) => channel.type === 'WHATSAPP' && channel.status === 'CONNECTED'),
+    () => (channelsQuery.data?.items ?? []).filter((channel) => channel.type === 'WHATSAPP'),
     [channelsQuery.data],
   );
+  const selectedWhatsappChannel = whatsappChannels.find((channel) => channel.id === channelId);
+  const selectedChannelConnected = selectedWhatsappChannel?.status === 'CONNECTED';
 
   const templatesQuery = useQuery({
     queryKey: ['whatsapp-templates', channelId],
@@ -216,7 +219,7 @@ export function BroadcastCreateScreen() {
       && areTemplateHeadersMapped(selectedTemplates, templateHeaderMediaMap)
     : textVars.every((variable) => hasMappedValue(textVariables[variable]));
   const hasMessage = contentType === 'TEXT' ? Boolean(bodyText.trim()) : selectedTemplateIds.length > 0;
-  const detailsComplete = name.trim().length > 0 && Boolean(channelId);
+  const detailsComplete = name.trim().length > 0 && Boolean(channelId) && selectedChannelConnected === true;
   const stepValid = useMemo<Record<StepKey, boolean>>(() => ({
     details: detailsComplete,
     message: hasMessage,
@@ -467,9 +470,21 @@ export function BroadcastCreateScreen() {
             />
             <Text style={[styles.label, { color: colors.textSecondary }]}>WhatsApp channel</Text>
             <Pressable style={[styles.inputButton, { backgroundColor: colors.background, borderColor: colors.inputBorder }]} onPress={() => openPicker('channel')}>
-              <Text style={[styles.inputButtonText, { color: channelId ? colors.text : colors.textMuted }]} numberOfLines={1}>
-                {whatsappChannels.find((channel) => channel.id === channelId)?.name ?? 'Select a connected channel'}
-              </Text>
+              {selectedWhatsappChannel ? <ChannelLogo type={selectedWhatsappChannel.type} box={28} glyph={15} radius={8} /> : null}
+              <View style={styles.inputButtonCopy}>
+                <Text style={[styles.inputButtonText, { color: channelId ? colors.text : colors.textMuted }]} numberOfLines={1}>
+                  {selectedWhatsappChannel?.name ?? 'Select a connected channel'}
+                </Text>
+                {selectedWhatsappChannel && !selectedChannelConnected ? (
+                  <Text style={[styles.inputButtonMeta, { color: colors.error }]} numberOfLines={1}>
+                    {formatChannelStatus(selectedWhatsappChannel.status)} channel cannot send broadcasts
+                  </Text>
+                ) : selectedWhatsappChannel ? (
+                  <Text style={[styles.inputButtonMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+                    {getChannelPhone(selectedWhatsappChannel) ?? 'Connected'}
+                  </Text>
+                ) : null}
+              </View>
               <ChevronRight color={colors.textMuted} size={16} />
             </Pressable>
           </View>
@@ -727,25 +742,30 @@ export function BroadcastCreateScreen() {
             keyboardShouldPersistTaps="handled"
             renderItem={({ item }) => {
               const selected = channelId === item.id;
-              const phone = item.accounts?.[0]?.displayPhoneNumber;
+              const connected = item.status === 'CONNECTED';
+              const phone = getChannelPhone(item);
               return (
                 <Pressable
-                  style={[styles.sheetRow, selected && { backgroundColor: colors.surfaceSecondary }]}
+                  style={[styles.sheetRow, selected && { backgroundColor: colors.surfaceSecondary }, !connected && styles.sheetRowDisabled]}
+                  disabled={!connected}
                   onPress={() => {
                     setChannelId(item.id);
                     setSelectedTemplateIds([]);
                     setPicker(null);
                   }}
                 >
+                  <ChannelLogo type={item.type} box={34} glyph={18} radius={10} />
                   <View style={styles.sheetRowCopy}>
                     <Text style={[styles.sheetRowText, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
-                    {phone ? <Text style={[styles.sheetRowMeta, { color: colors.textSecondary }]} numberOfLines={1}>{phone}</Text> : null}
+                    <Text style={[styles.sheetRowMeta, { color: connected ? colors.textSecondary : colors.error }]} numberOfLines={1}>
+                      {phone ? `${phone} · ${formatChannelStatus(item.status)}` : formatChannelStatus(item.status)}
+                    </Text>
                   </View>
                   {selected ? <Check color={colors.primary} size={18} /> : null}
                 </Pressable>
               );
             }}
-            ListEmptyComponent={<Text style={[styles.sheetEmpty, { color: colors.textMuted }]}>No connected WhatsApp channels.</Text>}
+            ListEmptyComponent={<Text style={[styles.sheetEmpty, { color: colors.textMuted }]}>No WhatsApp channels found.</Text>}
           />
         ) : picker === 'contactField' ? (
           <SheetFlatList
@@ -936,6 +956,18 @@ function mergePickerDate(current: Date, next: Date, part: 'date' | 'time') {
   return merged;
 }
 
+function getChannelPhone(channel: { accounts?: Array<{ displayPhoneNumber?: string | null; isEnabled?: boolean }> }) {
+  return (channel.accounts?.find((account) => account.isEnabled)?.displayPhoneNumber
+    ?? channel.accounts?.find((account) => account.displayPhoneNumber)?.displayPhoneNumber
+    ?? null);
+}
+
+function formatChannelStatus(status?: string | null) {
+  const value = (status ?? '').replace(/_/g, ' ').toLowerCase();
+  if (!value) return 'Unknown';
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   progress: { borderBottomWidth: 1, flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 10 },
@@ -950,7 +982,9 @@ const styles = StyleSheet.create({
   input: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 12 },
   textArea: { minHeight: 110 },
   inputButton: { alignItems: 'center', borderRadius: 12, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 12 },
+  inputButtonCopy: { flex: 1, marginLeft: 10, marginRight: 8, minWidth: 0 },
   inputButtonText: { flex: 1, fontSize: 14, marginRight: 8 },
+  inputButtonMeta: { fontSize: 11, marginTop: 2 },
   hint: { fontSize: 12, lineHeight: 18, marginTop: 8 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   templateRow: { alignItems: 'center', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 10, marginTop: 10, padding: 12 },
@@ -971,6 +1005,7 @@ const styles = StyleSheet.create({
   sheetList: { marginTop: 8, maxHeight: 320 },
   sheetListContent: { flexGrow: 0, paddingBottom: 4 },
   sheetRow: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 10, paddingHorizontal: 10, paddingVertical: 12 },
+  sheetRowDisabled: { opacity: 0.58 },
   sheetRowCopy: { flex: 1, minWidth: 0, paddingRight: 8 },
   sheetRowText: { fontSize: 15, fontWeight: '700' },
   sheetRowMeta: { fontSize: 12, marginTop: 2 },

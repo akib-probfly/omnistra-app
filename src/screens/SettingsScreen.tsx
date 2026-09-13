@@ -74,7 +74,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     label: 'Broadcast',
     items: [
-      { kind: 'route', id: 'broadcast-campaigns', label: 'Campaigns', description: 'Run, schedule, and analyze campaigns', icon: Megaphone, iconBg: '#fff7ed', iconColor: '#ea580c', route: 'Broadcast', badge: 'BETA' },
+      { kind: 'route', id: 'broadcast-campaigns', label: 'Campaigns', description: 'Run, schedule, and analyze campaigns', icon: Megaphone, iconBg: '#fff7ed', iconColor: '#ea580c', route: 'Broadcast' },
       { kind: 'route', id: 'broadcast-create', label: 'Create Campaign', description: 'Start a new WhatsApp broadcast', icon: Plus, iconBg: '#eff6ff', iconColor: '#2563eb', route: 'BroadcastCreate' },
     ],
   },
