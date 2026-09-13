@@ -254,13 +254,11 @@ export function ConversationScreen() {
     staleTime: 15000,
   });
 
-  const unreadCountOverridden = useRef(false);
   const suppressAutoMarkReadRef = useRef(false);
   const lastAutoMarkedReadSignatureRef = useRef<string | null>(null);
   const manualReadToggleRef = useRef(false);
 
   useEffect(() => {
-    unreadCountOverridden.current = false;
     suppressAutoMarkReadRef.current = false;
     lastAutoMarkedReadSignatureRef.current = null;
     awaitingDeliveryRef.current = false;
@@ -292,7 +290,7 @@ export function ConversationScreen() {
         ...current,
         conversation: messages.data.conversation,
         isStarred: messages.data.conversation.isStarred ?? current.isStarred,
-        unreadCount: (unreadCountOverridden.current ? current.unreadCount : null) ?? messages.data.conversation.unreadCount ?? current.unreadCount,
+        unreadCount: (suppressAutoMarkReadRef.current ? current.unreadCount : null) ?? messages.data.conversation.unreadCount ?? current.unreadCount,
         status: messages.data.conversation.status ?? current.status,
       }));
     }
@@ -484,10 +482,15 @@ export function ConversationScreen() {
   const starMutation = useMutation({ mutationFn: (isStarred: boolean) => updateConversationStar(route.params.conversationId, isStarred), onSuccess: (_, isStarred) => setHeader((c) => ({ ...c, isStarred })) });
   const readMutation = useMutation({
     mutationFn: () => markConversationRead(route.params.conversationId),
-    onMutate: () => {
+    onMutate: async () => {
+      // Match web: an older fetch must not overwrite the optimistic read state.
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: ['conversations'] }),
+        queryClient.cancelQueries({ queryKey: ['inbox-unread-count'] }),
+        queryClient.cancelQueries({ queryKey: ['messages', route.params.conversationId] }),
+      ]);
       suppressAutoMarkReadRef.current = false;
       const previousUnreadCount = header.unreadCount;
-      unreadCountOverridden.current = true;
       setUnreadOverride(route.params.conversationId, 0);
       setHeader((c) => ({ ...c, unreadCount: 0 }));
       setConversationUnreadInCache(queryClient, route.params.conversationId, 0);
@@ -496,23 +499,19 @@ export function ConversationScreen() {
     },
     onError: (error, _vars, context) => {
       const previousUnreadCount = context?.previousUnreadCount ?? 0;
-      unreadCountOverridden.current = true;
       setUnreadOverride(route.params.conversationId, previousUnreadCount);
       setHeader((c) => ({ ...c, unreadCount: previousUnreadCount }));
       setConversationUnreadInCache(queryClient, route.params.conversationId, previousUnreadCount);
       adjustInboxUnreadConversationCount(queryClient, 0, previousUnreadCount);
-      lastAutoMarkedReadSignatureRef.current = null;
-      if (manualReadToggleRef.current) {
-        showNotice('Could not mark as read', error instanceof Error ? error.message : 'Please try again.');
-      }
+      showNotice('Could not mark as read', error instanceof Error ? error.message : 'Please try again.');
       manualReadToggleRef.current = false;
     },
     onSuccess: (updated) => {
       const nextUnread = typeof updated?.unreadCount === 'number' ? updated.unreadCount : 0;
-      unreadCountOverridden.current = true;
       setUnreadOverride(route.params.conversationId, nextUnread);
       setHeader((c) => ({ ...c, unreadCount: nextUnread }));
       setConversationUnreadInCache(queryClient, route.params.conversationId, nextUnread);
+      void queryClient.invalidateQueries({ queryKey: ['inbox-unread-count'], refetchType: 'active' });
       manualReadToggleRef.current = false;
     },
   });
@@ -525,7 +524,6 @@ export function ConversationScreen() {
       manualReadToggleRef.current = true;
       const previousUnreadCount = header.unreadCount;
       const nextUnreadCount = Math.max(1, previousUnreadCount);
-      unreadCountOverridden.current = true;
       setUnreadOverride(route.params.conversationId, nextUnreadCount);
       setHeader((c) => ({ ...c, unreadCount: nextUnreadCount }));
       setConversationUnreadInCache(queryClient, route.params.conversationId, nextUnreadCount);
@@ -535,7 +533,6 @@ export function ConversationScreen() {
     onError: (error, _vars, context) => {
       const previousUnreadCount = context?.previousUnreadCount ?? 0;
       suppressAutoMarkReadRef.current = false;
-      unreadCountOverridden.current = true;
       setUnreadOverride(route.params.conversationId, previousUnreadCount);
       setHeader((c) => ({ ...c, unreadCount: previousUnreadCount }));
       setConversationUnreadInCache(queryClient, route.params.conversationId, previousUnreadCount);
@@ -545,7 +542,6 @@ export function ConversationScreen() {
     },
     onSuccess: (updated) => {
       const nextUnread = typeof updated?.unreadCount === 'number' ? Math.max(1, updated.unreadCount) : 1;
-      unreadCountOverridden.current = true;
       setUnreadOverride(route.params.conversationId, nextUnread);
       setHeader((c) => ({ ...c, unreadCount: nextUnread }));
       setConversationUnreadInCache(queryClient, route.params.conversationId, nextUnread);
@@ -590,20 +586,21 @@ export function ConversationScreen() {
   });
 
   useEffect(() => {
-    if (!header.conversation || messages.isLoading || messages.isError) return;
-    if (header.unreadCount <= 0 || readMutation.isPending) return;
-    if (!atBottom) return;
-    if (suppressAutoMarkReadRef.current) return;
+    if (!isFocused || !messages.data || messages.isLoading || messages.isError) return;
+    if (readMutation.isPending || !atBottom || suppressAutoMarkReadRef.current) return;
 
-    const signature = `${route.params.conversationId}:${header.unreadCount}:${header.conversation.updatedAt ?? ''}`;
+    // Opening the loaded thread is a read even when its cached count is already zero.
+    // Key subsequent reads to inbound messages, not the read response's updatedAt.
+    const latestInbound = messages.data.items
+      .filter((message) => message.direction === 'INBOUND')
+      .reduce<Message | null>((latest, message) => !latest ||
+        new Date(message.sentAt ?? message.createdAt ?? 0).getTime() > new Date(latest.sentAt ?? latest.createdAt ?? 0).getTime()
+        ? message : latest, null);
+    const signature = `${route.params.conversationId}:${latestInbound?.id ?? 'opened'}`;
     if (lastAutoMarkedReadSignatureRef.current === signature) return;
     lastAutoMarkedReadSignatureRef.current = signature;
-    readMutation.mutate(undefined, {
-      onError: () => {
-        lastAutoMarkedReadSignatureRef.current = null;
-      },
-    });
-  }, [header.conversation, header.unreadCount, messages.isLoading, messages.isError, atBottom, readMutation, readMutation.isPending, route.params.conversationId]);
+    readMutation.mutate();
+  }, [isFocused, messages.data, messages.isLoading, messages.isError, atBottom, readMutation, route.params.conversationId]);
 
   useEffect(() => {
     if (!isFocused) {

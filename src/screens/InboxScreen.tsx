@@ -13,7 +13,7 @@ import { DateRangeFilter } from '../components/DateRangeFilter';
 import { InboxCallsPane } from '../components/InboxCallsPane';
 import { ListSkeleton, PanelSkeleton } from '../components/Skeleton';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { fetchConversations, fetchConversationCount, fetchConversationUnreadCount, fetchAssigneeOptions, markConversationRead, type ConversationCallSession, type ConversationListItem } from '../api/inbox';
+import { fetchConversations, fetchConversationCount, fetchConversationUnreadCount, fetchAssigneeOptions, type ConversationCallSession, type ConversationListItem } from '../api/inbox';
 import { fetchWorkspaceTags } from '../api/conversationDetails';
 import { apiFetch } from '../api/client';
 import { type Channel } from '../api/channels';
@@ -28,7 +28,6 @@ import {
 } from '../lib/conversation-last-interaction';
 import { isConversationCustomerWindowExpired } from '../lib/inbox-utils';
 import { applyUnreadOverrideToPage } from '../lib/unread-count-override';
-import { optimisticMarkConversationReadInCache, setConversationUnreadInCache } from '../lib/inbox-unread-cache';
 import { pollingWhileUnlocked } from '../lib/billing-lock';
 import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { useTheme } from '../theme/ThemeContext';
@@ -275,8 +274,8 @@ export function InboxScreen() {
   }, [queryClient]);
 
   const items = useMemo(
-    () => applyUnreadOverrideToPage((conversations.data?.pages ?? []).flatMap((page) => page.items)),
-    [conversations.data],
+    () => (conversations.data?.pages ?? []).flatMap((page) => page.items).filter((item) => !filters.unreadOnly || item.unreadCount > 0),
+    [conversations.data, filters.unreadOnly],
   );
   const unreadConversationCountFromList = useMemo(
     () => items.reduce((count, item) => count + (item.unreadCount > 0 ? 1 : 0), 0),
@@ -787,7 +786,6 @@ function ConversationPreviewContent({
 
 const ConversationRow = memo(function ConversationRow({ conversation, navigation }: { conversation: ConversationListItem; navigation: any }) {
   const { colors } = useTheme();
-  const queryClient = useQueryClient();
   const presentation = getConversationLastInteractionPresentation(conversation);
   const direction = presentation?.direction ?? null;
   const previewTimestamp = presentation?.timestamp ?? conversation.lastMessageAt;
@@ -797,19 +795,6 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
   const windowExpired = isConversationCustomerWindowExpired(conversation);
   const isBlocked = Boolean(conversation.blockedAt ?? conversation.contact.blockedAt);
   const onPress = useCallback(() => {
-    if (conversation.unreadCount > 0) {
-      optimisticMarkConversationReadInCache(queryClient, conversation.id, conversation.unreadCount);
-      void markConversationRead(conversation.id)
-        .then((updated) => {
-          const nextUnreadCount = typeof updated?.unreadCount === 'number' ? updated.unreadCount : 0;
-          setConversationUnreadInCache(queryClient, conversation.id, nextUnreadCount);
-          void queryClient.invalidateQueries({ queryKey: ['inbox-unread-count'], refetchType: 'active' });
-        })
-        .catch(() => {
-          void queryClient.invalidateQueries({ queryKey: ['conversations'], refetchType: 'active' });
-          void queryClient.invalidateQueries({ queryKey: ['inbox-unread-count'], refetchType: 'active' });
-        });
-    }
     navigation.navigate('Conversation', {
       conversationId: conversation.id,
       contactName: conversation.contact.displayName ?? 'Unknown contact',
@@ -817,7 +802,7 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
       channelId: conversation.channel?.channelId,
       channelType: conversation.channel?.channelType,
     });
-  }, [navigation, conversation, queryClient]);
+  }, [navigation, conversation]);
   return (
     <Pressable onPress={onPress} style={[styles.rowPressable, { backgroundColor: colors.surface }]}>
       <View style={[styles.row, { backgroundColor: colors.surface, borderBottomColor: colors.separator }]}>
