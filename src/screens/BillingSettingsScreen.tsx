@@ -239,7 +239,6 @@ export function BillingSettingsScreen() {
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <ScreenHeader
         title="Billing"
-        subtitle="Plans, invoices, and subscription history"
         onBack={() => navigation.goBack()}
       />
 

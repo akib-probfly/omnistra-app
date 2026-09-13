@@ -61,7 +61,6 @@ export function ChannelsScreen() {
       <View style={[styles.topbar, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <View style={styles.topbarCopy}>
           <Text style={[styles.title, { color: colors.text }]}>Channels</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Manage your connected customer touchpoints.</Text>
         </View>
         <NotificationBell onOpen={() => setNotificationsOpen(true)} />
       </View>

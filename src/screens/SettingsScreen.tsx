@@ -177,15 +177,6 @@ export function SettingsScreen() {
       <View style={[styles.topbar, { paddingTop: insets.top + 10, backgroundColor: colors.background, borderBottomColor: colors.cardBorder }]}>
         <View style={styles.topbarCopy}>
           <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            {subscriptionExpired
-              ? 'Subscription expired — renew your plan below'
-              : canManage
-                ? showBroadcast
-                  ? 'General settings, broadcast, and billing'
-                  : 'General settings and billing'
-                : 'General settings'}
-          </Text>
         </View>
         <NotificationBell onOpen={() => setNotificationsOpen(true)} />
       </View>
