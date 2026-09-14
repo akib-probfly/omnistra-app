@@ -75,12 +75,9 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
     const urls = rawUrls.map((value) => resolveMediaUrl(process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.zurvis.io/api/v1', value));
     return urls.includes(templateHeaderUrl);
   };
-  const imageAttachments = (attachments ?? []).filter((a: any) => isImageAttachment(a) && !isTemplateHeaderAttachment(a));
-  const voiceAttachments = (attachments ?? []).filter((a: any) => {
-    const mt = (a.mediaType ?? '').toUpperCase();
-    return mt === 'VOICE' || mt === 'AUDIO';
-  });
-  const videoAttachments = (attachments ?? []).filter((a: any) => isVideoAttachment(a) && !isTemplateHeaderAttachment(a));
+  const imageAttachments = (attachments ?? []).filter((a: any) => isImageAttachment(a) && !isAudioAttachment(a) && !isTemplateHeaderAttachment(a));
+  const voiceAttachments = (attachments ?? []).filter((a: any) => isAudioAttachment(a));
+  const videoAttachments = (attachments ?? []).filter((a: any) => !isAudioAttachment(a) && isVideoAttachment(a) && !isTemplateHeaderAttachment(a));
   const documentAttachments = (attachments ?? []).filter((a: any) => !imageAttachments.includes(a) && !voiceAttachments.includes(a) && !videoAttachments.includes(a) && !isTemplateHeaderAttachment(a));
 
   const referralPreview = useMemo(
@@ -437,6 +434,18 @@ function ReplyPreviewBody({ text, mediaType, outgoing, colors }: { text?: string
 }
 
 const IMAGE_FILE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif', '.bmp'];
+const AUDIO_FILE_EXTENSIONS = ['.aac', '.amr', '.m4a', '.mp3', '.oga', '.ogg', '.opus', '.wav', '.webm'];
+
+function isAudioAttachment(attachment: any): boolean {
+  const mediaType = (attachment?.mediaType ?? '').toUpperCase();
+  if (mediaType === 'VOICE' || mediaType === 'AUDIO') return true;
+  const mime = (attachment?.mimeType ?? '').toLowerCase();
+  if (mime.startsWith('audio/')) return true;
+  const name = (attachment?.originalName ?? '').toLowerCase();
+  if (name.startsWith('voice-note-')) return true;
+  if (AUDIO_FILE_EXTENSIONS.some((ext) => name.endsWith(ext))) return true;
+  return false;
+}
 
 function isImageAttachment(attachment: any): boolean {
   const mediaType = (attachment?.mediaType ?? '').toUpperCase();
