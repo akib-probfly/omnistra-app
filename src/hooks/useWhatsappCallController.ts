@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import Toast from 'react-native-toast-message';
@@ -7,6 +7,7 @@ import {
   declineConversationCall,
   endConversationCall,
   startConversationCall,
+  type ConversationCallSessionsResponse,
   type ConversationCallSignalSession,
 } from '../api/inbox';
 import {
@@ -19,6 +20,7 @@ import {
 } from '../lib/whatsapp-calling';
 import { MediaStream, RTCSessionDescription } from '../native/webrtc';
 import { releaseCallSession, scheduleCallAudioReapply } from '../lib/audio-session';
+import { clearIncomingCallPrompt } from '../lib/incoming-call-prompt';
 
 export type CallConnectionState =
   | 'idle'
@@ -29,6 +31,7 @@ export type CallConnectionState =
   | 'failed';
 
 export function useWhatsappCallController() {
+  const queryClient = useQueryClient();
   const startCallMutation = useMutation({ mutationFn: startConversationCall });
   const answerCallMutation = useMutation({ mutationFn: answerConversationCall });
   const declineCallMutation = useMutation({ mutationFn: declineConversationCall });
@@ -104,6 +107,27 @@ export function useWhatsappCallController() {
   }, []);
 
   const clearError = useCallback(() => setErrorMessage(null), []);
+
+  const removeActiveCallSession = useCallback((params: { conversationId: string; callSessionId: string }) => {
+    queryClient.setQueryData<ConversationCallSessionsResponse>(['active-calls'], (current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        items: current.items.filter((session) => session.id !== params.callSessionId),
+      };
+    });
+    queryClient.setQueryData<ConversationCallSessionsResponse>(['conversation-calls', params.conversationId], (current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        items: current.items.filter((session) => session.id !== params.callSessionId),
+      };
+    });
+    clearIncomingCallPrompt(params.callSessionId);
+    void queryClient.invalidateQueries({ queryKey: ['active-calls'], refetchType: 'active' });
+    void queryClient.invalidateQueries({ queryKey: ['conversation-calls', params.conversationId], refetchType: 'active' });
+    void queryClient.invalidateQueries({ queryKey: ['conversations'], refetchType: 'active' });
+  }, [queryClient]);
 
   const toggleMute = useCallback(() => {
     const localStream = peerContextRef.current?.localStream;
@@ -283,6 +307,7 @@ export function useWhatsappCallController() {
   const declineCall = useCallback(async (params: { conversationId: string; callSessionId: string }) => {
     clearError();
     try {
+      removeActiveCallSession(params);
       const session = await declineCallMutation.mutateAsync(params);
       resetPeerContext();
       return session;
@@ -291,11 +316,12 @@ export function useWhatsappCallController() {
       const message = error instanceof Error ? error.message : 'Could not decline the voice call';
       setErrorMessage(message);
     }
-  }, [clearError, declineCallMutation, resetPeerContext]);
+  }, [clearError, declineCallMutation, removeActiveCallSession, resetPeerContext]);
 
   const endCall = useCallback(async (params: { conversationId: string; callSessionId: string }) => {
     clearError();
     try {
+      removeActiveCallSession(params);
       const session = await endCallMutation.mutateAsync(params);
       resetPeerContext();
       return session;
@@ -304,7 +330,7 @@ export function useWhatsappCallController() {
       const message = error instanceof Error ? error.message : 'Could not end the voice call';
       setErrorMessage(message);
     }
-  }, [clearError, endCallMutation, resetPeerContext]);
+  }, [clearError, endCallMutation, removeActiveCallSession, resetPeerContext]);
 
   useEffect(() => () => {
     resetPeerContext();

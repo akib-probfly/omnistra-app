@@ -376,6 +376,9 @@ export function GlobalCallLayer() {
           conversationId,
           callSessionId,
         });
+        dismissedPromptSessionIdsRef.current.add(callSessionId);
+        clearIncomingCallPrompt(callSessionId);
+        void dismissIncomingCallNotification(callSessionId);
       }}
       onToggleMute={() => callController.toggleMute()}
     />
