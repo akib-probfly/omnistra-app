@@ -68,7 +68,7 @@ export async function createWhatsappCallPeerContext(): Promise<WhatsappCallPeerC
 
   const localStream = await mediaDevices.getUserMedia({ audio: true, video: false });
   if (Platform.OS === 'ios') {
-    await reapplyCallAudio().catch(() => {});
+    await reapplyCallAudio().catch((error) => console.warn('[call-audio] Post-capture activation failed', error));
     scheduleCallAudioReapply();
   }
   const peerConnection = new RTCPeerConnection({ iceServers: [] });

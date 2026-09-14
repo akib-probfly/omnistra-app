@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import Toast from 'react-native-toast-message';
 import {
   answerConversationCall,
@@ -38,6 +39,46 @@ export function useWhatsappCallController() {
   const [connectionState, setConnectionState] = useState<CallConnectionState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios' || connectionState !== 'connected') return;
+    const context = peerContextRef.current;
+    if (!context) return;
+    let cancelled = false;
+    let pending = false;
+    const sample = async () => {
+      if (pending) return;
+      pending = true;
+      try {
+        const stats = await context.peerConnection.getStats();
+        if (cancelled || peerContextRef.current !== context) return;
+        const audio: Record<string, unknown>[] = [];
+        stats.forEach((report: Record<string, unknown>) => {
+          if (report.kind !== 'audio' && report.mediaType !== 'audio') return;
+          if (!['inbound-rtp', 'outbound-rtp', 'media-source'].includes(String(report.type))) return;
+          // Only audio counters: never log SDP, addresses, or customer data.
+          const entry: Record<string, unknown> = { type: report.type };
+          for (const key of ['bytesReceived', 'bytesSent', 'packetsReceived', 'packetsSent', 'packetsLost', 'audioLevel', 'totalAudioEnergy', 'totalSamplesReceived']) {
+            if (typeof report[key] === 'number') entry[key] = report[key];
+          }
+          audio.push(entry);
+        });
+        console.info('[call-audio] Media', JSON.stringify({
+          connection: context.peerConnection.connectionState,
+          ice: context.peerConnection.iceConnectionState,
+          microphone: context.localStream.getAudioTracks().map((track: any) => ({ enabled: track.enabled, readyState: track.readyState })),
+          audio,
+        }));
+      } catch (error) {
+        if (!cancelled) console.warn('[call-audio] Stats unavailable', error);
+      } finally {
+        pending = false;
+      }
+    };
+    void sample();
+    const timer = setInterval(() => { void sample(); }, 5000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [connectionState]);
 
   const syncLocalAudioTracks = useCallback((enabled: boolean) => {
     const localStream = peerContextRef.current?.localStream;

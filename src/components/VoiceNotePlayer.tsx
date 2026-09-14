@@ -4,7 +4,7 @@ import { Pause, Play, RotateCw } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import { latestAccessToken, setLatestAccessToken, subscribeAccessToken } from '../api/client';
-import { activatePlaybackSession, ensureAudioSessionLifecycle } from '../lib/audio-session';
+import { activatePlaybackSession, ensureAudioSessionLifecycle, isCallAudioHeld, registerCallPlaybackInterruptor } from '../lib/audio-session';
 import { parseAudioDurationSeconds } from '../lib/audio-duration';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -134,7 +134,7 @@ function PlayerShell({
   onRetry: () => void;
 }) {
   const { colors } = useTheme();
-  const player = useAudioPlayer(source, { updateInterval: 250 });
+  const player = useAudioPlayer(source, { updateInterval: 250, keepAudioSessionActive: true });
   const status = useAudioPlayerStatus(player);
   const [rateIndex, setRateIndex] = useState(0);
   const [failed, setFailed] = useState(false);
@@ -160,6 +160,12 @@ function PlayerShell({
   const statusRef = useRef(status);
   statusRef.current = status;
   const interruptedRef = useRef(false);
+
+  useEffect(() => registerCallPlaybackInterruptor(() => {
+    interruptedRef.current = true;
+    try { player.pause(); } catch { /* player already released */ }
+    if (currentPlayer === player) currentPlayer = null;
+  }), [player]);
 
   useEffect(() => {
     ensureAudioSessionLifecycle();
@@ -248,6 +254,7 @@ function PlayerShell({
   ).current;
 
   function togglePlay() {
+    if (isCallAudioHeld()) return;
     const target = playerRef.current;
     const nextSource = sourceRef.current;
     if (!target || !nextSource) return;
@@ -280,6 +287,7 @@ function PlayerShell({
       }
       try { target.loop = false; } catch {}
       const start = () => {
+        if (isCallAudioHeld() || currentPlayer !== target) return;
         try { target.play(); } catch {
           onRetryRef.current();
         }

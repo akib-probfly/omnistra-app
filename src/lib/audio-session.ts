@@ -12,6 +12,17 @@ let callAudioHeld = false;
 let callSpeakerPreferred = false;
 let callAudioGeneration = 0;
 let reapplyTimers: ReturnType<typeof setTimeout>[] = [];
+const playbackInterruptors = new Set<() => void>();
+
+export function registerCallPlaybackInterruptor(stop: () => void) {
+  playbackInterruptors.add(stop);
+  if (callAudioHeld) stop();
+  return () => { playbackInterruptors.delete(stop); };
+}
+
+function reportAudioError(error: unknown) {
+  console.warn('[call-audio] Session operation failed', error);
+}
 
 function cancelAudioReapply() {
   reapplyTimers.forEach(clearTimeout);
@@ -30,7 +41,7 @@ export function ensureAudioSessionLifecycle() {
     if (state !== 'active') return;
     if (callAudioHeld) {
       if (Platform.OS === 'ios') {
-        void activateNativeCallAudio(callSpeakerPreferred).catch(() => {});
+        void activateNativeCallAudio(callSpeakerPreferred).catch(reportAudioError);
       }
       return;
     }
@@ -85,7 +96,7 @@ export function scheduleCallAudioReapply() {
   for (const delayMs of [200, 600, 1200]) {
     reapplyTimers.push(setTimeout(() => {
       if (generation !== callAudioGeneration) return;
-      void reapplyCallAudio().catch(() => {});
+      void reapplyCallAudio().catch(reportAudioError);
     }, delayMs));
   }
 }
@@ -121,6 +132,7 @@ export async function activateCallSession() {
   const generation = ++callAudioGeneration;
   cancelAudioReapply();
   callAudioHeld = true;
+  playbackInterruptors.forEach((stop) => stop());
   ensureAudioSessionLifecycle();
   callSpeakerPreferred = false;
   await suppressCallSounds(true);

@@ -57,9 +57,20 @@ public class ZurvisCallAudioModule: Module {
     if !ownsActivation {
       try rtc.setActive(true)
       ownsActivation = true
+    } else if !rtc.isActive {
+      // Recover WebRTC's inactive state without retaining another activation.
+      try rtc.setActive(true)
+      try rtc.setActive(false)
+    } else {
+      // Expo can deactivate AVAudioSession directly, leaving RTC's cached
+      // isActive true. Reassert the underlying session without changing RTC's
+      // activation count or stopping the running audio unit.
+      try AVAudioSession.sharedInstance().setActive(true)
     }
     rtc.isAudioEnabled = true
     try rtc.overrideOutputAudioPort(speaker ? .speaker : .none)
+    let session = AVAudioSession.sharedInstance()
+    NSLog("[call-audio] active=%@ enabled=%@ category=%@ mode=%@ inputs=%@ outputs=%@ sampleRate=%f", String(rtc.isActive), String(rtc.isAudioEnabled), session.category.rawValue, session.mode.rawValue, session.currentRoute.inputs.map { $0.portType.rawValue }.joined(separator: ","), session.currentRoute.outputs.map { $0.portType.rawValue }.joined(separator: ","), session.sampleRate)
   }
 
   private static func overrideSpeaker(_ speaker: Bool) throws {
