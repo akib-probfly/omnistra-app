@@ -49,9 +49,9 @@ public class ZurvisCallAudioModule: Module {
     let rtc = RTCAudioSession.sharedInstance()
     rtc.lockForConfiguration()
     defer { rtc.unlockForConfiguration() }
-    try rtc.setCategory(AVAudioSession.Category.playAndRecord.rawValue,
+    try rtc.setCategory(AVAudioSession.Category.playAndRecord,
                         with: categoryOptions())
-    try rtc.setMode(AVAudioSession.Mode.voiceChat.rawValue)
+    try rtc.setMode(AVAudioSession.Mode.voiceChat)
     // Acquire exactly one activation. Reapply must not interrupt a running audio
     // unit or increment WebRTC's activation counter on every connection event.
     if !ownsActivation {
