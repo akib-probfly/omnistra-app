@@ -1,3 +1,5 @@
+import { useCallback, useEffect, useState } from 'react';
+import { getVideoThumbnail } from '../lib/video-thumbnail';
 import { Film, Play } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AuthenticatedImage } from './AuthenticatedImage';
@@ -33,17 +35,34 @@ export function VideoThumb({
   durationMs?: number | null;
   onPress: () => void;
 }) {
+  const [failedPoster, setFailedPoster] = useState<string | null>(null);
+  const [generated, setGenerated] = useState<{ url: string; uri: string } | null>(null);
+  const poster = posterUrl && posterUrl !== failedPoster ? posterUrl : null;
+  const thumbnail = poster || (generated?.url === url ? generated.uri : null);
+  const onPosterError = useCallback(() => {
+    if (poster) setFailedPoster(poster);
+  }, [poster]);
+
+  useEffect(() => {
+    if (poster || !url) return;
+    let active = true;
+    getVideoThumbnail(url).then((uri) => {
+      if (active && uri) setGenerated({ url, uri });
+    }).catch((error) => {
+      if (active) console.warn('[video-thumbnail] Frame extraction failed', error instanceof Error ? error.message : 'Unknown error');
+    });
+    return () => { active = false; };
+  }, [poster, url]);
+
   const sizeLabel = formatBytes(sizeBytes);
   const durationLabel = formatDuration(durationMs);
-  const showInfo = Boolean(name || sizeLabel);
 
   return (
-    <Pressable onPress={onPress} style={styles.card}>
-      {posterUrl ? (
-        <AuthenticatedImage url={posterUrl} style={styles.media} resizeMode="cover" />
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={name ? `Play video: ${name}` : 'Play video'} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
+      {thumbnail ? (
+        <AuthenticatedImage key={thumbnail} url={thumbnail} onError={onPosterError} style={styles.media} resizeMode="cover" adaptive />
       ) : (
         <View style={styles.media}>
-          <View style={styles.glow} />
           <View style={styles.filmGlyph}>
             <Film color="rgba(148,163,184,0.35)" size={56} />
           </View>
@@ -58,19 +77,14 @@ export function VideoThumb({
       ) : null}
 
       <View pointerEvents="none" style={styles.center}>
-        <View style={styles.playHalo}>
-          <View style={styles.playCircle}>
-            <Play color="#fff" fill="#fff" size={30} style={styles.playIcon} />
-          </View>
+        <View style={styles.playCircle}>
+          <Play color="#fff" fill="#fff" size={28} strokeWidth={1.5} style={styles.playIcon} />
         </View>
       </View>
 
-      {showInfo ? (
-        <View pointerEvents="none" style={styles.infoBar}>
-          {name ? (
-            <Text numberOfLines={1} style={styles.infoName}>{name}</Text>
-          ) : null}
-          {sizeLabel ? <Text style={styles.infoSize}>{sizeLabel}</Text> : null}
+      {sizeLabel ? (
+        <View pointerEvents="none" style={styles.sizeChip}>
+          <Text style={styles.durationText}>{sizeLabel}</Text>
         </View>
       ) : null}
     </Pressable>
@@ -78,18 +92,15 @@ export function VideoThumb({
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 18, height: 170, overflow: 'hidden', position: 'relative', width: 250 },
+  card: { borderRadius: 20, height: 300, maxWidth: '100%', overflow: 'hidden', position: 'relative', width: 250 },
+  pressed: { opacity: 0.85 },
   media: { ...StyleSheet.absoluteFillObject, alignItems: 'center', backgroundColor: '#0b1220', justifyContent: 'center' },
-  glow: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(37,99,235,0.16)', borderRadius: 999, height: 220, position: 'absolute', top: -60, width: 220, alignSelf: 'center' },
   filmGlyph: { alignItems: 'center', justifyContent: 'center' },
-  shade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(2,6,23,0.25)' },
-  durationChip: { backgroundColor: 'rgba(2,6,23,0.65)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, position: 'absolute', right: 8, top: 8 },
+  shade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.08)' },
+  durationChip: { backgroundColor: 'rgba(2,6,23,0.65)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, position: 'absolute', left: 10, bottom: 10 },
   durationText: { color: '#f1f5f9', fontSize: 11, fontWeight: '600' },
   center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
-  playHalo: { alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.35)', borderRadius: 42, height: 84, justifyContent: 'center', width: 84 },
-  playCircle: { alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.72)', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 },
-  playIcon: { marginLeft: 4 },
-  infoBar: { alignItems: 'center', backgroundColor: 'rgba(2,6,23,0.72)', bottom: 0, flexDirection: 'row', gap: 8, left: 0, paddingHorizontal: 12, paddingVertical: 8, position: 'absolute', right: 0 },
-  infoName: { color: '#f8fafc', flex: 1, fontSize: 12, fontWeight: '600' },
-  infoSize: { color: '#cbd5e1', fontSize: 11 },
+  playCircle: { alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 },
+  playIcon: { marginLeft: 3 },
+  sizeChip: { backgroundColor: 'rgba(2,6,23,0.65)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, position: 'absolute', right: 10, bottom: 10 },
 });

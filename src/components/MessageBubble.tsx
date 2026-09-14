@@ -484,7 +484,8 @@ function previewUrl(attachment: any): string {
 
 function videoPosterUrl(attachment: any): string {
   const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.zurvis.io/api/v1';
-  const value = attachment.previewUrl ?? attachment.thumbnailUrl;
+  if (attachment.previewProcessingStatus === 'FAILED') return '';
+  const value = attachment.thumbnailUrl ?? attachment.previewUrl;
   return resolveMediaUrl(base, value);
 }
 

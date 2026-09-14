@@ -33,6 +33,7 @@
     "expo-status-bar": "~3.0.9",
     "expo-task-manager": "~14.0.9",
     "expo-video": "~3.0.16",
+    "expo-video-thumbnails": "~10.0.8",
     "lucide-react-native": "^1.28.0",
     "prop-types": "^15.8.1",
     "react": "^19.1.0",
