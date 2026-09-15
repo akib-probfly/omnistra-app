@@ -839,7 +839,7 @@ export function MembersSettingsScreen() {
         />
       )}
 
-      <BottomSheet visible={inviteOpen} onClose={() => setInviteOpen(false)} sheetStyle={styles.sheet}>
+      <BottomSheet visible={inviteOpen} onClose={() => setInviteOpen(false)} sheetStyle={[styles.sheet, styles.inviteSheet]}>
         <View style={styles.sheetHeader}>
           <View style={[styles.sheetIcon, { backgroundColor: colors.surfaceSecondary }]}>
             <UserPlus2 color={colors.primary} size={20} />
@@ -1091,14 +1091,7 @@ export function MembersSettingsScreen() {
                 <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>Update channel visibility and agent inbox scope in one place.</Text>
               </View>
             </View>
-            <SheetScrollView
-              style={styles.sheetScroll}
-              contentContainerStyle={styles.sheetBody}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-              nestedScrollEnabled
-            >
+            <SheetScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
               <View style={styles.fieldBlock}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Channels</Text>
                 <Text style={[styles.helperText, { color: colors.textMuted }]}>Search and tap to add or remove channel access.</Text>
@@ -1154,14 +1147,7 @@ export function MembersSettingsScreen() {
                 <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>Conversations stay assigned. Only the workspace role changes.</Text>
               </View>
             </View>
-            <SheetScrollView
-              style={styles.sheetScroll}
-              contentContainerStyle={styles.sheetBody}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="on-drag"
-              nestedScrollEnabled
-            >
+            <SheetScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
               <View style={styles.fieldBlock}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Role</Text>
                 <View style={styles.roleList}>
@@ -1303,7 +1289,8 @@ const styles = StyleSheet.create({
   emptyCard: { alignItems: 'center', borderRadius: 18, borderWidth: 1, padding: 28 },
   emptyTitle: { fontSize: 16, fontWeight: '800', marginTop: 12 },
   emptyBody: { fontSize: 13, lineHeight: 19, marginTop: 4, textAlign: 'center' },
-  sheet: { height: '88%', paddingBottom: 12, paddingHorizontal: 20, paddingTop: 6 },
+  sheet: { paddingBottom: 12, paddingHorizontal: 20, paddingTop: 6 },
+  inviteSheet: { height: '88%' },
   sheetHeader: { alignItems: 'center', flexDirection: 'row', marginBottom: 12 },
   sheetIcon: { alignItems: 'center', borderRadius: 18, height: 42, justifyContent: 'center', width: 42 },
   sheetCopy: { flex: 1, marginLeft: 12, minWidth: 0 },
