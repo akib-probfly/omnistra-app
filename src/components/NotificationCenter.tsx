@@ -76,6 +76,32 @@ function inferChannelTypeFromLabel(value?: string | null) {
   return null;
 }
 
+function getMappedNotificationChannelType(
+  notification: NotificationListItem,
+  channelTypeById?: Map<string, string>,
+) {
+  const candidateIds = [
+    notification.channelId,
+    notification.conversationId,
+    getMetadataString(notification.metadata, 'channelId'),
+    getMetadataString(notification.metadata, 'channelAccountId'),
+    getMetadataString(notification.metadata, 'channel_account_id'),
+    getMetadataString(notification.metadata, 'channelName'),
+    getMetadataString(notification.metadata, 'accountId'),
+    getMetadataString(notification.metadata, 'externalAccountId'),
+    getMetadataString(notification.metadata, 'pageId'),
+    getMetadataString(notification.metadata, 'phoneNumberId'),
+    getMetadataString(notification.metadata, 'wabaId'),
+  ];
+
+  for (const id of candidateIds) {
+    if (!id) continue;
+    const mapped = channelTypeById?.get(id);
+    if (mapped) return mapped;
+  }
+  return null;
+}
+
 function getNotificationChannelType(
   notification: NotificationListItem,
   channelTypeById?: Map<string, string>,
@@ -84,11 +110,12 @@ function getNotificationChannelType(
     getMetadataString(notification.metadata, 'channelType') ??
     getMetadataString(notification.metadata, 'channel') ??
     getMetadataString(notification.metadata, 'provider');
-  const fromChannelId = notification.channelId
-    ? channelTypeById?.get(notification.channelId) ?? null
-    : null;
-  const fromName = inferChannelTypeFromLabel(getMetadataString(notification.metadata, 'channelName'));
-  const normalized = normalizeChannelType(fromMetadata ?? fromChannelId ?? fromName);
+  const fromMappedId = getMappedNotificationChannelType(notification, channelTypeById);
+  const fromLabel =
+    inferChannelTypeFromLabel(getMetadataString(notification.metadata, 'channelName')) ??
+    inferChannelTypeFromLabel(notification.title) ??
+    inferChannelTypeFromLabel(notification.body);
+  const normalized = normalizeChannelType(fromMetadata ?? fromMappedId ?? fromLabel);
   return normalized || null;
 }
 
@@ -286,12 +313,30 @@ export function NotificationCenter({ visible, onClose }: { visible: boolean; onC
     const map = new Map<string, string>();
     for (const channel of channelsQuery.data?.items ?? []) {
       map.set(channel.id, channel.type);
+      if (channel.name) map.set(channel.name, channel.type);
       for (const account of channel.accounts ?? []) {
         map.set(account.id, channel.type);
+        if (account.provider) map.set(account.provider, channel.type);
+        if (account.displayName) map.set(account.displayName, channel.type);
+        if (account.pageName) map.set(account.pageName, channel.type);
+        if (account.externalAccountId) map.set(account.externalAccountId, channel.type);
+        if (account.pageId) map.set(account.pageId, channel.type);
+        if (account.phoneNumberId) map.set(account.phoneNumberId, channel.type);
+        if (account.wabaId) map.set(account.wabaId, channel.type);
+      }
+    }
+    for (const [, data] of queryClient.getQueriesData({ queryKey: ['conversations'] })) {
+      const pages = (data as { pages?: Array<{ items?: Array<{ id?: string; channel?: { channelType?: string | null } | null }> }> } | undefined)?.pages ?? [];
+      for (const page of pages) {
+        for (const conversation of page.items ?? []) {
+          if (conversation.id && conversation.channel?.channelType) {
+            map.set(conversation.id, conversation.channel.channelType);
+          }
+        }
       }
     }
     return map;
-  }, [channelsQuery.data?.items]);
+  }, [channelsQuery.data?.items, queryClient]);
 
   const refetchNotifications = notificationsQuery.refetch;
   const refetchUnreadCount = unreadCountQuery.refetch;
