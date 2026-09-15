@@ -850,7 +850,14 @@ export function MembersSettingsScreen() {
           </View>
         </View>
 
-        <SheetScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
+        <SheetScrollView
+          style={styles.sheetScroll}
+          contentContainerStyle={styles.sheetBody}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          nestedScrollEnabled
+        >
           <View style={styles.fieldBlock}>
             <View style={styles.fieldLabelRow}>
               <Mail color={colors.textMuted} size={14} />
@@ -1084,7 +1091,14 @@ export function MembersSettingsScreen() {
                 <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>Update channel visibility and agent inbox scope in one place.</Text>
               </View>
             </View>
-            <SheetScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
+            <SheetScrollView
+              style={styles.sheetScroll}
+              contentContainerStyle={styles.sheetBody}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              nestedScrollEnabled
+            >
               <View style={styles.fieldBlock}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Channels</Text>
                 <Text style={[styles.helperText, { color: colors.textMuted }]}>Search and tap to add or remove channel access.</Text>
@@ -1140,7 +1154,14 @@ export function MembersSettingsScreen() {
                 <Text style={[styles.sheetSubtitle, { color: colors.textSecondary }]}>Conversations stay assigned. Only the workspace role changes.</Text>
               </View>
             </View>
-            <SheetScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
+            <SheetScrollView
+              style={styles.sheetScroll}
+              contentContainerStyle={styles.sheetBody}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              nestedScrollEnabled
+            >
               <View style={styles.fieldBlock}>
                 <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Role</Text>
                 <View style={styles.roleList}>
@@ -1282,13 +1303,14 @@ const styles = StyleSheet.create({
   emptyCard: { alignItems: 'center', borderRadius: 18, borderWidth: 1, padding: 28 },
   emptyTitle: { fontSize: 16, fontWeight: '800', marginTop: 12 },
   emptyBody: { fontSize: 13, lineHeight: 19, marginTop: 4, textAlign: 'center' },
-  sheet: { paddingBottom: 12, paddingHorizontal: 20, paddingTop: 6 },
+  sheet: { height: '88%', paddingBottom: 12, paddingHorizontal: 20, paddingTop: 6 },
   sheetHeader: { alignItems: 'center', flexDirection: 'row', marginBottom: 12 },
   sheetIcon: { alignItems: 'center', borderRadius: 18, height: 42, justifyContent: 'center', width: 42 },
   sheetCopy: { flex: 1, marginLeft: 12, minWidth: 0 },
   sheetTitle: { fontSize: 18, fontWeight: '800' },
   sheetSubtitle: { fontSize: 12, marginTop: 2 },
-  sheetBody: { gap: 18, paddingBottom: 16, paddingTop: 4 },
+  sheetScroll: { flex: 1, minHeight: 0 },
+  sheetBody: { gap: 18, paddingBottom: 20, paddingTop: 4 },
   fieldBlock: { gap: 8 },
   fieldLabelRow: { alignItems: 'center', flexDirection: 'row', gap: 6 },
   fieldLabel: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
