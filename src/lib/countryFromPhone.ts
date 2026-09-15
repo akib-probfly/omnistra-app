@@ -130,3 +130,11 @@ export function listCountryCallingCodes() {
   }
   return items.sort((left, right) => left.name.localeCompare(right.name));
 }
+
+export function getCountryFlag(isoCode: string): string {
+  return isoCode
+    .toUpperCase()
+    .replace(/[A-Z]/g, (character) =>
+      String.fromCodePoint(127397 + character.charCodeAt(0)),
+    );
+}

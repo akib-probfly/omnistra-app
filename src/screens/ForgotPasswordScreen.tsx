@@ -19,8 +19,10 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function ForgotPasswordScreen({
   onLogin,
+  onSignUp,
 }: {
   onLogin: () => void;
+  onSignUp: () => void;
 }) {
   const { colors, isDark } = useTheme();
   const styles = createAuthStyles(colors);
@@ -128,6 +130,11 @@ export function ForgotPasswordScreen({
               <Pressable onPress={onLogin}>
                 <Text style={styles.link}>
                   Remember your password? <Text style={styles.linkBold}>Back to login</Text>
+                </Text>
+              </Pressable>
+              <Pressable onPress={onSignUp}>
+                <Text style={styles.link}>
+                  Need an account? <Text style={styles.linkBold}>Create account</Text>
                 </Text>
               </Pressable>
             </View>

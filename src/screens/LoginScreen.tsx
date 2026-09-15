@@ -17,8 +17,10 @@ import { createAuthStyles } from './authStyles';
 
 export function LoginScreen({
   onForgotPassword,
+  onSignUp,
 }: {
   onForgotPassword: () => void;
+  onSignUp: () => void;
 }) {
   const { login } = useAuth();
   const { colors, isDark } = useTheme();
@@ -99,6 +101,12 @@ export function LoginScreen({
         <Pressable onPress={onForgotPassword} style={styles.linkWrapper}>
           <Text style={styles.link}>
             Forgot your password? <Text style={styles.linkBold}>Reset it</Text>
+          </Text>
+        </Pressable>
+
+        <Pressable onPress={onSignUp} style={styles.linkWrapper}>
+          <Text style={styles.link}>
+            New to Zurvis? <Text style={styles.linkBold}>Create account</Text>
           </Text>
         </Pressable>
       </ScrollView>

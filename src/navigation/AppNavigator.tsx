@@ -4,13 +4,14 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MainTabs } from './MainTabs';
 import { LoginScreen } from '../screens/LoginScreen';
 import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
+import { SignUpScreen } from '../screens/SignUpScreen';
 import { BillingLockedOverlay } from '../components/BillingLockedOverlay';
 import { useAuth } from '../auth/AuthContext';
 
 export type RootStackParamList = { Main: undefined };
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-type AuthView = 'login' | 'forgot';
+type AuthView = 'login' | 'forgot' | 'signup';
 
 function MainWithOverlays() {
   return (
@@ -35,10 +36,13 @@ export function AppNavigator() {
 
   if (!session) {
     if (authView === 'forgot') {
-      return <ForgotPasswordScreen onLogin={() => setAuthView('login')} />;
+      return <ForgotPasswordScreen onLogin={() => setAuthView('login')} onSignUp={() => setAuthView('signup')} />;
+    }
+    if (authView === 'signup') {
+      return <SignUpScreen onLogin={() => setAuthView('login')} />;
     }
     return (
-      <LoginScreen onForgotPassword={() => setAuthView('forgot')} />
+      <LoginScreen onForgotPassword={() => setAuthView('forgot')} onSignUp={() => setAuthView('signup')} />
     );
   }
 
