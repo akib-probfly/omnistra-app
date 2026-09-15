@@ -539,12 +539,14 @@ export function MembersSettingsScreen() {
         setEmailDraft('');
       }
       if (workingEmails.length === 0) throw new Error('Enter at least one email address.');
+      const channelAccessMode = selectedChannelIds.length > 0 ? 'ASSIGNED_CHANNELS' : 'NO_CHANNELS';
       return createWorkspaceInvites({
         workspaceId: workspaceId!,
         emails: workingEmails,
         roleHint: inviteRole,
-        limitToAssignedConversations: inviteRole === 'AGENT' ? limitToAssigned : false,
-        channelIds: selectedChannelIds,
+        channelAccessMode,
+        limitToAssignedConversations: inviteRole === 'AGENT' && channelAccessMode === 'ASSIGNED_CHANNELS' ? limitToAssigned : false,
+        channelIds: channelAccessMode === 'ASSIGNED_CHANNELS' ? selectedChannelIds : [],
         sendEmail,
       });
     },

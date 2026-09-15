@@ -77,11 +77,13 @@ export type WorkspaceRosterMember = {
 };
 
 export type WorkspaceInviteRoleHint = 'MANAGER' | 'AGENT';
+export type WorkspaceMemberChannelAccessMode = 'ALL_CHANNELS' | 'ASSIGNED_CHANNELS' | 'NO_CHANNELS';
 
 export type WorkspaceInviteItem = {
   id: string;
   email: string;
   roleHint: WorkspaceInviteRoleHint;
+  channelAccessMode?: WorkspaceMemberChannelAccessMode;
   inviteUrl: string;
   limitToAssignedConversations: boolean;
   expiresAt: string;
@@ -118,6 +120,7 @@ export async function createWorkspaceInvites(values: {
   workspaceId: string;
   emails: string[];
   roleHint: WorkspaceInviteRoleHint;
+  channelAccessMode: WorkspaceMemberChannelAccessMode;
   limitToAssignedConversations: boolean;
   channelIds: string[];
   sendEmail: boolean;
@@ -127,6 +130,7 @@ export async function createWorkspaceInvites(values: {
     body: JSON.stringify({
       emails: values.emails,
       roleHint: values.roleHint,
+      channelAccessMode: values.channelAccessMode,
       limitToAssignedConversations: values.limitToAssignedConversations,
       channelIds: values.channelIds,
       sendEmail: values.sendEmail,
