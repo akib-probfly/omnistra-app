@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import { ArrowLeft, Camera, Check, ChevronDown, Copy, Link2, MessageSquare, Phone, RefreshCw, RotateCcw, Save, Unlink2, UserRound } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -443,7 +444,7 @@ export function ChannelDetailsScreen() {
         <View style={[styles.profilePreview, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
           <View style={[styles.profilePhoto, { backgroundColor: colors.surface }]}>
             {displayProfilePhotoUrl ? (
-              <Image source={{ uri: displayProfilePhotoUrl }} style={styles.profilePhotoImage} resizeMode="cover" />
+              <Image source={{ uri: displayProfilePhotoUrl }} style={styles.profilePhotoImage} contentFit="cover" cachePolicy="memory-disk" allowDownscaling />
             ) : (
               <UserRound color={colors.textSecondary} size={26} />
             )}

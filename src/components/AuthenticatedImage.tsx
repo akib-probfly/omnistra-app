@@ -2,7 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image as ExpoImage } from 'expo-image';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { latestAccessToken } from '../api/client';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -261,30 +261,6 @@ export function AuthenticatedImage({
       active = false;
     };
   }, [onError, url]);
-
-  useEffect(() => {
-    if (!fitContent || !url) return;
-    let active = true;
-    downloadMedia(url)
-      .then((localUri) => {
-        if (!active) return;
-        Image.getSize(
-          localUri,
-          (width, height) => {
-            if (active) setNaturalSize({ width, height });
-          },
-          () => {
-            // Keep placeholder size if measurement fails; onLoad may still fill it in.
-          },
-        );
-      })
-      .catch(() => {
-        // Keep placeholder size if the authenticated size probe fails.
-      });
-    return () => {
-      active = false;
-    };
-  }, [fitContent, url]);
 
   const flatStyle = useMemo(() => StyleSheet.flatten(style) ?? {}, [style]);
   const fittedSize = useMemo(() => {

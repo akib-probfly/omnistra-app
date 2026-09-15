@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ExternalLink, Globe } from 'lucide-react-native';
 import { fetchLinkPreview, getPreviewableUrl, type LinkPreviewPayload } from '../lib/link-preview';
 import { useTheme } from '../theme/ThemeContext';
@@ -81,7 +82,9 @@ export function LinkPreviewCard({ url }: Props) {
           <Image
             source={{ uri: data.imageUrl! }}
             style={[styles.image, { backgroundColor: colors.surfaceSecondary }]}
-            resizeMode="cover"
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            allowDownscaling
             onError={() => setImageError(true)}
           />
         ) : (

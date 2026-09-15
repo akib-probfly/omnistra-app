@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { Check, ChevronDown, Copy, ExternalLink, Globe, MessageSquare, Minus, Monitor, MousePointerClick, Pencil, Phone, Plus, Save, SquareX, Trash2, Upload, Video } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 import {
   fetchWebchatInstallation,
@@ -336,7 +337,7 @@ function AppearancePreview({ appearance }: { appearance: AppearanceDraft }) {
         <View style={styles.previewBrandRow}>
           <View style={styles.previewBrandMark}>
             {appearance.brandLogoUrl ? (
-              <Image source={{ uri: appearance.brandLogoUrl }} style={styles.previewLogo} />
+              <Image source={{ uri: appearance.brandLogoUrl }} style={styles.previewLogo} contentFit="cover" cachePolicy="memory-disk" allowDownscaling />
             ) : (
               <Globe color="#fff" size={14} />
             )}

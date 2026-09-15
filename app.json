@@ -67,6 +67,7 @@
     },
     "plugins": [
       "expo-dev-client",
+      "./plugins/remove-deprecated-system-bar-styles",
       "./plugins/remove-android-large-screen-restrictions",
       "./plugins/remove-boot-completed-receivers",
       "./plugins/exclude-dev-client-from-release-autolinking",

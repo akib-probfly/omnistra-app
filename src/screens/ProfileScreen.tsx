@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { ArrowLeft, Camera, Eye, EyeOff, Lock, Save } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { showNotice } from '../components/AppToast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -115,7 +116,7 @@ export function ProfileScreen() {
 
           <View style={styles.avatarRow}>
             <View style={styles.avatarWrap}>
-              {displayAvatarUrl ? <Image source={{ uri: displayAvatarUrl }} style={[styles.avatarImage, { backgroundColor: colors.surfaceSecondary }]} /> : (
+              {displayAvatarUrl ? <Image source={{ uri: displayAvatarUrl }} cachePolicy="memory-disk" allowDownscaling contentFit="cover" style={[styles.avatarImage, { backgroundColor: colors.surfaceSecondary }]} /> : (
                 <View style={styles.avatar}><Text style={styles.avatarText}>{getInitials(displayName)}</Text></View>
               )}
               <Pressable style={styles.avatarEdit} onPress={handlePickAvatar} hitSlop={12}>
