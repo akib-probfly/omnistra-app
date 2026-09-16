@@ -36,6 +36,25 @@ function openLink(href?: string) {
   Linking.openURL(href).catch(() => {});
 }
 
+function normalizeLocationBody(value: string) {
+  return value.toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function isLocationFallbackBody(body: string, location: WhatsappLocation | null) {
+  if (!location) return false;
+  const normalizedBody = normalizeLocationBody(body);
+  const latitude = String(location.latitude);
+  const longitude = String(location.longitude);
+  const coordinatePair = `${latitude}, ${longitude}`;
+  const compactCoordinatePair = `${latitude},${longitude}`;
+  return (
+    normalizedBody === normalizeLocationBody(coordinatePair) ||
+    normalizedBody === normalizeLocationBody(compactCoordinatePair) ||
+    normalizedBody === normalizeLocationBody(`Shared location: (${coordinatePair})`) ||
+    normalizedBody === normalizeLocationBody(`Shared location: (${compactCoordinatePair})`)
+  );
+}
+
 function SystemMessageBubble({ message }: { message: any }) {
   const { colors, isDark } = useTheme();
   const missed = isMissedCall(message);
@@ -90,6 +109,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
   const postchatForm = readWebchatPostchatForm(message.metadata);
   const whatsappLocation = useMemo(() => getWhatsappLocation(message), [message]);
   const body = (message.text ?? '').trim();
+  const isLocationFallbackText = isLocationFallbackBody(body, whatsappLocation);
   const isTikTokUnsupportedInboundVoice =
     !outgoing &&
     String(channelType ?? '').toUpperCase() === 'TIKTOK' &&
@@ -99,6 +119,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
   const showBody = templateDisplay || postchatForm
     ? false
     : !isTikTokUnsupportedInboundVoice &&
+      !isLocationFallbackText &&
       body.length > 0 &&
       !ATTACHMENT_ONLY_PLACEHOLDERS.has(body.toLowerCase());
   const statusMeta = outgoing ? getOutboundStatusMeta(message.deliveryStatus) : null;
@@ -157,6 +178,18 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
   const isTemplate = templateDisplay !== null;
   const firstUrl = useMemo(() => findFirstUrlInText(message.text ?? ''), [message.text]);
   const showLinkPreview = !postchatForm && !isTemplate && !referralPreview && firstUrl && !imageAttachments.length && !videoAttachments.length;
+  const isLocationOnlyMessage = Boolean(
+    whatsappLocation &&
+    !showBody &&
+    !postchatForm &&
+    !templateDisplay &&
+    !referralPreview &&
+    !replyPreview &&
+    imageAttachments.length === 0 &&
+    videoAttachments.length === 0 &&
+    voiceAttachments.length === 0 &&
+    documentAttachments.length === 0,
+  );
 
   const hasReactions = Boolean(reactions?.length);
   const reactionItems: Array<{ emoji: string; count: number }> = hasReactions ? reactions : [];
@@ -170,9 +203,12 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
           (showLinkPreview || referralPreview) && styles.linkPreviewBubble,
           !outgoing && referralPreview && styles.referralBubble,
           isTemplate ? (outgoing ? styles.outgoingTemplate : styles.incomingTemplate) : (outgoing ? styles.outgoing : styles.incoming),
+          isLocationOnlyMessage && styles.locationOnlyBubble,
           !outgoing && (referralPreview
             ? { backgroundColor: '#fffbeb', borderColor: '#f6d78d' }
-            : { backgroundColor: colors.surface, borderColor: colors.cardBorder }),
+            : isLocationOnlyMessage
+              ? null
+              : { backgroundColor: colors.surface, borderColor: colors.cardBorder }),
         ]}>
         {message.campaignId ? (
           <View style={styles.broadcastBadge}>
@@ -375,7 +411,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
         ) : null}
         {showBody ? renderBody() : null}
         {showLinkPreview ? <LinkPreviewCard url={firstUrl} outgoing={outgoing} /> : null}
-        <View style={styles.metaRow}>
+        <View style={[styles.metaRow, isLocationOnlyMessage && styles.locationMetaRow]}>
           {outgoing && statusMeta ? (
             <Text style={[styles.status, statusMeta.showFailed && styles.statusFailed, statusMeta.showRead && styles.statusSeen]}>
               {statusMeta.showSending ? <ActivityIndicator color="#dbeafe" size={11} /> : statusMeta.showRead ? <CheckCheck color="#7dd3fc" size={13} /> : statusMeta.showDelivered ? <CheckCheck color="#dbeafe" size={13} /> : statusMeta.showSingleTick ? <Check color="#dbeafe" size={13} /> : null}
@@ -418,6 +454,20 @@ function LocationMessageCard({ location, outgoing }: { location: WhatsappLocatio
   const coordinates = `${location.latitude},${location.longitude}`;
   const googleMapsUrl = location.url ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coordinates)}`;
   const embedUrl = `https://www.google.com/maps?q=${encodeURIComponent(coordinates)}&z=15&output=embed`;
+  const embedHtml = `<!doctype html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <style>
+      html, body, iframe { height: 100%; margin: 0; padding: 0; width: 100%; }
+      body { overflow: hidden; background: #e8eef7; }
+      iframe { border: 0; display: block; }
+    </style>
+  </head>
+  <body>
+    <iframe src="${embedUrl}" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+  </body>
+</html>`;
   const locationLabel = location.name ?? 'Shared location';
 
   return (
@@ -427,7 +477,7 @@ function LocationMessageCard({ location, outgoing }: { location: WhatsappLocatio
     ]}>
       <View style={[styles.locationMap, { backgroundColor: isDark ? colors.surfaceSecondary : '#e8eef7' }]}>
         <WebView
-          source={{ uri: embedUrl }}
+          source={{ html: embedHtml, baseUrl: 'https://www.google.com' }}
           scrollEnabled={false}
           bounces={false}
           javaScriptEnabled
@@ -623,6 +673,7 @@ const styles = StyleSheet.create({
   incoming: { backgroundColor: '#fff', borderColor: '#d7e6fb', borderWidth: 1 },
   referralBubble: { borderColor: '#f6d78d', borderWidth: 1, paddingHorizontal: 10, paddingVertical: 9 },
   outgoing: { backgroundColor: '#315efb' },
+  locationOnlyBubble: { backgroundColor: 'transparent', borderWidth: 0, elevation: 0, paddingHorizontal: 0, paddingVertical: 0, shadowOpacity: 0 },
   incomingTemplate: { backgroundColor: '#fff', borderColor: '#d7e6fb', borderWidth: 1, padding: 6 },
   outgoingTemplate: { backgroundColor: '#315efb', padding: 6 },
   messageText: { color: '#334155', fontSize: 15 },
@@ -700,6 +751,7 @@ const styles = StyleSheet.create({
   fileMeta: { color: '#64748b', fontSize: 11, marginTop: 2 },
   missingMedia: { color: '#94a3b8', fontSize: 13, fontStyle: 'italic' },
   metaRow: { alignItems: 'center', flexDirection: 'row', gap: 6, marginTop: 6 },
+  locationMetaRow: { paddingHorizontal: 8 },
   metaRight: { alignItems: 'center', flexDirection: 'row', gap: 6, marginLeft: 'auto' },
   status: { color: '#dbeafe', fontSize: 11 },
   statusSeen: { color: '#7dd3fc' },
