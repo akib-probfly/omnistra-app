@@ -2,7 +2,7 @@
   "expo": {
     "name": "Zurvis",
     "slug": "osaas-mobile",
-    "version": "1.0.12",
+    "version": "1.0.13",
     "scheme": "osaas",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.zurvis.mobile",
-      "buildNumber": "18",
+      "buildNumber": "19",
       "infoPlist": {
         "CFBundleDisplayName": "Zurvis",
         "CFBundleName": "Zurvis",
@@ -29,7 +29,7 @@
       "softwareKeyboardLayoutMode": "resize",
       "backgroundColor": "#f4f7fb",
       "package": "com.zurvis.mobile",
-      "versionCode": 16,
+      "versionCode": 17,
       "predictiveBackGestureEnabled": false,
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -68,7 +68,6 @@
     "plugins": [
       "expo-dev-client",
       "./plugins/remove-deprecated-system-bar-styles",
-      "./plugins/enable-r8-optimization",
       "./plugins/remove-android-large-screen-restrictions",
       "./plugins/remove-boot-completed-receivers",
       "./plugins/exclude-dev-client-from-release-autolinking",
@@ -114,8 +113,6 @@
             "targetSdkVersion": 36,
             "buildToolsVersion": "36.0.0",
             "enablePngCrunchInReleaseBuilds": true,
-            "enableMinifyInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true,
             "buildArchs": ["armeabi-v7a", "arm64-v8a"]
           }
         }
