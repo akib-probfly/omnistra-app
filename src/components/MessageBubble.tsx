@@ -1,4 +1,5 @@
-import { Check, CheckCheck, FileText, ExternalLink, ChevronDown, ChevronUp, Megaphone, Sparkles, Image as ImageIcon, Video, Mic, MapPin } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
+import { Check, CheckCheck, FileText, ExternalLink, ChevronDown, ChevronUp, Megaphone, Sparkles, Image as ImageIcon, Video, Mic, MapPin, ContactRound, Copy, Phone, Mail, Building2 } from 'lucide-react-native';
 import { useEffect, useState, useMemo } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
@@ -20,7 +21,9 @@ import {
   getMessageReferralPreview,
   getReplyPreviewPresentation,
   getWhatsappLocation,
+  getWhatsappContacts,
   type WhatsappLocation,
+  type WhatsappContactCard,
   ATTACHMENT_ONLY_PLACEHOLDERS,
 } from '../lib/inbox-utils';
 import { LinkPreviewCard } from './LinkPreviewCard';
@@ -53,6 +56,29 @@ function isLocationFallbackBody(body: string, location: WhatsappLocation | null)
     normalizedBody === normalizeLocationBody(`Shared location: (${coordinatePair})`) ||
     normalizedBody === normalizeLocationBody(`Shared location: (${compactCoordinatePair})`)
   );
+}
+
+function getContactInitials(displayName: string) {
+  const initials = displayName
+    .split(/\s+/)
+    .map((part) => part.trim().charAt(0))
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
+  return initials || '?';
+}
+
+function getContactClipboardText(contact: WhatsappContactCard) {
+  return [
+    contact.displayName,
+    contact.organization ? `Organization: ${contact.organization}` : null,
+    ...contact.phones.map((phoneItem) => `Phone${phoneItem.label ? ` (${phoneItem.label})` : ''}: ${phoneItem.value}`),
+    ...contact.emails.map((email) => `Email${email.label ? ` (${email.label})` : ''}: ${email.value}`),
+    contact.address ? `Address: ${contact.address}` : null,
+    contact.url ? `Website: ${contact.url}` : null,
+  ].filter((value): value is string => Boolean(value)).join('\n');
 }
 
 function SystemMessageBubble({ message }: { message: any }) {
@@ -108,6 +134,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
   );
   const postchatForm = readWebchatPostchatForm(message.metadata);
   const whatsappLocation = useMemo(() => getWhatsappLocation(message), [message]);
+  const whatsappContacts = useMemo(() => getWhatsappContacts(message), [message]);
   const body = (message.text ?? '').trim();
   const isLocationFallbackText = isLocationFallbackBody(body, whatsappLocation);
   const isTikTokUnsupportedInboundVoice =
@@ -120,6 +147,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
     ? false
     : !isTikTokUnsupportedInboundVoice &&
       !isLocationFallbackText &&
+      !whatsappContacts?.length &&
       body.length > 0 &&
       !ATTACHMENT_ONLY_PLACEHOLDERS.has(body.toLowerCase());
   const statusMeta = outgoing ? getOutboundStatusMeta(message.deliveryStatus) : null;
@@ -190,6 +218,19 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
     voiceAttachments.length === 0 &&
     documentAttachments.length === 0,
   );
+  const isContactOnlyMessage = Boolean(
+    whatsappContacts?.length &&
+    !showBody &&
+    !postchatForm &&
+    !templateDisplay &&
+    !referralPreview &&
+    !replyPreview &&
+    !whatsappLocation &&
+    imageAttachments.length === 0 &&
+    videoAttachments.length === 0 &&
+    voiceAttachments.length === 0 &&
+    documentAttachments.length === 0,
+  );
 
   const hasReactions = Boolean(reactions?.length);
   const reactionItems: Array<{ emoji: string; count: number }> = hasReactions ? reactions : [];
@@ -203,10 +244,10 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
           (showLinkPreview || referralPreview) && styles.linkPreviewBubble,
           !outgoing && referralPreview && styles.referralBubble,
           isTemplate ? (outgoing ? styles.outgoingTemplate : styles.incomingTemplate) : (outgoing ? styles.outgoing : styles.incoming),
-          isLocationOnlyMessage && styles.locationOnlyBubble,
+          (isLocationOnlyMessage || isContactOnlyMessage) && styles.embeddedCardOnlyBubble,
           !outgoing && (referralPreview
             ? { backgroundColor: '#fffbeb', borderColor: '#f6d78d' }
-            : isLocationOnlyMessage
+            : isLocationOnlyMessage || isContactOnlyMessage
               ? null
               : { backgroundColor: colors.surface, borderColor: colors.cardBorder }),
         ]}>
@@ -361,6 +402,9 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
         {whatsappLocation ? (
           <LocationMessageCard location={whatsappLocation} outgoing={outgoing} />
         ) : null}
+        {whatsappContacts?.length ? (
+          <ContactMessageCard contacts={whatsappContacts} outgoing={outgoing} />
+        ) : null}
         {documentAttachments.length ? (
           <View style={styles.docList}>
             {documentAttachments.map((attachment: any) => {
@@ -406,12 +450,12 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
             TikTok does not support receiving inbound voice messages through its API.
           </Text>
         ) : null}
-        {!showBody && !isTikTokUnsupportedInboundVoice && !templateDisplay && !whatsappLocation && !imageAttachments.length && !videoAttachments.length && !voiceAttachments.length && !documentAttachments.length && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(mediaType) ? (
+        {!showBody && !isTikTokUnsupportedInboundVoice && !templateDisplay && !whatsappLocation && !whatsappContacts?.length && !imageAttachments.length && !videoAttachments.length && !voiceAttachments.length && !documentAttachments.length && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(mediaType) ? (
           <Text style={[styles.missingMedia, outgoing && styles.outgoingMuted, !outgoing && { color: colors.textMuted }]}>Attachment</Text>
         ) : null}
         {showBody ? renderBody() : null}
         {showLinkPreview ? <LinkPreviewCard url={firstUrl} outgoing={outgoing} /> : null}
-        <View style={[styles.metaRow, isLocationOnlyMessage && styles.locationMetaRow]}>
+        <View style={[styles.metaRow, (isLocationOnlyMessage || isContactOnlyMessage) && styles.embeddedCardMetaRow]}>
           {outgoing && statusMeta ? (
             <Text style={[styles.status, statusMeta.showFailed && styles.statusFailed, statusMeta.showRead && styles.statusSeen]}>
               {statusMeta.showSending ? <ActivityIndicator color="#dbeafe" size={11} /> : statusMeta.showRead ? <CheckCheck color="#7dd3fc" size={13} /> : statusMeta.showDelivered ? <CheckCheck color="#dbeafe" size={13} /> : statusMeta.showSingleTick ? <Check color="#dbeafe" size={13} /> : null}
@@ -518,6 +562,111 @@ function LocationMessageCard({ location, outgoing }: { location: WhatsappLocatio
         </View>
         <ExternalLink color={outgoing ? '#dbeafe' : colors.textMuted} size={15} />
       </Pressable>
+    </View>
+  );
+}
+
+function ContactMessageCard({ contacts, outgoing }: { contacts: WhatsappContactCard[]; outgoing: boolean }) {
+  const { colors } = useTheme();
+  const [copiedContactIndex, setCopiedContactIndex] = useState<number | null>(null);
+  const [copiedAll, setCopiedAll] = useState(false);
+  const title = contacts.length === 1 ? 'Shared contact' : 'Shared contacts';
+
+  async function copyContact(contact: WhatsappContactCard, index: number) {
+    await Clipboard.setStringAsync(getContactClipboardText(contact));
+    setCopiedContactIndex(index);
+    setTimeout(() => {
+      setCopiedContactIndex((current) => (current === index ? null : current));
+    }, 1400);
+  }
+
+  async function copyAllContacts() {
+    await Clipboard.setStringAsync(contacts.map(getContactClipboardText).join('\n\n'));
+    setCopiedAll(true);
+    setTimeout(() => setCopiedAll(false), 1400);
+  }
+
+  return (
+    <View style={[
+      styles.contactCard,
+      outgoing ? styles.contactCardOutgoing : { backgroundColor: colors.surface, borderColor: colors.cardBorder },
+    ]}>
+      <View style={[styles.contactHeader, outgoing ? styles.contactHeaderOutgoing : { borderBottomColor: colors.cardBorder }]}>
+        <View style={[styles.contactHeaderIcon, outgoing ? styles.contactHeaderIconOutgoing : { backgroundColor: colors.surfaceSecondary }]}>
+          <ContactRound color={outgoing ? '#d1fae5' : colors.primary} size={15} />
+        </View>
+        <Text style={[styles.contactHeaderTitle, outgoing ? styles.outgoingText : { color: colors.text }]}>{title}</Text>
+        <Pressable
+          accessibilityLabel="Copy all contacts"
+          onPress={() => void copyAllContacts()}
+          hitSlop={8}
+          style={[
+            styles.contactIconButton,
+            outgoing ? styles.contactIconButtonOutgoing : { backgroundColor: colors.surfaceSecondary },
+          ]}
+        >
+          {copiedAll ? <Check color="#10b981" size={15} /> : <Copy color={outgoing ? '#dbeafe' : colors.textMuted} size={15} />}
+        </Pressable>
+        <View style={[styles.contactCount, outgoing ? styles.contactCountOutgoing : { backgroundColor: colors.surfaceSecondary }]}>
+          <Text style={[styles.contactCountText, outgoing ? styles.outgoingMuted : { color: colors.textSecondary }]}>{contacts.length}</Text>
+        </View>
+      </View>
+      {contacts.map((contact, index) => (
+        <View
+          key={`${contact.displayName}-${index}`}
+          style={[
+            styles.contactRow,
+            index > 0 && styles.contactRowDivider,
+            index > 0 && (outgoing ? styles.contactRowDividerOutgoing : { borderTopColor: colors.cardBorder }),
+          ]}
+        >
+          <View style={[styles.contactAvatar, outgoing ? styles.contactAvatarOutgoing : { backgroundColor: colors.surfaceSecondary }]}>
+            <Text style={[styles.contactAvatarText, { color: outgoing ? '#d1fae5' : colors.primary }]}>{getContactInitials(contact.displayName)}</Text>
+          </View>
+          <View style={styles.contactBody}>
+            <Text numberOfLines={1} style={[styles.contactName, outgoing ? styles.outgoingText : { color: colors.text }]}>{contact.displayName}</Text>
+            {contact.organization ? (
+              <View style={styles.contactInfoRow}>
+                <Building2 color={outgoing ? '#dbeafe' : colors.textSecondary} size={12} />
+                <Text numberOfLines={1} style={[styles.contactInfoText, outgoing ? styles.outgoingMuted : { color: colors.textSecondary }]}>{contact.organization}</Text>
+              </View>
+            ) : null}
+            {contact.phones.map((phoneItem, phoneIndex) => (
+              <View key={`phone-${phoneItem.value}-${phoneIndex}`} style={styles.contactInfoRow}>
+                <Phone color={outgoing ? '#dbeafe' : colors.textSecondary} size={12} />
+                <Text numberOfLines={1} style={[styles.contactInfoText, outgoing ? styles.outgoingMuted : { color: colors.textSecondary }]}>
+                  {phoneItem.value}{phoneItem.label ? ` - ${phoneItem.label}` : ''}
+                </Text>
+              </View>
+            ))}
+            {contact.emails.map((email, emailIndex) => (
+              <View key={`email-${email.value}-${emailIndex}`} style={styles.contactInfoRow}>
+                <Mail color={outgoing ? '#dbeafe' : colors.textSecondary} size={12} />
+                <Text numberOfLines={1} style={[styles.contactInfoText, outgoing ? styles.outgoingMuted : { color: colors.textSecondary }]}>
+                  {email.value}{email.label ? ` - ${email.label}` : ''}
+                </Text>
+              </View>
+            ))}
+            {contact.address ? (
+              <View style={styles.contactInfoRow}>
+                <MapPin color={outgoing ? '#dbeafe' : colors.textSecondary} size={12} />
+                <Text numberOfLines={2} style={[styles.contactInfoText, outgoing ? styles.outgoingMuted : { color: colors.textSecondary }]}>{contact.address}</Text>
+              </View>
+            ) : null}
+          </View>
+          <Pressable
+            accessibilityLabel={`Copy ${contact.displayName}`}
+            onPress={() => void copyContact(contact, index)}
+            hitSlop={8}
+            style={[
+              styles.contactCopyButton,
+              outgoing ? styles.contactCopyButtonOutgoing : { backgroundColor: colors.surfaceSecondary },
+            ]}
+          >
+            {copiedContactIndex === index ? <Check color="#10b981" size={15} /> : <Copy color={outgoing ? '#dbeafe' : colors.textMuted} size={15} />}
+          </Pressable>
+        </View>
+      ))}
     </View>
   );
 }
@@ -673,7 +822,7 @@ const styles = StyleSheet.create({
   incoming: { backgroundColor: '#fff', borderColor: '#d7e6fb', borderWidth: 1 },
   referralBubble: { borderColor: '#f6d78d', borderWidth: 1, paddingHorizontal: 10, paddingVertical: 9 },
   outgoing: { backgroundColor: '#315efb' },
-  locationOnlyBubble: { backgroundColor: 'transparent', borderWidth: 0, elevation: 0, paddingHorizontal: 0, paddingVertical: 0, shadowOpacity: 0 },
+  embeddedCardOnlyBubble: { backgroundColor: 'transparent', borderWidth: 0, elevation: 0, paddingHorizontal: 0, paddingVertical: 0, shadowOpacity: 0 },
   incomingTemplate: { backgroundColor: '#fff', borderColor: '#d7e6fb', borderWidth: 1, padding: 6 },
   outgoingTemplate: { backgroundColor: '#315efb', padding: 6 },
   messageText: { color: '#334155', fontSize: 15 },
@@ -746,12 +895,36 @@ const styles = StyleSheet.create({
   locationAddress: { fontSize: 11, marginTop: 2 },
   locationCoordinates: { color: '#94a3b8', fontSize: 10, marginTop: 3 },
   locationCoordinatesOutgoing: { color: 'rgba(255,255,255,0.58)' },
+  contactCard: { borderColor: '#d7e6fb', borderRadius: 16, borderWidth: 1, overflow: 'hidden', width: 250 },
+  contactCardOutgoing: { backgroundColor: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.24)' },
+  contactHeader: { alignItems: 'center', borderBottomColor: '#d7e6fb', borderBottomWidth: 1, flexDirection: 'row', gap: 8, minHeight: 48, paddingHorizontal: 10, paddingVertical: 8 },
+  contactHeaderOutgoing: { borderBottomColor: 'rgba(255,255,255,0.18)' },
+  contactHeaderIcon: { alignItems: 'center', borderRadius: 10, height: 28, justifyContent: 'center', width: 28 },
+  contactHeaderIconOutgoing: { backgroundColor: 'rgba(16,185,129,0.2)' },
+  contactHeaderTitle: { flex: 1, fontSize: 12, fontWeight: '800' },
+  contactIconButton: { alignItems: 'center', borderRadius: 13, height: 26, justifyContent: 'center', width: 26 },
+  contactIconButtonOutgoing: { backgroundColor: 'rgba(255,255,255,0.12)' },
+  contactCount: { alignItems: 'center', borderRadius: 999, height: 22, justifyContent: 'center', minWidth: 22, paddingHorizontal: 7 },
+  contactCountOutgoing: { backgroundColor: 'rgba(255,255,255,0.16)' },
+  contactCountText: { fontSize: 10, fontWeight: '700' },
+  contactRow: { flexDirection: 'row', gap: 9, paddingHorizontal: 10, paddingVertical: 11 },
+  contactRowDivider: { borderTopWidth: 1 },
+  contactRowDividerOutgoing: { borderTopColor: 'rgba(255,255,255,0.18)' },
+  contactAvatar: { alignItems: 'center', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
+  contactAvatarOutgoing: { backgroundColor: 'rgba(16,185,129,0.2)' },
+  contactAvatarText: { fontSize: 12, fontWeight: '800' },
+  contactBody: { flex: 1, minWidth: 0, paddingRight: 2 },
+  contactName: { fontSize: 13, fontWeight: '700' },
+  contactInfoRow: { alignItems: 'center', flexDirection: 'row', gap: 5, marginTop: 4 },
+  contactInfoText: { flex: 1, fontSize: 11, minWidth: 0 },
+  contactCopyButton: { alignItems: 'center', borderRadius: 13, height: 26, justifyContent: 'center', width: 26 },
+  contactCopyButtonOutgoing: { backgroundColor: 'rgba(255,255,255,0.12)' },
   file: { alignItems: 'center', flexDirection: 'row', gap: 10, paddingVertical: 2 },
   fileName: { color: '#17233a', flex: 1, fontSize: 14 },
   fileMeta: { color: '#64748b', fontSize: 11, marginTop: 2 },
   missingMedia: { color: '#94a3b8', fontSize: 13, fontStyle: 'italic' },
   metaRow: { alignItems: 'center', flexDirection: 'row', gap: 6, marginTop: 6 },
-  locationMetaRow: { paddingHorizontal: 8 },
+  embeddedCardMetaRow: { paddingHorizontal: 8 },
   metaRight: { alignItems: 'center', flexDirection: 'row', gap: 6, marginLeft: 'auto' },
   status: { color: '#dbeafe', fontSize: 11 },
   statusSeen: { color: '#7dd3fc' },

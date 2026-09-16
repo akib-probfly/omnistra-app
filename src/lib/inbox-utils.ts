@@ -50,6 +50,15 @@ export type WhatsappLocation = {
   url: string | null;
 };
 
+export type WhatsappContactCard = {
+  displayName: string;
+  phones: Array<{ value: string; label: string | null }>;
+  emails: Array<{ value: string; label: string | null }>;
+  organization: string | null;
+  address: string | null;
+  url: string | null;
+};
+
 function tokenBounds(text: string, start: number, end: number) {
   let tokenStart = start;
   while (tokenStart > 0 && !/\s/.test(text[tokenStart - 1])) tokenStart -= 1;
@@ -236,6 +245,88 @@ export function getWhatsappLocation(message: { metadata?: unknown }): WhatsappLo
     address: readTrimmedString(location.address),
     url: readTrimmedString(location.url),
   };
+}
+
+export function getWhatsappContacts(message: { metadata?: unknown }): WhatsappContactCard[] | null {
+  const metadata = readRecord(message.metadata);
+  const whatsappContent = readRecord(metadata?.whatsappContent);
+  const rawPayload = readRecord(metadata?.payload);
+  const rawMessage = readRecord(rawPayload?.message);
+  const rawContacts = Array.isArray(whatsappContent?.contacts)
+    ? whatsappContent.contacts
+    : Array.isArray(rawMessage?.contacts)
+      ? rawMessage.contacts
+      : null;
+
+  if (!rawContacts) return null;
+
+  const contacts = rawContacts.map((rawContact) => {
+    const contact = readRecord(rawContact);
+    const name = readRecord(contact?.name);
+    const displayName =
+      readTrimmedString(name?.formatted_name) ??
+      ([
+        name && readTrimmedString(name.prefix),
+        name && readTrimmedString(name.first_name),
+        name && readTrimmedString(name.middle_name),
+        name && readTrimmedString(name.last_name),
+        name && readTrimmedString(name.suffix),
+      ].filter(Boolean).join(' ') || 'Unnamed contact');
+    const phones = Array.isArray(contact?.phones)
+      ? contact.phones
+        .map((rawPhone) => {
+          const phone = readRecord(rawPhone);
+          const value = readTrimmedString(phone?.phone) ?? readTrimmedString(phone?.wa_id);
+          return value ? { value, label: readTrimmedString(phone?.type) } : null;
+        })
+        .filter((phone): phone is { value: string; label: string | null } => phone !== null)
+      : [];
+    const emails = Array.isArray(contact?.emails)
+      ? contact.emails
+        .map((rawEmail) => {
+          const email = readRecord(rawEmail);
+          const value = readTrimmedString(email?.email);
+          return value ? { value, label: readTrimmedString(email?.type) } : null;
+        })
+        .filter((email): email is { value: string; label: string | null } => email !== null)
+      : [];
+    const organization = readRecord(contact?.org);
+    const organizationParts = [
+      readTrimmedString(organization?.company),
+      readTrimmedString(organization?.title),
+      readTrimmedString(organization?.department),
+    ].filter(Boolean);
+    const addresses = Array.isArray(contact?.addresses)
+      ? contact.addresses
+        .map((rawAddress) => {
+          const address = readRecord(rawAddress);
+          return [
+            readTrimmedString(address?.street),
+            readTrimmedString(address?.city),
+            readTrimmedString(address?.state),
+            readTrimmedString(address?.zip),
+            readTrimmedString(address?.country),
+          ].filter(Boolean).join(', ');
+        })
+        .filter((value) => value.length > 0)
+      : [];
+    const urls = Array.isArray(contact?.urls)
+      ? contact.urls
+        .map((rawUrl) => readTrimmedString(readRecord(rawUrl)?.url))
+        .filter((value): value is string => Boolean(value))
+      : [];
+
+    return {
+      displayName,
+      phones,
+      emails,
+      organization: organizationParts.length > 0 ? organizationParts.join(' - ') : null,
+      address: addresses[0] ?? null,
+      url: urls[0] ?? null,
+    };
+  });
+
+  return contacts.length > 0 ? contacts : null;
 }
 
 export function isTemplateLikeMessage(message: MessageLike): boolean {
