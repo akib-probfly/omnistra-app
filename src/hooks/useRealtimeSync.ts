@@ -46,7 +46,14 @@ type ConversationUpdatedEvent = {
   messageFailureReason?: string | null;
   occurredAt: string;
 };
-type MessageCreatedEvent = { workspaceId: string; conversationId: string; messageId: string; createdAt: string };
+type MessageCreatedEvent = {
+  workspaceId: string;
+  conversationId: string;
+  messageId: string;
+  createdAt: string;
+  direction?: 'INBOUND' | 'OUTBOUND';
+  senderType?: 'CONTACT' | 'AGENT' | 'SYSTEM';
+};
 type NotificationCreatedEvent = NotificationCreatedRealtimeEvent;
 
 const pendingInvalidations = new Map<string, ReturnType<typeof setTimeout>>();
@@ -436,7 +443,10 @@ export function useRealtimeSync(accessToken: string | null) {
       const isRecentLocalMessageEcho = shouldSuppressRealtimeMessageRefresh(payload.conversationId, payload.messageId);
       const isConversationCurrentlyViewed = getActiveConversationId() === payload.conversationId;
 
-      if (!isConversationCurrentlyViewed && !isRecentLocalMessageEcho) {
+      const isInboundMessage =
+        payload.direction !== 'OUTBOUND' && payload.senderType !== 'AGENT' && payload.senderType !== 'SYSTEM';
+
+      if (!isConversationCurrentlyViewed && !isRecentLocalMessageEcho && isInboundMessage) {
         const currentUnreadCount = getCachedConversationUnreadCount(queryClient, payload.conversationId);
         const nextUnreadCount = currentUnreadCount + 1;
         // Protect optimistic unread from stale conversation refetches (backend lag).

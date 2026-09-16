@@ -31,7 +31,10 @@ export function shouldSuppressRealtimeMessageRefresh(conversationId: string, mes
   if (messageId) {
     const messageExpiresAt = recentLocalMessageIds.get(messageId);
     if (messageExpiresAt && messageExpiresAt > now) return true;
-    if ((recentLocalMessageIdsByConversation.get(conversationId)?.size ?? 0) > 0) return false;
+    // Some transports rewrite or omit the server message id on the paired
+    // creation echo. A recent local send in this conversation is still enough
+    // to identify that echo and prevent a false unread increment.
+    if ((recentLocalMessageIdsByConversation.get(conversationId)?.size ?? 0) > 0) return true;
   }
 
   return false;

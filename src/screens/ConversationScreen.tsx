@@ -413,6 +413,9 @@ export function ConversationScreen() {
     },
     onSuccess: (created, _vars, context) => {
       markRecentLocalMessageSend(route.params.conversationId, created.id);
+      // An agent's own message must never make this conversation unread.
+      setUnreadOverride(route.params.conversationId, 0);
+      setConversationUnreadInCache(queryClient, route.params.conversationId, 0);
       awaitingDeliveryRef.current = true;
       deliveryPollUntilRef.current = Date.now() + 45_000;
       const clientKey = context?.clientKey ?? context?.tempId;
@@ -506,11 +509,16 @@ export function ConversationScreen() {
       showNotice('Could not mark as read', error instanceof Error ? error.message : 'Please try again.');
       manualReadToggleRef.current = false;
     },
-    onSuccess: (updated) => {
-      const nextUnread = typeof updated?.unreadCount === 'number' ? updated.unreadCount : 0;
-      setUnreadOverride(route.params.conversationId, nextUnread);
-      setHeader((c) => ({ ...c, unreadCount: nextUnread }));
-      setConversationUnreadInCache(queryClient, route.params.conversationId, nextUnread);
+    onSuccess: () => {
+      // A successful read is authoritative for the open thread. The API can
+      // briefly return a stale unread count while its read receipt propagates.
+      // Keep zero locally until a later fetch reports zero, instead of
+      // immediately restoring a badge for a message the user just read.
+      setUnreadOverride(route.params.conversationId, 0);
+      setHeader((c) => ({ ...c, unreadCount: 0 }));
+      setConversationUnreadInCache(queryClient, route.params.conversationId, 0);
+      void queryClient.invalidateQueries({ queryKey: ['inbox-unread-count'], refetchType: 'active' });
+      void queryClient.invalidateQueries({ queryKey: ['conversations'], refetchType: 'active' });
       void queryClient.invalidateQueries({ queryKey: ['inbox-unread-count'], refetchType: 'active' });
       manualReadToggleRef.current = false;
     },
