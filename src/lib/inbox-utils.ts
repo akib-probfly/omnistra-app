@@ -42,6 +42,14 @@ export type MessageTextPart = { type: 'text' | 'url'; value: string; href?: stri
 const URL_PATTERN = /(^|[^\w@])((?:https?:\/\/)?(?:www\.)?(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,63}(?::\d{2,5})?(?:\/[\w!#%&'()*+,./:;=?@~-]*)?)/gi;
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
 
+export type WhatsappLocation = {
+  latitude: number;
+  longitude: number;
+  name: string | null;
+  address: string | null;
+  url: string | null;
+};
+
 function tokenBounds(text: string, start: number, end: number) {
   let tokenStart = start;
   while (tokenStart > 0 && !/\s/.test(text[tokenStart - 1])) tokenStart -= 1;
@@ -197,6 +205,37 @@ function readTrimmedString(value: unknown): string | null {
 function readRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
+}
+
+export function getWhatsappLocation(message: { metadata?: unknown }): WhatsappLocation | null {
+  const metadata = readRecord(message.metadata);
+  const whatsappContent = readRecord(metadata?.whatsappContent);
+  const rawPayload = readRecord(metadata?.payload);
+  const rawMessage = readRecord(rawPayload?.message);
+  const location = readRecord(whatsappContent?.location) ?? readRecord(rawMessage?.location);
+
+  if (!location) return null;
+
+  const latitude = Number(location.latitude);
+  const longitude = Number(location.longitude);
+  if (
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
+    return null;
+  }
+
+  return {
+    latitude,
+    longitude,
+    name: readTrimmedString(location.name),
+    address: readTrimmedString(location.address),
+    url: readTrimmedString(location.url),
+  };
 }
 
 export function isTemplateLikeMessage(message: MessageLike): boolean {

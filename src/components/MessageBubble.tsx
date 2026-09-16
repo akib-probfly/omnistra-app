@@ -1,6 +1,7 @@
-import { Check, CheckCheck, FileText, ExternalLink, ChevronDown, ChevronUp, Megaphone, Sparkles, Image as ImageIcon, Video, Mic } from 'lucide-react-native';
+import { Check, CheckCheck, FileText, ExternalLink, ChevronDown, ChevronUp, Megaphone, Sparkles, Image as ImageIcon, Video, Mic, MapPin } from 'lucide-react-native';
 import { useEffect, useState, useMemo } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { AuthenticatedImage } from './AuthenticatedImage';
 import { VideoThumb } from './VideoThumb';
 import { VoiceNotePlayer } from './VoiceNotePlayer';
@@ -18,6 +19,8 @@ import {
   formatMessageTime,
   getMessageReferralPreview,
   getReplyPreviewPresentation,
+  getWhatsappLocation,
+  type WhatsappLocation,
   ATTACHMENT_ONLY_PLACEHOLDERS,
 } from '../lib/inbox-utils';
 import { LinkPreviewCard } from './LinkPreviewCard';
@@ -85,6 +88,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
     [message, channelName],
   );
   const postchatForm = readWebchatPostchatForm(message.metadata);
+  const whatsappLocation = useMemo(() => getWhatsappLocation(message), [message]);
   const body = (message.text ?? '').trim();
   const isTikTokUnsupportedInboundVoice =
     !outgoing &&
@@ -318,6 +322,9 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
             ))}
           </View>
         ) : null}
+        {whatsappLocation ? (
+          <LocationMessageCard location={whatsappLocation} outgoing={outgoing} />
+        ) : null}
         {documentAttachments.length ? (
           <View style={styles.docList}>
             {documentAttachments.map((attachment: any) => {
@@ -363,7 +370,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
             TikTok does not support receiving inbound voice messages through its API.
           </Text>
         ) : null}
-        {!showBody && !isTikTokUnsupportedInboundVoice && !templateDisplay && !imageAttachments.length && !videoAttachments.length && !voiceAttachments.length && !documentAttachments.length && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(mediaType) ? (
+        {!showBody && !isTikTokUnsupportedInboundVoice && !templateDisplay && !whatsappLocation && !imageAttachments.length && !videoAttachments.length && !voiceAttachments.length && !documentAttachments.length && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(mediaType) ? (
           <Text style={[styles.missingMedia, outgoing && styles.outgoingMuted, !outgoing && { color: colors.textMuted }]}>Attachment</Text>
         ) : null}
         {showBody ? renderBody() : null}
@@ -402,6 +409,65 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
           ))}
         </View>
       ) : null}
+    </View>
+  );
+}
+
+function LocationMessageCard({ location, outgoing }: { location: WhatsappLocation; outgoing: boolean }) {
+  const { colors, isDark } = useTheme();
+  const coordinates = `${location.latitude},${location.longitude}`;
+  const googleMapsUrl = location.url ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coordinates)}`;
+  const embedUrl = `https://www.google.com/maps?q=${encodeURIComponent(coordinates)}&z=15&output=embed`;
+  const locationLabel = location.name ?? 'Shared location';
+
+  return (
+    <View style={[
+      styles.locationCard,
+      outgoing ? styles.locationCardOutgoing : { backgroundColor: colors.surface, borderColor: colors.cardBorder },
+    ]}>
+      <View style={[styles.locationMap, { backgroundColor: isDark ? colors.surfaceSecondary : '#e8eef7' }]}>
+        <WebView
+          source={{ uri: embedUrl }}
+          scrollEnabled={false}
+          bounces={false}
+          javaScriptEnabled
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          style={styles.locationWebView}
+        />
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={`Open ${locationLabel} in Google Maps`}
+          onPress={() => openLink(googleMapsUrl)}
+          style={styles.locationMapOverlay}
+        >
+          <View style={styles.locationMapButton}>
+            <MapPin color="#fff" size={13} />
+            <Text style={styles.locationMapButtonText}>Open in Google Maps</Text>
+          </View>
+        </Pressable>
+      </View>
+      <Pressable
+        accessibilityRole="link"
+        onPress={() => openLink(googleMapsUrl)}
+        style={({ pressed }) => [
+          styles.locationDetails,
+          outgoing && styles.locationDetailsOutgoing,
+          pressed && styles.locationDetailsPressed,
+        ]}
+      >
+        <MapPin color={outgoing ? '#d1fae5' : colors.primary} size={17} style={styles.locationIcon} />
+        <View style={styles.locationCopy}>
+          <Text numberOfLines={1} style={[styles.locationTitle, outgoing ? styles.outgoingText : { color: colors.text }]}>{locationLabel}</Text>
+          {location.address ? (
+            <Text numberOfLines={1} style={[styles.locationAddress, outgoing ? styles.outgoingMuted : { color: colors.textSecondary }]}>{location.address}</Text>
+          ) : null}
+          <Text style={[styles.locationCoordinates, outgoing ? styles.locationCoordinatesOutgoing : { color: colors.textMuted }]}>
+            {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+          </Text>
+        </View>
+        <ExternalLink color={outgoing ? '#dbeafe' : colors.textMuted} size={15} />
+      </Pressable>
     </View>
   );
 }
@@ -613,6 +679,22 @@ const styles = StyleSheet.create({
   documentIcon: { alignItems: 'center', backgroundColor: '#eef4ff', borderRadius: 13, height: 36, justifyContent: 'center', width: 36 },
   documentIconOutgoing: { backgroundColor: 'rgba(255,255,255,0.16)' },
   documentCopy: { flex: 1, minWidth: 0 },
+  locationCard: { borderColor: '#d7e6fb', borderRadius: 16, borderWidth: 1, overflow: 'hidden', width: 250 },
+  locationCardOutgoing: { backgroundColor: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.24)' },
+  locationMap: { height: 145, overflow: 'hidden', width: '100%' },
+  locationWebView: { backgroundColor: 'transparent', height: '100%', width: '100%' },
+  locationMapOverlay: { bottom: 0, left: 0, padding: 8, position: 'absolute', right: 0, top: 0, alignItems: 'flex-end', justifyContent: 'flex-end' },
+  locationMapButton: { alignItems: 'center', backgroundColor: 'rgba(15, 23, 42, 0.78)', borderRadius: 999, flexDirection: 'row', gap: 5, paddingHorizontal: 10, paddingVertical: 6 },
+  locationMapButtonText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  locationDetails: { alignItems: 'flex-start', flexDirection: 'row', gap: 10, paddingHorizontal: 12, paddingVertical: 10 },
+  locationDetailsOutgoing: { backgroundColor: 'rgba(255,255,255,0.03)' },
+  locationDetailsPressed: { opacity: 0.72 },
+  locationIcon: { marginTop: 2 },
+  locationCopy: { flex: 1, minWidth: 0 },
+  locationTitle: { fontSize: 13, fontWeight: '700' },
+  locationAddress: { fontSize: 11, marginTop: 2 },
+  locationCoordinates: { color: '#94a3b8', fontSize: 10, marginTop: 3 },
+  locationCoordinatesOutgoing: { color: 'rgba(255,255,255,0.58)' },
   file: { alignItems: 'center', flexDirection: 'row', gap: 10, paddingVertical: 2 },
   fileName: { color: '#17233a', flex: 1, fontSize: 14 },
   fileMeta: { color: '#64748b', fontSize: 11, marginTop: 2 },
