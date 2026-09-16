@@ -337,6 +337,82 @@ export function isTemplateLikeMessage(message: MessageLike): boolean {
   );
 }
 
+export function isEmptyInstagramTemplateMessage(message: { metadata?: unknown }): boolean {
+  const metadata = readRecord(message.metadata);
+  const source = readTrimmedString(metadata?.source)?.toLowerCase() ?? '';
+  if (!source.startsWith('instagram_')) return false;
+
+  const payload = readRecord(metadata?.payload);
+  const rawMessage = readRecord(payload?.message);
+  if (!rawMessage) return false;
+
+  const messageType = readTrimmedString(rawMessage.type)?.toLowerCase() ?? null;
+  if (messageType && messageType !== 'template') return false;
+
+  const text =
+    typeof rawMessage.text === 'string'
+      ? rawMessage.text.trim()
+      : readTrimmedString(readRecord(rawMessage.text)?.body);
+  if (text) return false;
+
+  const attachments = Array.isArray(rawMessage.attachments) ? rawMessage.attachments : [];
+  if (attachments.length === 0) return false;
+
+  return attachments.every((attachment) => {
+    const attachmentRecord = readRecord(attachment);
+    if (readTrimmedString(attachmentRecord?.type)?.toLowerCase() !== 'template') return false;
+
+    const attachmentPayload = readRecord(attachmentRecord?.payload);
+    const generic = readRecord(attachmentPayload?.generic);
+    return Array.isArray(generic?.elements) && generic.elements.length === 0;
+  });
+}
+
+function readInstagramTemplateText(message: { text?: string | null; metadata?: unknown }): string | null {
+  if (message.text?.trim()) return message.text.trim();
+
+  const metadata = readRecord(message.metadata);
+  const rendered =
+    readTrimmedString(metadata?.templateRenderedText) ??
+    readTrimmedString(metadata?.renderedText) ??
+    readTrimmedString(metadata?.bodyText);
+  if (rendered) return rendered;
+
+  const payload = readRecord(metadata?.payload);
+  const rawMessage = readRecord(payload?.message);
+  const rawText =
+    typeof rawMessage?.text === 'string'
+      ? rawMessage.text.trim()
+      : readTrimmedString(readRecord(rawMessage?.text)?.body);
+  return rawText || null;
+}
+
+export function isInstagramSharedPostTemplateMessage(message: MessageLike): boolean {
+  const metadata = readRecord(message.metadata);
+  const source = readTrimmedString(metadata?.source)?.toLowerCase() ?? '';
+  if (!source.startsWith('instagram_') || !isTemplateLikeMessage(message)) return false;
+  if (isEmptyInstagramTemplateMessage(message)) return true;
+
+  const text = readInstagramTemplateText(message);
+  if (!text) return false;
+
+  const firstUrl = text.match(/https?:\/\/[^\s]+/i)?.[0] ?? null;
+  if (!firstUrl) return false;
+
+  try {
+    const parsed = new URL(firstUrl);
+    const host = parsed.hostname.toLowerCase();
+    return (
+      host === 'facebook.com' ||
+      host === 'www.facebook.com' ||
+      host.endsWith('.facebook.com') ||
+      host === 'fb.watch'
+    );
+  } catch {
+    return /https?:\/\/(?:www\.)?facebook\.com\/(?:share|posts|reel|watch|story)/i.test(firstUrl);
+  }
+}
+
 function extractTemplateButtons(buttonsJson: unknown): TemplateMessageButton[] {
   if (!Array.isArray(buttonsJson)) return [];
   const result: TemplateMessageButton[] = [];

@@ -15,6 +15,7 @@ import {
   getMessageFailureReason,
   getTemplateMessageDisplay,
   isTemplateLikeMessage,
+  isInstagramSharedPostTemplateMessage,
   getSystemMessageLabel,
   isMissedCall,
   formatMessageTime,
@@ -109,7 +110,11 @@ export function MessageBubble(props: any) {
 
 function StandardMessageBubble({ message, outgoing, attachments, replyPreview, reactions, onImage, onVideo, onLongPress, onReplyPress, channelName, channelType }: any) {
   const { colors } = useTheme();
-  const mediaType = (message.type ?? '').toUpperCase();  const templateDisplay = isTemplateLikeMessage(message) ? getTemplateMessageDisplay(message) : null;
+  const mediaType = (message.type ?? '').toUpperCase();
+  const isInstagramSharedPostTemplate =
+    String(channelType ?? '').toUpperCase() === 'INSTAGRAM' &&
+    isInstagramSharedPostTemplateMessage(message);
+  const templateDisplay = isTemplateLikeMessage(message) && !isInstagramSharedPostTemplate ? getTemplateMessageDisplay(message) : null;
   const templateHeaderUrl = templateDisplay?.headerMediaUrl ?? null;
   const isTemplateHeaderAttachment = (attachment: any) => {
     if (!templateDisplay) return false;
