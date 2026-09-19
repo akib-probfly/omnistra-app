@@ -111,6 +111,7 @@ export type ConversationsFilters = {
   assignment?: 'any' | 'assigned' | 'unassigned';
   channelTypes?: string[];
   channelIds?: string[];
+  countryCodes?: string[];
   assigneeWorkspaceMemberIds?: string[];
   includeEmpty?: boolean;
   blockedStatus?: 'blocked' | 'unblocked';
@@ -151,6 +152,7 @@ export async function fetchConversations(params: ConversationsFilters = {}): Pro
     assignment: params.assignment,
     channelTypes: params.channelTypes,
     channelIds: params.channelIds,
+    countryCodes: params.countryCodes,
     assigneeWorkspaceMemberIds: params.assigneeWorkspaceMemberIds,
     includeEmpty: params.includeEmpty,
     blockedStatus: params.blockedStatus,
@@ -174,6 +176,7 @@ export async function fetchConversationCount(params: Omit<ConversationsFilters, 
     assignment: params.assignment,
     channelTypes: params.channelTypes,
     channelIds: params.channelIds,
+    countryCodes: params.countryCodes,
     assigneeWorkspaceMemberIds: params.assigneeWorkspaceMemberIds,
     includeEmpty: params.includeEmpty,
     blockedStatus: params.blockedStatus,
@@ -194,6 +197,7 @@ export async function fetchConversationUnreadCount(params: Omit<ConversationsFil
     assignment: params.assignment,
     channelTypes: params.channelTypes,
     channelIds: params.channelIds,
+    countryCodes: params.countryCodes,
     assigneeWorkspaceMemberIds: params.assigneeWorkspaceMemberIds,
     blockedStatus: params.blockedStatus,
     createdAtFrom: params.createdAtFrom,

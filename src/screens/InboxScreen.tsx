@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDownLeft, ArrowUpRight, Ban, Check, CheckCircle2, CircleSlash, Filter, Image as ImageIcon, Inbox, Mail, MessageSquareText, Mic, Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Search, Star, Video } from 'lucide-react-native';
-import { Animated, Easing, FlatList, Pressable, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
+import { ArrowDownLeft, ArrowUpRight, Ban, Check, CheckCircle2, CircleSlash, Filter, Globe, Image as ImageIcon, Inbox, Mail, MessageSquareText, Mic, Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Search, Star, Video, X } from 'lucide-react-native';
+import { Animated, Easing, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { AppToggle } from '../components/AppToggle';
@@ -15,6 +15,7 @@ import { ListSkeleton, PanelSkeleton } from '../components/Skeleton';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { fetchConversations, fetchConversationCount, fetchConversationUnreadCount, fetchAssigneeOptions, type ConversationCallSession, type ConversationListItem } from '../api/inbox';
 import { fetchWorkspaceTags } from '../api/conversationDetails';
+import { countryDialCodeQueryKey, fetchCountryDialCodes } from '../api/countryDialCodes';
 import { apiFetch } from '../api/client';
 import { type Channel } from '../api/channels';
 import { groupChannelsByType } from '../lib/channel-filter-groups';
@@ -27,6 +28,7 @@ import {
   isVoiceNotePreview,
 } from '../lib/conversation-last-interaction';
 import { isConversationCustomerWindowExpired } from '../lib/inbox-utils';
+import { getCountryFlag } from '../lib/countryFromPhone';
 import { applyUnreadOverrideToPage } from '../lib/unread-count-override';
 import { pollingWhileUnlocked } from '../lib/billing-lock';
 import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
@@ -34,13 +36,14 @@ import { useTheme } from '../theme/ThemeContext';
 
 type SidebarTab = 'chats' | 'calls';
 type Tab = 'all' | 'unread' | 'closed';
-type FilterLayer = 'channels' | 'tags' | 'users' | 'more';
+type FilterLayer = 'channels' | 'tags' | 'countries' | 'users' | 'more';
 type AssignmentFilter = 'any' | 'assigned' | 'unassigned';
 type BanStatusFilter = 'all' | 'blocked' | 'unblocked';
 
 const FILTER_LAYERS: Array<{ id: FilterLayer; label: string }> = [
   { id: 'channels', label: 'Channels' },
   { id: 'tags', label: 'Tags' },
+  { id: 'countries', label: 'Countries' },
   { id: 'users', label: 'Users' },
   { id: 'more', label: 'More' },
 ];
@@ -72,6 +75,8 @@ export function InboxScreen() {
   const [createdAtTo, setCreatedAtTo] = useState<string | null>(null);
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [countryCodes, setCountryCodes] = useState<string[]>([]);
+  const [countrySearchInput, setCountrySearchInput] = useState('');
   const [tagTextInput, setTagTextInput] = useState('');
   const [debouncedTagText, setDebouncedTagText] = useState('');
   const [userSearchInput, setUserSearchInput] = useState('');
@@ -83,6 +88,7 @@ export function InboxScreen() {
     || selectedTagIds.length
     || debouncedTagText.trim()
     || channelIds.length
+    || countryCodes.length
     || assigneeIds.length
     || assignment !== 'any'
     || blockedStatus !== 'all'
@@ -98,6 +104,7 @@ export function InboxScreen() {
     starredOnly: starredOnly || undefined,
     assignment: assignment === 'any' ? undefined : assignment,
     channelIds: channelIds.length ? channelIds : undefined,
+    countryCodes: countryCodes.length ? countryCodes : undefined,
     assigneeWorkspaceMemberIds: assigneeIds.length ? assigneeIds : undefined,
     tagIds: selectedTagIds.length ? selectedTagIds : undefined,
     tagText: debouncedTagText.trim() || undefined,
@@ -106,20 +113,21 @@ export function InboxScreen() {
     blockedStatus: blockedStatus === 'all' ? undefined : blockedStatus,
     createdAtFrom: createdAtFrom ?? undefined,
     createdAtTo: createdAtTo ?? undefined,
-  }), [tab, unrepliedOnly, starredOnly, debouncedSearch, assignment, channelIds, assigneeIds, selectedTagIds, debouncedTagText, includeEmpty, blockedStatus, createdAtFrom, createdAtTo]);
+  }), [tab, unrepliedOnly, starredOnly, debouncedSearch, assignment, channelIds, countryCodes, assigneeIds, selectedTagIds, debouncedTagText, includeEmpty, blockedStatus, createdAtFrom, createdAtTo]);
 
   const advancedFilterParams = useMemo(() => ({
     search: debouncedSearch.trim() || undefined,
     tagIds: selectedTagIds.length ? selectedTagIds : undefined,
     tagText: debouncedTagText.trim() || undefined,
     channelIds: channelIds.length ? channelIds : undefined,
+    countryCodes: countryCodes.length ? countryCodes : undefined,
     assigneeWorkspaceMemberIds: assigneeIds.length ? assigneeIds : undefined,
     assignment: assignment === 'any' ? undefined : assignment,
     starredOnly: starredOnly || undefined,
     blockedStatus: blockedStatus === 'all' ? undefined : blockedStatus,
     createdAtFrom: createdAtFrom ?? undefined,
     createdAtTo: createdAtTo ?? undefined,
-  }), [debouncedSearch, selectedTagIds, debouncedTagText, channelIds, assigneeIds, assignment, starredOnly, blockedStatus, createdAtFrom, createdAtTo]);
+  }), [debouncedSearch, selectedTagIds, debouncedTagText, channelIds, countryCodes, assigneeIds, assignment, starredOnly, blockedStatus, createdAtFrom, createdAtTo]);
 
   const assigneesQuery = useQuery({
     queryKey: ['assignee-filter-options'],
@@ -146,6 +154,12 @@ export function InboxScreen() {
     enabled: filterOpen,
     staleTime: 60_000,
   });
+  const countriesQuery = useQuery({
+    queryKey: countryDialCodeQueryKey,
+    queryFn: fetchCountryDialCodes,
+    enabled: filterOpen,
+    staleTime: 24 * 60 * 60 * 1_000,
+  });
   const channelsQuery = useQuery({
     queryKey: ['channels', 'inbox-filter'],
     queryFn: () => apiFetch<{ items: Channel[] }>('/channels?page=1&limit=100&sortBy=createdAt&sortOrder=desc'),
@@ -157,6 +171,20 @@ export function InboxScreen() {
     [channelsQuery.data?.items],
   );
   const workspaceTags = useMemo(() => tagsQuery.data?.items ?? [], [tagsQuery.data?.items]);
+  const visibleCountries = useMemo(() => {
+    const query = countrySearchInput.trim().toLowerCase();
+    const countries = countriesQuery.data ?? [];
+    const selected = countries.filter((country) => countryCodes.includes(country.isoCode));
+    const remaining = countries.filter((country) => {
+      if (countryCodes.includes(country.isoCode)) return false;
+      if (!query) return true;
+      const dialQuery = query.replace(/\D/g, '');
+      return country.name.toLowerCase().includes(query)
+        || country.isoCode.toLowerCase().includes(query)
+        || Boolean(dialQuery && country.dialCode.includes(dialQuery));
+    });
+    return [...selected, ...remaining];
+  }, [countriesQuery.data, countryCodes, countrySearchInput]);
   const visibleTagOptions = useMemo(() => {
     const query = tagTextInput.trim().toLowerCase();
     const active = workspaceTags.filter((tag) => selectedTagIds.includes(tag.id));
@@ -171,6 +199,7 @@ export function InboxScreen() {
   const hasTagFilters = selectedTagIds.length > 0 || debouncedTagText.trim().length > 0;
   const hasAdvancedFilters = hasTagFilters
     || channelIds.length > 0
+    || countryCodes.length > 0
     || assigneeIds.length > 0
     || assignment !== 'any'
     || starredOnly
@@ -181,6 +210,8 @@ export function InboxScreen() {
   const resetFilters = () => {
     setAssignment('any');
     setChannelIds([]);
+    setCountryCodes([]);
+    setCountrySearchInput('');
     setExpandedPlatformKeys([]);
     setCreatedAtFrom(null);
     setCreatedAtTo(null);
@@ -428,16 +459,18 @@ export function InboxScreen() {
               <Text style={[styles.filterSheetTitle, { color: colors.text }]}>Filters</Text>
             </View>
 
-            <View style={[styles.filterLayerTabs, { backgroundColor: colors.surfaceSecondary }]}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.filterLayerTabs, { backgroundColor: colors.surfaceSecondary }]} contentContainerStyle={styles.filterLayerTabsContent}>
               {FILTER_LAYERS.map((layer) => {
                 const active = filterLayer === layer.id;
                 return (
                   <Pressable key={layer.id} style={[styles.filterLayerTab, active && styles.filterLayerTabActive, active && { backgroundColor: colors.surface }]} onPress={() => setFilterLayer(layer.id)}>
+                    {layer.id === 'countries' ? <Globe color={active ? colors.primary : colors.textSecondary} size={13} /> : null}
                     <Text style={[styles.filterLayerTabText, { color: active ? colors.text : colors.textSecondary }]}>{layer.label}</Text>
+                    {layer.id === 'countries' && countryCodes.length ? <Text style={[styles.filterLayerCount, { backgroundColor: active ? `${colors.primary}18` : colors.surfaceSecondary, color: active ? colors.primary : colors.textSecondary }]}>{countryCodes.length}</Text> : null}
                   </Pressable>
                 );
               })}
-            </View>
+            </ScrollView>
 
             <SheetScrollView style={styles.filterLayerBody} contentContainerStyle={styles.filterLayerContent} keyboardShouldPersistTaps="handled">
               {filterLayer === 'channels' ? (
@@ -489,6 +522,75 @@ export function InboxScreen() {
                       {!visibleTagOptions.length ? <Text style={[styles.emptyFilterHint, { color: colors.textMuted }]}>No tags match the current search</Text> : null}
                     </View>
                   )}
+                </>
+              ) : null}
+
+              {filterLayer === 'countries' ? (
+                <>
+                  <Text style={[styles.countryFilterHint, { color: colors.textSecondary }]}>
+                    Match the phone number region. Conversations without a valid phone number are excluded.
+                  </Text>
+                  {countryCodes.length ? (
+                    <View style={styles.countryChipList}>
+                      {countryCodes.map((isoCode) => {
+                        const country = countriesQuery.data?.find((item) => item.isoCode === isoCode);
+                        return (
+                          <Pressable
+                            key={isoCode}
+                            style={[styles.countryChip, { backgroundColor: colors.surface, borderColor: colors.primary }]}
+                            onPress={() => setCountryCodes((current) => current.filter((code) => code !== isoCode))}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Remove ${country?.name ?? isoCode} country filter`}
+                          >
+                            <Text style={styles.countryFlag}>{country ? getCountryFlag(country.isoCode) : '🌐'}</Text>
+                            <Text style={[styles.countryChipText, { color: colors.primary }]}>{country ? `${country.name} (+${country.dialCode})` : isoCode}</Text>
+                            <X color={colors.textMuted} size={13} />
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+                  <View style={[styles.inlineSearch, { backgroundColor: colors.surface, borderColor: colors.inputBorder }]}>
+                    <Search color={colors.textMuted} size={16} />
+                    <TextInput
+                      value={countrySearchInput}
+                      onChangeText={setCountrySearchInput}
+                      placeholder="Search countries..."
+                      placeholderTextColor={colors.textMuted}
+                      style={[styles.inlineSearchInput, { color: colors.text }]}
+                    />
+                  </View>
+                  <Text style={[styles.selectedCount, { color: colors.textSecondary }]}>{countryCodes.length} selected</Text>
+                  {countriesQuery.isLoading ? <PanelSkeleton rows={4} /> : countriesQuery.isError ? (
+                    <Text style={[styles.emptyFilterHint, { color: colors.textMuted }]}>Could not load countries. Try again later.</Text>
+                  ) : <View style={styles.optionList}>
+                    {visibleCountries.map((country) => {
+                      const active = countryCodes.includes(country.isoCode);
+                      return (
+                        <Pressable
+                          key={country.isoCode}
+                          style={[
+                            styles.countryOption,
+                            { backgroundColor: colors.surface, borderColor: colors.cardBorder },
+                            active && [styles.countryOptionActive, { borderColor: colors.primary, backgroundColor: `${colors.primary}12` }],
+                          ]}
+                          onPress={() => setCountryCodes((current) => active ? current.filter((code) => code !== country.isoCode) : [...current, country.isoCode])}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: active }}
+                        >
+                          <Text style={styles.countryFlag}>{getCountryFlag(country.isoCode)}</Text>
+                          <View style={styles.countryOptionCopy}>
+                            <Text style={[styles.countryOptionName, { color: active ? colors.primary : colors.text }]} numberOfLines={1}>{country.name}</Text>
+                            <Text style={[styles.countryOptionDialCode, { color: colors.textMuted }]}>+{country.dialCode}</Text>
+                          </View>
+                          <View style={[styles.userCheck, { borderColor: active ? colors.primary : colors.cardBorder, backgroundColor: active ? colors.primary : 'transparent' }]}>
+                            {active ? <Check color="#fff" size={14} strokeWidth={3} /> : null}
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                    {!visibleCountries.length ? <Text style={[styles.emptyFilterHint, { color: colors.textMuted }]}>No countries match the search</Text> : null}
+                  </View>}
                 </>
               ) : null}
 
@@ -903,16 +1005,28 @@ const styles = StyleSheet.create({
   filterSheetSurface: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 },
   filterSheetHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   filterSheetTitle: { color: '#0f172a', fontSize: 18, fontWeight: '800' },
-  filterLayerTabs: { backgroundColor: '#f1f5f9', borderRadius: 14, flexDirection: 'row', gap: 4, marginBottom: 12, padding: 4 },
-  filterLayerTab: { alignItems: 'center', borderRadius: 10, flex: 1, paddingVertical: 8 },
+  filterLayerTabs: { backgroundColor: '#f1f5f9', borderRadius: 14, flexGrow: 0, marginBottom: 12, padding: 4 },
+  filterLayerTabsContent: { alignItems: 'center', flexDirection: 'row', gap: 4 },
+  filterLayerTab: { alignItems: 'center', borderRadius: 10, flexDirection: 'row', gap: 4, justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 8 },
   filterLayerTabActive: { backgroundColor: '#fff', elevation: 1, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4 },
   filterLayerTabText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
   filterLayerTabTextActive: { color: '#0f172a', fontWeight: '700' },
+  filterLayerCount: { borderRadius: 8, fontSize: 10, fontWeight: '700', marginLeft: 3, overflow: 'hidden', paddingHorizontal: 4, paddingVertical: 1 },
   filterLayerBody: { maxHeight: 400 },
   filterLayerContent: { paddingBottom: 8 },
   inlineSearch: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cbd5e1', borderRadius: 12, borderWidth: 1, flexDirection: 'row', marginBottom: 10, paddingHorizontal: 10 },
   inlineSearchInput: { color: '#17233a', flex: 1, height: 40, marginLeft: 8 },
   selectedCount: { color: '#64748b', fontSize: 12, marginBottom: 8 },
+  countryFilterHint: { fontSize: 12, lineHeight: 18, marginBottom: 10 },
+  countryChipList: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
+  countryChip: { alignItems: 'center', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 5, maxWidth: '100%', paddingHorizontal: 9, paddingVertical: 6 },
+  countryChipText: { flexShrink: 1, fontSize: 11, fontWeight: '600' },
+  countryFlag: { fontSize: 16 },
+  countryOption: { alignItems: 'center', borderRadius: 13, borderWidth: 1, flexDirection: 'row', gap: 10, paddingHorizontal: 10, paddingVertical: 9 },
+  countryOptionActive: { borderWidth: 1.5 },
+  countryOptionCopy: { flex: 1, minWidth: 0 },
+  countryOptionName: { fontSize: 13, fontWeight: '600' },
+  countryOptionDialCode: { fontSize: 11, marginTop: 1 },
   optionList: { gap: 6 },
   optionRow: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 10, paddingHorizontal: 10, paddingVertical: 10 },
   optionRowActive: { backgroundColor: '#dbeafe' },
