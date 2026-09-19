@@ -160,6 +160,46 @@ export type WhatsappBusinessProfile = {
   profilePictureHandle: string | null;
 };
 
+export type WhatsappCatalogProduct = {
+  id: string;
+  retailerId: string | null;
+  name: string | null;
+  description: string | null;
+  priceMinorUnits: number | null;
+  salePriceMinorUnits: number | null;
+  currency: string | null;
+  availability: string | null;
+  imageUrl: string | null;
+  status: 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
+};
+
+export type WhatsappProductCatalogSummary = {
+  id: string;
+  name: string | null;
+  vertical: string | null;
+};
+
+export type WhatsappProductCatalogResponse = {
+  channelId: string;
+  workspaceId: string;
+  wabaId: string;
+  provider: 'META';
+  status: 'DISCONNECTED' | 'CONNECTED' | 'ERROR';
+  catalogs: WhatsappProductCatalogSummary[];
+  activeCatalog: WhatsappProductCatalogSummary | null;
+  products: WhatsappCatalogProduct[];
+  nextCursor: string | null;
+  lastFetchedAt: string | null;
+  error: { category: string; message: string; retryable: boolean } | null;
+};
+
+export type WhatsappProductCatalogConnectResponse = {
+  connected: true;
+  catalog: WhatsappProductCatalogSummary;
+  response: WhatsappProductCatalogResponse;
+  error: WhatsappProductCatalogResponse['error'];
+};
+
 export type WhatsappBusinessProfileUpdateInput = {
   about?: string | null;
   address?: string | null;
@@ -275,6 +315,20 @@ export function fetchChannelsPage({ page = 1, limit = 100 }: { page?: number; li
 
 export function fetchChannelDetails(channelId: string) {
   return apiFetch<ChannelDetails>(`/channels/${channelId}`);
+}
+
+export function fetchWhatsappProductCatalog(channelId: string, catalogId?: string, after?: string, limit = 25) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (catalogId) params.set('catalogId', catalogId);
+  if (after) params.set('after', after);
+  return apiFetch<WhatsappProductCatalogResponse>(`/channels/${channelId}/whatsapp/catalog?${params.toString()}`);
+}
+
+export function connectWhatsappProductCatalog(channelId: string, catalogId: string) {
+  return apiFetch<WhatsappProductCatalogConnectResponse>(`/channels/${channelId}/whatsapp/catalog/connect`, {
+    method: 'POST',
+    body: JSON.stringify({ catalogId }),
+  });
 }
 
 export function fetchWhatsappBusinessProfile(channelId: string) {

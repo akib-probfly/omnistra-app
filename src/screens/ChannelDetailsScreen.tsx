@@ -38,6 +38,7 @@ import {
 } from '../components/WebchatChannelTab';
 import { WhatsappCallingTab } from '../components/WhatsappCallingTab';
 import { WhatsappTemplatesTab } from '../components/WhatsappTemplatesTab';
+import { WhatsappProductCatalogTab } from '../components/WhatsappProductCatalogTab';
 import type { ChannelsStackParamList } from '../navigation/ChannelsStack';
 import { useTheme } from '../theme/ThemeContext';
 import { apiUrl } from '../api/client';
@@ -276,7 +277,7 @@ export function ChannelDetailsScreen() {
     : isMessenger || isTikTok || isInstagram
     ? [{ key: 'overview', label: 'Configuration' }, { key: 'automation', label: 'Quick Automation' }, { key: 'access', label: 'Troubleshoot' }]
     : isWhatsapp
-      ? [{ key: 'overview', label: 'Configuration' }, { key: 'templates', label: 'Templates' }, { key: 'business', label: 'Profile' }, { key: 'calling', label: 'Calls' }, { key: 'automation', label: 'Quick Automation' }, { key: 'access', label: 'Troubleshoot' }]
+      ? [{ key: 'overview', label: 'Configuration' }, { key: 'templates', label: 'Templates' }, { key: 'catalog', label: 'Product catalog' }, { key: 'business', label: 'Profile' }, { key: 'calling', label: 'Calls' }, { key: 'automation', label: 'Quick Automation' }, { key: 'access', label: 'Troubleshoot' }]
       : [{ key: 'overview', label: 'Configuration' }, { key: 'access', label: 'Troubleshoot' }];
 
   const renderOverview = () => {
@@ -508,6 +509,7 @@ export function ChannelDetailsScreen() {
         {tab === 'snippet' && isWebchat ? <WebchatSnippetSection channelId={channelId} /> : null}
         {tab === 'business' ? renderBusiness() : null}
         {tab === 'templates' ? <WhatsappTemplatesTab channelId={channelId} /> : null}
+        {tab === 'catalog' && isWhatsapp ? <WhatsappProductCatalogTab channelId={channelId} /> : null}
         {tab === 'calling' ? <WhatsappCallingTab channelId={channelId} callingSetting={channel.callBusinessCallingSetting} callDisabledReason={channel.capabilities?.callDisabledReason} /> : null}
         {tab === 'automation' ? <QuickAutomationTab channelId={channelId} channelType={channel.type} /> : null}
         {tab === 'access' ? (
