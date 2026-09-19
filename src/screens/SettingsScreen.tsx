@@ -128,8 +128,8 @@ export function SettingsScreen() {
   );
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
-  /** Groups start collapsed so Sign out stays visible. Only one group can be open. */
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  /** Open the first group on entry so users immediately see the available settings and icons. */
+  const [openGroup, setOpenGroup] = useState<string | null>('General Settings');
   const profileQuery = useQuery({
     queryKey: ['user-profile', 'me'],
     queryFn: fetchMyProfile,
