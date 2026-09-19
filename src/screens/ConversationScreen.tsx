@@ -173,11 +173,11 @@ export function ConversationScreen() {
   const deliveryPollUntilRef = useRef(0);
 
   const handleBack = useCallback(() => {
-    if (navigation.canGoBack()) {
+    if (navigation.getState().index > 0) {
       navigation.goBack();
       return;
     }
-    navigation.replace('InboxList');
+    navigation.navigate('InboxList');
   }, [navigation]);
 
   const updateAwaitingDelivery = (items: Message[]) => {

@@ -380,7 +380,7 @@ export function NotificationCenter({ visible, onClose }: { visible: boolean; onC
 
   const handleOpenNotification = (notification: NotificationListItem) => {
     if (notification.conversationId) {
-      navigation.navigate('Inbox', { screen: 'Conversation', params: { conversationId: notification.conversationId, contactName: getMetadataString(notification.metadata, 'contactDisplayName') ?? '' } });
+      navigation.navigate('Inbox', { screen: 'Conversation', initial: false, params: { conversationId: notification.conversationId, contactName: getMetadataString(notification.metadata, 'contactDisplayName') ?? '' } });
     }
     onClose();
   };

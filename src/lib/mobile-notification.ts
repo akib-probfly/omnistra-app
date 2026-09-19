@@ -178,6 +178,7 @@ export function navigateFromMobileNotification(payload: NotificationCreatedRealt
     screen: 'Inbox',
     params: {
       screen: 'Conversation',
+      initial: false,
       params: {
         conversationId,
         contactName: metadataString(payload, 'contactDisplayName') ?? metadataString(payload, 'contactPhone') ?? 'Conversation',
