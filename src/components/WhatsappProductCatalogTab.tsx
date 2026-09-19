@@ -58,7 +58,7 @@ export function WhatsappProductCatalogTab({ channelId }: { channelId: string }) 
   const { colors } = useTheme();
   const queryClient = useQueryClient();
   const [catalogIdDraft, setCatalogIdDraft] = useState('');
-  const queryKey = ['channels', channelId, 'product-catalog', null] as const;
+  const queryKey = ['channels', 'product-catalog', channelId, null] as const;
   const catalog = useInfiniteQuery({
     queryKey,
     queryFn: ({ pageParam }) => fetchWhatsappProductCatalog(channelId, undefined, pageParam, PAGE_SIZE),

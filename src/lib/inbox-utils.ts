@@ -59,6 +59,64 @@ export type WhatsappContactCard = {
   url: string | null;
 };
 
+export type WhatsappOrderItem = {
+  productRetailerId: string;
+  quantity: number;
+  itemPrice: number | null;
+  currency: string | null;
+  lineTotal: number | null;
+};
+
+export type WhatsappOrder = {
+  catalogId: string | null;
+  text: string | null;
+  items: WhatsappOrderItem[];
+  totalQuantity: number;
+  totalPrice: number | null;
+  currency: string | null;
+};
+
+function metadataRecord(value: unknown): Record<string, any> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : null;
+}
+
+export function getWhatsappOrder(message: { metadata?: unknown }): WhatsappOrder | null {
+  const metadata = metadataRecord(message.metadata);
+  const whatsappContent = metadataRecord(metadata?.whatsappContent);
+  const rawPayload = metadataRecord(metadata?.payload);
+  const rawMessage = metadataRecord(rawPayload?.message);
+  const rawOrder = metadataRecord(whatsappContent?.order) ?? metadataRecord(rawMessage?.order);
+  if (!rawOrder) return null;
+
+  const items = (Array.isArray(rawOrder.product_items) ? rawOrder.product_items : [])
+    .map((rawItem: unknown) => {
+      const item = metadataRecord(rawItem);
+      const productRetailerId = typeof item?.product_retailer_id === 'string' ? item.product_retailer_id : null;
+      if (!productRetailerId) return null;
+      const parsedQuantity = Number(item.quantity ?? 1);
+      const quantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? parsedQuantity : 1;
+      const parsedPrice = Number(item.item_price);
+      const itemPrice = Number.isFinite(parsedPrice) ? parsedPrice : null;
+      return {
+        productRetailerId,
+        quantity,
+        itemPrice,
+        currency: typeof item.currency === 'string' ? item.currency.toUpperCase() : null,
+        lineTotal: itemPrice === null ? null : itemPrice * quantity,
+      };
+    })
+    .filter((item: WhatsappOrderItem | null): item is WhatsappOrderItem => item !== null);
+  if (!items.length) return null;
+  return {
+    catalogId: typeof rawOrder.catalog_id === 'string' ? rawOrder.catalog_id : null,
+    text: typeof rawOrder.text === 'string' ? rawOrder.text : null,
+    items,
+    totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
+    totalPrice: items.every((item) => item.lineTotal !== null) ? items.reduce((sum, item) => sum + (item.lineTotal ?? 0), 0) : null,
+    currency: items.find((item) => item.currency)?.currency ?? (typeof rawOrder.currency === 'string' ? rawOrder.currency.toUpperCase() : null),
+  };
+}
+
 function tokenBounds(text: string, start: number, end: number) {
   let tokenStart = start;
   while (tokenStart > 0 && !/\s/.test(text[tokenStart - 1])) tokenStart -= 1;

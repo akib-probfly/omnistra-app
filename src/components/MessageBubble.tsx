@@ -23,12 +23,14 @@ import {
   getReplyPreviewPresentation,
   getWhatsappLocation,
   getWhatsappContacts,
+  getWhatsappOrder,
   type WhatsappLocation,
   type WhatsappContactCard,
   ATTACHMENT_ONLY_PLACEHOLDERS,
 } from '../lib/inbox-utils';
 import { LinkPreviewCard } from './LinkPreviewCard';
 import { MessageReferralPreviewCard } from './MessageReferralPreviewCard';
+import { WhatsappOrderCard } from './WhatsappOrderCard';
 import { findFirstUrlInText } from '../lib/link-preview';
 import { openDownloadedAttachment } from '../lib/open-attachment';
 import { useTheme } from '../theme/ThemeContext';
@@ -108,7 +110,7 @@ export function MessageBubble(props: any) {
   return <StandardMessageBubble {...props} />;
 }
 
-function StandardMessageBubble({ message, outgoing, attachments, replyPreview, reactions, onImage, onVideo, onLongPress, onReplyPress, channelName, channelType }: any) {
+function StandardMessageBubble({ message, outgoing, attachments, replyPreview, reactions, onImage, onVideo, onLongPress, onReplyPress, channelName, channelType, channelId }: any) {
   const { colors } = useTheme();
   const mediaType = (message.type ?? '').toUpperCase();
   const isInstagramSharedPostTemplate =
@@ -140,6 +142,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
   const postchatForm = readWebchatPostchatForm(message.metadata);
   const whatsappLocation = useMemo(() => getWhatsappLocation(message), [message]);
   const whatsappContacts = useMemo(() => getWhatsappContacts(message), [message]);
+  const whatsappOrder = useMemo(() => getWhatsappOrder(message), [message]);
   const body = (message.text ?? '').trim();
   const isLocationFallbackText = isLocationFallbackBody(body, whatsappLocation);
   const isTikTokUnsupportedInboundVoice =
@@ -153,6 +156,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
     : !isTikTokUnsupportedInboundVoice &&
       !isLocationFallbackText &&
       !whatsappContacts?.length &&
+      !whatsappOrder &&
       body.length > 0 &&
       !ATTACHMENT_ONLY_PLACEHOLDERS.has(body.toLowerCase());
   const statusMeta = outgoing ? getOutboundStatusMeta(message.deliveryStatus) : null;
@@ -249,7 +253,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
           (showLinkPreview || referralPreview) && styles.linkPreviewBubble,
           !outgoing && referralPreview && styles.referralBubble,
           isTemplate ? (outgoing ? styles.outgoingTemplate : styles.incomingTemplate) : (outgoing ? styles.outgoing : styles.incoming),
-          (isLocationOnlyMessage || isContactOnlyMessage) && styles.embeddedCardOnlyBubble,
+    (isLocationOnlyMessage || isContactOnlyMessage || whatsappOrder) && styles.embeddedCardOnlyBubble,
           !outgoing && (referralPreview
             ? { backgroundColor: '#fffbeb', borderColor: '#f6d78d' }
             : isLocationOnlyMessage || isContactOnlyMessage
@@ -404,6 +408,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
             ))}
           </View>
         ) : null}
+        {whatsappOrder ? <WhatsappOrderCard order={whatsappOrder} channelId={channelId} /> : null}
         {whatsappLocation ? (
           <LocationMessageCard location={whatsappLocation} outgoing={outgoing} />
         ) : null}

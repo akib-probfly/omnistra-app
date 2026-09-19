@@ -64,6 +64,7 @@ const TimelineRowItem = memo(function TimelineRowItem({
   highlighted,
   channelName,
   channelType,
+  channelId,
   replyTarget,
   reactions,
   dayLabelBg,
@@ -78,6 +79,7 @@ const TimelineRowItem = memo(function TimelineRowItem({
   highlighted: boolean;
   channelName?: string | null;
   channelType?: string | null;
+  channelId?: string | null;
   replyTarget: Message | null;
   reactions?: Array<{ emoji: string; count: number }>;
   dayLabelBg: string;
@@ -101,6 +103,7 @@ const TimelineRowItem = memo(function TimelineRowItem({
           message={entry.message}
           channelName={channelName}
           channelType={channelType}
+          channelId={channelId}
           setReplyTo={onReply}
           setReactTarget={onReact}
           onImage={onImage}
@@ -930,6 +933,7 @@ export function ConversationScreen() {
         highlighted={Boolean(message && message.id === highlightedMessageId)}
         channelName={channelName}
         channelType={channelType}
+        channelId={channelId}
         replyTarget={message ? (messageById.get(message.replyToMessageId ?? '') ?? null) : null}
         reactions={message ? reactionGroups[message.id] : undefined}
         dayLabelBg={colors.surfaceSecondary}
@@ -941,7 +945,7 @@ export function ConversationScreen() {
         onJumpToMessage={jumpToMessage}
       />
     );
-  }, [channelName, channelType, colors.surfaceSecondary, colors.textSecondary, highlightedMessageId, jumpToMessage, messageById, openImage, openVideo, reactionGroups]);
+  }, [channelId, channelName, channelType, colors.surfaceSecondary, colors.textSecondary, highlightedMessageId, jumpToMessage, messageById, openImage, openVideo, reactionGroups]);
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background, flex: 1 }]}>
@@ -1208,7 +1212,7 @@ async function sendTemplateMutation(conversationId: string, params: { templateNa
   }
 }
 
-const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, channelType, setReplyTo, setReactTarget, onImage, onVideo, replyTarget, reactions, onJumpToMessage }: { message: Message; channelName?: string | null; channelType?: string | null; setReplyTo: (message: Message) => void; setReactTarget: (message: Message) => void; onImage: (attachId: string) => void; onVideo: (attachment: any) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }>; onJumpToMessage?: (messageId: string) => void }) {
+const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, channelType, channelId, setReplyTo, setReactTarget, onImage, onVideo, replyTarget, reactions, onJumpToMessage }: { message: Message; channelName?: string | null; channelType?: string | null; channelId?: string | null; setReplyTo: (message: Message) => void; setReactTarget: (message: Message) => void; onImage: (attachId: string) => void; onVideo: (attachment: any) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }>; onJumpToMessage?: (messageId: string) => void }) {
   const { colors } = useTheme();
   const outgoing = message.direction === 'OUTBOUND';
   const swipeRef = useRef<SwipeableMethods | null>(null);
@@ -1263,7 +1267,7 @@ const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, 
       onSwipeableWillOpen={handleWillOpen}
     >
       <View style={[styles.group, outgoing && styles.outgoingGroup]}>
-        <MessageBubble message={message} outgoing={outgoing} attachments={message.attachments ?? []} replyPreview={replyPreview} reactions={reactions} channelName={channelName} channelType={channelType} onImage={onImage} onVideo={onVideo} onLongPress={onReact} onReplyPress={onJumpToMessage && replyTargetId ? () => onJumpToMessage(replyTargetId) : undefined} />
+        <MessageBubble message={message} outgoing={outgoing} attachments={message.attachments ?? []} replyPreview={replyPreview} reactions={reactions} channelName={channelName} channelType={channelType} channelId={channelId} onImage={onImage} onVideo={onVideo} onLongPress={onReact} onReplyPress={onJumpToMessage && replyTargetId ? () => onJumpToMessage(replyTargetId) : undefined} />
       </View>
     </ReanimatedSwipeable>
   );
