@@ -413,10 +413,10 @@ export function ChannelDetailsScreen() {
         <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>Channel configuration</Text>
           <Text style={[styles.cardSub, { color: colors.textSecondary }]}>Manage channel information and settings.</Text>
-          <View style={styles.statusGrid}>
-            <StatusTile icon="phone" title="Business calling" value={callingSetting?.status === 'ENABLED' ? 'Enabled' : 'Disabled'} tone={callingSetting?.status === 'ENABLED' ? 'success' : 'neutral'} />
-            <StatusTile icon="message" title="MM Lite" value={templateCounts ? 'Yes' : 'No'} tone={templateCounts ? 'success' : 'neutral'} />
-            <StatusTile icon={primaryAccount?.webhookStatus === 'CONNECTED' ? 'link' : 'unlink'} title="Webhook" value={formatConfigStatus(primaryAccount?.webhookStatus)} tone={primaryAccount?.webhookStatus === 'CONNECTED' ? 'success' : 'warning'} />
+          <View style={styles.statusGridInline}>
+            <StatusTile compact icon="phone" title="Business calling" value={callingSetting?.status === 'ENABLED' ? 'Enabled' : 'Disabled'} tone={callingSetting?.status === 'ENABLED' ? 'success' : 'neutral'} />
+            <StatusTile compact icon="message" title="MM Lite" value={templateCounts ? 'Yes' : 'No'} tone={templateCounts ? 'success' : 'neutral'} />
+            <StatusTile compact icon={primaryAccount?.webhookStatus === 'CONNECTED' ? 'link' : 'unlink'} title="Webhook" value={formatConfigStatus(primaryAccount?.webhookStatus)} tone={primaryAccount?.webhookStatus === 'CONNECTED' ? 'success' : 'warning'} />
           </View>
           <View style={styles.configFields}>
             <ConfigField label="Chat link" value={whatsappChatLink(config?.displayPhoneNumber ?? primaryAccount?.displayPhoneNumber) ?? 'Not linked'} copy openUrl={whatsappChatLink(config?.displayPhoneNumber ?? primaryAccount?.displayPhoneNumber)} />
@@ -679,19 +679,21 @@ function ChannelConfigurationHero({
   );
 }
 
-function StatusTile({ icon, title, value, tone = 'neutral' }: { icon: 'phone' | 'message' | 'link' | 'unlink'; title: string; value: string; tone?: 'success' | 'warning' | 'danger' | 'neutral' }) {
+function StatusTile({ icon, title, value, tone = 'neutral', compact = false }: { icon: 'phone' | 'message' | 'link' | 'unlink'; title: string; value: string; tone?: 'success' | 'warning' | 'danger' | 'neutral'; compact?: boolean }) {
   const { colors } = useTheme();
   const Icon = icon === 'phone' ? Phone : icon === 'message' ? MessageSquare : icon === 'link' ? Link2 : Unlink2;
   const toneColor = tone === 'success' ? '#059669' : tone === 'warning' ? '#d97706' : tone === 'danger' ? colors.error : colors.textSecondary;
   const toneBg = tone === 'success' ? '#ecfdf5' : tone === 'warning' ? '#fffbeb' : tone === 'danger' ? '#fff1f2' : colors.surfaceSecondary;
 
   return (
-    <View style={[styles.statusTile, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
-      <View style={[styles.statusTileIcon, { backgroundColor: toneBg }]}>
+    <View style={[styles.statusTile, compact && styles.statusTileCompact, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+      <View style={[styles.statusTileIcon, compact && styles.statusTileIconCompact, { backgroundColor: toneBg }]}>
         <Icon color={toneColor} size={17} />
       </View>
-      <Text style={[styles.statusTileTitle, { color: colors.textSecondary }]} numberOfLines={1}>{title}</Text>
-      <Text style={[styles.statusTileValue, { color: colors.text }]} numberOfLines={1}>{value}</Text>
+      <View style={compact ? styles.statusTileCopyCompact : undefined}>
+        <Text style={[styles.statusTileTitle, compact && styles.statusTileTitleCompact, { color: colors.textSecondary }]} numberOfLines={compact ? 2 : 1}>{title}</Text>
+        <Text style={[styles.statusTileValue, compact && styles.statusTileValueCompact, { color: colors.text }]} numberOfLines={compact ? 2 : 1}>{value}</Text>
+      </View>
     </View>
   );
 }
@@ -772,10 +774,16 @@ const styles = StyleSheet.create({
   cardTitle: { color: '#0f172a', fontSize: 16, fontWeight: '700' },
   cardSub: { color: '#64748b', fontSize: 13, lineHeight: 19, marginTop: 4 },
   statusGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },
+  statusGridInline: { alignItems: 'stretch', flexDirection: 'row', flexWrap: 'nowrap', gap: 6, marginTop: 14 },
   statusTile: { backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 14, borderWidth: 1, flexGrow: 1, minWidth: '30%', padding: 12 },
+  statusTileCompact: { alignItems: 'flex-start', flex: 1, flexDirection: 'column', gap: 5, minWidth: 0, padding: 9 },
   statusTileIcon: { alignItems: 'center', borderRadius: 10, height: 32, justifyContent: 'center', marginBottom: 10, width: 32 },
+  statusTileIconCompact: { height: 25, marginBottom: 0, width: 25 },
+  statusTileCopyCompact: { alignSelf: 'stretch', minWidth: 0 },
   statusTileTitle: { color: '#64748b', fontSize: 11, fontWeight: '700' },
+  statusTileTitleCompact: { fontSize: 10, lineHeight: 13 },
   statusTileValue: { color: '#0f172a', fontSize: 13, fontWeight: '800', marginTop: 3 },
+  statusTileValueCompact: { fontSize: 11, lineHeight: 14, marginTop: 1 },
   configFields: { gap: 12, marginTop: 16 },
   configField: { gap: 6 },
   configLabel: { color: '#64748b', fontSize: 12, fontWeight: '600' },
