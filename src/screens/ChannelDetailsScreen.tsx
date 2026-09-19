@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
-import { ArrowLeft, Camera, Check, ChevronDown, Copy, Link2, MessageSquare, Phone, RefreshCw, RotateCcw, Save, Unlink2, UserRound } from 'lucide-react-native';
+import { ArrowLeft, Camera, Check, ChevronDown, Copy, ExternalLink, Link2, MessageSquare, Phone, RefreshCw, RotateCcw, Save, Unlink2, UserRound } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Toast from 'react-native-toast-message';
@@ -93,11 +93,15 @@ function formatConfigStatus(value: string | null | undefined) {
 
 function whatsappChatLink(phone: string | null | undefined) {
   const digits = phone?.replace(/\D/g, '') ?? '';
-  return digits ? `https://wa.me/${digits}` : 'Not linked';
+  return digits ? `https://wa.me/${digits}` : null;
 }
 
 function messengerPageLink(pageId: string | null | undefined) {
   return pageId ? `https://facebook.com/${pageId}` : 'Not linked';
+}
+
+function messengerChatLink(pageId: string | null | undefined) {
+  return pageId ? `https://m.me/${pageId}` : null;
 }
 
 function tiktokProfileLink(username: string | null | undefined) {
@@ -303,7 +307,8 @@ export function ChannelDetailsScreen() {
               <StatusTile icon={config?.webhookSubscriptionStatus === 'CONNECTED' ? 'link' : 'unlink'} title="Webhook" value={formatConfigStatus(config?.webhookSubscriptionStatus)} tone={config?.webhookSubscriptionStatus === 'CONNECTED' ? 'success' : 'warning'} />
             </View>
             <View style={styles.configFields}>
-              <ConfigField label="Page link" value={messengerPageLink(config?.pageId)} copy />
+              <ConfigField label="Chat link" value={messengerChatLink(config?.pageId) ?? 'Not linked'} copy openUrl={messengerChatLink(config?.pageId)} />
+              <ConfigField label="Page link" value={messengerPageLink(config?.pageId)} copy openUrl={config?.pageId ? messengerPageLink(config.pageId) : null} />
               <ConfigField label="Channel name" value={channel.name} />
               <ConfigField label="Page name" value={config?.pageName ?? 'Not linked'} />
               <ConfigField label="Provider" value="Meta Messenger" />
@@ -414,7 +419,7 @@ export function ChannelDetailsScreen() {
             <StatusTile icon={primaryAccount?.webhookStatus === 'CONNECTED' ? 'link' : 'unlink'} title="Webhook" value={formatConfigStatus(primaryAccount?.webhookStatus)} tone={primaryAccount?.webhookStatus === 'CONNECTED' ? 'success' : 'warning'} />
           </View>
           <View style={styles.configFields}>
-            <ConfigField label="Chat link" value={whatsappChatLink(config?.displayPhoneNumber ?? primaryAccount?.displayPhoneNumber)} copy />
+            <ConfigField label="Chat link" value={whatsappChatLink(config?.displayPhoneNumber ?? primaryAccount?.displayPhoneNumber) ?? 'Not linked'} copy openUrl={whatsappChatLink(config?.displayPhoneNumber ?? primaryAccount?.displayPhoneNumber)} />
             <ConfigField label="Channel name" value={channel.name} />
             <ConfigField label="WhatsApp phone number" value={config?.displayPhoneNumber ?? primaryAccount?.displayPhoneNumber ?? 'Not linked'} />
             <ConfigField label="WABA ID" value={primaryAccount?.wabaId ?? 'Not linked'} copy mono />
@@ -708,7 +713,7 @@ function ConfigCopyButton({ value }: { value: string }) {
   );
 }
 
-function ConfigField({ label, value, copy = false, mono = false }: { label: string; value: string; copy?: boolean; mono?: boolean }) {
+function ConfigField({ label, value, copy = false, mono = false, openUrl }: { label: string; value: string; copy?: boolean; mono?: boolean; openUrl?: string | null }) {
   const { colors } = useTheme();
   const canCopy = copy && !['Not linked', 'Not available', 'None', 'No webhook failures recorded'].includes(value);
 
@@ -716,10 +721,17 @@ function ConfigField({ label, value, copy = false, mono = false }: { label: stri
     <View style={styles.configField}>
       <Text style={[styles.configLabel, { color: colors.textSecondary }]}>{label}</Text>
       <View style={styles.configFieldRow}>
-        <View style={[styles.configValueBox, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
-          <Text style={[styles.configValue, mono && styles.configValueMono, { color: colors.text }]} numberOfLines={2}>{value}</Text>
-        </View>
+        {openUrl ? (
+          <Pressable accessibilityRole="link" accessibilityLabel={`Open ${label}`} onPress={() => Linking.openURL(openUrl).catch(() => Toast.show({ type: 'error', text1: 'Could not open link' }))} style={[styles.configValueBox, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.configValue, mono && styles.configValueMono, { color: colors.primary, textDecorationLine: 'underline' }]} numberOfLines={2}>{value}</Text>
+          </Pressable>
+        ) : (
+          <View style={[styles.configValueBox, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+            <Text style={[styles.configValue, mono && styles.configValueMono, { color: colors.text }]} numberOfLines={2}>{value}</Text>
+          </View>
+        )}
         {canCopy ? <ConfigCopyButton value={value} /> : null}
+        {openUrl ? <Pressable accessibilityRole="link" accessibilityLabel={`Open ${label}`} onPress={() => Linking.openURL(openUrl).catch(() => Toast.show({ type: 'error', text1: 'Could not open link' }))} style={[styles.configCopyButton, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} hitSlop={8}><ExternalLink color={colors.primary} size={15} /></Pressable> : null}
       </View>
     </View>
   );
