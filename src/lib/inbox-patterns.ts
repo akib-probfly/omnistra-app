@@ -9,7 +9,6 @@ export type InboxPatternId =
   | 'business-icons'
   | 'dot'
   | 'geometry'
-  | 'jamdani'
   | 'streamline';
 
 export const DEFAULT_INBOX_PATTERN: InboxPatternId = 'streamline';
@@ -108,16 +107,6 @@ export const INBOX_PATTERNS: InboxPattern[] = [
     threadAccent: '#ede4ff',
   },
   {
-    id: 'jamdani',
-    label: 'Jamdani',
-    thumbSource: require('../../assets/inbox-patterns/bg-8-thumb.png'),
-    appSource: require('../../assets/inbox-patterns/bg-8-app.png'),
-    tileWidth: 300,
-    previewColors: ['#fff7ed', '#fdba74', '#fffbeb'],
-    threadColor: '#fffaf3',
-    threadAccent: '#ffe8cc',
-  },
-  {
     id: 'streamline',
     label: 'Streamline',
     thumbSource: require('../../assets/inbox-patterns/bg-8-thumb.png'),
@@ -136,6 +125,8 @@ export function getInboxPattern(pattern: InboxPatternId): InboxPattern {
 
 export function parseInboxPattern(value: string | null | undefined): InboxPatternId {
   if (!value) return DEFAULT_INBOX_PATTERN;
+  // Remove the retired Jamdani choice from saved inbox appearance settings.
+  if (value === 'jamdani') return DEFAULT_INBOX_PATTERN;
   return INBOX_PATTERNS.some((item) => item.id === value)
     ? (value as InboxPatternId)
     : DEFAULT_INBOX_PATTERN;
