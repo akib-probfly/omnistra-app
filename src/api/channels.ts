@@ -215,10 +215,18 @@ export type WhatsAppConnectLaunch = {
   channelType: 'WHATSAPP';
   workspaceId: string;
   workspaceName: string;
+  catalogSetup: 'with_catalog' | 'without_catalog';
   state: string;
   launchUrl: string;
   redirectUri: string;
   expiresAt: string;
+};
+
+export type WhatsAppConnectCompletion = {
+  provider: 'meta_whatsapp_embedded_signup' | 'meta_whatsapp_cloud_api';
+  channel: Channel;
+  completedAt: string;
+  pollPath: string;
 };
 
 export type WebchatFormFieldType =
@@ -396,10 +404,25 @@ export function removeChannel(channelId: string, retentionHours = 1) {
   );
 }
 
-export function startWhatsAppConnect(workspaceId: string) {
+export function startWhatsAppConnect(workspaceId: string, catalogSetup: 'with_catalog' | 'without_catalog' = 'with_catalog') {
   return apiFetch<WhatsAppConnectLaunch>('/channels/whatsapp/connect', {
     method: 'POST',
-    body: JSON.stringify({ workspaceId }),
+    body: JSON.stringify({ workspaceId, catalogSetup }),
+  });
+}
+
+export function completeWhatsAppConnect(values: {
+  state: string;
+  code?: string;
+  codeSource?: 'redirect' | 'sdk';
+  wabaId?: string;
+  phoneNumberId?: string;
+  displayPhoneNumber?: string;
+  businessAccountId?: string;
+}) {
+  return apiFetch<WhatsAppConnectCompletion>('/channels/whatsapp/callback', {
+    method: 'POST',
+    body: JSON.stringify(values),
   });
 }
 
