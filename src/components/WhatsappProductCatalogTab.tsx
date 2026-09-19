@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import { AlertCircle, CheckCircle2, CircleDollarSign, Hash, Link2, Package, PackageCheck, RefreshCw, Tag } from 'lucide-react-native';
+import { AlertCircle, ArrowUpRight, CheckCircle2, CircleDollarSign, Hash, Link2, Package, PackageCheck, RefreshCw, Tag } from 'lucide-react-native';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Toast from 'react-native-toast-message';
@@ -34,10 +34,9 @@ function ProductCard({ product }: { product: WhatsappCatalogProduct }) {
       )}
       <View style={styles.productContent}>
         <View style={styles.productTitleRow}>
-          <Text style={[styles.productTitle, { color: colors.text }]} numberOfLines={1}>{product.name || product.retailerId || 'Untitled product'}</Text>
+          <Text style={[styles.productTitle, { color: colors.text }]} numberOfLines={2}>{product.name || product.retailerId || 'Untitled product'}</Text>
           <View style={styles.price}><Tag color="#059669" size={12} /><Text style={styles.priceText}>{formatPrice(product.priceMinorUnits, product.currency)}</Text></View>
         </View>
-        <Text style={[styles.description, { color: colors.textSecondary }]} numberOfLines={2}>{product.description || 'No description provided.'}</Text>
         <View style={[styles.metadata, { borderTopColor: colors.separator }]}>
           <MetaItem icon={Tag} label="SKU" value={product.retailerId || 'Not provided'} />
           <MetaItem icon={Hash} label="Meta ID" value={product.id} />
@@ -85,18 +84,25 @@ export function WhatsappProductCatalogTab({ channelId }: { channelId: string }) 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-        <Text style={[styles.title, { color: colors.text }]}>WhatsApp product catalog</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Connect the single Meta catalog assigned to this WABA and fetch its products without reconnecting WhatsApp.</Text>
+        <View style={[styles.hero, { backgroundColor: colors.surfaceSecondary }]}>
+          <View style={[styles.heroIcon, { backgroundColor: colors.surface }]}><Package color={colors.primary} size={21} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.eyebrow, { color: colors.primary }]}>WHATSAPP COMMERCE</Text>
+            <Text style={[styles.title, { color: colors.text }]}>Product catalog</Text>
+            <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>Browse products connected to this WhatsApp Business account.</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: latest?.status === 'CONNECTED' ? '#dcfce7' : colors.surface }]}><View style={[styles.statusDot, { backgroundColor: latest?.status === 'CONNECTED' ? '#16a34a' : '#94a3b8' }]} /><Text style={[styles.statusText, { color: latest?.status === 'CONNECTED' ? '#15803d' : colors.textSecondary }]}>{latest?.status === 'CONNECTED' ? 'Active' : 'Setup'}</Text></View>
+        </View>
         <View style={[styles.accessCard, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
           <View style={styles.accessIcon}><Link2 color={colors.primary} size={17} /></View>
-          <View style={styles.accessCopy}><Text style={[styles.accessTitle, { color: colors.text }]}>Server-managed Meta access</Text><Text style={[styles.subtitle, { marginTop: 4, marginBottom: 0, fontSize: 12 }]}>Catalog operations use the stored WhatsApp channel token. Channel OAuth credentials and webhooks stay unchanged.</Text></View>
+          <View style={styles.accessCopy}><Text style={[styles.accessTitle, { color: colors.text }]}>Secure Meta connection</Text><Text style={[styles.subtitle, { marginTop: 4, marginBottom: 0, fontSize: 12 }]}>Catalog access uses this channel’s saved credentials.</Text></View>
           <View style={styles.connectedPill}><CheckCircle2 color={colors.primary} size={13} /><Text style={[styles.connectedText, { color: colors.primary }]}>{latest?.status === 'CONNECTED' ? 'Connected' : 'Not connected'}</Text></View>
         </View>
         <View style={[styles.form, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
           <Text style={[styles.formLabel, { color: colors.text }]}>Meta catalog ID</Text>
           <View style={styles.formRow}>
-            <TextInput value={catalogIdDraft} onChangeText={setCatalogIdDraft} placeholder="Paste the catalog ID from Commerce Manager" placeholderTextColor={colors.textMuted} style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]} autoCapitalize="none" />
-            <AppButton label={activeCatalog?.id === catalogId ? 'Connected' : 'Connect'} icon={Link2} loading={connect.isPending} disabled={!catalogId || activeCatalog?.id === catalogId} onPress={() => connect.mutate(catalogId)} />
+            <TextInput value={catalogIdDraft} onChangeText={setCatalogIdDraft} placeholder="Paste catalog ID from Commerce Manager" placeholderTextColor={colors.textMuted} style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]} autoCapitalize="none" />
+            <AppButton label={activeCatalog?.id === catalogId ? 'Connected' : 'Connect catalog'} icon={Link2} loading={connect.isPending} disabled={!catalogId || activeCatalog?.id === catalogId} onPress={() => connect.mutate(catalogId)} />
           </View>
         </View>
         {catalog.isLoading ? <View style={styles.center}><ActivityIndicator color={colors.primary} /><Text style={[styles.subtitle, { marginTop: 8 }]}>Fetching catalogs from Meta…</Text></View> : catalog.isError ? (
@@ -104,12 +110,12 @@ export function WhatsappProductCatalogTab({ channelId }: { channelId: string }) 
         ) : (
           <>
             <View style={[styles.catalogSummary, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-              <View style={{ flex: 1 }}><Text style={styles.overline}>CONNECTED META CATALOG</Text><Text style={[styles.catalogName, { color: colors.text }]}>{activeCatalog?.name || 'Untitled catalog'}</Text><Text style={[styles.subtitle, { marginTop: 3, marginBottom: 0 }]}># {activeCatalog?.id || 'Catalog ID unavailable'}</Text></View>
+              <View style={styles.catalogIdentity}><View style={[styles.catalogIcon, { backgroundColor: colors.surfaceSecondary }]}><PackageCheck color={colors.primary} size={18} /></View><View style={{ flex: 1 }}><Text style={styles.overline}>CONNECTED META CATALOG</Text><Text style={[styles.catalogName, { color: colors.text }]}>{activeCatalog?.name || 'Untitled catalog'}</Text><Text style={[styles.subtitle, { marginTop: 3, marginBottom: 0 }]}>ID {activeCatalog?.id || 'unavailable'}</Text></View></View>
               <View style={styles.summaryActions}><View style={styles.oneCatalog}><Text style={[styles.connectedText, { color: colors.primary }]}>One catalog per WABA</Text></View><AppButton label="Refresh" icon={RefreshCw} variant="secondary" loading={catalog.isFetching} onPress={() => void catalog.refetch()} /></View>
             </View>
-            <View style={styles.fetchMeta}><Text style={[styles.subtitle, { marginBottom: 0 }]}>{activeCatalog?.name || 'Selected catalog'} · {products.length} products loaded</Text><Text style={[styles.subtitle, { marginBottom: 0 }]}>{latest?.lastFetchedAt ? `Fetched ${new Date(latest.lastFetchedAt).toLocaleString()}` : 'Not fetched yet'}</Text></View>
+            <View style={[styles.resultsHeader, { borderBottomColor: colors.separator }]}><View><Text style={[styles.resultsTitle, { color: colors.text }]}>Products</Text><Text style={[styles.subtitle, { marginTop: 2, marginBottom: 0 }]}>{products.length} loaded{catalog.hasNextPage ? ' · more available' : ''}</Text></View><Text style={[styles.subtitle, { marginBottom: 0, textAlign: 'right' }]}>{latest?.lastFetchedAt ? `Updated ${new Date(latest.lastFetchedAt).toLocaleString()}` : 'Not fetched yet'}</Text></View>
             {products.length === 0 ? <View style={[styles.empty, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><Text style={[styles.subtitle, { marginBottom: 0 }]}>No products were returned for this catalog.</Text></View> : products.map((product) => <ProductCard key={product.id} product={product} />)}
-            {catalog.hasNextPage ? <AppButton label={catalog.isFetchingNextPage ? 'Loading products…' : 'Load more products'} variant="secondary" loading={catalog.isFetchingNextPage} onPress={() => void catalog.fetchNextPage()} style={{ alignSelf: 'center' }} /> : null}
+            {catalog.hasNextPage ? <AppButton label={catalog.isFetchingNextPage ? 'Loading products…' : 'Load more products'} icon={ArrowUpRight} variant="secondary" loading={catalog.isFetchingNextPage} onPress={() => void catalog.fetchNextPage()} style={{ alignSelf: 'center' }} /> : null}
           </>
         )}
       </View>
@@ -118,11 +124,18 @@ export function WhatsappProductCatalogTab({ channelId }: { channelId: string }) 
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 14, paddingBottom: 32 },
-  card: { borderWidth: 1, borderRadius: 22, padding: 16, gap: 14 },
-  title: { fontSize: 18, fontWeight: '700' },
+  content: { padding: 14, gap: 14, paddingBottom: 32 },
+  card: { borderWidth: 1, borderRadius: 26, padding: 14, gap: 14, shadowColor: '#0f172a', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.04, shadowRadius: 14, elevation: 2 },
+  hero: { borderRadius: 20, padding: 15, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  heroIcon: { width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  eyebrow: { fontSize: 9, fontWeight: '800', letterSpacing: 1.1, marginBottom: 3 },
+  title: { fontSize: 19, fontWeight: '800', letterSpacing: -0.35 },
+  heroSubtitle: { fontSize: 11, lineHeight: 15, marginTop: 3 },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusText: { fontSize: 10, fontWeight: '700' },
   subtitle: { color: '#64748b', fontSize: 13, lineHeight: 19, marginBottom: 14 },
-  accessCard: { borderWidth: 1, borderRadius: 18, padding: 13, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  accessCard: { borderWidth: 1, borderRadius: 17, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
   accessIcon: { width: 38, height: 38, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
   accessCopy: { flex: 1 },
   accessTitle: { fontSize: 13, fontWeight: '700' },
@@ -131,19 +144,22 @@ const styles = StyleSheet.create({
   form: { borderWidth: 1, borderRadius: 18, padding: 13, gap: 8 },
   formLabel: { fontSize: 12, fontWeight: '600' },
   formRow: { gap: 8 },
-  input: { minHeight: 42, borderWidth: 1, borderRadius: 12, paddingHorizontal: 11, fontSize: 13 },
-  catalogSummary: { borderWidth: 1, borderRadius: 18, padding: 14, gap: 12 },
+  input: { minHeight: 46, borderWidth: 1, borderRadius: 13, paddingHorizontal: 12, fontSize: 13 },
+  catalogSummary: { borderWidth: 1, borderRadius: 19, padding: 13, gap: 12 },
+  catalogIdentity: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  catalogIcon: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   overline: { color: '#94a3b8', fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
   catalogName: { marginTop: 6, fontSize: 14, fontWeight: '600' },
   summaryActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   oneCatalog: { backgroundColor: '#eef2ff', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 8 },
-  fetchMeta: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 4 },
-  productCard: { borderWidth: 1, borderRadius: 18, padding: 11, flexDirection: 'row', gap: 11 },
-  productImage: { width: 62, height: 62, borderRadius: 12 },
+  resultsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, paddingBottom: 10, gap: 8 },
+  resultsTitle: { fontSize: 16, fontWeight: '800' },
+  productCard: { borderWidth: 1, borderRadius: 19, padding: 10, flexDirection: 'row', gap: 11, shadowColor: '#0f172a', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.035, shadowRadius: 8, elevation: 1 },
+  productImage: { width: 72, height: 72, borderRadius: 15 },
   imagePlaceholder: { alignItems: 'center', justifyContent: 'center' },
   productContent: { flex: 1, minWidth: 0 },
   productTitleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
-  productTitle: { flex: 1, fontSize: 13, fontWeight: '700' },
+  productTitle: { flex: 1, fontSize: 13, lineHeight: 17, fontWeight: '700' },
   price: { color: '#047857', backgroundColor: '#ecfdf5', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 4 },
   priceText: { color: '#047857', fontSize: 11, fontWeight: '700' },
   description: { marginTop: 4, fontSize: 11, lineHeight: 16 },
