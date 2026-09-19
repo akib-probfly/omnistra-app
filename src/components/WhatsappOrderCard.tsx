@@ -51,7 +51,6 @@ export function WhatsappOrderCard({ order, channelId }: { order: WhatsappOrder; 
         <View style={styles.countBadge}><Text style={styles.countText}>{order.items.length}</Text></View>
       </View>
       <View style={styles.body}>
-        {order.catalogId ? <View style={styles.catalogLine}><Package color={colors.textMuted} size={13} /><Text style={styles.catalogLabel}>CATALOG</Text><Text style={[styles.catalogId, { color: colors.text }]} numberOfLines={1}>{order.catalogId}</Text></View> : null}
         {order.text ? <Text style={[styles.orderText, { color: colors.textSecondary }]} numberOfLines={2}>{order.text}</Text> : null}
         <View style={[styles.items, { borderColor: colors.separator }]}>
           {order.items.map((item, index) => {
@@ -66,9 +65,7 @@ export function WhatsappOrderCard({ order, channelId }: { order: WhatsappOrder; 
                 {product?.imageUrl ? <Image source={{ uri: product.imageUrl }} style={styles.productImage} contentFit="cover" cachePolicy="memory-disk" /> : <View style={[styles.productImage, styles.imagePlaceholder, { backgroundColor: colors.surfaceSecondary }]}><Package color={colors.textMuted} size={16} /></View>}
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>{name}</Text>
-                  <Text style={styles.retailerId} numberOfLines={1}>{item.productRetailerId}</Text>
                   <View style={styles.itemMeta}><Text style={[styles.itemMetaText, { color: colors.textSecondary }]}>Qty {item.quantity}</Text><Text style={styles.separator}>·</Text><Text style={[styles.itemMetaText, { color: colors.textSecondary }]}>{formatPrice(unitPrice, currency)} each</Text>{availability ? <><Text style={styles.separator}>·</Text><Text style={[styles.itemMetaText, { color: colors.textSecondary }]}>{availability}</Text></> : null}</View>
-                  {product?.description ? <Text style={[styles.description, { color: colors.textSecondary }]} numberOfLines={1}>{product.description}</Text> : null}
                 </View>
                 <Text style={[styles.lineTotal, { color: colors.text }]}>{formatPrice(lineTotal, currency)}</Text>
               </View>
@@ -91,20 +88,15 @@ const styles = StyleSheet.create({
   countBadge: { minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ecfdf5' },
   countText: { color: '#047857', fontSize: 10, fontWeight: '700' },
   body: { padding: 11, gap: 10 },
-  catalogLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  catalogLabel: { color: '#64748b', fontSize: 9, letterSpacing: 0.8 },
-  catalogId: { flex: 1, fontSize: 10, fontWeight: '600' },
   orderText: { fontSize: 11, lineHeight: 16 },
   items: { overflow: 'hidden', borderWidth: 1, borderRadius: 13 },
   itemRow: { paddingHorizontal: 9, paddingVertical: 9, flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   productImage: { width: 38, height: 38, borderRadius: 9 },
   imagePlaceholder: { alignItems: 'center', justifyContent: 'center' },
   productName: { fontSize: 11, fontWeight: '700' },
-  retailerId: { marginTop: 1, color: '#94a3b8', fontSize: 9 },
   itemMeta: { marginTop: 3, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
   itemMetaText: { fontSize: 9 },
   separator: { color: '#94a3b8', fontSize: 9 },
-  description: { marginTop: 3, fontSize: 9 },
   lineTotal: { fontSize: 10, fontWeight: '700' },
   loading: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   totalRow: { paddingTop: 9, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

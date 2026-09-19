@@ -190,16 +190,23 @@ export function ChannelCatalogScreen() {
         </View>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-        {FILTERS.map((filter) => (
-          <AppChip
-            key={filter}
-            label={filter}
-            selected={activeFilter === filter}
-            onPress={() => setActiveFilter(filter)}
-          />
-        ))}
-      </ScrollView>
+      <View style={styles.filtersContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filters}
+          style={styles.filtersScroll}
+        >
+          {FILTERS.map((filter) => (
+            <AppChip
+              key={filter}
+              label={filter}
+              selected={activeFilter === filter}
+              onPress={() => setActiveFilter(filter)}
+            />
+          ))}
+        </ScrollView>
+      </View>
 
       <View style={styles.searchRow}>
         <AppSearchField value={query} onChangeText={setQuery} placeholder="Search channel catalog..." />
@@ -333,7 +340,9 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#dce8f7', borderBottomWidth: 1, flexDirection: 'row', paddingBottom: 12, paddingHorizontal: 16 },
   headerTitle: { color: '#0f172a', fontSize: 20, fontWeight: '800' },
   headerSub: { color: '#64748b', fontSize: 12, marginTop: 2 },
-  filters: { gap: 8, paddingHorizontal: 16, paddingVertical: 14 },
+  filtersContainer: { height: 54, justifyContent: 'center' },
+  filtersScroll: { flexGrow: 0 },
+  filters: { alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 6 },
   searchRow: { flexDirection: 'row', marginBottom: 12, marginHorizontal: 16 },
   banner: { backgroundColor: '#fff1f2', borderColor: '#fecdd3', borderRadius: 12, borderWidth: 1, marginHorizontal: 16, marginBottom: 10, padding: 12 },
   bannerText: { color: '#be123c', fontSize: 13 },
