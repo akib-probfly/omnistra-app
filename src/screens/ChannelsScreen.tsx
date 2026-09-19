@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
-import { CheckCircle2, ChevronRight, CircleAlert, Pause, Plus } from 'lucide-react-native';
+import { CheckCircle2, ChevronRight, CircleAlert, Pause } from 'lucide-react-native';
 import { useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -62,10 +62,6 @@ export function ChannelsScreen() {
         <View style={styles.topbarCopy}>
           <Text style={[styles.title, { color: colors.text }]}>Channels</Text>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="Add channel" onPress={() => navigation.navigate('ChannelCatalog')} style={[styles.addChannelButton, { backgroundColor: colors.primary }]}>
-          <Plus color="#fff" size={17} />
-          <Text style={styles.addChannelText}>Add</Text>
-        </Pressable>
         <NotificationBell onOpen={() => setNotificationsOpen(true)} />
       </View>
 
@@ -153,8 +149,6 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: '#eef4fb', flex: 1 },
   topbar: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e8eef7', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 14, paddingHorizontal: 18 },
   topbarCopy: { flex: 1, minWidth: 0 },
-  addChannelButton: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 5, marginRight: 8, paddingHorizontal: 10, paddingVertical: 8 },
-  addChannelText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   title: { color: '#0f172a', fontSize: 24, fontWeight: '800' },
   subtitle: { color: '#64748b', fontSize: 13, marginTop: 4 },
   metrics: { flexDirection: 'row', gap: 10, marginTop: 16, paddingHorizontal: 16 },

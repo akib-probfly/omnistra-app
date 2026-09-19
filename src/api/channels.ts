@@ -210,25 +210,6 @@ export type WhatsappBusinessProfileUpdateInput = {
   profilePictureHandle?: string | null;
 };
 
-export type WhatsAppConnectLaunch = {
-  provider: 'meta_whatsapp_embedded_signup';
-  channelType: 'WHATSAPP';
-  workspaceId: string;
-  workspaceName: string;
-  catalogSetup: 'with_catalog' | 'without_catalog';
-  state: string;
-  launchUrl: string;
-  redirectUri: string;
-  expiresAt: string;
-};
-
-export type WhatsAppConnectCompletion = {
-  provider: 'meta_whatsapp_embedded_signup' | 'meta_whatsapp_cloud_api';
-  channel: Channel;
-  completedAt: string;
-  pollPath: string;
-};
-
 export type WebchatFormFieldType =
   | 'TEXT'
   | 'EMAIL'
@@ -404,38 +385,6 @@ export function removeChannel(channelId: string, retentionHours = 1) {
   );
 }
 
-export function startWhatsAppConnect(workspaceId: string, catalogSetup: 'with_catalog' | 'without_catalog' = 'with_catalog') {
-  return apiFetch<WhatsAppConnectLaunch>('/channels/whatsapp/connect', {
-    method: 'POST',
-    body: JSON.stringify({ workspaceId, catalogSetup }),
-  });
-}
-
-export function completeWhatsAppConnect(values: {
-  state: string;
-  code?: string;
-  codeSource?: 'redirect' | 'sdk';
-  wabaId?: string;
-  phoneNumberId?: string;
-  displayPhoneNumber?: string;
-  businessAccountId?: string;
-}) {
-  return apiFetch<WhatsAppConnectCompletion>('/channels/whatsapp/callback', {
-    method: 'POST',
-    body: JSON.stringify(values),
-  });
-}
-
-export function startMessengerConnect(workspaceId: string) {
-  return apiFetch<{ state: string; launchUrl: string }>(
-    '/channels/messenger/connect',
-    {
-      method: 'POST',
-      body: JSON.stringify({ workspaceId }),
-    },
-  );
-}
-
 export type TikTokConnectLaunch = {
   provider: 'tiktok_business_messaging';
   channelType: 'TIKTOK';
@@ -453,13 +402,6 @@ export type TikTokSyncResponse = {
   skippedMessages: number;
   syncedAt: string;
 };
-
-export function startTikTokConnect(workspaceId: string) {
-  return apiFetch<TikTokConnectLaunch>('/channels/tiktok/connect', {
-    method: 'POST',
-    body: JSON.stringify({ workspaceId }),
-  });
-}
 
 export function reconnectTikTokChannel(channelId: string) {
   return apiFetch<TikTokConnectLaunch>(`/channels/${channelId}/reconnect`, {
