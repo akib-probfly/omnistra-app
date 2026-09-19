@@ -44,6 +44,7 @@ import { getCallChrome, setFocusedCallConversationId, subscribeCallChrome, remem
 import { fetchWebchatSettings } from '../api/channels';
 import { isWhatsappCallSupported } from '../lib/whatsapp-calling';
 import { useInboxAppearance } from '../hooks/useInboxAppearance';
+import { getCountryCodeFromPhone, getCountryFlag } from '../lib/countryFromPhone';
 import { useTheme } from '../theme/ThemeContext';
 
 type Attachment = { id: string; messageId?: string | null; mediaType: string; mimeType: string; originalName: string | null; downloadUrl: string; previewUrl: string | null; thumbnailUrl: string | null; durationMs: number | null };
@@ -784,9 +785,9 @@ export function ConversationScreen() {
       ? (currentConversation?.messaging?.canSendFreeformMessage ?? true)
       : currentConversation?.messaging?.canSendFreeformMessage;
   const showHeaderPresenceDot = !isWhatsAppConversation || headerMessagingLoaded;
-  const contactSubtitle =
-    formatPhoneNumberDisplay(currentConversation?.contact?.primaryPhone) ??
-    formatUsernameDisplay(currentConversation?.contact?.username);
+  const contactPhone = formatPhoneNumberDisplay(currentConversation?.contact?.primaryPhone);
+  const contactCountryCode = getCountryCodeFromPhone(currentConversation?.contact?.primaryPhone);
+  const contactSubtitle = contactPhone ?? formatUsernameDisplay(currentConversation?.contact?.username);
   const title = getConversationTitle(currentConversation, route.params.contactName);
 
   useEffect(() => {
@@ -985,9 +986,16 @@ export function ConversationScreen() {
           <View style={styles.titleBlock}>
             <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{title}</Text>
             {contactSubtitle ? (
-              <Text style={[styles.contactSubtitle, { color: colors.textMuted }]}>
-                {contactSubtitle}
-              </Text>
+              <View style={styles.contactSubtitleRow}>
+                <Text style={[styles.contactSubtitle, { color: colors.textMuted }]} numberOfLines={1}>
+                  {contactSubtitle}
+                </Text>
+                {contactPhone && contactCountryCode ? (
+                  <Text style={styles.contactCountryFlag} accessibilityLabel={`${contactCountryCode} flag`}>
+                    {getCountryFlag(contactCountryCode)}
+                  </Text>
+                ) : null}
+              </View>
             ) : null}
             {showConversationWindowLabel ? (
               <Text
@@ -1283,7 +1291,9 @@ const styles = StyleSheet.create({
   presenceExpired: { backgroundColor: '#ef4444' },
   titleBlock: { flex: 1, minWidth: 0 },
   name: { color: '#0f172a', fontWeight: '700' },
-  contactSubtitle: { color: '#64748b', fontSize: 12, fontWeight: '500', marginTop: 1, width: '100%' },
+  contactSubtitleRow: { alignItems: 'center', flexDirection: 'row', gap: 5, marginTop: 1, minWidth: 0 },
+  contactCountryFlag: { fontSize: 12 },
+  contactSubtitle: { color: '#64748b', flexShrink: 1, fontSize: 12, fontWeight: '500', minWidth: 0 },
   windowLabel: { fontSize: 11, fontWeight: '700', marginTop: 1, width: '100%' },
   headerActions: { alignItems: 'center', flexDirection: 'row', flexShrink: 0, gap: 8 },
   list: { backgroundColor: 'transparent', flex: 1 },
