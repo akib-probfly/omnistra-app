@@ -13,7 +13,8 @@ import { NotificationBell, NotificationCenter } from '../components/Notification
 import { ListSkeleton } from '../components/Skeleton';
 import type { ChannelsStackParamList } from '../navigation/ChannelsStack';
 import { useTheme } from '../theme/ThemeContext';
-import { AppSearchField, EmptyState } from '../ui';
+import { fontWeight, radius, spacing } from '../theme/tokens';
+import { AppBadge, AppSearchField, AppText, EmptyState } from '../ui';
 
 type Channel = {
   id: string;
@@ -58,9 +59,9 @@ export function ChannelsScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={[styles.topbar, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
+      <View style={[styles.topbar, { paddingTop: insets.top + spacing.sm + 2, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
         <View style={styles.topbarCopy}>
-          <Text style={[styles.title, { color: colors.text }]}>Channels</Text>
+          <AppText variant="title">Channels</AppText>
         </View>
         <NotificationBell onOpen={() => setNotificationsOpen(true)} />
       </View>
@@ -122,22 +123,19 @@ function ChannelRow({ channel, onPress }: { channel: Channel; onPress: () => voi
   const idLine = primary?.wabaId ?? primary?.phoneNumberId ?? primary?.pageId ?? channel.id.slice(-15);
   const statusLabel = isPaused ? 'Paused' : connected ? 'Active' : status.toLowerCase();
   const StatusIcon = isPaused ? Pause : connected ? CheckCircle2 : CircleAlert;
-  const statusTone = isPaused || !connected ? '#d97706' : '#059669';
+  const statusTone = isPaused || !connected ? 'warning' : 'success';
   return (
     <Pressable onPress={onPress} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
       <ChannelLogo type={channel.type ?? channel.channelType} box={48} glyph={24} radius={14} />
       <View style={styles.copy}>
         <View style={styles.nameLine}>
-          <Text style={[styles.name, { color: colors.text }]}>{channel.channelName ?? channel.name ?? 'Unnamed channel'}</Text>
-          <View style={[styles.badge, { backgroundColor: isPaused || !connected ? '#fff4d6' : '#dff8ee' }]}>
-            <StatusIcon color={statusTone} size={12} />
-            <Text style={{ color: statusTone, fontSize: 11, fontWeight: '600' }}>{statusLabel}</Text>
-          </View>
+          <AppText variant="bodyStrong" numberOfLines={1} style={styles.name}>{channel.channelName ?? channel.name ?? 'Unnamed channel'}</AppText>
+          <AppBadge size="sm" tone={statusTone} icon={StatusIcon} label={statusLabel} />
         </View>
-        <Text style={[styles.detail, { color: colors.textSecondary }]} numberOfLines={1}>{primaryLine}</Text>
+        <AppText variant="caption" tone="secondary" numberOfLines={1} style={styles.detail}>{primaryLine}</AppText>
         <View style={styles.metaLine}>
-          <Text style={[styles.idText, { color: colors.textMuted }]} numberOfLines={1}>ID: {idLine}</Text>
-          <Text style={[styles.msg24h, { color: colors.textSecondary }]}>{channel.messagesLast24h ?? 0} msgs / 24h</Text>
+          <AppText variant="small" tone="muted" numberOfLines={1} style={styles.idText}>ID: {idLine}</AppText>
+          <AppText variant="small" tone="secondary" style={{ fontWeight: fontWeight.semibold }}>{channel.messagesLast24h ?? 0} msgs / 24h</AppText>
         </View>
       </View>
       <ChevronRight color={colors.textMuted} size={20} />
@@ -146,34 +144,43 @@ function ChannelRow({ channel, onPress }: { channel: Channel; onPress: () => voi
 }
 
 const styles = StyleSheet.create({
-  screen: { backgroundColor: '#eef4fb', flex: 1 },
-  topbar: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#e8eef7', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 14, paddingHorizontal: 18 },
+  screen: { flex: 1 },
+  topbar: {
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingBottom: spacing.md + 2,
+    paddingHorizontal: spacing.lg,
+  },
   topbarCopy: { flex: 1, minWidth: 0 },
-  title: { color: '#0f172a', fontSize: 24, fontWeight: '800' },
-  subtitle: { color: '#64748b', fontSize: 13, marginTop: 4 },
-  metrics: { flexDirection: 'row', gap: 10, marginTop: 16, paddingHorizontal: 16 },
+  metrics: { flexDirection: 'row', gap: spacing.sm + 2, marginTop: spacing.lg, paddingHorizontal: spacing.lg },
   metricCard: {
-    borderRadius: 14,
+    borderRadius: radius.lg,
     flex: 1,
-    gap: 4,
+    gap: spacing.xs,
     minWidth: 0,
     overflow: 'hidden',
-    padding: 12,
+    padding: spacing.md,
   },
   metricValue: { color: '#fff', fontSize: 22, fontWeight: '800' },
   metricLabel: { color: 'rgba(255,255,255,0.88)', fontSize: 11, fontWeight: '600', marginTop: 3 },
-  orb: { backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: 999, position: 'absolute' },
+  orb: { backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.pill, position: 'absolute' },
   orbA: { height: 72, right: -20, top: -24, width: 72 },
   orbB: { bottom: -22, height: 56, left: -16, width: 56 },
-  searchRow: { flexDirection: 'row', margin: 16, marginBottom: 0 },
-  list: { gap: 10, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 },
-  card: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, flexDirection: 'row', padding: 14 },
-  copy: { flex: 1, marginLeft: 12 },
-  nameLine: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  name: { color: '#0f172a', flexShrink: 1, fontSize: 15, fontWeight: '700' },
-  badge: { alignItems: 'center', borderRadius: 10, flexDirection: 'row', gap: 3, paddingHorizontal: 8, paddingVertical: 3 },
-  detail: { color: '#475569', fontSize: 13, marginTop: 3 },
-  metaLine: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'space-between', marginTop: 5 },
-  idText: { color: '#94a3b8', flex: 1, fontSize: 11 },
-  msg24h: { color: '#64748b', fontSize: 11, fontWeight: '600' },
+  searchRow: { flexDirection: 'row', margin: spacing.lg, marginBottom: 0 },
+  list: { gap: spacing.sm + 2, paddingBottom: spacing.xxl, paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
+  card: {
+    alignItems: 'center',
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    flexDirection: 'row',
+    padding: spacing.md + 2,
+  },
+  copy: { flex: 1, marginLeft: spacing.md },
+  nameLine: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  name: { flexShrink: 1 },
+  detail: { marginTop: 3 },
+  metaLine: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'space-between', marginTop: 5 },
+  idText: { flex: 1 },
 });
