@@ -194,12 +194,13 @@ const ROOT_BG = '#f4f7fb';
 
 function RootApp() {
   const { loading } = useAuth();
+  const { colors, isDark } = useTheme();
   const [splashDone, setSplashDone] = useState(false);
   const finishSplash = useCallback(() => setSplashDone(true), []);
   const showSplash = !splashDone || loading;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: ROOT_BG }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <KeyboardProvider>
         <SafeAreaProvider>
           {showSplash ? (
@@ -210,7 +211,16 @@ function RootApp() {
               linking={linking as never}
               theme={{
                 ...DefaultTheme,
-                colors: { ...DefaultTheme.colors, background: ROOT_BG },
+                dark: isDark,
+                colors: {
+                  ...DefaultTheme.colors,
+                  primary: colors.primary,
+                  background: colors.background,
+                  card: colors.surface,
+                  text: colors.text,
+                  border: colors.cardBorder,
+                  notification: colors.error,
+                },
               }}
             >
               <ThemedStatusBar />

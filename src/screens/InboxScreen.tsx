@@ -33,6 +33,7 @@ import { applyUnreadOverrideToPage } from '../lib/unread-count-override';
 import { pollingWhileUnlocked } from '../lib/billing-lock';
 import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { useTheme } from '../theme/ThemeContext';
+import { AppBadge } from '../ui';
 
 type SidebarTab = 'chats' | 'calls';
 type Tab = 'all' | 'unread' | 'closed';
@@ -939,7 +940,7 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
           <Text style={[styles.time, { color: hasUnread ? colors.primary : colors.textMuted }, hasUnread && styles.timeUnread]}>{formatTime(previewTimestamp)}</Text>
           <View style={styles.sideMiddle}>
             {hasUnread ? (
-              <View style={styles.unreadBadge}><Text style={styles.unreadText}>{conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}</Text></View>
+              <AppBadge tone="primary" size="sm" label={conversation.unreadCount > 9 ? '9+' : String(conversation.unreadCount)} style={styles.unreadBadge} />
             ) : null}
           </View>
           <AssigneeBadge assignee={conversation.assignee} />
@@ -991,7 +992,6 @@ const styles = StyleSheet.create({
   filterPillActive: { backgroundColor: '#fff', elevation: 1, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4 },
   filterText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
   filterTextActive: { color: '#17233a', fontWeight: '700' },
-  count: { backgroundColor: '#eef4ff', borderRadius: 10, color: '#2563eb', fontSize: 11, fontWeight: '700', minWidth: 20, overflow: 'hidden', paddingHorizontal: 6, paddingVertical: 2, textAlign: 'center' },
   closedBanner: { backgroundColor: '#eff6ff', borderColor: '#dbeafe', borderRadius: 10, borderWidth: 1, marginHorizontal: 12, marginTop: 8, paddingHorizontal: 10, paddingVertical: 6 },
   closedBannerTitle: { color: '#0f172a', fontSize: 12, fontWeight: '700' },
   unrepliedToggle: { alignItems: 'center', borderColor: '#e2e8f0', borderRadius: 16, borderWidth: 1, flexDirection: 'row', flexShrink: 0, gap: 6, paddingHorizontal: 8, paddingVertical: 5 },
@@ -1053,12 +1053,6 @@ const styles = StyleSheet.create({
   emptyFilterHint: { color: '#94a3b8', fontSize: 13, paddingVertical: 12 },
   sectionLabel: { color: '#64748b', fontSize: 12, fontWeight: '700', letterSpacing: 0.4, marginBottom: 8, marginTop: 4, textTransform: 'uppercase' },
   dateFilterWrap: { marginBottom: 8 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { borderColor: '#c8dcfc', borderRadius: 18, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 7 },
-  channelChip: { alignItems: 'center', flexDirection: 'row', gap: 8, paddingHorizontal: 10, paddingVertical: 6 },
-  chipActive: { backgroundColor: '#eef4ff', borderColor: '#2563eb' },
-  chipText: { color: '#526987', fontSize: 13 },
-  chipTextActive: { color: '#2563eb', fontWeight: '700' },
   assignmentSegment: { backgroundColor: '#f1f5f9', borderRadius: 20, flexDirection: 'row', marginBottom: 14, padding: 4 },
   assignmentOption: { alignItems: 'center', borderRadius: 16, flex: 1, paddingVertical: 8 },
   assignmentOptionActive: { backgroundColor: '#fff', elevation: 1, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4 },
@@ -1101,8 +1095,7 @@ const styles = StyleSheet.create({
   windowDotWrap: { alignItems: 'center', height: 12, justifyContent: 'center', width: 12 },
   windowDotRing: { borderRadius: 6, height: 12, position: 'absolute', width: 12 },
   windowDot: { borderRadius: 4, elevation: 3, height: 8, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 5, width: 8 },
-  unreadBadge: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 10, justifyContent: 'center', minWidth: 20, paddingHorizontal: 5 },
-  unreadText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  unreadBadge: { minWidth: 20, paddingHorizontal: 5 },
   time: { color: '#8ba2c3', fontSize: 11 },
   timeUnread: { color: '#315efb', fontWeight: '700' },
   channel: { color: '#94a3b8', fontSize: 11, marginTop: 2, textTransform: 'capitalize' },

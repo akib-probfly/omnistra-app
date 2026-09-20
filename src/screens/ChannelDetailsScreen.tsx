@@ -41,14 +41,15 @@ import { WhatsappTemplatesTab } from '../components/WhatsappTemplatesTab';
 import { WhatsappProductCatalogTab } from '../components/WhatsappProductCatalogTab';
 import type { ChannelsStackParamList } from '../navigation/ChannelsStack';
 import { useTheme } from '../theme/ThemeContext';
+import { AppBadge, badgePalette, type BadgeTone } from '../ui';
 import { apiUrl } from '../api/client';
 
-const STATUS_TONE: Record<string, { bg: string; fg: string }> = {
-  CONNECTED: { bg: '#e8fbf3', fg: '#047857' },
-  PENDING: { bg: '#fff7df', fg: '#b45309' },
-  NEEDS_ACTION: { bg: '#ffe4e6', fg: '#be123c' },
-  ERROR: { bg: '#ffe4e6', fg: '#be123c' },
-  DISCONNECTED: { bg: '#f1f5f9', fg: '#64748b' },
+const STATUS_TONE: Record<string, BadgeTone> = {
+  CONNECTED: 'success',
+  PENDING: 'warning',
+  NEEDS_ACTION: 'danger',
+  ERROR: 'danger',
+  DISCONNECTED: 'neutral',
 };
 
 const WHATSAPP_BUSINESS_VERTICAL_OPTIONS = [
@@ -123,7 +124,7 @@ export function ChannelDetailsScreen() {
   const channelId = route.params.channelId;
   const [tab, setTab] = useState<string>('overview');
   const [channelConfirm, setChannelConfirm] = useState<'remove' | 'pause' | 'resume' | null>(null);
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
 
   const details = useQuery({
     queryKey: ['channel-details', channelId],
@@ -294,7 +295,6 @@ export function ChannelDetailsScreen() {
             subtitle="Messenger channel configuration"
             statusTone={statusTone}
             lifecycle={lifecycle}
-            isDark={isDark}
             colors={colors}
             onRestore={() => restore.mutate()}
           />
@@ -335,7 +335,6 @@ export function ChannelDetailsScreen() {
             title={accountLabel}
             statusTone={statusTone}
             lifecycle={lifecycle}
-            isDark={isDark}
             colors={colors}
             onRestore={() => restore.mutate()}
           />
@@ -372,7 +371,6 @@ export function ChannelDetailsScreen() {
             title={accountLabel}
             statusTone={statusTone}
             lifecycle={lifecycle}
-            isDark={isDark}
             colors={colors}
             onRestore={() => restore.mutate()}
           />
@@ -405,7 +403,6 @@ export function ChannelDetailsScreen() {
           subtitle="WhatsApp channel configuration"
           statusTone={statusTone}
           lifecycle={lifecycle}
-          isDark={isDark}
           colors={colors}
           onRestore={() => restore.mutate()}
         />
@@ -635,16 +632,14 @@ function ChannelConfigurationHero({
   title,
   statusTone,
   lifecycle,
-  isDark,
   colors,
   onRestore,
 }: {
   channel: ChannelDetails;
   subtitle: string;
   title?: string;
-  statusTone: { bg: string; fg: string };
+  statusTone: BadgeTone;
   lifecycle: ChannelDetails['lifecycle'];
-  isDark: boolean;
   colors: ReturnType<typeof useTheme>['colors'];
   onRestore: () => void;
 }) {
@@ -656,21 +651,19 @@ function ChannelConfigurationHero({
           <Text style={[styles.channelName, { color: colors.text }]}>{title ?? channel.name}</Text>
           <Text style={[styles.heroSub, { color: colors.textSecondary }]}>{subtitle}</Text>
           <View style={styles.badges}>
-            <View style={[styles.badge, { backgroundColor: statusTone.bg }]}>
-              <Text style={[styles.badgeText, { color: statusTone.fg }]}>{formatConfigStatus(channel.status)}</Text>
-            </View>
-            {lifecycle.isPaused ? <View style={[styles.badge, { backgroundColor: '#fff7df' }]}><Text style={[styles.badgeText, { color: '#b45309' }]}>Paused</Text></View> : null}
-            {lifecycle.isRemoved ? <View style={[styles.badge, { backgroundColor: '#ffe4e6' }]}><Text style={[styles.badgeText, { color: '#be123c' }]}>Removed</Text></View> : null}
+            <AppBadge size="sm" tone={statusTone} label={formatConfigStatus(channel.status)} />
+            {lifecycle.isPaused ? <AppBadge size="sm" tone="warning" label="Paused" /> : null}
+            {lifecycle.isRemoved ? <AppBadge size="sm" tone="danger" label="Removed" /> : null}
           </View>
         </View>
       </View>
 
       {lifecycle.isRemoved ? (
-        <View style={[styles.dangerCard, { backgroundColor: isDark ? colors.surface : '#fff1f2', borderColor: isDark ? colors.surfaceSecondary : '#fecdd3' }]}>
+        <View style={[styles.dangerCard, { backgroundColor: colors.dangerSoft, borderColor: colors.dangerBorder }]}>
           <Text style={[styles.dangerTitle, { color: colors.error }]}>Removal scheduled</Text>
           <Text style={[styles.dangerText, { color: colors.textSecondary }]}>This channel is pending permanent deletion. {lifecycle.removeReason ? `Reason: ${lifecycle.removeReason}` : ''}</Text>
           <Pressable style={[styles.primaryButton, { marginTop: 12, backgroundColor: colors.primary }]} onPress={onRestore}>
-            <RotateCcw color="#fff" size={15} />
+            <RotateCcw color={colors.primaryText} size={15} />
             <Text style={styles.primaryButtonText}>Restore channel</Text>
           </Pressable>
         </View>
@@ -679,11 +672,12 @@ function ChannelConfigurationHero({
   );
 }
 
-function StatusTile({ icon, title, value, tone = 'neutral', compact = false }: { icon: 'phone' | 'message' | 'link' | 'unlink'; title: string; value: string; tone?: 'success' | 'warning' | 'danger' | 'neutral'; compact?: boolean }) {
+function StatusTile({ icon, title, value, tone = 'neutral', compact = false }: { icon: 'phone' | 'message' | 'link' | 'unlink'; title: string; value: string; tone?: BadgeTone; compact?: boolean }) {
   const { colors } = useTheme();
   const Icon = icon === 'phone' ? Phone : icon === 'message' ? MessageSquare : icon === 'link' ? Link2 : Unlink2;
-  const toneColor = tone === 'success' ? '#059669' : tone === 'warning' ? '#d97706' : tone === 'danger' ? colors.error : colors.textSecondary;
-  const toneBg = tone === 'success' ? '#ecfdf5' : tone === 'warning' ? '#fffbeb' : tone === 'danger' ? '#fff1f2' : colors.surfaceSecondary;
+  const palette = badgePalette(colors, tone);
+  const toneColor = palette.fg;
+  const toneBg = palette.bg;
 
   return (
     <View style={[styles.statusTile, compact && styles.statusTileCompact, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
@@ -767,8 +761,6 @@ const styles = StyleSheet.create({
   channelName: { color: '#0f172a', fontSize: 19, fontWeight: '800' },
   heroSub: { color: '#64748b', fontSize: 12, lineHeight: 17, marginTop: 2 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
-  badge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 },
-  badgeText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
   card: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 20, borderWidth: 1, marginTop: 16, padding: 16 },
   cardHead: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   cardTitle: { color: '#0f172a', fontSize: 16, fontWeight: '700' },
