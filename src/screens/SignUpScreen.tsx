@@ -1,20 +1,14 @@
 import { useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Check, ChevronDown, Eye, EyeOff, Lock, Mail, MailCheck, UserRound } from 'lucide-react-native';
+import { Check, ChevronDown, Eye, EyeOff, Lock, Mail, MailCheck, Search, UserRound } from 'lucide-react-native';
 import { apiFetch } from '../api/client';
 import { BottomSheet, SheetFlatList } from '../components/BottomSheet';
 import { AuthChrome, AuthWordmark } from '../components/AuthChrome';
 import { getCountryFlag, listCountryCallingCodes } from '../lib/countryFromPhone';
 import { useTheme } from '../theme/ThemeContext';
+import { fontWeight, spacing } from '../theme/tokens';
+import { AppButton, AppText, AppTextField } from '../ui';
 import { createAuthStyles } from './authStyles';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -127,12 +121,11 @@ export function SignUpScreen({
         }}
         sheetStyle={[{ height: '78%' }, styles.countrySheet]}
       >
-        <Text style={styles.sheetTitle}>Select country</Text>
-        <TextInput
+        <AppText variant="heading" style={{ marginBottom: spacing.md + 2 }}>Select country</AppText>
+        <AppTextField
+          icon={Search}
           autoCapitalize="none"
           placeholder="Search country or dial code"
-          placeholderTextColor={colors.textMuted}
-          style={styles.sheetSearch}
           value={countrySearch}
           onChangeText={setCountrySearch}
         />
@@ -151,14 +144,14 @@ export function SignUpScreen({
                 }}
                 style={[styles.countryRow, selected && { backgroundColor: colors.surfaceSecondary }]}
               >
-                <Text style={styles.countrySelectorText}>{getCountryFlag(item.isoCode)}</Text>
-                <Text style={styles.countryRowText} numberOfLines={1}>{item.name}</Text>
-                <Text style={styles.countryRowMeta}>+{item.dialCode}</Text>
+                <AppText style={styles.flagText}>{getCountryFlag(item.isoCode)}</AppText>
+                <AppText variant="section" numberOfLines={1} style={{ flex: 1 }}>{item.name}</AppText>
+                <AppText variant="caption" tone="secondary" style={{ fontWeight: fontWeight.semibold }}>+{item.dialCode}</AppText>
                 {selected ? <Check color={colors.primary} size={18} /> : null}
               </Pressable>
             );
           }}
-          ListEmptyComponent={<Text style={styles.helpText}>No countries match your search.</Text>}
+          ListEmptyComponent={<AppText variant="small" tone="secondary">No countries match your search.</AppText>}
         />
       </BottomSheet>
       <ScrollView
@@ -171,58 +164,48 @@ export function SignUpScreen({
           {sentTo ? (
             <>
               <MailCheck size={28} color={colors.primary} />
-              <Text style={[styles.title, { marginTop: 16 }]}>Verify your email</Text>
-              <Text style={styles.subtitle}>
-                We created your account and sent a verification link to <Text style={styles.linkBold}>{sentTo}</Text>.
+              <AppText variant="display" style={{ marginTop: spacing.lg }}>Verify your email</AppText>
+              <AppText variant="body" tone="secondary" style={styles.subtitle}>
+                We created your account and sent a verification link to{' '}
+                <AppText variant="body" tone="primary" style={{ fontWeight: fontWeight.semibold }}>{sentTo}</AppText>.
                 Verify that email before signing in.
-              </Text>
+              </AppText>
             </>
           ) : (
             <>
-              <Text style={styles.title}>Create account</Text>
-              <Text style={styles.subtitle}>Start your Zurvis workspace with your business contact details.</Text>
+              <AppText variant="display">Create account</AppText>
+              <AppText variant="body" tone="secondary" style={styles.subtitle}>
+                Start your Zurvis workspace with your business contact details.
+              </AppText>
             </>
           )}
         </View>
 
         {sentTo ? (
           <View style={styles.form}>
-            <Pressable
-              onPress={onLogin}
-              style={({ pressed }) => [styles.primary, pressed && styles.primaryPressed]}
-            >
-              <Text style={styles.primaryText}>Go to login</Text>
-            </Pressable>
+            <AppButton block label="Go to login" onPress={onLogin} />
           </View>
         ) : (
           <>
             <View style={styles.form}>
-              <View style={styles.inputWrapper}>
-                <UserRound size={16} color={colors.textMuted} style={styles.inputIcon} />
-                <TextInput
-                  autoCapitalize="words"
-                  autoComplete="name"
-                  placeholder="Full name"
-                  placeholderTextColor={colors.textMuted}
-                  style={styles.input}
-                  value={name}
-                  onChangeText={setName}
-                />
-              </View>
+              <AppTextField
+                icon={UserRound}
+                autoCapitalize="words"
+                autoComplete="name"
+                placeholder="Full name"
+                value={name}
+                onChangeText={setName}
+              />
 
-              <View style={styles.inputWrapper}>
-                <Mail size={16} color={colors.textMuted} style={styles.inputIcon} />
-                <TextInput
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  keyboardType="email-address"
-                  placeholder="Email"
-                  placeholderTextColor={colors.textMuted}
-                  style={styles.input}
-                  value={email}
-                  onChangeText={setEmail}
-                />
-              </View>
+              <AppTextField
+                icon={Mail}
+                autoCapitalize="none"
+                autoComplete="email"
+                keyboardType="email-address"
+                placeholder="Email"
+                value={email}
+                onChangeText={setEmail}
+              />
               <View style={styles.phoneInputRow}>
                 <Pressable
                   onPress={() => setCountryPickerOpen(true)}
@@ -230,9 +213,9 @@ export function SignUpScreen({
                   accessibilityRole="button"
                   accessibilityLabel="Select phone country"
                 >
-                  <Text style={styles.countrySelectorText}>{getCountryFlag(selectedCountry.isoCode)}</Text>
-                  <Text style={styles.countrySelectorText}>{selectedCountry.isoCode}</Text>
-                  <Text style={styles.countrySelectorMeta}>+{selectedCountry.dialCode}</Text>
+                  <AppText style={styles.flagText}>{getCountryFlag(selectedCountry.isoCode)}</AppText>
+                  <AppText variant="caption" style={{ fontWeight: fontWeight.bold }}>{selectedCountry.isoCode}</AppText>
+                  <AppText variant="caption" tone="secondary" style={{ fontWeight: fontWeight.semibold }}>+{selectedCountry.dialCode}</AppText>
                   <ChevronDown color={colors.textMuted} size={14} />
                 </Pressable>
                 <TextInput
@@ -245,57 +228,43 @@ export function SignUpScreen({
                   onChangeText={setPhoneNumber}
                 />
               </View>
-              <View style={styles.inputWrapper}>
-                <Lock size={16} color={colors.textMuted} style={styles.inputIcon} />
-                <TextInput
-                  placeholder="Password"
-                  placeholderTextColor={colors.textMuted}
-                  secureTextEntry={!showPassword}
-                  style={[styles.input, styles.inputWithToggle]}
-                  value={password}
-                  onChangeText={setPassword}
-                />
-                <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeToggle}>
-                  {showPassword ? <EyeOff size={16} color={colors.textMuted} /> : <Eye size={16} color={colors.textMuted} />}
-                </Pressable>
-              </View>
+              <AppTextField
+                icon={Lock}
+                placeholder="Password"
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+                trailing={
+                  <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8} accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>
+                    {showPassword ? <EyeOff size={16} color={colors.textMuted} /> : <Eye size={16} color={colors.textMuted} />}
+                  </Pressable>
+                }
+              />
 
-              <View style={styles.inputWrapper}>
-                <Lock size={16} color={colors.textMuted} style={styles.inputIcon} />
-                <TextInput
-                  placeholder="Confirm password"
-                  placeholderTextColor={colors.textMuted}
-                  secureTextEntry={!showConfirmPassword}
-                  style={[styles.input, styles.inputWithToggle]}
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                />
-                <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeToggle}>
-                  {showConfirmPassword ? <EyeOff size={16} color={colors.textMuted} /> : <Eye size={16} color={colors.textMuted} />}
-                </Pressable>
-              </View>
+              <AppTextField
+                icon={Lock}
+                placeholder="Confirm password"
+                secureTextEntry={!showConfirmPassword}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                error={error || undefined}
+                trailing={
+                  <Pressable onPress={() => setShowConfirmPassword(!showConfirmPassword)} hitSlop={8} accessibilityLabel={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}>
+                    {showConfirmPassword ? <EyeOff size={16} color={colors.textMuted} /> : <Eye size={16} color={colors.textMuted} />}
+                  </Pressable>
+                }
+              />
 
-              {error ? <Text style={styles.error}>{error}</Text> : null}
-
-              <Pressable
-                disabled={busy || !isValid}
-                onPress={submit}
-                style={({ pressed }) => [
-                  styles.primary,
-                  (busy || !isValid) && styles.primaryDisabled,
-                  pressed && isValid && !busy && styles.primaryPressed,
-                ]}
-              >
-                {busy
-                  ? <ActivityIndicator color={colors.primaryText} />
-                  : <Text style={styles.primaryText}>Create account</Text>}
-              </Pressable>
+              <AppButton block label="Create account" onPress={submit} loading={busy} disabled={busy || !isValid} />
             </View>
 
             <Pressable onPress={onLogin} style={styles.linkWrapper}>
-              <Text style={styles.link}>
-                Already have an account? <Text style={styles.linkBold}>Sign in</Text>
-              </Text>
+              <AppText variant="body" tone="secondary">
+                Already have an account?{' '}
+                <AppText variant="body" tone="primary" style={{ fontWeight: fontWeight.semibold }}>
+                  Sign in
+                </AppText>
+              </AppText>
             </Pressable>
           </>
         )}

@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react-native';
+import type { ReactNode } from 'react';
 import { StyleSheet, Text, TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { fontSize, fontWeight, inputHeight, radius, spacing } from '../theme/tokens';
@@ -10,6 +11,7 @@ type Props = Pick<
   | 'placeholder'
   | 'keyboardType'
   | 'autoCapitalize'
+  | 'autoComplete'
   | 'secureTextEntry'
   | 'editable'
   | 'multiline'
@@ -19,6 +21,8 @@ type Props = Pick<
 > & {
   label?: string;
   icon?: LucideIcon;
+  /** Trailing affordance rendered inside the box, e.g. a password eye-toggle. */
+  trailing?: ReactNode;
   error?: string;
   helpText?: string;
   /** Call-site spacing only; shape belongs to the component. */
@@ -26,14 +30,15 @@ type Props = Pick<
 };
 
 /**
- * Labeled text field: label, themed input box, optional leading icon,
- * error and help text. Consolidates the `inputWrapper`/`fieldInput`/
- * `fieldLabel` blocks repeated across auth, contacts, workspace, and
- * settings forms.
+ * Labeled text field: label, themed input box, optional leading icon and
+ * trailing affordance, error and help text. Consolidates the
+ * `inputWrapper`/`fieldInput`/`fieldLabel` blocks repeated across auth,
+ * contacts, workspace, and settings forms.
  */
 export function AppTextField({
   label,
   icon: Icon,
+  trailing,
   error,
   helpText,
   style,
@@ -67,6 +72,7 @@ export function AppTextField({
           ]}
           {...inputProps}
         />
+        {trailing ? <View style={styles.trailing}>{trailing}</View> : null}
       </View>
       {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
       {!error && helpText ? (
@@ -90,6 +96,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md + 2,
   },
   icon: { marginRight: spacing.sm + 2 },
+  trailing: { marginLeft: spacing.sm, padding: spacing.xs },
   input: { flex: 1, fontSize: fontSize.subheading, height: inputHeight },
   multiline: { height: undefined, paddingVertical: spacing.md, textAlignVertical: 'top' },
   error: { fontSize: fontSize.caption, marginTop: spacing.xs },

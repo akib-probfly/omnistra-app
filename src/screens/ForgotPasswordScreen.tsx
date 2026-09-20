@@ -1,17 +1,11 @@
 import { useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Pressable, ScrollView, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { KeyRound, Mail, MailCheck } from 'lucide-react-native';
 import { apiFetch } from '../api/client';
 import { useTheme } from '../theme/ThemeContext';
+import { fontWeight, spacing } from '../theme/tokens';
+import { AppButton, AppText, AppTextField } from '../ui';
 import { AuthChrome, AuthWordmark } from '../components/AuthChrome';
 import { createAuthStyles } from './authStyles';
 
@@ -66,76 +60,62 @@ export function ForgotPasswordScreen({
           {sentTo ? (
             <>
               <MailCheck size={28} color={colors.primary} />
-              <Text style={[styles.title, { marginTop: 16 }]}>Check your email</Text>
-              <Text style={styles.subtitle}>
-                If an account matches <Text style={styles.linkBold}>{sentTo}</Text>, we sent a password reset link there.
+              <AppText variant="display" style={{ marginTop: spacing.lg }}>Check your email</AppText>
+              <AppText variant="body" tone="secondary" style={styles.subtitle}>
+                If an account matches{' '}
+                <AppText variant="body" tone="primary" style={{ fontWeight: fontWeight.semibold }}>{sentTo}</AppText>,
+                we sent a password reset link there.
                 Open that email to continue setting a new password.
-              </Text>
+              </AppText>
             </>
           ) : (
             <>
               <KeyRound size={28} color={colors.primary} />
-              <Text style={[styles.title, { marginTop: 16 }]}>Forgot your password?</Text>
-              <Text style={styles.subtitle}>
+              <AppText variant="display" style={{ marginTop: spacing.lg }}>Forgot your password?</AppText>
+              <AppText variant="body" tone="secondary" style={styles.subtitle}>
                 Enter your email and we will send you a reset link if the account exists.
-              </Text>
+              </AppText>
             </>
           )}
         </View>
 
         {sentTo ? (
           <View style={styles.form}>
-            <Pressable
-              onPress={onLogin}
-              style={({ pressed }) => [styles.primary, pressed && styles.primaryPressed]}
-            >
-              <Text style={styles.primaryText}>Back to login</Text>
-            </Pressable>
+            <AppButton block label="Back to login" onPress={onLogin} />
           </View>
         ) : (
           <>
             <View style={styles.form}>
-              <View style={styles.inputWrapper}>
-                <Mail size={16} color={colors.textMuted} style={styles.inputIcon} />
-                <TextInput
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  keyboardType="email-address"
-                  placeholder="Email Address"
-                  placeholderTextColor={colors.textMuted}
-                  style={styles.input}
-                  value={email}
-                  onChangeText={setEmail}
-                />
-              </View>
+              <AppTextField
+                icon={Mail}
+                autoCapitalize="none"
+                autoComplete="email"
+                keyboardType="email-address"
+                placeholder="Email Address"
+                value={email}
+                onChangeText={setEmail}
+                error={error || undefined}
+              />
 
-              {error ? <Text style={styles.error}>{error}</Text> : null}
-
-              <Pressable
-                disabled={busy || !isValid}
-                onPress={submit}
-                style={({ pressed }) => [
-                  styles.primary,
-                  (busy || !isValid) && styles.primaryDisabled,
-                  pressed && isValid && !busy && styles.primaryPressed,
-                ]}
-              >
-                {busy
-                  ? <ActivityIndicator color={colors.primaryText} />
-                  : <Text style={styles.primaryText}>Send reset link</Text>}
-              </Pressable>
+              <AppButton block label="Send reset link" onPress={submit} loading={busy} disabled={busy || !isValid} />
             </View>
 
             <View style={styles.footerRow}>
               <Pressable onPress={onLogin}>
-                <Text style={styles.link}>
-                  Remember your password? <Text style={styles.linkBold}>Back to login</Text>
-                </Text>
+                <AppText variant="body" tone="secondary">
+                  Remember your password?{' '}
+                  <AppText variant="body" tone="primary" style={{ fontWeight: fontWeight.semibold }}>
+                    Back to login
+                  </AppText>
+                </AppText>
               </Pressable>
               <Pressable onPress={onSignUp}>
-                <Text style={styles.link}>
-                  Need an account? <Text style={styles.linkBold}>Create account</Text>
-                </Text>
+                <AppText variant="body" tone="secondary">
+                  Need an account?{' '}
+                  <AppText variant="body" tone="primary" style={{ fontWeight: fontWeight.semibold }}>
+                    Create account
+                  </AppText>
+                </AppText>
               </Pressable>
             </View>
           </>
