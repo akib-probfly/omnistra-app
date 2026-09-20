@@ -32,8 +32,8 @@ export function MessageReferralPreviewCard({ referral }: Props) {
   return (
     <View style={styles.wrap}>
       <View style={styles.labelRow}>
-        <Megaphone color="#b45309" size={12} />
-        <Text style={styles.label}>{label}</Text>
+        <Megaphone color={colors.warning} size={12} />
+        <Text style={[styles.label, { color: colors.warning }]}>{label}</Text>
       </View>
       <Pressable
         disabled={!targetUrl}
@@ -41,15 +41,15 @@ export function MessageReferralPreviewCard({ referral }: Props) {
         style={[
           styles.card,
           {
-            backgroundColor: isDark ? 'rgba(15,23,42,0.36)' : 'rgba(255,255,255,0.78)',
-            borderColor: isDark ? 'rgba(245,158,11,0.32)' : '#f6d78d',
+            backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.78)',
+            borderColor: isDark ? 'rgba(245,158,11,0.32)' : colors.warningBorder,
           },
         ]}
       >
         {activePreviewImageUrl ? (
           <AuthenticatedImage
             url={activePreviewImageUrl}
-            style={styles.thumbnail}
+            style={[styles.thumbnail, { backgroundColor: colors.surfaceSecondary }]}
             resizeMode="cover"
             onError={() => setImageFailed(true)}
           />
@@ -81,7 +81,6 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   label: {
-    color: '#b45309',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1.2,
@@ -99,7 +98,6 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   thumbnail: {
-    backgroundColor: '#f8fafc',
     borderRadius: 7,
     height: 48,
     width: 48,
@@ -109,13 +107,11 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   title: {
-    color: '#0f172a',
     fontSize: 12,
     fontWeight: '800',
     lineHeight: 15,
   },
   description: {
-    color: '#64748b',
     fontSize: 11,
     lineHeight: 14,
     marginTop: 2,

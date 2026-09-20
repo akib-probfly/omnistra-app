@@ -255,7 +255,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
           isTemplate ? (outgoing ? styles.outgoingTemplate : styles.incomingTemplate) : (outgoing ? styles.outgoing : styles.incoming),
     (isLocationOnlyMessage || isContactOnlyMessage || whatsappOrder) && styles.embeddedCardOnlyBubble,
           !outgoing && (referralPreview
-            ? { backgroundColor: '#fffbeb', borderColor: '#f6d78d' }
+            ? { backgroundColor: colors.warningSoft, borderColor: colors.warningBorder }
             : isLocationOnlyMessage || isContactOnlyMessage
               ? null
               : { backgroundColor: colors.surface, borderColor: colors.cardBorder }),
