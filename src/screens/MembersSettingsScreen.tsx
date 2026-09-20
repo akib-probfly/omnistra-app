@@ -30,7 +30,7 @@ import { ErrorState } from '../components/ErrorState';
 import { ListSkeleton } from '../components/Skeleton';
 import { useWorkspaceAccess } from '../lib/workspace-access';
 import { useTheme } from '../theme/ThemeContext';
-import { AppButton, AppIconButton, AppSearchField, ScreenHeader } from '../ui';
+import { AppBadge, AppButton, AppIconButton, AppSearchField, ScreenHeader, badgePalette, type BadgeTone } from '../ui';
 
 const EMPTY_MEMBERS: WorkspaceRosterMember[] = [];
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
@@ -83,10 +83,10 @@ function statusLabel(status: WorkspaceRosterMember['status']) {
   return 'Disabled';
 }
 
-function statusTheme(status: WorkspaceRosterMember['status']) {
-  if (status === 'ACTIVE') return { bg: '#dcfce7', fg: '#16a34a', dot: '#22c55e', border: '#bbf7d0' };
-  if (status === 'INVITED') return { bg: '#dbeafe', fg: '#2563eb', dot: '#2563eb', border: '#bfdbfe' };
-  return { bg: '#f1f5f9', fg: '#64748b', dot: '#94a3b8', border: '#e2e8f0' };
+function memberStatusTone(status: WorkspaceRosterMember['status']): BadgeTone {
+  if (status === 'ACTIVE') return 'success';
+  if (status === 'INVITED') return 'info';
+  return 'neutral';
 }
 
 function AccessPill({ member }: { member: WorkspaceRosterMember }) {
@@ -341,7 +341,8 @@ function SheetActionRow({
 function MemberCard({ member, onSelect }: { member: WorkspaceRosterMember; onSelect: (member: WorkspaceRosterMember) => void }) {
   const { colors } = useTheme();
   const name = displayName(member);
-  const status = statusTheme(member.status);
+  const tone = memberStatusTone(member.status);
+  const palette = badgePalette(colors, tone);
 
   return (
     <Pressable
@@ -356,16 +357,13 @@ function MemberCard({ member, onSelect }: { member: WorkspaceRosterMember; onSel
       <View style={styles.memberHeader}>
         <View style={styles.avatarWrap}>
           <ColorfulAvatar name={name} url={member.avatarUrl} size={42} />
-          <View style={[styles.presenceDot, { backgroundColor: status.dot, borderColor: colors.surface }]} />
+          <View style={[styles.presenceDot, { backgroundColor: palette.fg, borderColor: colors.surface }]} />
         </View>
         <View style={styles.memberCopy}>
           <Text style={[styles.memberName, { color: colors.text }]} numberOfLines={1}>{name}</Text>
           <Text style={[styles.memberEmail, { color: colors.textSecondary }]} numberOfLines={1}>{member.email}</Text>
         </View>
-        <View style={[styles.statusPill, { backgroundColor: status.bg, borderColor: status.border }]}>
-          <View style={[styles.statusDot, { backgroundColor: status.dot }]} />
-          <Text style={[styles.statusText, { color: status.fg }]}>{statusLabel(member.status)}</Text>
-        </View>
+        <AppBadge size="sm" tone={tone} dot label={statusLabel(member.status)} />
         <ChevronRight color={colors.textMuted} size={16} />
       </View>
 
@@ -1267,9 +1265,6 @@ const styles = StyleSheet.create({
   memberCopy: { flex: 1, minWidth: 0 },
   memberName: { fontSize: 15, fontWeight: '800' },
   memberEmail: { fontSize: 12, marginTop: 3 },
-  statusPill: { alignItems: 'center', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 6, paddingHorizontal: 9, paddingVertical: 5 },
-  statusDot: { borderRadius: 3, height: 6, width: 6 },
-  statusText: { fontSize: 11, fontWeight: '800' },
   metaRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
   metaBlock: { minWidth: 82 },
   accessBlock: { flex: 1, minWidth: 0 },

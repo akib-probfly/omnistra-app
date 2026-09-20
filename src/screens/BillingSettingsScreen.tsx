@@ -14,7 +14,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
-import { ScreenHeader } from '../ui';
+import { AppBadge, ScreenHeader, toneForStatus } from '../ui';
 import {
   confirmReturnedPipraPayPayment,
   fetchBillingPlans,
@@ -69,14 +69,6 @@ function titleCase(value: string) {
 function isLiveSubscriptionStatus(status?: string | null) {
   const value = (status ?? '').toLowerCase();
   return value === 'active' || value === 'changing' || value === 'trialing';
-}
-
-function statusTone(status: string) {
-  const value = status.toLowerCase();
-  if (value === 'active' || value === 'paid' || value === 'trialing') return { bg: '#ecfdf5', text: '#047857' };
-  if (value === 'pending' || value === 'changing' || value === 'canceled') return { bg: '#fff7ed', text: '#c2410c' };
-  if (value === 'expired' || value === 'failed') return { bg: '#fff1f2', text: '#e11d48' };
-  return { bg: '#f1f5f9', text: '#475569' };
 }
 
 export function BillingSettingsScreen() {
@@ -439,9 +431,6 @@ function CurrentPlanSection({
     : resolvedStatus
       ? titleCase(String(resolvedStatus))
       : 'No plan';
-  const statusColors = isTrialing
-    ? { bg: '#2563eb', text: '#fff' }
-    : statusTone(resolvedStatus ?? 'none');
   const subtitle = isTrialing && trialEndsAt
     ? `Trial ends ${formatBillingDate(trialEndsAt)}`
     : periodEnd
@@ -457,9 +446,11 @@ function CurrentPlanSection({
           <View style={[styles.planHeroIcon, { backgroundColor: colors.surfaceSecondary }]}>
             {isTrialing ? <Sparkles color={colors.primary} size={18} /> : <CreditCard color={colors.primary} size={18} />}
           </View>
-          <View style={[styles.statusPill, { backgroundColor: statusColors.bg }]}>
-            <Text style={[styles.statusPillText, { color: statusColors.text }]}>{statusLabel}</Text>
-          </View>
+          <AppBadge
+            size="sm"
+            tone={isTrialing ? 'primary' : toneForStatus(resolvedStatus ?? 'none')}
+            label={statusLabel}
+          />
         </View>
 
         <Text style={[styles.planHeroEyebrow, { color: colors.textSecondary }]}>
@@ -514,9 +505,7 @@ function CurrentPlanSection({
         <View style={styles.usageTitleRow}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>Current usage</Text>
           {isExpired ? (
-            <View style={[styles.statusPill, { backgroundColor: '#fffbeb' }]}>
-              <Text style={[styles.statusPillText, { color: '#b45309' }]}>Expired snapshot</Text>
-            </View>
+            <AppBadge size="sm" tone="warning" label="Expired snapshot" />
           ) : null}
         </View>
         {isExpired ? (
@@ -607,11 +596,7 @@ function PlanCard({
       <View style={styles.planHeader}>
         <Text style={[styles.planName, { color: colors.text }]}>{plan.name}</Text>
         {isCurrent ? (
-          <View style={[styles.statusPill, { backgroundColor: isCurrentTrial ? '#fffbeb' : '#dcfce7' }]}>
-            <Text style={[styles.statusPillText, { color: isCurrentTrial ? '#b45309' : '#15803d' }]}>
-              {isCurrentTrial ? 'Trial' : 'Current'}
-            </Text>
-          </View>
+          <AppBadge size="sm" tone={isCurrentTrial ? 'warning' : 'success'} label={isCurrentTrial ? 'Trial' : 'Current'} />
         ) : null}
       </View>
       <Text style={[styles.cardBody, { color: colors.textSecondary }]}>{plan.description}</Text>
@@ -648,14 +633,11 @@ function PlanCard({
 
 function InvoiceRow({ invoice }: { invoice: WorkspaceInvoice }) {
   const { colors } = useTheme();
-  const tone = statusTone(String(invoice.status));
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
       <View style={styles.rowBetween}>
         <Text style={[styles.planName, { color: colors.text }]}>{formatCents(invoice.amountCents, invoice.currency)}</Text>
-        <View style={[styles.statusPill, { backgroundColor: tone.bg }]}>
-          <Text style={[styles.statusPillText, { color: tone.text }]}>{String(invoice.status)}</Text>
-        </View>
+        <AppBadge size="sm" tone={toneForStatus(String(invoice.status))} label={String(invoice.status)} />
       </View>
       <Text style={[styles.muted, { color: colors.textSecondary }]}>{formatBillingDate(invoice.paidAt ?? invoice.createdAt)}</Text>
       {(invoice.periodStart || invoice.periodEnd) ? (
@@ -669,14 +651,16 @@ function InvoiceRow({ invoice }: { invoice: WorkspaceInvoice }) {
 
 function HistoryRow({ item }: { item: SubscriptionView }) {
   const { colors } = useTheme();
-  const tone = statusTone(String(item.status));
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
       <View style={styles.historyHeader}>
         <Text style={[styles.historyPlanName, { color: colors.text }]} numberOfLines={2}>{item.planKey}</Text>
-        <View style={[styles.statusPill, styles.historyStatusPill, { backgroundColor: tone.bg }]}>
-          <Text style={[styles.statusPillText, { color: tone.text }]}>{String(item.status)}</Text>
-        </View>
+        <AppBadge
+          size="sm"
+          tone={toneForStatus(String(item.status))}
+          label={String(item.status)}
+          style={styles.historyStatusPill}
+        />
       </View>
       <Text style={[styles.muted, { color: colors.textSecondary }]}>{String(item.billingCycle).toLowerCase()}</Text>
       <Text style={[styles.muted, { color: colors.textSecondary }]}>
@@ -899,7 +883,6 @@ const styles = StyleSheet.create({
   usageHintWarn: { color: '#d97706', fontSize: 11, fontWeight: '600', marginTop: 6 },
   usageHintDanger: { color: '#e11d48', fontSize: 11, fontWeight: '600', marginTop: 6 },
   planHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  currentBadge: { backgroundColor: '#dbeafe', borderRadius: 999, color: '#1d4ed8', fontSize: 11, fontWeight: '700', overflow: 'hidden', paddingHorizontal: 8, paddingVertical: 3 },
   featureLine: { color: '#475569', fontSize: 13, marginTop: 6 },
   emptyCard: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, padding: 28 },
   emptyTitle: { color: '#0f172a', fontSize: 16, fontWeight: '800', marginTop: 12 },
@@ -908,6 +891,4 @@ const styles = StyleSheet.create({
   historyHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
   historyPlanName: { color: '#0f172a', flex: 1, flexShrink: 1, fontSize: 18, fontWeight: '800', lineHeight: 22, minWidth: 0 },
   historyStatusPill: { flexShrink: 0, marginTop: 2 },
-  statusPill: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-  statusPillText: { fontSize: 11, fontWeight: '700' },
 });

@@ -37,7 +37,7 @@ import {
 } from '../api/broadcast';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
-import { AppButton, AppChip, AppSearchField, EmptyState, ScreenHeader } from '../ui';
+import { AppBadge, AppButton, AppChip, AppSearchField, EmptyState, ScreenHeader, toneForStatus } from '../ui';
 
 const AUDIENCE_STATUSES = [
   { value: '', label: 'All' },
@@ -79,26 +79,8 @@ function FunnelRow({
   );
 }
 
-function audienceStatusTone(status?: string | null) {
-  switch ((status ?? '').toUpperCase()) {
-    case 'DELIVERED':
-      return { bg: '#dcfce7', text: '#15803d' };
-    case 'READ':
-      return { bg: '#dbeafe', text: '#1d4ed8' };
-    case 'REPLIED':
-      return { bg: '#f3e8ff', text: '#7c3aed' };
-    case 'FAILED':
-      return { bg: '#fee2e2', text: '#b91c1c' };
-    case 'UNREACHED':
-      return { bg: '#fef3c7', text: '#b45309' };
-    default:
-      return { bg: '#f1f5f9', text: '#475569' };
-  }
-}
-
 function AudienceRow({ item }: { item: CampaignAudienceMember }) {
   const { colors } = useTheme();
-  const tone = audienceStatusTone(item.status);
   return (
     <View style={[styles.audienceRow, { borderBottomColor: colors.separator }]}>
       <View style={styles.audienceCopy}>
@@ -109,9 +91,7 @@ function AudienceRow({ item }: { item: CampaignAudienceMember }) {
           {item.recipientPhone ?? item.failureReason ?? item.sentTemplateName ?? '—'}
         </Text>
       </View>
-      <View style={[styles.statusBadge, { backgroundColor: tone.bg }]}>
-        <Text style={[styles.statusText, { color: tone.text }]}>{item.status ?? 'Queued'}</Text>
-      </View>
+      <AppBadge size="sm" tone={toneForStatus(item.status)} label={item.status ?? 'Queued'} />
     </View>
   );
 }
@@ -226,9 +206,7 @@ export function BroadcastCampaignScreen() {
             <View style={styles.titleRow}>
               <Text style={[styles.cardTitle, { color: colors.text }]}>{campaign.name}</Text>
               {statusTone ? (
-                <View style={[styles.statusBadge, { backgroundColor: statusTone.bg }]}>
-                  <Text style={[styles.statusText, { color: statusTone.text }]}>{getCampaignStatusLabel(campaign.status)}</Text>
-                </View>
+                <AppBadge size="sm" tone={statusTone} label={getCampaignStatusLabel(campaign.status)} />
               ) : null}
             </View>
             {campaign.description ? (
@@ -351,6 +329,4 @@ const styles = StyleSheet.create({
   audienceCopy: { flex: 1, minWidth: 0, paddingRight: 8 },
   audienceName: { fontSize: 14, fontWeight: '700' },
   audienceMeta: { fontSize: 12, marginTop: 2 },
-  statusBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
-  statusText: { fontSize: 11, fontWeight: '800' },
 });

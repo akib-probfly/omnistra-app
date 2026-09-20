@@ -41,7 +41,7 @@ import { fetchMyWorkspaces } from '../api/workspaces';
 import { canViewBroadcast } from '../lib/broadcast-access';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
-import { AppButton, AppChip, AppSearchField, EmptyState, ScreenHeader } from '../ui';
+import { AppBadge, AppButton, AppChip, AppSearchField, EmptyState, ScreenHeader } from '../ui';
 
 const STATUS_FILTERS: Array<{ value: CampaignStatus | 'ALL'; label: string }> = [
   { value: 'ALL', label: 'All' },
@@ -103,10 +103,7 @@ function CampaignRow({ campaign, onPress }: { campaign: Campaign; onPress: () =>
       <View style={styles.copy}>
         <View style={styles.nameLine}>
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{campaign.name}</Text>
-          <View style={[styles.badge, { backgroundColor: tone.bg }]}>
-            <StatusIcon color={tone.text} size={12} />
-            <Text style={{ color: tone.text, fontSize: 11, fontWeight: '600' }}>{getCampaignStatusLabel(campaign.status)}</Text>
-          </View>
+          <AppBadge size="sm" tone={tone} icon={StatusIcon} label={getCampaignStatusLabel(campaign.status)} />
         </View>
         <Text style={[styles.detail, { color: colors.textSecondary }]} numberOfLines={1}>
           {createdBy} · {when}
@@ -347,7 +344,6 @@ const styles = StyleSheet.create({
   copy: { flex: 1, marginLeft: 12, minWidth: 0 },
   nameLine: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   name: { flexShrink: 1, fontSize: 15, fontWeight: '700' },
-  badge: { alignItems: 'center', borderRadius: 10, flexDirection: 'row', gap: 3, paddingHorizontal: 8, paddingVertical: 3 },
   detail: { fontSize: 13, marginTop: 3 },
   metaLine: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'space-between', marginTop: 5 },
   idText: { flex: 1, fontSize: 11 },

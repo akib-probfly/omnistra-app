@@ -1,4 +1,5 @@
 import { apiFetch } from './client';
+import type { BadgeTone } from '../ui';
 
 export type CampaignStatus =
   | 'DRAFT'
@@ -295,20 +296,20 @@ export function getCampaignStatusLabel(status: CampaignStatus): string {
   }
 }
 
-export function getCampaignStatusTone(status: CampaignStatus): { bg: string; text: string } {
+export function getCampaignStatusTone(status: CampaignStatus): BadgeTone {
   switch (status) {
     case 'DRAFT':
-      return { bg: '#f1f5f9', text: '#475569' };
+      return 'neutral';
     case 'SCHEDULED':
-      return { bg: '#dbeafe', text: '#1d4ed8' };
+      return 'info';
     case 'SENDING':
-      return { bg: '#fef3c7', text: '#b45309' };
+      return 'warning';
     case 'SENT':
-      return { bg: '#dcfce7', text: '#15803d' };
+      return 'success';
     case 'FAILED':
-      return { bg: '#fee2e2', text: '#b91c1c' };
+      return 'danger';
     case 'CANCELLED':
-      return { bg: '#f1f5f9', text: '#64748b' };
+      return 'neutral';
   }
 }
 

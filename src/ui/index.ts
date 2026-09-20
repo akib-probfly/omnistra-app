@@ -1,4 +1,4 @@
-export { AppBadge } from './AppBadge';
+export { AppBadge, badgePalette, type BadgeTone } from './AppBadge';
 export { AppButton } from './AppButton';
 export { AppCard } from './AppCard';
 export { AppChip } from './AppChip';
@@ -10,3 +10,4 @@ export { AppText } from './AppText';
 export { AppTextField } from './AppTextField';
 export { EmptyState } from './EmptyState';
 export { ScreenHeader } from './ScreenHeader';
+export { toneForStatus } from './statusTones';
