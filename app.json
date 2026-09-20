@@ -29,7 +29,7 @@
       "softwareKeyboardLayoutMode": "resize",
       "backgroundColor": "#f4f7fb",
       "package": "com.zurvis.mobile",
-      "versionCode": 17,
+      "versionCode": 18,
       "predictiveBackGestureEnabled": false,
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -67,7 +67,6 @@
     },
     "plugins": [
       "expo-dev-client",
-      "./plugins/enable-r8-optimization",
       "./plugins/remove-deprecated-system-bar-styles",
       "./plugins/remove-android-large-screen-restrictions",
       "./plugins/remove-boot-completed-receivers",
