@@ -2,7 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image as ExpoImage } from 'expo-image';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image as NativeImage, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { latestAccessToken } from '../api/client';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -286,12 +286,14 @@ export function AuthenticatedImage({
   return (
     <Pressable disabled={!onPress} onPress={onPress} style={containerStyle}>
       {imageSource && !failed ? (
-        <NativeImage
+        <ExpoImage
           source={imageSource}
-          resizeMode={fitContent ? 'cover' : resizeMode}
+          contentFit={fitContent ? 'cover' : resizeMode}
+          cachePolicy="memory-disk"
+          allowDownscaling
           style={imageStyle}
           onLoad={(event) => {
-            const source = event?.nativeEvent?.source;
+            const source = event?.source;
             if (fitContent && source?.width && source?.height) {
               setNaturalSize({ width: source.width, height: source.height });
             }
