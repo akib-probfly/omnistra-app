@@ -37,6 +37,7 @@ import {
 } from '../api/contacts';
 import { fetchAssigneeOptions } from '../api/inbox';
 import { fetchWorkspaceTags } from '../api/conversationDetails';
+import { countryDialCodeQueryKey, fetchCountryDialCodes } from '../api/countryDialCodes';
 import { AppToggle } from '../components/AppToggle';
 import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 import { ChannelTypeFilterList } from '../components/ChannelTypeFilterList';
@@ -48,10 +49,11 @@ import { ErrorState } from '../components/ErrorState';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 import { useTheme } from '../theme/ThemeContext';
 import { groupChannelsByType } from '../lib/channel-filter-groups';
+import { getCountryFlag } from '../lib/countryFromPhone';
 import type { ContactsStackParamList } from '../navigation/ContactsStack';
 import { AppSearchField, EmptyState } from '../ui';
 
-type FilterLayer = 'channels' | 'labels' | 'users' | 'more';
+type FilterLayer = 'channels' | 'labels' | 'countries' | 'users' | 'more';
 type AssignmentFilter = 'all' | 'assigned' | 'unassigned';
 type BlockedStatusFilter = 'all' | 'blocked' | 'unblocked';
 
@@ -65,6 +67,7 @@ type WhatsappAccountOption = {
 const FILTER_LAYERS: Array<{ id: FilterLayer; label: string }> = [
   { id: 'channels', label: 'Channels' },
   { id: 'labels', label: 'Labels' },
+  { id: 'countries', label: 'Countries' },
   { id: 'users', label: 'Users' },
   { id: 'more', label: 'More' },
 ];
@@ -113,6 +116,8 @@ export function ContactsScreen() {
   const [channelIds, setChannelIds] = useState<string[]>([]);
   const [expandedPlatformKeys, setExpandedPlatformKeys] = useState<string[]>([]);
   const [tagIds, setTagIds] = useState<string[]>([]);
+  const [countryCodes, setCountryCodes] = useState<string[]>([]);
+  const [countrySearch, setCountrySearch] = useState('');
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState('');
   const [tagSearch, setTagSearch] = useState('');
@@ -159,6 +164,7 @@ export function ContactsScreen() {
     search: debouncedSearch.trim() || undefined,
     channelIds: channelIds.length ? channelIds : undefined,
     tagIds: tagIds.length ? tagIds : undefined,
+    countryCodes: countryCodes.length ? countryCodes : undefined,
     ownerWorkspaceMemberIds: ownerId ? [ownerId] : undefined,
     assigned: assignment === 'assigned' ? true : undefined,
     unassigned: assignment === 'unassigned' ? true : undefined,
@@ -167,10 +173,11 @@ export function ContactsScreen() {
     recentlyAdded: recentlyAdded || undefined,
     conversationCreatedAtFrom: conversationCreatedAtFrom ?? undefined,
     conversationCreatedAtTo: conversationCreatedAtTo ?? undefined,
-  }), [debouncedSearch, channelIds, tagIds, ownerId, assignment, blockedStatus, recentlyActive, recentlyAdded, conversationCreatedAtFrom, conversationCreatedAtTo]);
+  }), [debouncedSearch, channelIds, tagIds, countryCodes, ownerId, assignment, blockedStatus, recentlyActive, recentlyAdded, conversationCreatedAtFrom, conversationCreatedAtTo]);
 
   const hasAdvancedFilters = channelIds.length > 0
     || tagIds.length > 0
+    || countryCodes.length > 0
     || ownerId != null
     || assignment !== 'all'
     || blockedStatus !== 'all'
@@ -206,6 +213,28 @@ export function ContactsScreen() {
     enabled: filterOpen || addOpen,
     staleTime: 60_000,
   });
+
+  const countriesQuery = useQuery({
+    queryKey: countryDialCodeQueryKey,
+    queryFn: fetchCountryDialCodes,
+    enabled: filterOpen,
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+
+  const visibleCountries = useMemo(() => {
+    const query = countrySearch.trim().toLowerCase();
+    const countries = countriesQuery.data ?? [];
+    const selected = countries.filter((country) => countryCodes.includes(country.isoCode));
+    const remaining = countries.filter((country) => {
+      if (countryCodes.includes(country.isoCode)) return false;
+      if (!query) return true;
+      const dialQuery = query.replace(/\D/g, '');
+      return country.name.toLowerCase().includes(query)
+        || country.isoCode.toLowerCase().includes(query)
+        || Boolean(dialQuery && country.dialCode.includes(dialQuery));
+    });
+    return [...selected, ...remaining];
+  }, [countriesQuery.data, countryCodes, countrySearch]);
 
   const shouldLoadExports = actionsOpen || sessionExportIds.length > 0 || trackedExportIds.length > 0;
 
@@ -318,6 +347,8 @@ export function ContactsScreen() {
     setChannelIds([]);
     setExpandedPlatformKeys([]);
     setTagIds([]);
+    setCountryCodes([]);
+    setCountrySearch('');
     setOwnerId(null);
     setUserSearch('');
     setTagSearch('');
@@ -643,6 +674,60 @@ export function ContactsScreen() {
                     );
                   })}
                   {!tagOptions.length ? <Text style={[styles.emptyHint, { color: colors.textMuted }]}>No tags found.</Text> : null}
+                </>
+              ) : null}
+
+              {filterLayer === 'countries' ? (
+                <>
+                  <Text style={[styles.countryHint, { color: colors.textSecondary }]}>Filter contacts by phone country. Contacts without a phone number are excluded.</Text>
+                  {countryCodes.length ? (
+                    <View style={styles.countryChipList}>
+                      {countryCodes.map((isoCode) => {
+                        const country = countriesQuery.data?.find((item) => item.isoCode === isoCode);
+                        return (
+                          <Pressable
+                            key={isoCode}
+                            style={[styles.countryChip, { backgroundColor: colors.surface, borderColor: colors.primary }]}
+                            onPress={() => setCountryCodes((current) => current.filter((code) => code !== isoCode))}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Remove ${country?.name ?? isoCode} country filter`}
+                          >
+                            <Text style={styles.countryFlag}>{country ? getCountryFlag(country.isoCode) : '🌐'}</Text>
+                            <Text style={[styles.countryChipText, { color: colors.primary }]}>{country ? `${country.name} (+${country.dialCode})` : isoCode}</Text>
+                            <X color={colors.textMuted} size={13} />
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+                  <View style={[styles.inlineSearch, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
+                    <Search color={colors.textMuted} size={16} />
+                    <TextInput value={countrySearch} onChangeText={setCountrySearch} placeholder="Search countries or dial codes" placeholderTextColor={colors.textMuted} style={[styles.inlineSearchInput, { color: colors.text }]} />
+                  </View>
+                  <Text style={[styles.countrySelectedCount, { color: colors.textSecondary }]}>{countryCodes.length} selected</Text>
+                  {countriesQuery.isLoading ? <InlineSkeleton width={160} height={14} /> : countriesQuery.isError ? (
+                    <Text style={[styles.emptyHint, { color: colors.textMuted }]}>Could not load countries. Try again later.</Text>
+                  ) : (
+                    <View style={styles.countryOptions}>
+                      {visibleCountries.map((country) => {
+                        const active = countryCodes.includes(country.isoCode);
+                        return (
+                          <Pressable
+                            key={country.isoCode}
+                            style={[styles.countryOption, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, active && [styles.countryOptionActive, { backgroundColor: colors.surfaceSecondary, borderColor: colors.primary }] ]}
+                            onPress={() => setCountryCodes((current) => active ? current.filter((code) => code !== country.isoCode) : [...current, country.isoCode])}
+                            accessibilityRole="checkbox"
+                            accessibilityState={{ checked: active }}
+                          >
+                            <Text style={styles.countryFlag}>{getCountryFlag(country.isoCode)}</Text>
+                            <Text style={[styles.countryOptionName, { color: active ? colors.primary : colors.text }]} numberOfLines={1}>{country.name}</Text>
+                            <Text style={[styles.countryOptionDialCode, { color: colors.textMuted }]}>+{country.dialCode}</Text>
+                          </Pressable>
+                        );
+                      })}
+                      {!visibleCountries.length ? <Text style={[styles.emptyHint, { color: colors.textMuted }]}>No countries match your search.</Text> : null}
+                    </View>
+                  )}
                 </>
               ) : null}
 
@@ -1129,7 +1214,7 @@ const styles = StyleSheet.create({
   layerTabs: { backgroundColor: '#f1f5f9', borderRadius: 14, flexDirection: 'row', gap: 4, marginBottom: 12, padding: 4 },
   layerTab: { alignItems: 'center', borderRadius: 10, flex: 1, paddingVertical: 8 },
   layerTabActive: { backgroundColor: '#fff', elevation: 1, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4 },
-  layerTabText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
+  layerTabText: { color: '#64748b', fontSize: 11, fontWeight: '600' },
   layerTabTextActive: { color: '#0f172a', fontWeight: '700' },
   optionList: { gap: 6, maxHeight: 400 },
   optionRow: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 10, paddingHorizontal: 10, paddingVertical: 10 },
@@ -1138,6 +1223,17 @@ const styles = StyleSheet.create({
   optionTextActive: { color: '#1d4ed8', fontWeight: '700' },
   tagDot: { borderRadius: 5, height: 10, width: 10 },
   emptyHint: { color: '#94a3b8', fontSize: 13, paddingVertical: 12 },
+  countryHint: { fontSize: 12, lineHeight: 18, marginBottom: 10 },
+  countryChipList: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
+  countryChip: { alignItems: 'center', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 5, maxWidth: '100%', paddingHorizontal: 9, paddingVertical: 6 },
+  countryChipText: { flexShrink: 1, fontSize: 11, fontWeight: '600' },
+  countryFlag: { fontSize: 16 },
+  countrySelectedCount: { fontSize: 12, marginBottom: 8 },
+  countryOptions: { gap: 6 },
+  countryOption: { alignItems: 'center', borderRadius: 13, borderWidth: 1, flexDirection: 'row', gap: 10, paddingHorizontal: 10, paddingVertical: 9 },
+  countryOptionActive: { borderWidth: 1.5 },
+  countryOptionName: { flex: 1, fontSize: 13, fontWeight: '600' },
+  countryOptionDialCode: { fontSize: 11 },
   inlineSearch: { alignItems: 'center', backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, flexDirection: 'row', marginBottom: 8, paddingHorizontal: 10 },
   inlineSearchInput: { color: '#17233a', flex: 1, height: 40, marginLeft: 8 },
   sectionLabel: { color: '#64748b', fontSize: 12, fontWeight: '700', letterSpacing: 0.4, marginBottom: 8, textTransform: 'uppercase' },

@@ -106,6 +106,7 @@ export type CrmContactsFilters = {
   workspaceId?: string;
   search?: string;
   ownerWorkspaceMemberIds?: string[];
+  countryCodes?: string[];
   channelIds?: string[];
   tagIds?: string[];
   assigned?: boolean;
@@ -180,6 +181,7 @@ export async function fetchCrmContacts(params: CrmContactsFilters = {}): Promise
     workspaceId: params.workspaceId,
     search: params.search,
     ownerWorkspaceMemberIds: params.ownerWorkspaceMemberIds,
+    countryCodes: params.countryCodes,
     channelIds: params.channelIds,
     tagIds: params.tagIds,
     assigned: params.assigned,
