@@ -15,7 +15,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -36,7 +35,7 @@ import { ErrorState } from '../components/ErrorState';
 import { ListSkeleton } from '../components/Skeleton';
 import { useWorkspaceAccess } from '../lib/workspace-access';
 import { useTheme } from '../theme/ThemeContext';
-import { AppButton, AppIconButton, AppSearchField, ScreenHeader } from '../ui';
+import { AppButton, AppIconButton, AppSearchField, AppTextField, ScreenHeader } from '../ui';
 
 const DEFAULT_TAG_COLOR = WORKSPACE_TAG_COLOR_OPTIONS[0].color;
 
@@ -344,14 +343,12 @@ export function TagsSettingsScreen() {
       <BottomSheet visible={editorOpen} onClose={closeEditor} sheetStyle={styles.sheetSurface}>
         <Text style={[styles.sheetTitle, { color: colors.text }]}>{editing ? 'Edit tag' : 'New tag'}</Text>
         <SheetScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={styles.sheetScroll} contentContainerStyle={styles.sheetContent}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Name</Text>
-          <TextInput
+          <AppTextField
+            label="Name"
             autoFocus
             value={draftText}
             onChangeText={setDraftText}
             placeholder="e.g. VIP"
-            placeholderTextColor={colors.textMuted}
-            style={[styles.input, { backgroundColor: colors.background, borderColor: colors.cardBorder, color: colors.text }]}
           />
 
           <Text style={[styles.label, { color: colors.textSecondary }]}>Color</Text>
@@ -468,7 +465,6 @@ const styles = StyleSheet.create({
   sheetScroll: { flexGrow: 1, flexShrink: 1 },
   sheetContent: { paddingBottom: 8 },
   label: { fontSize: 12, fontWeight: '700', marginBottom: 6, marginTop: 12 },
-  input: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 12 },
   colorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   colorSwatch: {
     alignItems: 'center',

@@ -8,6 +8,7 @@ type Props = Pick<
   TextInputProps,
   | 'value'
   | 'onChangeText'
+  | 'autoFocus'
   | 'placeholder'
   | 'keyboardType'
   | 'autoCapitalize'

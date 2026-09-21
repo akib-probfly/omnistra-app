@@ -6,14 +6,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { showNotice } from '../components/AppToast';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
-import { AppButton, ScreenHeader } from '../ui';
+import { AppButton, AppSearchField, AppTextField, ScreenHeader } from '../ui';
 import {
   fetchMyWorkspaces,
   fetchTimezones,
@@ -110,8 +109,14 @@ export function WorkspaceSettingsScreen() {
             <Text style={[styles.cardTitle, { color: colors.text }]}>Workspace details</Text>
             <Text style={[styles.cardBody, { color: colors.textSecondary }]}>Update how this workspace appears across Zurvis.</Text>
 
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Workspace name</Text>
-            <TextInput value={name} onChangeText={setName} placeholder="Workspace name" placeholderTextColor={colors.textMuted} style={[styles.input, { backgroundColor: colors.background, borderColor: colors.inputBorder, color: colors.text }]} />
+            <AppTextField
+              label="Workspace name"
+              value={name}
+              onChangeText={setName}
+              placeholder="Workspace name"
+              autoCapitalize="words"
+              style={styles.workspaceNameField}
+            />
 
             <Text style={[styles.label, { color: colors.textSecondary }]}>Timezone</Text>
             <Pressable style={[styles.inputButton, { backgroundColor: colors.background, borderColor: colors.inputBorder }]} onPress={() => setTimezonePickerOpen(true)}>
@@ -132,12 +137,12 @@ export function WorkspaceSettingsScreen() {
 
       <BottomSheet visible={timezonePickerOpen} onClose={() => setTimezonePickerOpen(false)} sheetStyle={styles.sheetSurface}>
             <Text style={[styles.sheetTitle, { color: colors.text }]}>Select timezone</Text>
-            <TextInput
+            <AppSearchField
               value={timezoneSearch}
               onChangeText={setTimezoneSearch}
               placeholder="Search timezone..."
-              placeholderTextColor={colors.textMuted}
-              style={[styles.input, { backgroundColor: colors.background, borderColor: colors.inputBorder, color: colors.text }]}
+              tone="background"
+              fill={false}
             />
             {timezonesQuery.isLoading ? (
               <PanelSkeleton rows={5} />
@@ -176,8 +181,7 @@ const styles = StyleSheet.create({
   cardIcon: { alignItems: 'center', backgroundColor: '#eff6ff', borderRadius: 12, height: 40, justifyContent: 'center', marginBottom: 12, width: 40 },
   cardTitle: { color: '#0f172a', fontSize: 16, fontWeight: '800' },
   cardBody: { color: '#64748b', fontSize: 13, marginTop: 4 },
-  label: { color: '#64748b', fontSize: 12, fontWeight: '700', marginBottom: 6, marginTop: 14 },
-  input: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, color: '#0f172a', paddingHorizontal: 12, paddingVertical: 12 },
+  workspaceNameField: { marginTop: 14 },
   inputButton: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 14 },
   inputButtonText: { color: '#0f172a', fontSize: 14, fontWeight: '600' },
   saveDisabled: { opacity: 0.5 },
