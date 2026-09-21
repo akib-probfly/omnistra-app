@@ -940,7 +940,7 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
           <Text style={[styles.time, { color: hasUnread ? colors.primary : colors.textMuted }, hasUnread && styles.timeUnread]}>{formatTime(previewTimestamp)}</Text>
           <View style={styles.sideMiddle}>
             {hasUnread ? (
-              <AppBadge tone="primary" size="sm" label={conversation.unreadCount > 9 ? '9+' : String(conversation.unreadCount)} style={styles.unreadBadge} />
+              <AppBadge tone="primary" label={conversation.unreadCount > 9 ? '9+' : String(conversation.unreadCount)} style={styles.unreadBadge} />
             ) : null}
           </View>
           <AssigneeBadge assignee={conversation.assignee} />
@@ -1095,7 +1095,7 @@ const styles = StyleSheet.create({
   windowDotWrap: { alignItems: 'center', height: 12, justifyContent: 'center', width: 12 },
   windowDotRing: { borderRadius: 6, height: 12, position: 'absolute', width: 12 },
   windowDot: { borderRadius: 4, elevation: 3, height: 8, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 5, width: 8 },
-  unreadBadge: { minWidth: 20, paddingHorizontal: 5 },
+  unreadBadge: { height: 18, minWidth: 18, paddingHorizontal: 4, paddingVertical: 0 },
   time: { color: '#8ba2c3', fontSize: 11 },
   timeUnread: { color: '#315efb', fontWeight: '700' },
   channel: { color: '#94a3b8', fontSize: 11, marginTop: 2, textTransform: 'capitalize' },
