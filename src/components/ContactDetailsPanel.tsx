@@ -349,15 +349,10 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
                     </View>
                     <View style={styles.customerIdentity}>
                       <Text style={[styles.customerName, { color: colors.text }]} numberOfLines={1}>{contactTitle}</Text>
-                      <Text style={[styles.customerMeta, { color: colors.textSecondary }]} numberOfLines={1}>{displayPhoneNumber ?? conversation.channel.channelName}</Text>
-                      {displayEmail ? <Text style={[styles.customerEmail, { color: colors.textMuted }]} numberOfLines={1}>{displayEmail}</Text> : null}
+                      <Text style={[styles.customerMeta, { color: colors.textSecondary }]} numberOfLines={1}>{conversation.channel.channelName}</Text>
                     </View>
                   </View>
                   <View style={[styles.infoRows, { borderTopColor: colors.separator }]}>
-                    <View style={styles.infoRow}>
-                      <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Channel</Text>
-                      <Text style={[styles.infoValue, { color: colors.text }]} numberOfLines={1}>{conversation.channel.channelName}</Text>
-                    </View>
                     <View style={styles.infoRow}>
                       <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>Phone</Text>
                       {editingPhone ? (
@@ -589,19 +584,18 @@ const styles = StyleSheet.create({
   cardHeaderRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   cardTitle: { color: '#0f172a', fontSize: 14, fontWeight: '800' },
   collapseBtn: { alignItems: 'center', backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 16, borderWidth: 1, height: 32, justifyContent: 'center', width: 32 },
-  customerBox: { borderRadius: 22, borderWidth: 1, marginTop: 12, padding: 18 },
-  customerTop: { alignItems: 'center', flexDirection: 'column', gap: 10 },
-  customerAvatarWrap: { alignItems: 'center', borderRadius: 36, borderWidth: 2, height: 72, justifyContent: 'center', width: 72 },
+  customerBox: { borderRadius: 18, borderWidth: 1, marginTop: 12, padding: 14 },
+  customerTop: { alignItems: 'center', flexDirection: 'row', gap: 12 },
+  customerAvatarWrap: { alignItems: 'center', borderRadius: 26, borderWidth: 2, height: 52, justifyContent: 'center', width: 52 },
   customerAvatar: { borderRadius: 26, height: 52, width: 52 },
   customerAvatarFallback: { alignItems: 'center', backgroundColor: '#2563eb', justifyContent: 'center' },
   customerAvatarText: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  customerIdentity: { alignItems: 'center', alignSelf: 'stretch', minWidth: 0 },
-  customerName: { color: '#0f172a', fontSize: 17, fontWeight: '800', letterSpacing: -0.2, textAlign: 'center' },
-  customerMeta: { color: '#64748b', fontSize: 13, fontWeight: '600', marginTop: 5, textAlign: 'center' },
-  customerEmail: { color: '#94a3b8', fontSize: 12, marginTop: 3, textAlign: 'center' },
-  infoRows: { borderTopColor: '#eef2f7', borderTopWidth: 1, marginTop: 14, paddingTop: 12 },
-  infoRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-  infoLabel: { color: '#64748b', fontSize: 13 },
+  customerIdentity: { flex: 1, minWidth: 0 },
+  customerName: { color: '#0f172a', fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
+  customerMeta: { color: '#64748b', fontSize: 12, fontWeight: '600', marginTop: 3 },
+  infoRows: { borderTopColor: '#eef2f7', borderTopWidth: 1, marginTop: 12, paddingTop: 10 },
+  infoRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, minHeight: 28 },
+  infoLabel: { color: '#64748b', fontSize: 12, fontWeight: '600' },
   infoValueWrap: { alignItems: 'center', flexDirection: 'row', gap: 6, maxWidth: '68%' },
   infoValue: { color: '#0f172a', flexShrink: 1, fontSize: 13, fontWeight: '700', textAlign: 'right' },
   iconBtn: { alignItems: 'center', height: 26, justifyContent: 'center', width: 26 },
