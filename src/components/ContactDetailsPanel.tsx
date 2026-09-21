@@ -338,12 +338,12 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
                 <Pressable onPress={() => setCustomerOpen((v) => !v)} hitSlop={8} style={[styles.collapseBtn, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>{customerOpen ? <ChevronUp color={colors.textSecondary} size={16} /> : <ChevronDown color={colors.textSecondary} size={16} />}</Pressable>
               </View>
               {customerOpen ? (
-                <View style={[styles.customerBox, { borderColor: colors.cardBorder }]}>
+                <View style={[styles.customerBox, { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder }]}>
                   <View style={styles.customerTop}>
-                    <View style={styles.customerAvatarWrap}>
+                    <View style={[styles.customerAvatarWrap, { backgroundColor: colors.surface, borderColor: colors.primaryBorder }]}>
                       <ColorfulAvatar
                         name={contactTitle}
-                        size={52}
+                        size={58}
                         url={conversation.contact.avatarUrl ? (apiUrl(conversation.contact.avatarUrl) ?? conversation.contact.avatarUrl) : null}
                       />
                     </View>
@@ -589,16 +589,16 @@ const styles = StyleSheet.create({
   cardHeaderRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   cardTitle: { color: '#0f172a', fontSize: 14, fontWeight: '800' },
   collapseBtn: { alignItems: 'center', backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 16, borderWidth: 1, height: 32, justifyContent: 'center', width: 32 },
-  customerBox: { borderColor: '#e7eefb', borderRadius: 18, borderWidth: 1, marginTop: 12, padding: 14 },
-  customerTop: { flexDirection: 'row', gap: 14 },
-  customerAvatarWrap: { height: 52, width: 52 },
+  customerBox: { borderRadius: 22, borderWidth: 1, marginTop: 12, padding: 18 },
+  customerTop: { alignItems: 'center', flexDirection: 'column', gap: 10 },
+  customerAvatarWrap: { alignItems: 'center', borderRadius: 36, borderWidth: 2, height: 72, justifyContent: 'center', width: 72 },
   customerAvatar: { borderRadius: 26, height: 52, width: 52 },
   customerAvatarFallback: { alignItems: 'center', backgroundColor: '#2563eb', justifyContent: 'center' },
   customerAvatarText: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  customerIdentity: { flex: 1, justifyContent: 'center', minWidth: 0 },
-  customerName: { color: '#0f172a', fontSize: 15, fontWeight: '800' },
-  customerMeta: { color: '#64748b', fontSize: 13, marginTop: 3 },
-  customerEmail: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
+  customerIdentity: { alignItems: 'center', alignSelf: 'stretch', minWidth: 0 },
+  customerName: { color: '#0f172a', fontSize: 17, fontWeight: '800', letterSpacing: -0.2, textAlign: 'center' },
+  customerMeta: { color: '#64748b', fontSize: 13, fontWeight: '600', marginTop: 5, textAlign: 'center' },
+  customerEmail: { color: '#94a3b8', fontSize: 12, marginTop: 3, textAlign: 'center' },
   infoRows: { borderTopColor: '#eef2f7', borderTopWidth: 1, marginTop: 14, paddingTop: 12 },
   infoRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
   infoLabel: { color: '#64748b', fontSize: 13 },

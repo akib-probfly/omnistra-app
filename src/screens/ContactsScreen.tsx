@@ -963,8 +963,8 @@ const ContactRow = memo(function ContactRow({ contact, navigation }: { contact: 
 
   return (
     <Pressable onPress={onPress} style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-      <View style={styles.avatar}>
-        <ColorfulAvatar name={title} size={48} url={contact.avatarUrl} />
+      <View style={[styles.avatar, { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder }]}>
+        <ColorfulAvatar name={title} size={38} url={contact.avatarUrl} />
         {contact.channelType ? (
           <View style={[styles.channelBadge, { borderColor: colors.surface }]}>
             <ChannelLogo type={contact.channelType} box={18} glyph={11} radius={9} />
@@ -972,35 +972,43 @@ const ContactRow = memo(function ContactRow({ contact, navigation }: { contact: 
         ) : null}
       </View>
       <View style={styles.copy}>
-        <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{title}</Text>
-        <View style={styles.metaRow}>
-          <Phone color={colors.textMuted} size={12} />
-          <Text style={[styles.metaText, { color: colors.textSecondary }]} numberOfLines={1}>{phone ?? 'No phone'}</Text>
+        <View style={styles.contactHeading}>
+          <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{title}</Text>
+          <Text style={[styles.activity, { color: colors.textMuted }]}>{formatRelativeActivity(contact.lastActivityAt)}</Text>
         </View>
-        <View style={styles.metaRow}>
-          <Mail color={colors.textMuted} size={12} />
-          <Text style={[styles.metaText, { color: colors.textSecondary }]} numberOfLines={1}>{contact.primaryEmail?.trim() || 'No email'}</Text>
-        </View>
-        {contact.channelName ? (
-          <View style={styles.channelPill}>
-            <Text style={styles.channelPillText} numberOfLines={1}>{contact.channelName}</Text>
+        <View style={styles.contactMethods}>
+          <View style={styles.metaRow}>
+            <Phone color={colors.textMuted} size={12} />
+            <Text style={[styles.metaText, { color: colors.textSecondary }]} numberOfLines={1}>{phone ?? 'No phone'}</Text>
           </View>
-        ) : null}
-        {tags.length ? (
-          <View style={styles.tagRow}>
-            {tags.map((tag) => {
-              const color = tag.color?.trim() || '#64748b';
-              return (
-                <View key={tag.id} style={[styles.tagChip, { backgroundColor: hexWithAlpha(color), borderColor: hexWithAlpha(color, '33') }]}>
-                  <Text style={[styles.tagChipText, { color }]} numberOfLines={1}>{tag.text}</Text>
-                </View>
-              );
-            })}
-            {hiddenTagCount > 0 ? <Text style={[styles.tagMore, { color: colors.textSecondary }]}>+{hiddenTagCount}</Text> : null}
+          <View style={styles.metaRow}>
+            <Mail color={colors.textMuted} size={12} />
+            <Text style={[styles.metaText, { color: colors.textSecondary }]} numberOfLines={1}>{contact.primaryEmail?.trim() || 'No email'}</Text>
+          </View>
+        </View>
+        {contact.channelName || tags.length ? (
+          <View style={styles.footerBadges}>
+            {contact.channelName ? (
+              <View style={[styles.channelPill, { backgroundColor: colors.warningSoft, borderColor: colors.warningBorder }]}>
+                <Text style={styles.channelPillText} numberOfLines={1}>{contact.channelName}</Text>
+              </View>
+            ) : null}
+            {tags.length ? (
+              <View style={styles.tagRow}>
+                {tags.map((tag) => {
+                  const color = tag.color?.trim() || '#64748b';
+                  return (
+                    <View key={tag.id} style={[styles.tagChip, { backgroundColor: hexWithAlpha(color), borderColor: hexWithAlpha(color, '33') }]}>
+                      <Text style={[styles.tagChipText, { color }]} numberOfLines={1}>{tag.text}</Text>
+                    </View>
+                  );
+                })}
+                {hiddenTagCount > 0 ? <Text style={[styles.tagMore, { color: colors.textSecondary }]}>+{hiddenTagCount}</Text> : null}
+              </View>
+            ) : null}
           </View>
         ) : null}
       </View>
-      <Text style={[styles.activity, { color: colors.textMuted }]}>{formatRelativeActivity(contact.lastActivityAt)}</Text>
     </Pressable>
   );
 });
@@ -1172,23 +1180,26 @@ const styles = StyleSheet.create({
   downloadButtonText: { color: '#0891b2', fontSize: 12, fontWeight: '800' },
   downloadDismiss: { alignItems: 'center', height: 28, justifyContent: 'center', width: 24 },
   listFill: { flex: 1 },
-  list: { gap: 10, paddingBottom: 24, paddingHorizontal: 16, paddingTop: 12 },
-  card: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 12, padding: 14 },
-  avatar: { alignItems: 'center', backgroundColor: 'transparent', borderRadius: 24, height: 48, justifyContent: 'center', position: 'relative', width: 48 },
+  list: { gap: 8, paddingBottom: 24, paddingHorizontal: 16, paddingTop: 12 },
+  card: { alignItems: 'flex-start', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 10, padding: 10 },
+  avatar: { alignItems: 'center', borderRadius: 24, borderWidth: 2, height: 48, justifyContent: 'center', position: 'relative', width: 48 },
   avatarImage: { borderRadius: 24, height: 48, width: 48 },
   avatarText: { color: '#1d4ed8', fontSize: 15, fontWeight: '700' },
   channelBadge: { borderColor: '#fff', borderRadius: 10, borderWidth: 2, bottom: -2, overflow: 'hidden', position: 'absolute', right: -2 },
   copy: { flex: 1, minWidth: 0 },
-  name: { color: '#0f172a', fontSize: 15, fontWeight: '700' },
-  metaRow: { alignItems: 'center', flexDirection: 'row', gap: 5, marginTop: 4 },
-  metaText: { color: '#64748b', flex: 1, fontSize: 12 },
-  channelPill: { alignSelf: 'flex-start', backgroundColor: '#fff7ed', borderColor: '#fed7aa', borderRadius: 999, borderWidth: 1, marginTop: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  channelPillText: { color: '#9a3412', fontSize: 11, fontWeight: '600' },
-  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
-  tagChip: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
-  tagChipText: { fontSize: 11, fontWeight: '600' },
+  contactHeading: { alignItems: 'center', flexDirection: 'row', gap: 6, justifyContent: 'space-between', minWidth: 0 },
+  name: { color: '#0f172a', flex: 1, fontSize: 15, fontWeight: '700', letterSpacing: -0.15, minWidth: 0 },
+  contactMethods: { alignItems: 'center', flexDirection: 'row', gap: 10, marginTop: 4 },
+  metaRow: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 5, minHeight: 15, minWidth: 0 },
+  metaText: { color: '#64748b', flex: 1, fontSize: 11, minWidth: 0 },
+  footerBadges: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 6 },
+  channelPill: { alignSelf: 'flex-start', borderRadius: 999, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
+  channelPillText: { color: '#9a3412', fontSize: 10, fontWeight: '600' },
+  tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  tagChip: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 7, paddingVertical: 2 },
+  tagChipText: { fontSize: 10, fontWeight: '600' },
   tagMore: { alignSelf: 'center', color: '#64748b', fontSize: 11, fontWeight: '600' },
-  activity: { color: '#94a3b8', fontSize: 11, fontWeight: '600', marginTop: 2 },
+  activity: { color: '#94a3b8', flexShrink: 0, fontSize: 10, fontWeight: '600' },
   emptyClearButton: { backgroundColor: '#eff6ff', borderRadius: 12, marginTop: 14, paddingHorizontal: 14, paddingVertical: 10 },
   emptyClearButtonText: { color: '#2563eb', fontSize: 13, fontWeight: '700' },
   loader: { marginTop: 60 },
