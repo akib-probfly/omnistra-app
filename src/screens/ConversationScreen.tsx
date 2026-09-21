@@ -987,14 +987,14 @@ export function ConversationScreen() {
             <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{title}</Text>
             {contactSubtitle ? (
               <View style={styles.contactSubtitleRow}>
-                <Text style={[styles.contactSubtitle, { color: colors.textMuted }]} numberOfLines={1}>
-                  {contactSubtitle}
-                </Text>
                 {contactPhone && contactCountryCode ? (
                   <Text style={styles.contactCountryFlag} accessibilityLabel={`${contactCountryCode} flag`}>
                     {getCountryFlag(contactCountryCode)}
                   </Text>
                 ) : null}
+                <Text style={[styles.contactSubtitle, { color: colors.textMuted }]} numberOfLines={1}>
+                  {contactSubtitle}
+                </Text>
               </View>
             ) : null}
             {showConversationWindowLabel ? (
