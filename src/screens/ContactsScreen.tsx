@@ -655,10 +655,7 @@ export function ContactsScreen() {
 
               {filterLayer === 'labels' ? (
                 <>
-                  <View style={[styles.inlineSearch, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
-                    <Search color={colors.textMuted} size={16} />
-                    <TextInput value={tagSearch} onChangeText={setTagSearch} placeholder="Search tags" placeholderTextColor={colors.textMuted} style={[styles.inlineSearchInput, { color: colors.text }]} />
-                  </View>
+                  <AppSearchField value={tagSearch} onChangeText={setTagSearch} placeholder="Search tags" tone="background" />
                   {tagOptions.map((tag) => {
                     const active = tagIds.includes(tag.id);
                     const color = tag.color?.trim() || '#64748b';
@@ -700,10 +697,7 @@ export function ContactsScreen() {
                       })}
                     </View>
                   ) : null}
-                  <View style={[styles.inlineSearch, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
-                    <Search color={colors.textMuted} size={16} />
-                    <TextInput value={countrySearch} onChangeText={setCountrySearch} placeholder="Search countries or dial codes" placeholderTextColor={colors.textMuted} style={[styles.inlineSearchInput, { color: colors.text }]} />
-                  </View>
+                  <AppSearchField value={countrySearch} onChangeText={setCountrySearch} placeholder="Search countries or dial codes" tone="background" />
                   <Text style={[styles.countrySelectedCount, { color: colors.textSecondary }]}>{countryCodes.length} selected</Text>
                   {countriesQuery.isLoading ? <InlineSkeleton width={160} height={14} /> : countriesQuery.isError ? (
                     <Text style={[styles.emptyHint, { color: colors.textMuted }]}>Could not load countries. Try again later.</Text>
@@ -733,10 +727,7 @@ export function ContactsScreen() {
 
               {filterLayer === 'users' ? (
                 <>
-                  <View style={[styles.inlineSearch, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
-                    <Search color={colors.textMuted} size={16} />
-                    <TextInput value={userSearch} onChangeText={setUserSearch} placeholder="Search owners" placeholderTextColor={colors.textMuted} style={[styles.inlineSearchInput, { color: colors.text }]} />
-                  </View>
+                  <AppSearchField value={userSearch} onChangeText={setUserSearch} placeholder="Search owners" tone="background" />
                   <Pressable style={[styles.optionRow, ownerId == null && [styles.optionRowActive, { backgroundColor: colors.surfaceSecondary }]]} onPress={() => setOwnerId(null)}>
                     <Text style={[styles.optionText, { color: colors.textSecondary }, ownerId == null && [styles.optionTextActive, { color: colors.primary }]]}>Any owner</Text>
                   </Pressable>

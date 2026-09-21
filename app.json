@@ -1,128 +1,134 @@
-{
-  "expo": {
-    "name": "Zurvis",
-    "slug": "osaas-mobile",
-    "version": "1.0.15",
-    "scheme": "osaas",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "backgroundColor": "#f4f7fb",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#f4f7fb"
-    },
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.zurvis.mobile",
-      "buildNumber": "20",
-      "infoPlist": {
-        "CFBundleDisplayName": "Zurvis",
-        "CFBundleName": "Zurvis",
-        "ITSAppUsesNonExemptEncryption": false,
-        "NSMicrophoneUsageDescription": "Allow Zurvis to use your microphone for WhatsApp voice calls and voice notes.",
-        "NSCameraUsageDescription": "Allow Zurvis to use your camera for WhatsApp calling if required by the device.",
-        "UIBackgroundModes": ["audio", "remote-notification"]
-      }
-    },
-    "android": {
-      "softwareKeyboardLayoutMode": "resize",
-      "backgroundColor": "#f4f7fb",
-      "package": "com.zurvis.mobile",
-      "versionCode": 19,
-      "predictiveBackGestureEnabled": false,
-      "blockedPermissions": [
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.READ_MEDIA_AUDIO",
-        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"
-      ],
-      "adaptiveIcon": {
-        "backgroundColor": "#1d4ed8",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "permissions": [
-        "android.permission.POST_NOTIFICATIONS",
-        "android.permission.USE_FULL_SCREEN_INTENT",
-        "android.permission.WAKE_LOCK",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.CAMERA",
-        "android.permission.ACCESS_NETWORK_STATE",
-        "android.permission.INTERNET",
-        "android.permission.BLUETOOTH",
-        "android.permission.BLUETOOTH_CONNECT",
-        "android.permission.FOREGROUND_SERVICE",
-        "android.permission.FOREGROUND_SERVICE_MICROPHONE",
-        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
-      ]
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "expo-dev-client",
-      "./plugins/remove-deprecated-system-bar-styles",
-      "./plugins/remove-android-large-screen-restrictions",
-      "./plugins/remove-boot-completed-receivers",
-      "./plugins/exclude-dev-client-from-release-autolinking",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/android-icon-monochrome.png",
-          "color": "#1d4ed8",
-          "defaultChannel": "default",
-          "sounds": [
-            "./assets/sounds/message.wav",
-            "./assets/sounds/call.wav"
-          ],
-          "enableBackgroundRemoteNotifications": true
-        }
-      ],
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#f4f7fb",
-          "image": "./assets/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain"
-        }
-      ],
-      "expo-secure-store",
-      "@react-native-community/datetimepicker",
-      "expo-audio",
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "Allow Zurvis to access your photos to share images and videos.",
-          "cameraPermission": "Allow Zurvis to access your camera to send photos and videos."
-        }
-      ],
-      "expo-video",
-      "@config-plugins/react-native-webrtc",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "compileSdkVersion": 36,
-            "targetSdkVersion": 36,
-            "buildToolsVersion": "36.0.0",
-            "enablePngCrunchInReleaseBuilds": true,
-            "buildArchs": ["armeabi-v7a", "arm64-v8a"]
-          }
-        }
-      ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "ebcf3a48-25a6-4241-b7d1-d89e0c363502"
-      }
-    },
-    "owner": "akibhasan"
-  }
+﻿{
+    "expo":  {
+                 "name":  "Zurvis",
+                 "slug":  "osaas-mobile",
+                 "version":  "1.0.16",
+                 "scheme":  "osaas",
+                 "icon":  "./assets/icon.png",
+                 "userInterfaceStyle":  "light",
+                 "backgroundColor":  "#f4f7fb",
+                 "splash":  {
+                                "image":  "./assets/splash-icon.png",
+                                "resizeMode":  "contain",
+                                "backgroundColor":  "#f4f7fb"
+                            },
+                 "ios":  {
+                             "supportsTablet":  true,
+                             "bundleIdentifier":  "com.zurvis.mobile",
+                             "buildNumber":  "21",
+                             "infoPlist":  {
+                                               "CFBundleDisplayName":  "Zurvis",
+                                               "CFBundleName":  "Zurvis",
+                                               "ITSAppUsesNonExemptEncryption":  false,
+                                               "NSMicrophoneUsageDescription":  "Allow Zurvis to use your microphone for WhatsApp voice calls and voice notes.",
+                                               "NSCameraUsageDescription":  "Allow Zurvis to use your camera for WhatsApp calling if required by the device.",
+                                               "UIBackgroundModes":  [
+                                                                         "audio",
+                                                                         "remote-notification"
+                                                                     ]
+                                           }
+                         },
+                 "android":  {
+                                 "softwareKeyboardLayoutMode":  "resize",
+                                 "backgroundColor":  "#f4f7fb",
+                                 "package":  "com.zurvis.mobile",
+                                 "versionCode":  19,
+                                 "predictiveBackGestureEnabled":  false,
+                                 "blockedPermissions":  [
+                                                            "android.permission.READ_EXTERNAL_STORAGE",
+                                                            "android.permission.WRITE_EXTERNAL_STORAGE",
+                                                            "android.permission.READ_MEDIA_IMAGES",
+                                                            "android.permission.READ_MEDIA_VIDEO",
+                                                            "android.permission.READ_MEDIA_AUDIO",
+                                                            "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+                                                            "android.permission.RECEIVE_BOOT_COMPLETED",
+                                                            "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"
+                                                        ],
+                                 "adaptiveIcon":  {
+                                                      "backgroundColor":  "#1d4ed8",
+                                                      "foregroundImage":  "./assets/android-icon-foreground.png",
+                                                      "monochromeImage":  "./assets/android-icon-monochrome.png"
+                                                  },
+                                 "permissions":  [
+                                                     "android.permission.POST_NOTIFICATIONS",
+                                                     "android.permission.USE_FULL_SCREEN_INTENT",
+                                                     "android.permission.WAKE_LOCK",
+                                                     "android.permission.RECORD_AUDIO",
+                                                     "android.permission.MODIFY_AUDIO_SETTINGS",
+                                                     "android.permission.CAMERA",
+                                                     "android.permission.ACCESS_NETWORK_STATE",
+                                                     "android.permission.INTERNET",
+                                                     "android.permission.BLUETOOTH",
+                                                     "android.permission.BLUETOOTH_CONNECT",
+                                                     "android.permission.FOREGROUND_SERVICE",
+                                                     "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+                                                     "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+                                                 ]
+                             },
+                 "web":  {
+                             "favicon":  "./assets/favicon.png"
+                         },
+                 "plugins":  [
+                                 "expo-dev-client",
+                                 "./plugins/remove-deprecated-system-bar-styles",
+                                 "./plugins/remove-android-large-screen-restrictions",
+                                 "./plugins/remove-boot-completed-receivers",
+                                 "./plugins/exclude-dev-client-from-release-autolinking",
+                                 [
+                                     "expo-notifications",
+                                     {
+                                         "icon":  "./assets/android-icon-monochrome.png",
+                                         "color":  "#1d4ed8",
+                                         "defaultChannel":  "default",
+                                         "sounds":  [
+                                                        "./assets/sounds/message.wav",
+                                                        "./assets/sounds/call.wav"
+                                                    ],
+                                         "enableBackgroundRemoteNotifications":  true
+                                     }
+                                 ],
+                                 [
+                                     "expo-splash-screen",
+                                     {
+                                         "backgroundColor":  "#f4f7fb",
+                                         "image":  "./assets/splash-icon.png",
+                                         "imageWidth":  200,
+                                         "resizeMode":  "contain"
+                                     }
+                                 ],
+                                 "expo-secure-store",
+                                 "@react-native-community/datetimepicker",
+                                 "expo-audio",
+                                 [
+                                     "expo-image-picker",
+                                     {
+                                         "photosPermission":  "Allow Zurvis to access your photos to share images and videos.",
+                                         "cameraPermission":  "Allow Zurvis to access your camera to send photos and videos."
+                                     }
+                                 ],
+                                 "expo-video",
+                                 "@config-plugins/react-native-webrtc",
+                                 [
+                                     "expo-build-properties",
+                                     {
+                                         "android":  {
+                                                         "compileSdkVersion":  36,
+                                                         "targetSdkVersion":  36,
+                                                         "buildToolsVersion":  "36.0.0",
+                                                         "enablePngCrunchInReleaseBuilds":  true,
+                                                         "buildArchs":  [
+                                                                            "armeabi-v7a",
+                                                                            "arm64-v8a"
+                                                                        ]
+                                                     }
+                                     }
+                                 ]
+                             ],
+                 "extra":  {
+                               "eas":  {
+                                           "projectId":  "ebcf3a48-25a6-4241-b7d1-d89e0c363502"
+                                       }
+                           },
+                 "owner":  "akibhasan"
+             }
 }
