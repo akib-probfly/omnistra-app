@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { ArrowLeft, Camera, Eye, EyeOff, Lock, Save } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { showNotice } from '../components/AppToast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -11,6 +11,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { apiUrl } from '../api/client';
 import { fetchMyProfile, updateMyProfile } from '../api/profile';
 import { useAuth } from '../auth/AuthContext';
+import { AppButton, AppTextField } from '../ui';
 
 function getInitials(value?: string | null) {
   const parts = (value ?? '?').split(' ').filter(Boolean).map((part) => part[0]).slice(0, 2);
@@ -124,14 +125,14 @@ export function ProfileScreen() {
               </Pressable>
             </View>
             <View style={styles.avatarFields}>
-              <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Display name</Text>
-              <TextInput
+              <AppTextField
+                label="Display name"
                 value={displayName}
                 onChangeText={setNameOverride}
-                style={[styles.input, { backgroundColor: colors.background, borderColor: colors.inputBorder, color: colors.text }, !hasValidDisplayName && { borderColor: colors.error }]}
                 placeholder="Your name"
-                placeholderTextColor={colors.textMuted}
                 autoCapitalize="words"
+                error={!hasValidDisplayName ? 'Display name is required.' : undefined}
+                style={styles.profileField}
               />
               <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Email</Text>
               <View style={[styles.input, styles.inputDisabled, { backgroundColor: colors.surfaceSecondary, borderColor: colors.inputBorder }]}>
@@ -145,55 +146,43 @@ export function ProfileScreen() {
           <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>{PASSWORD_RULES}</Text>
 
           <View style={styles.passwordFields}>
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>New password</Text>
-            <View style={styles.passwordWrap}>
-              <TextInput
-                value={newPassword}
-                onChangeText={setNewPassword}
-                style={[styles.input, styles.passwordInput, { backgroundColor: colors.background, borderColor: colors.inputBorder, color: colors.text }, newPasswordError && { borderColor: colors.error }]}
-                placeholder="At least 8 characters"
-                placeholderTextColor={colors.textMuted}
-                secureTextEntry={!showPasswords}
-                autoComplete="new-password"
-              />
-              <Pressable style={styles.eye} onPress={() => setShowPasswords((current) => !current)} hitSlop={8}>
-                {showPasswords ? <EyeOff color={colors.textSecondary} size={18} /> : <Eye color={colors.textSecondary} size={18} />}
-              </Pressable>
-            </View>
-            {newPasswordError ? <Text style={[styles.fieldError, { color: colors.error }]}>{newPasswordError}</Text> : null}
-
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>Confirm new password</Text>
-            <View style={styles.passwordWrap}>
-              <TextInput
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                style={[styles.input, styles.passwordInput, { backgroundColor: colors.background, borderColor: colors.inputBorder, color: colors.text }, confirmPasswordError && { borderColor: colors.error }]}
-                placeholder="Repeat new password"
-                placeholderTextColor={colors.textMuted}
-                secureTextEntry={!showPasswords}
-                autoComplete="new-password"
-              />
-            </View>
-            {confirmPasswordError ? <Text style={[styles.fieldError, { color: colors.error }]}>{confirmPasswordError}</Text> : null}
+            <AppTextField
+              label="New password"
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder="At least 8 characters"
+              secureTextEntry={!showPasswords}
+              autoComplete="new-password"
+              error={newPasswordError}
+              style={styles.profileField}
+              trailing={(
+                <Pressable onPress={() => setShowPasswords((current) => !current)} hitSlop={8} accessibilityLabel={showPasswords ? 'Hide password' : 'Show password'}>
+                  {showPasswords ? <EyeOff color={colors.textSecondary} size={18} /> : <Eye color={colors.textSecondary} size={18} />}
+                </Pressable>
+              )}
+            />
+            <AppTextField
+              label="Confirm new password"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="Repeat new password"
+              secureTextEntry={!showPasswords}
+              autoComplete="new-password"
+              error={confirmPasswordError}
+              style={styles.profileField}
+            />
           </View>
 
-          <Pressable
-            style={[styles.submit, { backgroundColor: colors.primary }, !canSubmit || profileMutation.isPending ? styles.submitDisabled : null]}
+          <AppButton
+            label="Update profile"
+            loadingLabel="Updating..."
+            icon={passwordFieldsTouched ? Lock : Save}
+            block
+            style={styles.submit}
             onPress={handleSubmit}
             disabled={!canSubmit || profileMutation.isPending}
-          >
-            {profileMutation.isPending ? (
-              <>
-                <ActivityIndicator color="#fff" size="small" />
-                <Text style={styles.submitText}>Updating...</Text>
-              </>
-            ) : (
-              <>
-                {passwordFieldsTouched ? <Lock color="#fff" size={16} /> : <Save color="#fff" size={16} />}
-                <Text style={styles.submitText}>Update profile</Text>
-              </>
-            )}
-          </Pressable>
+            loading={profileMutation.isPending}
+          />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -218,17 +207,11 @@ const styles = StyleSheet.create({
   avatarEdit: { alignItems: 'center', backgroundColor: '#2563eb', borderColor: '#fff', borderRadius: 15, borderWidth: 2, bottom: -9, elevation: 6, height: 30, justifyContent: 'center', position: 'absolute', right: -9, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, width: 30, zIndex: 10 },
   avatarFields: { flex: 1, minWidth: 0 },
   fieldLabel: { color: '#64748b', fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginBottom: 6, marginTop: 12, textTransform: 'uppercase' },
+  profileField: { marginTop: 12 },
   input: { backgroundColor: '#f8fafc', borderColor: '#cfe1ff', borderRadius: 12, borderWidth: 1, color: '#0f172a', fontSize: 14, paddingHorizontal: 12, paddingVertical: 10 },
-  inputInvalid: { borderColor: '#dc2626' },
   inputDisabled: { backgroundColor: '#f1f5f9' },
   inputDisabledText: { color: '#64748b', fontSize: 14 },
   sectionDivider: { backgroundColor: '#e2e8f0', height: StyleSheet.hairlineWidth, marginVertical: 20 },
   passwordFields: { marginTop: 4 },
-  passwordWrap: { position: 'relative' },
-  passwordInput: { paddingRight: 44 },
-  eye: { alignItems: 'center', bottom: 0, justifyContent: 'center', position: 'absolute', right: 12, top: 0 },
-  fieldError: { color: '#dc2626', fontSize: 12, marginTop: 4 },
-  submit: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 12, flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 24, paddingVertical: 13 },
-  submitDisabled: { backgroundColor: '#93b4f0' },
-  submitText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  submit: { marginTop: 24 },
 });

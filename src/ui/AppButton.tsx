@@ -11,6 +11,7 @@ type Props = {
   variant?: Variant;
   disabled?: boolean;
   loading?: boolean;
+  loadingLabel?: string;
   accessibilityLabel?: string;
   /** Full-width call to action (taller, squarer) rather than the default inline pill. */
   block?: boolean;
@@ -25,6 +26,7 @@ export function AppButton({
   variant = 'primary',
   disabled = false,
   loading = false,
+  loadingLabel,
   accessibilityLabel,
   block = false,
   style,
@@ -56,7 +58,14 @@ export function AppButton({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={foreground} size={block ? undefined : 'small'} />
+        <>
+          <ActivityIndicator color={foreground} size={block ? undefined : 'small'} />
+          {loadingLabel ? (
+            <Text style={[styles.label, block && styles.blockLabel, { color: foreground }]}>
+              {loadingLabel}
+            </Text>
+          ) : null}
+        </>
       ) : (
         <>
           {Icon ? <Icon color={foreground} size={16} /> : null}
