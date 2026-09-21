@@ -4,7 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import { ArrowLeft, Camera, Check, ChevronDown, Copy, ExternalLink, Link2, MessageSquare, Phone, RefreshCw, RotateCcw, Save, Unlink2, UserRound } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,7 +41,7 @@ import { WhatsappTemplatesTab } from '../components/WhatsappTemplatesTab';
 import { WhatsappProductCatalogTab } from '../components/WhatsappProductCatalogTab';
 import type { ChannelsStackParamList } from '../navigation/ChannelsStack';
 import { useTheme } from '../theme/ThemeContext';
-import { AppBadge, badgePalette, type BadgeTone } from '../ui';
+import { AppBadge, AppTextField, badgePalette, type BadgeTone } from '../ui';
 import { apiUrl } from '../api/client';
 
 const STATUS_TONE: Record<string, BadgeTone> = {
@@ -734,12 +734,17 @@ function ConfigField({ label, value, copy = false, mono = false, openUrl }: { la
 }
 
 function FieldEdit({ label, value, onChange, placeholder, multiline = false, keyboardType }: { label: string; value: string; onChange: (text: string) => void; placeholder: string; multiline?: boolean; keyboardType?: 'email-address' }) {
-  const { colors } = useTheme();
   return (
-    <View style={styles.fieldEdit}>
-      <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>{label}</Text>
-      <TextInput value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={colors.textMuted} multiline={multiline} numberOfLines={multiline ? 4 : 1} keyboardType={keyboardType ?? 'default'} style={multiline ? [styles.inputMultiline, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder, color: colors.text }] : [styles.input, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder, color: colors.text }]} />
-    </View>
+    <AppTextField
+      label={label}
+      value={value}
+      onChangeText={onChange}
+      placeholder={placeholder}
+      multiline={multiline}
+      numberOfLines={multiline ? 4 : 1}
+      keyboardType={keyboardType ?? 'default'}
+      style={styles.fieldEdit}
+    />
   );
 }
 
@@ -804,8 +809,6 @@ const styles = StyleSheet.create({
   uploadButton: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 13, borderWidth: 1, flexDirection: 'row', flexShrink: 0, gap: 5, paddingHorizontal: 10, paddingVertical: 8 },
   uploadButtonText: { color: '#2563eb', fontSize: 12, fontWeight: '700' },
   fieldEdit: { marginTop: 14 },
-  input: { backgroundColor: '#f8fbff', borderColor: '#cfe1ff', borderRadius: 14, borderWidth: 1, color: '#0f172a', fontSize: 14, height: 46, paddingHorizontal: 14, marginTop: 6 },
-  inputMultiline: { backgroundColor: '#f8fbff', borderColor: '#cfe1ff', borderRadius: 14, borderWidth: 1, color: '#0f172a', fontSize: 14, minHeight: 96, paddingHorizontal: 14, paddingVertical: 12, marginTop: 6, textAlignVertical: 'top' },
   charHint: { color: '#64748b', fontSize: 11, marginTop: 6 },
   select: { alignItems: 'center', backgroundColor: '#f8fbff', borderColor: '#cfe1ff', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 8, height: 46, justifyContent: 'space-between', paddingHorizontal: 14, marginTop: 6 },
   selectText: { color: '#0f172a', flex: 1, fontSize: 14 },
