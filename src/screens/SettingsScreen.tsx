@@ -37,7 +37,7 @@ import { useWorkspaceAccess } from '../lib/workspace-access';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
 import { fontWeight, iconTiles, radius, spacing } from '../theme/tokens';
-import { AppBadge, AppCard, AppSearchField, AppText } from '../ui';
+import { AppBadge, AppCard, AppText } from '../ui';
 
 type BillingTab = 'current' | 'packages' | 'invoices' | 'history';
 
@@ -129,7 +129,6 @@ export function SettingsScreen() {
   );
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
-  const [search, setSearch] = useState('');
   const profileQuery = useQuery({
     queryKey: ['user-profile', 'me'],
     queryFn: fetchMyProfile,
@@ -147,14 +146,7 @@ export function SettingsScreen() {
     else setMode('system');
   };
 
-  const normalizedSearch = search.trim().toLowerCase();
   const themeLabel = mode === 'system' ? 'System' : mode === 'dark' ? 'Dark' : 'Light';
-  const searchedGroups = visibleGroups
-    .map((group) => ({
-      ...group,
-      items: group.items.filter((item) => `${item.label} ${item.description}`.toLowerCase().includes(normalizedSearch)),
-    }))
-    .filter((group) => group.items.length > 0);
 
   const handleSignOut = () => setSignOutOpen(true);
 
@@ -208,8 +200,6 @@ export function SettingsScreen() {
           </View>
         </AppCard>
 
-        <AppSearchField value={search} onChangeText={setSearch} placeholder="Search settings" tone="surface" />
-
         {subscriptionExpired ? (
           <Pressable
             onPress={() => navigation.navigate('Billing', { tab: 'packages' })}
@@ -228,7 +218,7 @@ export function SettingsScreen() {
           </Pressable>
         ) : null}
 
-        {searchedGroups.map((group) => {
+        {visibleGroups.map((group) => {
           return (
             <View key={group.label} style={styles.group}>
               <AppText variant="section" style={styles.groupTitle}>{group.label}</AppText>
