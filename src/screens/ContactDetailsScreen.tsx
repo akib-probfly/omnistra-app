@@ -343,22 +343,26 @@ export function ContactDetailsScreen() {
       ) : (
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}>
           <View style={[styles.profileCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-            <View style={styles.avatar}>
-              <ColorfulAvatar name={title} size={72} url={contact.avatarUrl} />
-              {contact.channelType ? (
-                <View style={[styles.channelBadge, { borderColor: colors.surface }]}>
-                  <ChannelLogo type={contact.channelType} box={22} glyph={13} radius={11} />
-                </View>
-              ) : null}
-            </View>
-            <Text style={[styles.profileName, { color: colors.text }]}>{title}</Text>
-            {showBlockedBadge ? (
-              <View style={styles.bannedBadge}>
-                <Ban color="#e11d48" size={12} />
-                <Text style={styles.bannedBadgeText}>Banned</Text>
+            <View style={styles.profileTopRow}>
+              <View style={[styles.avatar, { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder }]}>
+                <ColorfulAvatar name={title} size={58} url={contact.avatarUrl} />
+                {contact.channelType ? (
+                  <View style={[styles.channelBadge, { borderColor: colors.surface }]}>
+                    <ChannelLogo type={contact.channelType} box={18} glyph={11} radius={9} />
+                  </View>
+                ) : null}
               </View>
-            ) : null}
-            {contact.channelName ? <Text style={[styles.profileChannel, { color: colors.textSecondary }]}>{contact.channelName}</Text> : null}
+              <View style={styles.profileIdentity}>
+                <Text style={[styles.profileName, { color: colors.text }]} numberOfLines={2}>{title}</Text>
+                {contact.channelName ? <Text style={[styles.profileChannel, { color: colors.textSecondary }]}>{contact.channelName}</Text> : null}
+                {showBlockedBadge ? (
+                  <View style={styles.bannedBadge}>
+                    <Ban color="#e11d48" size={11} />
+                    <Text style={styles.bannedBadgeText}>Banned</Text>
+                  </View>
+                ) : null}
+              </View>
+            </View>
             <View style={styles.profileMeta}>
               <View style={[styles.metaChip, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
                 <Phone color={colors.textSecondary} size={14} />
@@ -708,18 +712,20 @@ const styles = StyleSheet.create({
   messageButton: { alignItems: 'center', backgroundColor: '#eff6ff', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   loader: { marginTop: 60 },
   content: { gap: 12, padding: 16 },
-  profileCard: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, padding: 18 },
-  avatar: { alignItems: 'center', backgroundColor: 'transparent', borderRadius: 36, height: 72, justifyContent: 'center', position: 'relative', width: 72 },
+  profileCard: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe1ff', borderRadius: 18, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 14 },
+  profileTopRow: { alignItems: 'center', flexDirection: 'row', gap: 12, width: '100%' },
+  avatar: { alignItems: 'center', backgroundColor: 'transparent', borderRadius: 34, borderWidth: 2, height: 68, justifyContent: 'center', position: 'relative', width: 68 },
   avatarImage: { borderRadius: 36, height: 72, width: 72 },
   avatarText: { color: '#1d4ed8', fontSize: 24, fontWeight: '700' },
   channelBadge: { borderColor: '#fff', borderRadius: 12, borderWidth: 2, bottom: -2, overflow: 'hidden', position: 'absolute', right: -2 },
-  profileName: { color: '#0f172a', fontSize: 20, fontWeight: '800', marginTop: 12 },
-  bannedBadge: { alignItems: 'center', backgroundColor: '#fff1f2', borderColor: '#fecdd3', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 5, marginTop: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  profileIdentity: { alignItems: 'flex-start', flex: 1, gap: 2, minWidth: 0 },
+  profileName: { color: '#0f172a', fontSize: 18, fontWeight: '800' },
+  bannedBadge: { alignItems: 'center', backgroundColor: '#fff1f2', borderColor: '#fecdd3', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 4, marginTop: 4, paddingHorizontal: 8, paddingVertical: 3 },
   bannedBadgeText: { color: '#e11d48', fontSize: 12, fontWeight: '700' },
   profileChannel: { color: '#64748b', fontSize: 13, marginTop: 4 },
-  profileMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 14 },
-  metaChip: { alignItems: 'center', backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 6, paddingHorizontal: 10, paddingVertical: 6 },
-  metaChipText: { color: '#475569', fontSize: 12, fontWeight: '600' },
+  profileMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-start', marginTop: 10, width: '100%' },
+  metaChip: { alignItems: 'center', backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 10, borderWidth: 1, flexDirection: 'row', gap: 5, minHeight: 32, paddingHorizontal: 8, paddingVertical: 5 },
+  metaChipText: { color: '#475569', flexShrink: 1, fontSize: 12, fontWeight: '600', maxWidth: 190 },
   metaCopyButton: { alignItems: 'center', height: 22, justifyContent: 'center', width: 22 },
   section: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, padding: 16 },
   sectionTitle: { color: '#0f172a', fontSize: 15, fontWeight: '800', marginBottom: 10 },
