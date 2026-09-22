@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDownLeft, ArrowUpRight, Ban, Check, CheckCircle2, CircleSlash, Filter, Globe, Image as ImageIcon, Inbox, Mail, MessageSquareText, Mic, Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Search, Star, Video, X } from 'lucide-react-native';
+import { ArrowDownLeft, ArrowUpRight, Ban, Check, CheckCircle2, CircleSlash, Filter, Image as ImageIcon, Inbox, Mail, MessageSquareText, Mic, Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Search, Star, Video, X } from 'lucide-react-native';
 import { Animated, Easing, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -465,7 +465,6 @@ export function InboxScreen() {
                 const active = filterLayer === layer.id;
                 return (
                   <Pressable key={layer.id} style={[styles.filterLayerTab, active && styles.filterLayerTabActive, active && { backgroundColor: colors.surface }]} onPress={() => setFilterLayer(layer.id)}>
-                    {layer.id === 'countries' ? <Globe color={active ? colors.primary : colors.textSecondary} size={13} /> : null}
                     <Text style={[styles.filterLayerTabText, { color: active ? colors.text : colors.textSecondary }]}>{layer.label}</Text>
                     {layer.id === 'countries' && countryCodes.length ? <Text style={[styles.filterLayerCount, { backgroundColor: active ? `${colors.primary}18` : colors.surfaceSecondary, color: active ? colors.primary : colors.textSecondary }]}>{countryCodes.length}</Text> : null}
                   </Pressable>
@@ -528,9 +527,6 @@ export function InboxScreen() {
 
               {filterLayer === 'countries' ? (
                 <>
-                  <Text style={[styles.countryFilterHint, { color: colors.textSecondary }]}>
-                    Match the phone number region. Conversations without a valid phone number are excluded.
-                  </Text>
                   {countryCodes.length ? (
                     <View style={styles.countryChipList}>
                       {countryCodes.map((isoCode) => {
@@ -1049,7 +1045,7 @@ const styles = StyleSheet.create({
   userEmail: { color: '#64748b', fontSize: 12, marginTop: 2 },
   roleChip: { backgroundColor: '#f1f5f9', borderRadius: 999, flexShrink: 0, paddingHorizontal: 7, paddingVertical: 2 },
   roleChipText: { fontSize: 10, fontWeight: '700' },
-  userCheck: { alignItems: 'center', borderRadius: 999, borderWidth: 1.5, height: 22, justifyContent: 'center', width: 22 },
+  userCheck: { alignItems: 'center', borderRadius: 5, borderWidth: 1.5, height: 22, justifyContent: 'center', width: 22 },
   emptyFilterHint: { color: '#94a3b8', fontSize: 13, paddingVertical: 12 },
   sectionLabel: { color: '#64748b', fontSize: 12, fontWeight: '700', letterSpacing: 0.4, marginBottom: 8, marginTop: 4, textTransform: 'uppercase' },
   dateFilterWrap: { marginBottom: 8 },
