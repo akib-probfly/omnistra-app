@@ -1530,12 +1530,17 @@ export function readWebchatPostchatForm(metadata: unknown) {
   const fields = record(data?.fields);
   if (data?.source !== 'webchat_postchat' || !fields) return null;
   const labels = record(data.fieldLabels);
+  const fieldTypes = record(data.fieldTypes);
   return {
     formName: typeof data.formName === 'string' && data.formName.trim() ? data.formName.trim() : 'Post-chat form',
     values: Object.entries(fields).flatMap(([id, value]) => {
       if (typeof value !== 'string' || !value.trim()) return [];
       const label = labels?.[id];
-      return [{ id, label: typeof label === 'string' && label.trim() ? label.trim() : id.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/^\w/, (c) => c.toUpperCase()), value: value.trim() }];
+      const resolvedLabel = typeof label === 'string' && label.trim() ? label.trim() : id.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/^\w/, (c) => c.toUpperCase());
+      const normalizedId = id.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const normalizedLabel = resolvedLabel.toLowerCase();
+      const isRating = String(fieldTypes?.[id] ?? '').toUpperCase() === 'RATING' || normalizedId === 'rating' || (/rating|experience|score/.test(normalizedLabel) && /^[1-5]$/.test(value.trim()));
+      return [{ id, label: resolvedLabel, type: isRating ? 'RATING' as const : 'TEXT' as const, value: value.trim() }];
     }),
   };
 }

@@ -278,7 +278,15 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
             {postchatForm.values.length ? postchatForm.values.map((field) => (
               <View key={field.id} style={{ gap: 3 }}>
                 <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600' }}>{field.label}</Text>
-                <Text selectable style={{ color: colors.text, fontSize: 13, lineHeight: 20 }}>{field.value}</Text>
+                {field.type === 'RATING' ? (
+                  <View style={styles.postchatRating} accessibilityLabel={`${Math.min(5, Math.max(0, Number.parseInt(field.value, 10) || 0))} out of 5 stars`}>
+                    {Array.from({ length: 5 }, (_, index) => {
+                      const rating = Math.min(5, Math.max(0, Number.parseInt(field.value, 10) || 0));
+                      return <Text key={index} style={[styles.postchatStar, { color: index < rating ? '#f59e0b' : colors.cardBorder }]}>{'★'}</Text>;
+                    })}
+                    <Text style={[styles.postchatScore, { color: colors.textSecondary }]}>{Math.min(5, Math.max(0, Number.parseInt(field.value, 10) || 0))}/5</Text>
+                  </View>
+                ) : <Text selectable style={{ color: colors.text, fontSize: 13, lineHeight: 20 }}>{field.value}</Text>}
               </View>
             )) : <Text style={{ color: colors.textSecondary }}>No additional feedback provided.</Text>}
           </View>
@@ -828,6 +836,9 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 6,
   },
+  postchatRating: { alignItems: 'center', flexDirection: 'row', gap: 2, marginTop: 2 },
+  postchatStar: { fontSize: 18, lineHeight: 22 },
+  postchatScore: { fontSize: 11, fontWeight: '600', marginLeft: 4 },
   linkPreviewBubble: { width: '100%' },
   incoming: { backgroundColor: '#fff', borderColor: '#d7e6fb', borderWidth: 1 },
   referralBubble: { borderColor: '#f6d78d', borderWidth: 1, paddingHorizontal: 10, paddingVertical: 9 },
