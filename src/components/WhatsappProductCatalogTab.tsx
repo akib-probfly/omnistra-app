@@ -113,7 +113,7 @@ export function WhatsappProductCatalogTab({ channelId }: { channelId: string }) 
               <View style={styles.catalogIdentity}><View style={[styles.catalogIcon, { backgroundColor: colors.surfaceSecondary }]}><PackageCheck color={colors.primary} size={18} /></View><View style={{ flex: 1 }}><Text style={styles.overline}>CONNECTED META CATALOG</Text><Text style={[styles.catalogName, { color: colors.text }]}>{activeCatalog?.name || 'Untitled catalog'}</Text><Text style={[styles.subtitle, { marginTop: 3, marginBottom: 0 }]}>ID {activeCatalog?.id || 'unavailable'}</Text></View></View>
               <View style={styles.summaryActions}><View style={styles.oneCatalog}><Text style={[styles.connectedText, { color: colors.primary }]}>One catalog per WABA</Text></View><AppButton label="Refresh" icon={RefreshCw} variant="secondary" loading={catalog.isFetching} onPress={() => void catalog.refetch()} /></View>
             </View>
-            <View style={[styles.resultsHeader, { borderBottomColor: colors.separator }]}><View><Text style={[styles.resultsTitle, { color: colors.text }]}>Products</Text><Text style={[styles.subtitle, { marginTop: 2, marginBottom: 0 }]}>{products.length} loaded{catalog.hasNextPage ? ' · more available' : ''}</Text></View><Text style={[styles.subtitle, { marginBottom: 0, textAlign: 'right' }]}>{latest?.lastFetchedAt ? `Updated ${new Date(latest.lastFetchedAt).toLocaleString()}` : 'Not fetched yet'}</Text></View>
+            <View style={[styles.resultsHeader, { borderBottomColor: colors.separator }]}><View style={styles.resultsHeaderInfo}><Text style={[styles.resultsTitle, { color: colors.text }]}>Products</Text><Text style={[styles.subtitle, { marginTop: 2, marginBottom: 0 }]}>{products.length} loaded{catalog.hasNextPage ? ' · more available' : ''}</Text></View><Text style={[styles.subtitle, styles.resultsUpdated, { marginBottom: 0, color: colors.textSecondary }]}>{latest?.lastFetchedAt ? `Updated ${new Date(latest.lastFetchedAt).toLocaleString()}` : 'Not fetched yet'}</Text></View>
             {products.length === 0 ? <View style={[styles.empty, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><Text style={[styles.subtitle, { marginBottom: 0 }]}>No products were returned for this catalog.</Text></View> : products.map((product) => <ProductCard key={product.id} product={product} />)}
             {catalog.hasNextPage ? <AppButton label={catalog.isFetchingNextPage ? 'Loading products…' : 'Load more products'} icon={ArrowUpRight} variant="secondary" loading={catalog.isFetchingNextPage} onPress={() => void catalog.fetchNextPage()} style={{ alignSelf: 'center' }} /> : null}
           </>
@@ -152,7 +152,9 @@ const styles = StyleSheet.create({
   catalogName: { marginTop: 6, fontSize: 14, fontWeight: '600' },
   summaryActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   oneCatalog: { backgroundColor: '#eef2ff', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 8 },
-  resultsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, paddingBottom: 10, gap: 8 },
+  resultsHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth, paddingBottom: 10, gap: 8 },
+  resultsHeaderInfo: { flex: 1, minWidth: 0 },
+  resultsUpdated: { flexShrink: 1, maxWidth: '52%', lineHeight: 16, textAlign: 'right' },
   resultsTitle: { fontSize: 16, fontWeight: '800' },
   productCard: { borderWidth: 1, borderRadius: 19, padding: 10, flexDirection: 'row', gap: 11, shadowColor: '#0f172a', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.035, shadowRadius: 8, elevation: 1 },
   productImage: { width: 72, height: 72, borderRadius: 15 },
