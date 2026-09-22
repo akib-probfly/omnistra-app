@@ -3,7 +3,6 @@ import { Image } from 'expo-image';
 import {
   Bell,
   Building2,
-  ChevronDown,
   ChevronRight,
   CreditCard,
   FileText,
@@ -24,7 +23,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { apiUrl } from '../api/client';
@@ -38,7 +37,7 @@ import { useWorkspaceAccess } from '../lib/workspace-access';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
 import { fontWeight, iconTiles, radius, spacing } from '../theme/tokens';
-import { AppBadge, AppCard, AppListRow, AppText } from '../ui';
+import { AppBadge, AppCard, AppSearchField, AppText } from '../ui';
 
 type BillingTab = 'current' | 'packages' | 'invoices' | 'history';
 
@@ -62,7 +61,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
       { kind: 'route', id: 'notifications', label: 'Notifications', description: 'Alerts, sound, and push preferences', icon: Bell, iconBg: iconTiles.orange.bg, iconColor: iconTiles.orange.fg, route: 'Notifications' },
       { kind: 'route', id: 'appearance', label: 'Appearance', description: 'Light, dark, or system theme', icon: Moon, iconBg: iconTiles.dark.bg, iconColor: iconTiles.dark.fg, route: '__appearance__' },
       { kind: 'route', id: 'inbox-appearance', label: 'Inbox Appearance', description: 'Thread patterns, backgrounds, and avatars', icon: Palette, iconBg: iconTiles.blue.bg, iconColor: iconTiles.blue.fg, route: 'InboxAppearance' },
-      { kind: 'route', id: 'assignment', label: 'Assignment Policy', description: 'Auto-assign and call routing rules', icon: Workflow, iconBg: iconTiles.indigo.bg, iconColor: iconTiles.indigo.fg, route: 'AssignmentPolicy', badge: 'NEW' },
+      { kind: 'route', id: 'assignment', label: 'Assignment Policy', description: 'Auto-assign and call routing rules', icon: Workflow, iconBg: iconTiles.indigo.bg, iconColor: iconTiles.indigo.fg, route: 'AssignmentPolicy' },
       { kind: 'route', id: 'quick-replies', label: 'Quick Replies', description: 'Create and manage reply snippets', icon: Zap, iconBg: iconTiles.yellow.bg, iconColor: iconTiles.yellow.fg, route: 'QuickReplies' },
       { kind: 'route', id: 'tags', label: 'Tags', description: 'Organize conversations and contacts', icon: Tag, iconBg: iconTiles.pink.bg, iconColor: iconTiles.pink.fg, route: 'Tags' },
     ],
@@ -130,17 +129,13 @@ export function SettingsScreen() {
   );
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
-  /** Open the first group on entry so users immediately see the available settings and icons. */
-  const [openGroup, setOpenGroup] = useState<string | null>('General Settings');
+  const [search, setSearch] = useState('');
   const profileQuery = useQuery({
     queryKey: ['user-profile', 'me'],
     queryFn: fetchMyProfile,
     enabled: Boolean(session?.user.email),
   });
 
-  useEffect(() => {
-    if (subscriptionExpired) setOpenGroup('Billing');
-  }, [subscriptionExpired]);
   const name = profileQuery.data?.name?.trim() || session?.user.name?.trim() || session?.user.email?.trim() || 'User';
   const email = profileQuery.data?.email?.trim() || session?.user.email?.trim() || '';
   const storedAvatarUrl = profileQuery.data?.avatarUrl ?? session?.user.avatarUrl ?? null;
@@ -152,7 +147,14 @@ export function SettingsScreen() {
     else setMode('system');
   };
 
+  const normalizedSearch = search.trim().toLowerCase();
   const themeLabel = mode === 'system' ? 'System' : mode === 'dark' ? 'Dark' : 'Light';
+  const searchedGroups = visibleGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => `${item.label} ${item.description}`.toLowerCase().includes(normalizedSearch)),
+    }))
+    .filter((group) => group.items.length > 0);
 
   const handleSignOut = () => setSignOutOpen(true);
 
@@ -166,10 +168,6 @@ export function SettingsScreen() {
       return;
     }
     navigation.navigate('Billing', { tab: item.tab });
-  };
-
-  const toggleGroup = (label: string) => {
-    setOpenGroup((current) => (current === label ? null : label));
   };
 
   const { colors } = useTheme();
@@ -210,6 +208,8 @@ export function SettingsScreen() {
           </View>
         </AppCard>
 
+        <AppSearchField value={search} onChangeText={setSearch} placeholder="Search settings" tone="surface" />
+
         {subscriptionExpired ? (
           <Pressable
             onPress={() => navigation.navigate('Billing', { tab: 'packages' })}
@@ -228,51 +228,39 @@ export function SettingsScreen() {
           </Pressable>
         ) : null}
 
-        {visibleGroups.map((group) => {
-          const isOpen = openGroup === group.label;
+        {searchedGroups.map((group) => {
           return (
-            <View key={group.label}>
-              <Pressable style={[styles.groupHeader, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} onPress={() => toggleGroup(group.label)}>
-                <AppText variant="section">{group.label}</AppText>
-                {isOpen ? <ChevronDown color={colors.textMuted} size={18} /> : <ChevronRight color={colors.textMuted} size={18} />}
-              </Pressable>
-              {isOpen ? (
-                <AppCard style={styles.groupCard}>
-                  {group.items.map((item, index) => {
+            <View key={group.label} style={styles.group}>
+              <AppText variant="section" style={styles.groupTitle}>{group.label}</AppText>
+              <AppCard style={styles.groupCard}>
+                <View style={styles.grid}>
+                  {group.items.map((item) => {
                     const isAppearance = item.kind === 'route' && item.route === '__appearance__';
                     const RowIcon = isAppearance ? (isDark ? Moon : Sun) : item.icon;
                     return (
-                      <AppListRow
+                      <Pressable
                         key={item.id}
-                        icon={RowIcon}
-                        iconBg={item.iconBg}
-                        iconColor={item.iconColor}
-                        title={item.label}
-                        description={isAppearance ? `Current: ${themeLabel}` : item.description}
-                        badge={item.kind === 'route' && item.badge ? <AppBadge label={item.badge} /> : undefined}
-                        trailing={
-                          isAppearance ? (
-                            <AppText variant="caption" tone="primary" style={{ fontWeight: fontWeight.semibold }}>
-                              {themeLabel}
-                            </AppText>
-                          ) : undefined
-                        }
-                        last={index === group.items.length - 1}
+                        accessibilityRole="button"
                         onPress={() => onPressRow(item)}
-                      />
+                        style={styles.gridItem}
+                      >
+                        <View style={[styles.gridIcon, styles.gridIconShadow, { backgroundColor: item.iconBg }]}>
+                          <RowIcon color={item.iconColor} size={22} />
+                        </View>
+                        <AppText variant="caption" numberOfLines={2} style={styles.gridLabel}>{item.label}</AppText>
+                        {isAppearance ? <AppText variant="tiny" tone="primary" style={styles.appearanceMode}>{themeLabel}</AppText> : null}
+                        {item.kind === 'route' && item.badge ? <AppBadge label={item.badge} /> : null}
+                      </Pressable>
                     );
                   })}
-                </AppCard>
-              ) : null}
+                </View>
+              </AppCard>
             </View>
           );
         })}
       </ScrollView>
 
       <View style={[styles.signOutWrap, { paddingBottom: Math.max(insets.bottom, spacing.lg), backgroundColor: colors.background, borderTopColor: colors.cardBorder }]}>
-        <Pressable onPress={() => navigation.navigate('PrivacyPolicy')} style={styles.legalLink}>
-          <AppText variant="bodyStrong" tone="primary">Privacy Policy</AppText>
-        </Pressable>
         <Pressable style={[styles.signOut, { backgroundColor: colors.surface, borderColor: colors.dangerBorder }]} onPress={handleSignOut}>
           <LogOut color={colors.error} size={20} />
           <AppText variant="bodyStrong" tone="error" style={styles.signOutText}>Sign out</AppText>
@@ -336,10 +324,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md + 2,
     paddingVertical: spacing.md + 2,
   },
+  group: { gap: spacing.sm },
+  groupTitle: { paddingHorizontal: spacing.xs, textTransform: 'uppercase', letterSpacing: 0.5 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -spacing.xs },
+  gridItem: {
+    alignItems: 'center',
+    minHeight: 112,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.md,
+    width: '33.333%',
+  },
+  gridIcon: {
+    alignItems: 'center',
+    borderRadius: radius.xxl,
+    height: 52,
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+    width: 52,
+  },
+  gridIconShadow: {
+    elevation: 1,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  gridLabel: { fontSize: 12, fontWeight: fontWeight.semibold, textAlign: 'center' },
+  appearanceMode: { fontSize: 10, marginTop: 2, textAlign: 'center' },
   groupCard: {
     marginTop: spacing.sm,
     overflow: 'hidden',
-    padding: 0,
+    padding: spacing.xs,
   },
   signOutWrap: {
     borderTopWidth: 1,
@@ -355,5 +370,4 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   signOutText: { marginLeft: spacing.sm },
-  legalLink: { alignItems: 'center', marginBottom: spacing.md, paddingVertical: spacing.xs },
 });
