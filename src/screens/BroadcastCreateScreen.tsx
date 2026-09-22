@@ -44,7 +44,7 @@ import {
   type CampaignContentType,
   type CreateCampaignInput,
 } from '../api/broadcast';
-import { fetchChannelsPage } from '../api/channels';
+import { fetchChannels } from '../api/channels';
 import { fetchWorkspaceTags, type ConversationTag } from '../api/conversationDetails';
 import { fetchMyWorkspaces } from '../api/workspaces';
 import { fetchWhatsappTemplates, type WhatsappTemplate, type WhatsappTemplateCategory } from '../api/whatsappTemplates';
@@ -133,7 +133,7 @@ export function BroadcastCreateScreen() {
 
   const channelsQuery = useQuery({
     queryKey: ['channels'],
-    queryFn: () => fetchChannelsPage({ limit: 500 }),
+    queryFn: fetchChannels,
     staleTime: 30_000,
   });
   const whatsappChannels = useMemo(
