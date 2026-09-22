@@ -909,13 +909,13 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
   return (
     <Pressable onPress={onPress} style={[styles.rowPressable, { backgroundColor: colors.surface }]}>
       <View style={[styles.row, { backgroundColor: colors.surface, borderBottomColor: colors.separator }]}>
-        <View style={styles.avatar}>
+        <View style={[styles.avatar, { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder }]}>
           <ColorfulAvatar
             name={conversation.contact.displayName ?? 'Unknown contact'}
-            size={48}
+            size={44}
             url={conversation.contact.avatarUrl}
           />
-          {conversation.channel?.channelType ? <View style={[styles.channelBadgeWrap, { borderColor: colors.surface }]}><ChannelLogo type={conversation.channel.channelType} box={22} glyph={13} radius={11} /></View> : null}
+          {conversation.channel?.channelType ? <View style={[styles.channelBadgeWrap, { borderColor: colors.surface }]}><ChannelLogo type={conversation.channel.channelType} box={20} glyph={12} radius={10} /></View> : null}
         </View>
         <View style={styles.copy}>
           <View style={styles.nameLine}>
@@ -1074,10 +1074,10 @@ const styles = StyleSheet.create({
   emptyClearButtonText: { color: '#2563eb', fontSize: 13, fontWeight: '700' },
   rowPressable: { backgroundColor: '#fff' },
   row: { backgroundColor: '#fff', borderBottomColor: '#eef2f7', borderBottomWidth: 1, flexDirection: 'row', overflow: 'hidden', paddingHorizontal: 12, paddingVertical: 12 },
-  avatar: { alignItems: 'center', backgroundColor: 'transparent', borderRadius: 24, height: 48, justifyContent: 'center', overflow: 'visible', position: 'relative', width: 48 },
+  avatar: { alignItems: 'center', backgroundColor: 'transparent', borderRadius: 999, borderWidth: 2, height: 54, justifyContent: 'center', overflow: 'visible', position: 'relative', width: 54 },
   avatarImage: { borderRadius: 24, height: 48, width: 48 },
   avatarText: { color: '#111827', fontSize: 18, fontWeight: '700' },
-  channelBadgeWrap: { alignItems: 'center', borderColor: '#fff', borderRadius: 11, borderWidth: 2, bottom: -2, height: 22, justifyContent: 'center', overflow: 'hidden', position: 'absolute', right: -2, width: 22 },
+  channelBadgeWrap: { alignItems: 'center', borderColor: '#fff', borderRadius: 10, borderWidth: 2, bottom: -2, height: 20, justifyContent: 'center', overflow: 'hidden', position: 'absolute', right: -2, width: 20 },
   copy: { flex: 1, marginLeft: 12, minWidth: 0 },
   nameLine: { alignItems: 'center', flexDirection: 'row', gap: 6 },
   name: { color: '#111827', flexShrink: 1, fontSize: 15, fontWeight: '600' },
