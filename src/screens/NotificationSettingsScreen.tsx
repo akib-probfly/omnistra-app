@@ -14,6 +14,7 @@ import { AppToggle } from '../components/AppToggle';
 import { ErrorState } from '../components/ErrorState';
 import { FormSkeleton } from '../components/Skeleton';
 import { registerMobilePushDeviceIfPermitted } from '../lib/mobilePushRegistration';
+import { isExpoGo } from '../lib/expo-go';
 
 type PreferenceKey = keyof NotificationPreferences;
 
@@ -113,6 +114,11 @@ export function NotificationSettingsScreen() {
     const current = workspaceId ? (queryClient.getQueryData<NotificationPreferences>(notificationQueryKeys.preferences(workspaceId)) ?? preferences) : preferences;
     const nextValue = !current[key];
     if (push && nextValue) {
+      // Remote push is unavailable in Expo Go — use a development build.
+      if (isExpoGo()) {
+        showNotice('Push unavailable in Expo Go', 'Install a development build to enable push alerts.');
+        return;
+      }
       setPushPending(true);
       try {
         const permission = await Notifications.getPermissionsAsync();

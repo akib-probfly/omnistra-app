@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { registerMobilePushDeviceIfPermitted } from "../lib/mobilePushRegistration";
+import { isExpoGo } from "../lib/expo-go";
 
 const PERMISSION_PROMPT_DELAY_MS = 1200;
 const PERMISSION_RETRY_DELAY_MS = 1800;
@@ -21,6 +22,10 @@ export function useMobilePushRegistration(): void {
   const { session } = useAuth();
 
   useEffect(() => {
+    // addPushTokenListener throws in Expo Go (push removed since SDK 55).
+    if (isExpoGo()) {
+      return undefined;
+    }
     if (
       !session?.accessToken ||
       (Platform.OS !== "android" && Platform.OS !== "ios")

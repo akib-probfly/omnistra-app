@@ -33,6 +33,7 @@ import {
   syncNotificationCaches,
 } from "../lib/mobile-notification";
 import { playNotificationSound } from "../lib/notificationSound";
+import { isExpoGo } from "../lib/expo-go";
 
 let foregroundHandlerConfigured = false;
 
@@ -40,7 +41,8 @@ export function configureMobileForegroundNotificationHandler() {
   if (foregroundHandlerConfigured) return;
   foregroundHandlerConfigured = true;
 
-  Notifications.setNotificationHandler({
+  try {
+    Notifications.setNotificationHandler({
     handleNotification: async (notification) => {
       const incomingData =
         flattenRemotePushData(notification.request.content.data) ?? {};
@@ -101,6 +103,11 @@ export function configureMobileForegroundNotificationHandler() {
       };
     },
   });
+  } catch {
+    // setNotificationHandler is local-only config, but never let it break
+    // startup in runtimes (Expo Go) where notification APIs are restricted.
+    foregroundHandlerConfigured = false;
+  }
 }
 
 export function useMobileNotificationHandlers() {
@@ -272,7 +279,8 @@ export function useMobileNotificationHandlers() {
   }, []);
 
   useEffect(() => {
-    if (!session) return;
+    // Push listeners are unavailable in Expo Go (push removed since SDK 55).
+    if (!session || isExpoGo()) return;
 
     const receivedSubscription =
       Notifications.addNotificationReceivedListener(processNotification);

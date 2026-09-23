@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
+import { isExpoGo } from '../lib/expo-go';
 import { declineConversationCall } from '../api/inbox';
 import {
   ANSWER_CALL_ACTION_ID,
@@ -106,6 +107,9 @@ export function registerCallPushTask() {
   void ensureMobilePushChannels().catch((error) => {
     if (__DEV__) console.warn('[call-push] channel setup failed', error);
   });
+  // Background push tasks throw in Expo Go (push removed since SDK 55).
+  // Local channels/categories above still work there.
+  if (isExpoGo()) return;
   void Notifications.registerTaskAsync(CALL_PUSH_TASK).catch((error) => {
     if (__DEV__) console.warn('[call-push] task registration failed', error);
   });
