@@ -92,7 +92,8 @@
                                          "resizeMode":  "contain"
                                      }
                                  ],
-                                 "expo-secure-store",
+                                     "expo-secure-store",
+                                 "expo-media-library",
                                  "@react-native-community/datetimepicker",
                                  "expo-audio",
                                  [

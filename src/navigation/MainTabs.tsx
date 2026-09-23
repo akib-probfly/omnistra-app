@@ -1,5 +1,5 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { getFocusedRouteNameFromRoute, type NavigatorScreenParams } from '@react-navigation/native';
+import { getFocusedRouteNameFromRoute, StackActions, type NavigatorScreenParams } from '@react-navigation/native';
 import { BarChart3, ContactRound, Inbox, Radio, Settings } from 'lucide-react-native';
 import { ActivityIndicator, Pressable, Text, type PressableProps, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -106,6 +106,22 @@ export function MainTabs() {
       <Tab.Screen
         name="Inbox"
         component={InboxStack}
+        listeners={({ navigation, route }) => ({
+          // A notification opens Conversation inside this tab's nested stack.
+          // Tab navigators keep nested state alive, so selecting Inbox again
+          // must explicitly return to the list instead of restoring the thread.
+          tabPress: () => {
+            const nestedState = navigation
+              .getState()
+              .routes.find((item) => item.key === route.key)?.state;
+            if (nestedState?.key) {
+              navigation.dispatch({
+                ...StackActions.popToTop(),
+                target: nestedState.key,
+              });
+            }
+          },
+        })}
         options={({ route }) => {
           const focused = getFocusedRouteNameFromRoute(route) ?? 'InboxList';
           return {

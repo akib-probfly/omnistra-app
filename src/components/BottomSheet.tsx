@@ -6,7 +6,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 
 type BottomSheetContextValue = {
-  pan: ReturnType<typeof Gesture.Pan>;
   contentOffsetY: SharedValue<number>;
 };
 
@@ -196,7 +195,7 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
                   </View>
                 </GestureDetector>
               ) : null}
-              <BottomSheetContext.Provider value={{ pan, contentOffsetY }}>
+              <BottomSheetContext.Provider value={{ contentOffsetY }}>
                 <View style={[styles.body, fillBody ? styles.bodyFill : null]}>{children}</View>
               </BottomSheetContext.Provider>
             </Animated.View>

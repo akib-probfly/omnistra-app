@@ -96,21 +96,11 @@ export function useMobilePushRegistration(): void {
         if (isForeground(nextState)) registerWhenUiReady();
       },
     );
-    // Some Expo Go builds do not expose a reliable runtime identity. Keep
-    // this final boundary defensive because addPushTokenListener throws there.
-    let tokenSubscription: { remove: () => void } | null = null;
-    try {
-      tokenSubscription = Notifications.addPushTokenListener(register);
-    } catch {
-      tokenSubscription = null;
-    }
-
     return () => {
       active = false;
       interaction?.cancel();
       clearPromptDelay();
       appStateSubscription.remove();
-      tokenSubscription?.remove();
     };
   }, [session?.accessToken]);
 }
