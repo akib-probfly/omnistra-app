@@ -1,5 +1,8 @@
 import { NativeModules } from 'react-native';
 
+/* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/no-redeclare */
+// Intentional lazy require facade: picks the real WebRTC binary when linked,
+// otherwise falls back to the stub (Expo Go / builds without native WebRTC).
 function loadWebRtc(): any {
   // Expo Go and any build without the native WebRTC binary stay on the stub.
   if (NativeModules.WebRTCModule == null) {

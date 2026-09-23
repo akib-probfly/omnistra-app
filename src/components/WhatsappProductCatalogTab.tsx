@@ -2,7 +2,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import { Image } from 'expo-image';
 import { AlertCircle, ArrowUpRight, CheckCircle2, CircleDollarSign, Hash, Link2, Package, PackageCheck, RefreshCw, Tag } from 'lucide-react-native';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { connectWhatsappProductCatalog, fetchWhatsappProductCatalog, type WhatsappCatalogProduct } from '../api/channels';
 import { AppButton } from '../ui';

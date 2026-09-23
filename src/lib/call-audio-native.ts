@@ -11,6 +11,7 @@ function loadNativeModule(): CallAudioNativeModule | null {
   try {
     // 'expo' re-exports requireOptionalNativeModule (expo-modules-core must
     // not be a direct dependency — see expo-doctor).
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy optional native load
     const { requireOptionalNativeModule } = require('expo') as typeof import('expo');
     return requireOptionalNativeModule<CallAudioNativeModule>('ZurvisCallAudio');
   } catch {
