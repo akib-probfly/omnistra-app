@@ -394,7 +394,7 @@ export function BillingPlanDetailsScreen() {
           </Pressable>
         </View>
 
-        <View style={[styles.nextCard, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+        {!isDowngrade ? <View style={[styles.nextCard, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>What happens next</Text>
           {(upgradeMode
             ? [
@@ -402,13 +402,7 @@ export function BillingPlanDetailsScreen() {
                 'You complete payment for the prorated difference.',
                 'Your plan is upgraded immediately and new features unlock.',
               ]
-            : isDowngrade
-              ? [
-                  `We create a PipraPay checkout for the next ${plan.name} billing cycle.`,
-                  'Your current plan stays active after payment until this period ends.',
-                  `At period end, we activate your paid ${plan.name} subscription.`,
-                ]
-              : [
+            : [
                   'We create a PipraPay checkout session for this workspace.',
                   'You complete payment on PipraPay’s secure checkout.',
                   'Payment is verified on the server and the subscription is written to the workspace.',
@@ -416,7 +410,7 @@ export function BillingPlanDetailsScreen() {
           ).map((step, index) => (
             <Text key={step} style={[styles.nextStep, { color: colors.textSecondary }]}>{index + 1}. {step}</Text>
           ))}
-        </View>
+        </View> : null}
       </ScrollView>
     </View>
   );
