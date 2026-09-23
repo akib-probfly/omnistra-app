@@ -9,7 +9,9 @@ type CallAudioNativeModule = {
 function loadNativeModule(): CallAudioNativeModule | null {
   if (Platform.OS !== 'ios') return null;
   try {
-    const { requireOptionalNativeModule } = require('expo-modules-core') as typeof import('expo-modules-core');
+    // 'expo' re-exports requireOptionalNativeModule (expo-modules-core must
+    // not be a direct dependency — see expo-doctor).
+    const { requireOptionalNativeModule } = require('expo') as typeof import('expo');
     return requireOptionalNativeModule<CallAudioNativeModule>('ZurvisCallAudio');
   } catch {
     return null;

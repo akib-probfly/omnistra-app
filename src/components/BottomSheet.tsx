@@ -178,7 +178,7 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
     <Modal visible={visible} transparent animationType="none" onRequestClose={requestClose}>
       <GestureHandlerRootView style={styles.root}>
         <View style={styles.container}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={requestClose} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={requestClose} />
           <GestureDetector gesture={pan}>
             <Animated.View
               onLayout={(event) => {

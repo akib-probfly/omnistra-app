@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { getVideoThumbnail } from '../lib/video-thumbnail';
 import { Film, Play } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
+import type { VideoThumbnail } from 'expo-video';
 import { AuthenticatedImage } from './AuthenticatedImage';
 
 function formatBytes(sizeBytes: number | null | undefined): string | null {
@@ -36,9 +38,11 @@ export function VideoThumb({
   onPress: () => void;
 }) {
   const [failedPoster, setFailedPoster] = useState<string | null>(null);
-  const [generated, setGenerated] = useState<{ url: string; uri: string } | null>(null);
+  const [generated, setGenerated] = useState<{ url: string; thumb: VideoThumbnail } | null>(null);
   const poster = posterUrl && posterUrl !== failedPoster ? posterUrl : null;
-  const thumbnail = poster || (generated?.url === url ? generated.uri : null);
+  // Server posters render with auth headers; generated frames are native
+  // image refs rendered directly. Poster wins when available.
+  const generatedThumb = !poster && generated?.url === url ? generated.thumb : null;
   const onPosterError = useCallback(() => {
     if (poster) setFailedPoster(poster);
   }, [poster]);
@@ -46,8 +50,8 @@ export function VideoThumb({
   useEffect(() => {
     if (poster || !url) return;
     let active = true;
-    getVideoThumbnail(url).then((uri) => {
-      if (active && uri) setGenerated({ url, uri });
+    getVideoThumbnail(url).then((thumb) => {
+      if (active && thumb) setGenerated({ url, thumb });
     }).catch((error) => {
       if (active) console.warn('[video-thumbnail] Frame extraction failed', error instanceof Error ? error.message : 'Unknown error');
     });
@@ -59,8 +63,10 @@ export function VideoThumb({
 
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={name ? `Play video: ${name}` : 'Play video'} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
-      {thumbnail ? (
-        <AuthenticatedImage key={thumbnail} url={thumbnail} onError={onPosterError} style={styles.media} resizeMode="cover" adaptive />
+      {poster ? (
+        <AuthenticatedImage key={poster} url={poster} onError={onPosterError} style={styles.media} resizeMode="cover" adaptive />
+      ) : generatedThumb ? (
+        <ExpoImage key={url} source={generatedThumb} style={styles.media} contentFit="cover" cachePolicy="memory-disk" />
       ) : (
         <View style={styles.media}>
           <View style={styles.filmGlyph}>
@@ -94,12 +100,12 @@ export function VideoThumb({
 const styles = StyleSheet.create({
   card: { borderRadius: 20, height: 300, maxWidth: '100%', overflow: 'hidden', position: 'relative', width: 250 },
   pressed: { opacity: 0.85 },
-  media: { ...StyleSheet.absoluteFillObject, alignItems: 'center', backgroundColor: '#0b1220', justifyContent: 'center' },
+  media: { ...StyleSheet.absoluteFill, alignItems: 'center', backgroundColor: '#0b1220', justifyContent: 'center' },
   filmGlyph: { alignItems: 'center', justifyContent: 'center' },
-  shade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.08)' },
+  shade: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.08)' },
   durationChip: { backgroundColor: 'rgba(2,6,23,0.65)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, position: 'absolute', left: 10, bottom: 10 },
   durationText: { color: '#f1f5f9', fontSize: 11, fontWeight: '600' },
-  center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  center: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   playCircle: { alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 },
   playIcon: { marginLeft: 3 },
   sizeChip: { backgroundColor: 'rgba(2,6,23,0.65)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3, position: 'absolute', right: 10, bottom: 10 },

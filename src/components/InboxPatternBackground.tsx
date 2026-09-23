@@ -76,7 +76,7 @@ export function InboxPatternBackground({ pattern, style }: Props) {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         onLayout={onLayout}
-        style={[StyleSheet.absoluteFillObject, style]}
+        style={[StyleSheet.absoluteFill, style]}
       />
     );
   }
@@ -85,7 +85,7 @@ export function InboxPatternBackground({ pattern, style }: Props) {
     <View
       pointerEvents="none"
       onLayout={onLayout}
-      style={[StyleSheet.absoluteFillObject, { backgroundColor: isDark ? colors.background : resolved.threadColor, overflow: 'hidden' }, style]}
+      style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? colors.background : resolved.threadColor, overflow: 'hidden' }, style]}
     >
       <View style={styles.tiles}>
         {tiles.map((tile) => (
@@ -110,11 +110,11 @@ export function InboxPatternBackground({ pattern, style }: Props) {
 
 const styles = StyleSheet.create({
   tiles: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     opacity: 0.6,
   },
   fade: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
   },
 });

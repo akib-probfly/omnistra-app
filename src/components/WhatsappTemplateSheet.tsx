@@ -742,7 +742,7 @@ export function WhatsappTemplateSheet({
 
 const styles = StyleSheet.create({
   flex: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(15,23,42,0.45)' },
+  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(15,23,42,0.45)' },
   sheetHeight: {
     flexShrink: 1,
     height: '92%',

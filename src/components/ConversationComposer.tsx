@@ -1087,7 +1087,7 @@ const styles = StyleSheet.create({
   replyTypeRow: { alignItems: 'center', flexDirection: 'row', gap: 6, marginTop: 2 },
   replyText: { color: '#64748b', flex: 1, fontSize: 12 },
   blockedComposer: { borderRadius: 24, borderWidth: 1, borderColor: '#fecaca', margin: 12, overflow: 'hidden' },
-  blockedGradient: { ...StyleSheet.absoluteFillObject },
+  blockedGradient: { ...StyleSheet.absoluteFill },
   blockedContent: { padding: 16, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
   blockedIcon: { marginRight: 10 },
   blockedTextWrap: { flex: 1, minWidth: 200 },

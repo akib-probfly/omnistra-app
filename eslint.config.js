@@ -1,5 +1,6 @@
 // https://docs.expo.dev/guides/using-eslint/
 const expoConfig = require('eslint-config-expo/flat');
+const globals = require('globals');
 
 module.exports = [
   ...expoConfig,
@@ -12,6 +13,13 @@ module.exports = [
       'ios/*',
       'node_modules/*',
     ],
+  },
+  {
+    // CommonJS config/plugin files run in Node (prebuild), not in the app.
+    files: ['app.config.js', 'plugins/**/*.js'],
+    languageOptions: {
+      globals: globals.node,
+    },
   },
   {
     rules: {

@@ -7,11 +7,6 @@
                  "icon":  "./assets/icon.png",
                  "userInterfaceStyle":  "light",
                  "backgroundColor":  "#f4f7fb",
-                 "splash":  {
-                                "image":  "./assets/splash-icon.png",
-                                "resizeMode":  "contain",
-                                "backgroundColor":  "#f4f7fb"
-                            },
                  "ios":  {
                              "supportsTablet":  true,
                              "bundleIdentifier":  "com.zurvis.mobile",
