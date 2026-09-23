@@ -102,14 +102,15 @@ TaskManager.defineTask<Notifications.NotificationTaskPayload>(CALL_PUSH_TASK, as
 });
 
 export function registerCallPushTask() {
+  // Expo Go does not ship the native remote-push module. Do not even touch
+  // notification categories/channels while the JS bundle is booting there.
+  if (isExpoGo()) return;
+
   void ensureIncomingCallCategory();
   void ensureMessageNotificationCategory();
   void ensureMobilePushChannels().catch((error) => {
     if (__DEV__) console.warn('[call-push] channel setup failed', error);
   });
-  // Background push tasks throw in Expo Go (push removed since SDK 55).
-  // Local channels/categories above still work there.
-  if (isExpoGo()) return;
   void Notifications.registerTaskAsync(CALL_PUSH_TASK).catch((error) => {
     if (__DEV__) console.warn('[call-push] task registration failed', error);
   });

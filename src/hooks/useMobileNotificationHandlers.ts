@@ -38,6 +38,7 @@ import { isExpoGo } from "../lib/expo-go";
 let foregroundHandlerConfigured = false;
 
 export function configureMobileForegroundNotificationHandler() {
+  if (isExpoGo()) return;
   if (foregroundHandlerConfigured) return;
   foregroundHandlerConfigured = true;
 
@@ -273,6 +274,9 @@ export function useMobileNotificationHandlers() {
   );
 
   useEffect(() => {
+    // expo-notifications remote push APIs are not available in Expo Go.
+    if (isExpoGo()) return;
+
     configureMobileForegroundNotificationHandler();
     void ensureIncomingCallCategory();
     void ensureMessageNotificationCategory();

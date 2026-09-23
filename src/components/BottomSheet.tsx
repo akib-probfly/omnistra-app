@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo } from 'react';
+import { createContext, useContext, useEffect } from 'react';
 import { Keyboard, Modal, Platform, Pressable, StyleSheet, useWindowDimensions, View, type StyleProp, type ViewStyle, type ScrollViewProps, type FlatListProps } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
@@ -7,7 +7,6 @@ import { useTheme } from '../theme/ThemeContext';
 
 type BottomSheetContextValue = {
   pan: ReturnType<typeof Gesture.Pan>;
-  nativeScrollGesture: ReturnType<typeof Gesture.Native>;
   contentOffsetY: SharedValue<number>;
 };
 
@@ -38,7 +37,7 @@ export function SheetScrollView(props: ScrollViewProps) {
       scrollEventThrottle={16}
     />
   );
-  return ctx ? <GestureDetector gesture={ctx.nativeScrollGesture}>{content}</GestureDetector> : content;
+  return content;
 }
 
 export function SheetFlatList(props: FlatListProps<any>) {
@@ -59,7 +58,7 @@ export function SheetFlatList(props: FlatListProps<any>) {
       scrollEventThrottle={16}
     />
   );
-  return ctx ? <GestureDetector gesture={ctx.nativeScrollGesture}>{content}</GestureDetector> : content;
+  return content;
 }
 
 type BottomSheetProps = {
@@ -84,7 +83,6 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
   const sheetHeight = useSharedValue(windowHeight);
   const contentOffsetY = useSharedValue(0);
   const keyboardInset = useSharedValue(0);
-  const nativeScrollGesture = useMemo(() => Gesture.Native(), []);
 
   const requestClose = () => {
     if (!visible) return;
@@ -135,7 +133,6 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
   };
 
   const pan = Gesture.Pan()
-    .simultaneousWithExternalGesture(nativeScrollGesture)
     .activeOffsetY(16)
     .failOffsetX([-28, 28])
     .onUpdate((event) => {
@@ -199,7 +196,7 @@ export function BottomSheet({ visible, onClose, children, sheetStyle, showHandle
                   </View>
                 </GestureDetector>
               ) : null}
-              <BottomSheetContext.Provider value={{ pan, nativeScrollGesture, contentOffsetY }}>
+              <BottomSheetContext.Provider value={{ pan, contentOffsetY }}>
                 <View style={[styles.body, fillBody ? styles.bodyFill : null]}>{children}</View>
               </BottomSheetContext.Provider>
             </Animated.View>
