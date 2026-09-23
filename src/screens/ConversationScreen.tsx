@@ -1268,9 +1268,10 @@ const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, 
       leftThreshold={28}
       overshootLeft={false}
       overshootRight={false}
-      // Prefer a clear rightward reply swipe; fail quickly so vertical scroll stays smooth.
-      activeOffsetX={[-9999, 18]}
-      failOffsetY={[-14, 14]}
+      // Prefer a clear rightward reply swipe; require 18px from the left edge
+      // so vertical scroll stays smooth (activeOffsetX/failOffsetY were
+      // removed from ReanimatedSwipeable in gesture-handler 2.30).
+      dragOffsetFromLeftEdge={18}
       renderLeftActions={renderLeftActions}
       onSwipeableWillOpen={handleWillOpen}
     >

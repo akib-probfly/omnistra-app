@@ -38,7 +38,7 @@ export function VideoPlayerModal({ url, visible, onClose }: { url: string | null
           <View style={styles.topSpacer} />
         </View>
         {source ? (
-          <VideoView player={player} style={styles.video} contentFit="contain" nativeControls allowsFullscreen />
+          <VideoView player={player} style={styles.video} contentFit="contain" nativeControls fullscreenOptions={{ enable: true }} />
         ) : (
           <ActivityIndicator color="#fff" size="large" />
         )}
