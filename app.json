@@ -74,6 +74,7 @@
                                  "./plugins/remove-android-large-screen-restrictions",
                                  "./plugins/remove-boot-completed-receivers",
                                  "./plugins/exclude-dev-client-from-release-autolinking",
+                                 "./plugins/enable-r8-optimization",
                                  [
                                      "expo-notifications",
                                      {
