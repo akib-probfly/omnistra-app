@@ -1,0 +1,36 @@
+diff --git a/node_modules/expo-media-library/build/ExpoMediaLibraryNext.js b/node_modules/expo-media-library/build/ExpoMediaLibraryNext.js
+index f3aec01..844fcbd 100644
+--- a/node_modules/expo-media-library/build/ExpoMediaLibraryNext.js
++++ b/node_modules/expo-media-library/build/ExpoMediaLibraryNext.js
+@@ -1,6 +1,28 @@
+-import { NativeModule, requireNativeModule } from 'expo-modules-core';
++import { NativeModule, requireNativeModule, requireOptionalNativeModule } from 'expo-modules-core';
++import { isRunningInExpoGo } from 'expo';
+ import { Album } from './types/Album';
+ import { Asset } from './types/Asset';
+ import { Query } from './types/Query';
+-export default requireNativeModule('ExpoMediaLibraryNext');
++// Expo Go does not ship the next-gen native module. index.js subclasses
++// this export at module scope, so fall back to inert stubs there instead of
++// throwing at import; the new object-oriented APIs are unusable in Go while
++// the legacy functions keep working wherever their native module exists.
++class UnavailableQuery {
++}
++class UnavailableAsset {
++}
++class UnavailableAlbum {
++}
++let nativeModule;
++if (isRunningInExpoGo()) {
++    nativeModule = requireOptionalNativeModule('ExpoMediaLibraryNext') ?? {
++        Query: UnavailableQuery,
++        Asset: UnavailableAsset,
++        Album: UnavailableAlbum,
++    };
++}
++else {
++    nativeModule = requireNativeModule('ExpoMediaLibraryNext');
++}
++export default nativeModule;
+ //# sourceMappingURL=ExpoMediaLibraryNext.js.map
+\ No newline at end of file
