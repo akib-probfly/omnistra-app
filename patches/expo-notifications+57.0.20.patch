@@ -1,3 +1,21 @@
+diff --git a/node_modules/expo-notifications/build/BackgroundNotificationTasksModule.native.js b/node_modules/expo-notifications/build/BackgroundNotificationTasksModule.native.js
+index 2e58ef1..784e561 100644
+--- a/node_modules/expo-notifications/build/BackgroundNotificationTasksModule.native.js
++++ b/node_modules/expo-notifications/build/BackgroundNotificationTasksModule.native.js
+@@ -1,3 +1,10 @@
+-import { requireNativeModule } from 'expo-modules-core';
+-export default requireNativeModule('ExpoBackgroundNotificationTasksModule');
++import { requireNativeModule, requireOptionalNativeModule } from 'expo-modules-core';
++import { isRunningInExpoGo } from 'expo';
++// Background push-task infrastructure may be absent from Expo Go. Fall back
++// to null there instead of throwing at import; registerTaskAsync validates
++// the module when actually called.
++const nativeModule = isRunningInExpoGo()
++  ? requireOptionalNativeModule('ExpoBackgroundNotificationTasksModule')
++  : requireNativeModule('ExpoBackgroundNotificationTasksModule');
++export default nativeModule;
+ //# sourceMappingURL=BackgroundNotificationTasksModule.native.js.map
+\ No newline at end of file
 diff --git a/node_modules/expo-notifications/build/DevicePushTokenAutoRegistration.fx.js b/node_modules/expo-notifications/build/DevicePushTokenAutoRegistration.fx.js
 index 85cd97c..fdb4bcd 100644
 --- a/node_modules/expo-notifications/build/DevicePushTokenAutoRegistration.fx.js
@@ -21,3 +39,21 @@ index 85cd97c..fdb4bcd 100644
      // A global scope (to get all the updates) device push token
      // subscription, never cleared.
      addPushTokenListener(async (token) => {
+diff --git a/node_modules/expo-notifications/build/TopicSubscriptionModule.android.js b/node_modules/expo-notifications/build/TopicSubscriptionModule.android.js
+index 644a8bb..ff585db 100644
+--- a/node_modules/expo-notifications/build/TopicSubscriptionModule.android.js
++++ b/node_modules/expo-notifications/build/TopicSubscriptionModule.android.js
+@@ -1,3 +1,10 @@
+-import { requireNativeModule } from 'expo-modules-core';
+-export default requireNativeModule('ExpoTopicSubscriptionModule');
++import { requireNativeModule, requireOptionalNativeModule } from 'expo-modules-core';
++import { isRunningInExpoGo } from 'expo';
++// FCM topic subscription is remote-push infrastructure, which Expo Go does
++// not ship (SDK 53+). Fall back to null there instead of throwing at import;
++// topic APIs throw the proper Expo Go error if actually called.
++const nativeModule = isRunningInExpoGo()
++  ? requireOptionalNativeModule('ExpoTopicSubscriptionModule')
++  : requireNativeModule('ExpoTopicSubscriptionModule');
++export default nativeModule;
+ //# sourceMappingURL=TopicSubscriptionModule.android.js.map
+\ No newline at end of file
