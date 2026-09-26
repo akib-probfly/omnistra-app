@@ -222,18 +222,18 @@ export function BroadcastCampaignScreen() {
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Delivery funnel</Text>
             <View style={styles.metricIcons}>
-              <View style={styles.metricChip}><Send color="#2563eb" size={14} /><Text style={[styles.metricChipText, { color: colors.text }]}>{campaign.totalSent.toLocaleString()}</Text></View>
-              <View style={styles.metricChip}><CheckCircle2 color="#16a34a" size={14} /><Text style={[styles.metricChipText, { color: colors.text }]}>{campaign.totalDelivered.toLocaleString()}</Text></View>
-              <View style={styles.metricChip}><Eye color="#4f46e5" size={14} /><Text style={[styles.metricChipText, { color: colors.text }]}>{campaign.totalRead.toLocaleString()}</Text></View>
-              <View style={styles.metricChip}><Reply color="#d97706" size={14} /><Text style={[styles.metricChipText, { color: colors.text }]}>{campaign.totalReplied.toLocaleString()}</Text></View>
-              <View style={styles.metricChip}><XCircle color="#dc2626" size={14} /><Text style={[styles.metricChipText, { color: colors.text }]}>{campaign.totalFailed.toLocaleString()}</Text></View>
-              <View style={styles.metricChip}><Clock color="#f59e0b" size={14} /><Text style={[styles.metricChipText, { color: colors.text }]}>{unreached.toLocaleString()}</Text></View>
+              <View style={styles.metricChip}><Send color={colors.primary} size={14} /><Text style={[styles.metricChipText, { color: colors.text }]}>{campaign.totalSent.toLocaleString()}</Text></View>
+              <View style={styles.metricChip}><CheckCircle2 color={colors.success} size={14} /><Text style={[styles.metricChipText, { color: colors.text }]}>{campaign.totalDelivered.toLocaleString()}</Text></View>
+              <View style={styles.metricChip}><Eye color={colors.indigo} size={14} /><Text style={[styles.metricChipText, { color: colors.text }]}>{campaign.totalRead.toLocaleString()}</Text></View>
+              <View style={styles.metricChip}><Reply color={colors.amber} size={14} /><Text style={[styles.metricChipText, { color: colors.text }]}>{campaign.totalReplied.toLocaleString()}</Text></View>
+              <View style={styles.metricChip}><XCircle color={colors.error} size={14} /><Text style={[styles.metricChipText, { color: colors.text }]}>{campaign.totalFailed.toLocaleString()}</Text></View>
+              <View style={styles.metricChip}><Clock color={colors.warning} size={14} /><Text style={[styles.metricChipText, { color: colors.text }]}>{unreached.toLocaleString()}</Text></View>
             </View>
-            <FunnelRow label="Delivered" value={campaign.totalDelivered} total={sentBase} tone="#16a34a" />
-            <FunnelRow label="Read" value={campaign.totalRead} total={sentBase} tone="#4f46e5" />
-            <FunnelRow label="Replied" value={campaign.totalReplied} total={sentBase} tone="#d97706" />
-            <FunnelRow label="Failed" value={campaign.totalFailed} total={sentBase} tone="#dc2626" />
-            <FunnelRow label="Unreached" value={unreached} total={sentBase} tone="#f59e0b" />
+            <FunnelRow label="Delivered" value={campaign.totalDelivered} total={sentBase} tone={colors.success} />
+            <FunnelRow label="Read" value={campaign.totalRead} total={sentBase} tone={colors.indigo} />
+            <FunnelRow label="Replied" value={campaign.totalReplied} total={sentBase} tone={colors.amber} />
+            <FunnelRow label="Failed" value={campaign.totalFailed} total={sentBase} tone={colors.error} />
+            <FunnelRow label="Unreached" value={unreached} total={sentBase} tone={colors.warning} />
           </View>
 
           <View style={styles.actions}>
