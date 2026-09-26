@@ -35,7 +35,8 @@ import { ErrorState } from '../components/ErrorState';
 import { FormSkeleton } from '../components/Skeleton';
 import type { ContactsStackParamList } from '../navigation/ContactsStack';
 import { useTheme } from '../theme/ThemeContext';
-import { ScreenHeader } from '../ui';
+import { AppButton, AppCard, ScreenHeader } from '../ui';
+import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 
 const TAG_COLOR_OPTIONS = ['#2563eb', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899', '#64748b'];
 
@@ -342,7 +343,7 @@ export function ContactDetailsScreen() {
         />
       ) : (
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}>
-          <View style={[styles.profileCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+          <AppCard style={styles.profileCard}>
             <View style={styles.profileTopRow}>
               <View style={[styles.avatar, { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder }]}>
                 <ColorfulAvatar name={title} size={58} url={contact.avatarUrl} />
@@ -382,7 +383,7 @@ export function ContactDetailsScreen() {
                 <Text style={[styles.metaChipText, { color: colors.textSecondary }]}>{countryName}</Text>
               </View>
             </View>
-          </View>
+          </AppCard>
 
           <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Profile</Text>
@@ -423,16 +424,17 @@ export function ContactDetailsScreen() {
             <Text style={[styles.helperText, { color: colors.textSecondary }]}>Last active: {formatDateTime(contact.lastActivityAt)}</Text>
             <Text style={[styles.helperText, { color: colors.textSecondary }]}>Added: {formatDateTime(contact.createdAt)}</Text>
             {(nameDraft != null && nameDraft !== (contact.displayName ?? '')) || (emailDraft != null && emailDraft !== (contact.primaryEmail ?? '')) ? (
-              <Pressable
-                style={[styles.saveButton, { backgroundColor: colors.primary }, updateMutation.isPending && styles.saveDisabled]}
+              <AppButton
+                block
+                label="Save changes"
+                loading={updateMutation.isPending}
                 disabled={updateMutation.isPending}
+                style={styles.actionButton}
                 onPress={() => updateMutation.mutate({
                   displayName: nameDraft ?? contact.displayName,
                   primaryEmail: emailDraft ?? contact.primaryEmail,
                 })}
-              >
-                {updateMutation.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save changes</Text>}
-              </Pressable>
+              />
             ) : null}
           </View>
 
@@ -511,31 +513,27 @@ export function ContactDetailsScreen() {
                     />
                   ))}
                 </View>
-                <Pressable
-                  style={[styles.createTagButton, { backgroundColor: colors.primary }, createTagMutation.isPending && styles.saveDisabled]}
+                <AppButton
+                  block
+                  icon={Plus}
+                  label="Create & assign"
+                  loading={createTagMutation.isPending}
                   disabled={createTagMutation.isPending}
+                  style={styles.actionButton}
                   onPress={() => createTagMutation.mutate()}
-                >
-                  {createTagMutation.isPending ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <>
-                      <Plus color="#fff" size={14} />
-                      <Text style={styles.saveButtonText}>Create & assign</Text>
-                    </>
-                  )}
-                </Pressable>
+                />
               </View>
             ) : null}
 
             {tagsDirty ? (
-              <Pressable
-                style={[styles.saveButton, { backgroundColor: colors.primary }, updateMutation.isPending && styles.saveDisabled]}
+              <AppButton
+                block
+                label="Save tags"
+                loading={updateMutation.isPending}
                 disabled={updateMutation.isPending}
+                style={styles.actionButton}
                 onPress={() => updateMutation.mutate({ tagIds: selectedTagIds })}
-              >
-                {updateMutation.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save tags</Text>}
-              </Pressable>
+              />
             ) : null}
           </View>
 
@@ -566,13 +564,14 @@ export function ContactDetailsScreen() {
               multiline
               style={[styles.noteInput, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder, color: colors.text }]}
             />
-            <Pressable
-              style={[styles.saveButton, { backgroundColor: colors.primary }, (!noteDraft.trim() || noteMutation.isPending) && styles.saveDisabled]}
+            <AppButton
+              block
+              label="Add note"
+              loading={noteMutation.isPending}
               disabled={!noteDraft.trim() || noteMutation.isPending}
+              style={styles.actionButton}
               onPress={() => noteMutation.mutate()}
-            >
-              {noteMutation.isPending ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Add note</Text>}
-            </Pressable>
+            />
             {notes.length ? notes.map((note) => (
               <View key={note.id} style={[styles.noteCard, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
                 <Text style={[styles.noteBody, { color: colors.text }]}>{note.body}</Text>
@@ -711,25 +710,25 @@ const styles = StyleSheet.create({
   screen: { backgroundColor: '#eef4fb', flex: 1 },
   messageButton: { alignItems: 'center', backgroundColor: '#eff6ff', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   loader: { marginTop: 60 },
-  content: { gap: 12, padding: 16 },
-  profileCard: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe1ff', borderRadius: 18, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 14 },
-  profileTopRow: { alignItems: 'center', flexDirection: 'row', gap: 12, width: '100%' },
+  content: { gap: spacing.md, padding: spacing.lg },
+  profileCard: { alignItems: 'center', paddingHorizontal: spacing.md + 2, paddingVertical: spacing.md + 2 },
+  profileTopRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, width: '100%' },
   avatar: { alignItems: 'center', backgroundColor: 'transparent', borderRadius: 34, borderWidth: 2, height: 68, justifyContent: 'center', position: 'relative', width: 68 },
   avatarImage: { borderRadius: 36, height: 72, width: 72 },
-  avatarText: { color: '#1d4ed8', fontSize: 24, fontWeight: '700' },
+  avatarText: { color: '#1d4ed8', fontSize: 24, fontWeight: fontWeight.bold },
   channelBadge: { borderColor: '#fff', borderRadius: 12, borderWidth: 2, bottom: -2, overflow: 'hidden', position: 'absolute', right: -2 },
   profileIdentity: { alignItems: 'flex-start', flex: 1, gap: 2, minWidth: 0 },
-  profileName: { color: '#0f172a', fontSize: 18, fontWeight: '800' },
+  profileName: { color: '#0f172a', fontSize: fontSize.heading, fontWeight: fontWeight.extrabold },
   bannedBadge: { alignItems: 'center', backgroundColor: '#fff1f2', borderColor: '#fecdd3', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 4, marginTop: 4, paddingHorizontal: 8, paddingVertical: 3 },
-  bannedBadgeText: { color: '#e11d48', fontSize: 12, fontWeight: '700' },
-  profileChannel: { color: '#64748b', fontSize: 13, marginTop: 4 },
+  bannedBadgeText: { color: '#e11d48', fontSize: 12, fontWeight: fontWeight.bold },
+  profileChannel: { color: '#64748b', fontSize: fontSize.caption, marginTop: spacing.xs },
   profileMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-start', marginTop: 10, width: '100%' },
   metaChip: { alignItems: 'center', backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 10, borderWidth: 1, flexDirection: 'row', gap: 5, minHeight: 32, paddingHorizontal: 8, paddingVertical: 5 },
-  metaChipText: { color: '#475569', flexShrink: 1, fontSize: 12, fontWeight: '600', maxWidth: 190 },
+  metaChipText: { color: '#475569', flexShrink: 1, fontSize: 12, fontWeight: fontWeight.semibold, maxWidth: 190 },
   metaCopyButton: { alignItems: 'center', height: 22, justifyContent: 'center', width: 22 },
-  section: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, padding: 16 },
-  sectionTitle: { color: '#0f172a', fontSize: 15, fontWeight: '800', marginBottom: 10 },
-  fieldLabel: { color: '#64748b', fontSize: 12, fontWeight: '700', marginBottom: 6, marginTop: 8 },
+  section: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: radius.xl, borderWidth: 1, padding: spacing.lg },
+  sectionTitle: { color: '#0f172a', fontSize: fontSize.body, fontWeight: fontWeight.extrabold, marginBottom: spacing.sm + 2 },
+  fieldLabel: { color: '#64748b', fontSize: fontSize.small, fontWeight: fontWeight.bold, marginBottom: spacing.sm - 2, marginTop: spacing.sm },
   fieldInput: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, color: '#0f172a', paddingHorizontal: 12, paddingVertical: 11 },
   helperText: { color: '#64748b', fontSize: 12, marginTop: 8 },
   phoneField: { alignItems: 'center', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 11 },
@@ -737,35 +736,33 @@ const styles = StyleSheet.create({
   phoneCopyButton: { alignItems: 'center', height: 26, justifyContent: 'center', width: 26 },
   countryRow: { alignItems: 'center', backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 10, paddingHorizontal: 12, paddingVertical: 10 },
   countryCodeBadge: { backgroundColor: '#fff', borderColor: '#e2e8f0', borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
-  countryCodeText: { color: '#475569', fontSize: 11, fontWeight: '700' },
-  countryNameText: { color: '#0f172a', flex: 1, fontSize: 14, fontWeight: '600' },
-  saveButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 12, marginTop: 12, paddingVertical: 12 },
+  countryCodeText: { color: '#475569', fontSize: 11, fontWeight: fontWeight.bold },
+  countryNameText: { color: '#0f172a', flex: 1, fontSize: 14, fontWeight: fontWeight.semibold },
+  actionButton: { marginTop: spacing.md },
   saveDisabled: { opacity: 0.55 },
-  saveButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
   tagChip: { alignItems: 'center', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 5, paddingHorizontal: 10, paddingVertical: 5 },
-  tagChipText: { fontSize: 12, fontWeight: '600' },
+  tagChipText: { fontSize: 12, fontWeight: fontWeight.semibold },
   tagSearch: { alignItems: 'center', backgroundColor: '#fffaf0', borderColor: '#cfe1ff', borderRadius: 14, borderWidth: 1, flexDirection: 'row', marginTop: 4, paddingHorizontal: 10 },
   tagSearchInput: { color: '#0f172a', flex: 1, height: 42, marginLeft: 8 },
   tagPickerList: { gap: 4, marginTop: 10 },
   tagOption: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 10, paddingHorizontal: 10, paddingVertical: 10 },
   tagOptionActive: { backgroundColor: '#dbeafe' },
-  tagOptionText: { color: '#334155', flex: 1, fontSize: 14, fontWeight: '500' },
-  tagOptionTextActive: { color: '#1d4ed8', fontWeight: '700' },
+  tagOptionText: { color: '#334155', flex: 1, fontSize: 14, fontWeight: fontWeight.medium },
+  tagOptionTextActive: { color: '#1d4ed8', fontWeight: fontWeight.bold },
   tagDot: { borderRadius: 5, height: 10, width: 10 },
   createTagBox: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 14, borderWidth: 1, marginTop: 10, padding: 12 },
-  createTagLabel: { color: '#0f172a', fontSize: 13, fontWeight: '700' },
+  createTagLabel: { color: '#0f172a', fontSize: 13, fontWeight: fontWeight.bold },
   colorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   colorSwatch: { borderRadius: 12, height: 24, width: 24 },
   colorSwatchActive: { borderColor: '#0f172a', borderWidth: 2 },
-  createTagButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 12, flexDirection: 'row', gap: 6, justifyContent: 'center', marginTop: 12, paddingVertical: 11 },
   conversationRow: { borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 10, marginBottom: 8, padding: 12 },
-  conversationStatus: { color: '#2563eb', fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
+  conversationStatus: { color: '#2563eb', fontSize: 11, fontWeight: fontWeight.bold, textTransform: 'uppercase' },
   conversationPreview: { color: '#334155', fontSize: 13, marginTop: 3 },
-  conversationTime: { color: '#94a3b8', fontSize: 11, fontWeight: '600' },
+  conversationTime: { color: '#94a3b8', fontSize: 11, fontWeight: fontWeight.semibold },
   emptySection: { color: '#94a3b8', fontSize: 13 },
   banAction: { alignItems: 'center', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 12, paddingHorizontal: 12, paddingVertical: 12 },
-  banActionTitle: { fontSize: 14, fontWeight: '700' },
+  banActionTitle: { fontSize: 14, fontWeight: fontWeight.bold },
   banActionHint: { fontSize: 12, lineHeight: 17, marginTop: 2 },
   noteInput: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, color: '#0f172a', minHeight: 84, paddingHorizontal: 12, paddingVertical: 10, textAlignVertical: 'top' },
   noteCard: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, marginTop: 10, padding: 12 },
@@ -783,7 +780,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingVertical: 12,
   },
-  deleteButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  deleteButtonText: { color: '#fff', fontSize: 14, fontWeight: fontWeight.bold },
   deleteModalOverlay: {
     alignItems: 'center',
     backgroundColor: 'rgba(15,23,42,0.45)',
@@ -812,7 +809,7 @@ const styles = StyleSheet.create({
   deleteModalTitle: {
     color: '#0f172a',
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: fontWeight.extrabold,
     marginTop: 16,
     textAlign: 'center',
   },
@@ -823,7 +820,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     textAlign: 'center',
   },
-  deleteModalStrong: { color: '#0f172a', fontWeight: '700' },
+  deleteModalStrong: { color: '#0f172a', fontWeight: fontWeight.bold },
   deleteConfirmInput: {
     backgroundColor: '#fff1f2',
     borderColor: '#fda4af',
@@ -850,7 +847,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
   },
-  deleteCancelText: { color: '#0f172a', fontSize: 14, fontWeight: '700' },
+  deleteCancelText: { color: '#0f172a', fontSize: 14, fontWeight: fontWeight.bold },
   deleteConfirmButton: {
     alignItems: 'center',
     backgroundColor: '#e11d48',
