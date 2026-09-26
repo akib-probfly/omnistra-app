@@ -25,6 +25,8 @@ import { useWorkspaceAccess } from '../lib/workspace-access';
 import { isBillingLocked, pollingWhileUnlocked } from '../lib/billing-lock';
 import { useTheme } from '../theme/ThemeContext';
 import type { ThemeColors } from '../theme/colors';
+import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
+import { AppButton, AppCard } from '../ui';
 
 type RangePreset = 'today' | '7d' | '30d';
 type PresenceFilter = 'all' | 'online' | 'offline';
@@ -202,7 +204,7 @@ function RangeSegment({ value, onChange, colors }: { value: RangePreset; onChang
 
 function Section({ title, subtitle, action, children, colors }: { title: string; subtitle?: string; action?: ReactNode; children: ReactNode; colors: ThemeColors }) {
   return (
-    <View style={[styles.section, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+    <AppCard style={styles.section}>
       <View style={styles.sectionHeader}>
         <View style={styles.sectionHeaderCopy}>
           <Text style={[styles.sectionTitle, { color: colors.text }]} numberOfLines={1}>{title}</Text>
@@ -211,7 +213,7 @@ function Section({ title, subtitle, action, children, colors }: { title: string;
         {action}
       </View>
       {children}
-    </View>
+    </AppCard>
   );
 }
 
@@ -806,10 +808,7 @@ export function DashboardScreen() {
           <View style={[styles.errorBox, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
             <Text style={[styles.errorTitle, { color: colors.text }]}>Dashboard offline</Text>
             <Text style={[styles.errorText, { color: colors.textSecondary }]}>{dashboard.error instanceof Error ? dashboard.error.message : 'Unable to load live metrics.'}</Text>
-            <Pressable style={[styles.retryBtn, { backgroundColor: colors.primary }]} onPress={() => dashboard.refetch()}>
-              <RefreshCw color="#fff" size={16} />
-              <Text style={styles.retryText}>Try again</Text>
-            </Pressable>
+            <AppButton icon={RefreshCw} label="Try again" onPress={() => { void dashboard.refetch(); }} style={styles.retryBtn} />
           </View>
         ) : (
           <>
@@ -869,68 +868,68 @@ export function DashboardScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  content: { paddingTop: 12 },
+  content: { paddingTop: spacing.md },
   topbar: {
     alignItems: 'center',
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingBottom: 12,
-    paddingHorizontal: 16,
+    paddingBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
-  topbarCopy: { flex: 1, minWidth: 0, paddingRight: 12 },
-  topTitle: { fontSize: 24, fontWeight: '800', letterSpacing: -0.3 },
-  topDate: { fontSize: 13, marginTop: 2 },
+  topbarCopy: { flex: 1, minWidth: 0, paddingRight: spacing.md },
+  topTitle: { fontSize: fontSize.title, fontWeight: fontWeight.extrabold, letterSpacing: -0.3 },
+  topDate: { fontSize: fontSize.caption, marginTop: 2 },
 
   controlsCard: {
-    borderRadius: 20,
+    borderRadius: radius.xxl,
     borderWidth: 1,
-    gap: 12,
-    marginHorizontal: 16,
-    padding: 14,
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    padding: spacing.md + 2,
   },
   search: {
     alignItems: 'center',
-    borderRadius: 14,
+    borderRadius: radius.lg,
     borderWidth: 1,
     flexDirection: 'row',
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.md,
   },
   searchInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: fontSize.body,
     height: 44,
-    marginLeft: 8,
+    marginLeft: spacing.sm,
   },
   clearSearch: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: fontSize.caption,
+    fontWeight: fontWeight.semibold,
     paddingHorizontal: 4,
   },
   rangeChipRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
   },
   rangeChip: {
     alignItems: 'center',
-    borderRadius: 999,
+    borderRadius: radius.pill,
     flex: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 3,
   },
   rangeChipText: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: fontSize.caption,
+    fontWeight: fontWeight.bold,
   },
 
   section: {
-    borderRadius: 20,
+    borderRadius: radius.xxl,
     borderWidth: 1,
-    marginHorizontal: 16,
-    marginTop: 12,
-    padding: 16,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    padding: spacing.lg,
   },
-  sectionHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 10, marginBottom: 14 },
+  sectionHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm + 2, marginBottom: spacing.md + 2 },
   sectionHeaderCopy: { flex: 1, minWidth: 0 },
   sectionTitle: { fontSize: 17, fontWeight: '800', letterSpacing: -0.2 },
   sectionSubtitle: { fontSize: 12, lineHeight: 16, marginTop: 3 },
