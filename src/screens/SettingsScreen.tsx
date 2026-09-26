@@ -64,7 +64,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
       { kind: 'route', id: 'assignment', label: 'Assignment Policy', description: 'Auto-assign and call routing rules', icon: Workflow, iconBg: iconTiles.indigo.bg, iconColor: iconTiles.indigo.fg, route: 'AssignmentPolicy' },
       { kind: 'route', id: 'quick-replies', label: 'Quick Replies', description: 'Create and manage reply snippets', icon: Zap, iconBg: iconTiles.yellow.bg, iconColor: iconTiles.yellow.fg, route: 'QuickReplies' },
       { kind: 'route', id: 'tags', label: 'Tags', description: 'Organize conversations and contacts', icon: Tag, iconBg: iconTiles.pink.bg, iconColor: iconTiles.pink.fg, route: 'Tags' },
-      { kind: 'route', id: 'products', label: 'Products', description: 'Manage your product catalog', icon: Package, iconBg: iconTiles.green.bg, iconColor: iconTiles.green.fg, route: 'Products' },
+      { kind: 'route', id: 'products', label: 'Products', description: 'Manage your product catalog', icon: Package, iconBg: iconTiles.green.bg, iconColor: iconTiles.green.fg, route: 'Products', badge: 'Coming soon' },
     ],
   },
   {
@@ -227,13 +227,15 @@ export function SettingsScreen() {
                 <View style={styles.grid}>
                   {group.items.map((item) => {
                     const isAppearance = item.kind === 'route' && item.route === '__appearance__';
+                    const isDisabled = item.kind === 'route' && item.id === 'products';
                     const RowIcon = isAppearance ? (isDark ? Moon : Sun) : item.icon;
                     return (
                       <Pressable
                         key={item.id}
                         accessibilityRole="button"
-                        onPress={() => onPressRow(item)}
-                        style={styles.gridItem}
+                        onPress={isDisabled ? undefined : () => onPressRow(item)}
+                        disabled={isDisabled}
+                        style={[styles.gridItem, isDisabled && styles.disabledItem]}
                       >
                         <View style={[styles.gridIcon, styles.gridIconShadow, { backgroundColor: item.iconBg }]}>
                           <RowIcon color={item.iconColor} size={22} />
@@ -318,6 +320,7 @@ const styles = StyleSheet.create({
   group: { gap: spacing.sm },
   groupTitle: { paddingHorizontal: spacing.xs, textTransform: 'uppercase', letterSpacing: 0.5 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -spacing.xs },
+  disabledItem: { opacity: 0.58 },
   gridItem: {
     alignItems: 'center',
     minHeight: 112,
