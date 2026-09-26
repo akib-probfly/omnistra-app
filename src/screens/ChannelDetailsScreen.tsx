@@ -41,7 +41,8 @@ import { WhatsappTemplatesTab } from '../components/WhatsappTemplatesTab';
 import { WhatsappProductCatalogTab } from '../components/WhatsappProductCatalogTab';
 import type { ChannelsStackParamList } from '../navigation/ChannelsStack';
 import { useTheme } from '../theme/ThemeContext';
-import { AppBadge, AppTextField, badgePalette, type BadgeTone } from '../ui';
+import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
+import { AppBadge, AppCard, AppTextField, badgePalette, type BadgeTone } from '../ui';
 import { apiUrl } from '../api/client';
 
 const STATUS_TONE: Record<string, BadgeTone> = {
@@ -299,7 +300,7 @@ export function ChannelDetailsScreen() {
             onRestore={() => restore.mutate()}
           />
 
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+          <AppCard style={styles.cardSpacing}>
             <Text style={[styles.cardTitle, { color: colors.text }]}>Channel configuration</Text>
             <Text style={[styles.cardSub, { color: colors.textSecondary }]}>Manage channel information and settings.</Text>
             <View style={styles.statusGrid}>
@@ -317,7 +318,7 @@ export function ChannelDetailsScreen() {
               <ConfigField label="Connected" value={formatDateLabel(primaryAccount?.connectedAt ?? channel.createdAt)} />
               <ConfigField label="Webhook error" value={config?.lastWebhookError ?? 'No webhook failures recorded'} />
             </View>
-          </View>
+          </AppCard>
         </ScrollView>
       );
     }
@@ -339,7 +340,7 @@ export function ChannelDetailsScreen() {
             onRestore={() => restore.mutate()}
           />
 
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+          <AppCard style={styles.cardSpacing}>
             <Text style={[styles.cardTitle, { color: colors.text }]}>Channel configuration</Text>
             <Text style={[styles.cardSub, { color: colors.textSecondary }]}>View the connected TikTok account and webhook details.</Text>
             <View style={styles.statusGrid}>
@@ -354,7 +355,7 @@ export function ChannelDetailsScreen() {
               <ConfigField label="Business ID" value={config?.businessId ?? primaryAccount?.externalAccountId ?? 'Not available'} copy mono />
               <ConfigField label="Connected at" value={formatDateLabel(primaryAccount?.connectedAt ?? channel.createdAt)} />
             </View>
-          </View>
+          </AppCard>
         </ScrollView>
       );
     }
@@ -375,7 +376,7 @@ export function ChannelDetailsScreen() {
             onRestore={() => restore.mutate()}
           />
 
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+          <AppCard style={styles.cardSpacing}>
             <Text style={[styles.cardTitle, { color: colors.text }]}>Channel configuration</Text>
             <Text style={[styles.cardSub, { color: colors.textSecondary }]}>View the connected Instagram account and webhook details.</Text>
             <View style={styles.statusGrid}>
@@ -388,7 +389,7 @@ export function ChannelDetailsScreen() {
               <ConfigField label="Instagram user ID" value={config?.instagramUserId ?? primaryAccount?.externalAccountId ?? 'Not available'} copy mono />
               <ConfigField label="Connected at" value={formatDateLabel(primaryAccount?.connectedAt ?? channel.createdAt)} />
             </View>
-          </View>
+          </AppCard>
         </ScrollView>
       );
     }
@@ -407,7 +408,7 @@ export function ChannelDetailsScreen() {
           onRestore={() => restore.mutate()}
         />
 
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+        <AppCard style={styles.cardSpacing}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>Channel configuration</Text>
           <Text style={[styles.cardSub, { color: colors.textSecondary }]}>Manage channel information and settings.</Text>
           <View style={styles.statusGridInline}>
@@ -422,7 +423,7 @@ export function ChannelDetailsScreen() {
             <ConfigField label="WABA ID" value={primaryAccount?.wabaId ?? 'Not linked'} copy mono />
             <ConfigField label="Phone number ID" value={config?.phoneNumberId ?? primaryAccount?.phoneNumberId ?? 'Not linked'} copy mono />
           </View>
-        </View>
+        </AppCard>
       </ScrollView>
     );
   };
@@ -434,7 +435,7 @@ export function ChannelDetailsScreen() {
 
     return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+      <AppCard style={styles.cardSpacing}>
         <View style={styles.cardHead}>
           <Text style={[styles.cardTitle, { color: colors.text }]}>WhatsApp Business profile</Text>
           <Pressable style={[styles.syncButton, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]} onPress={() => sync.mutate()} disabled={isBusy}>
@@ -481,7 +482,7 @@ export function ChannelDetailsScreen() {
           {save.isPending ? <ActivityIndicator color="#fff" size="small" /> : <Save color="#fff" size={16} />}
           <Text style={styles.primaryButtonText}>{save.isPending ? 'Saving...' : 'Save profile'}</Text>
         </Pressable>
-      </View>
+      </AppCard>
     </ScrollView>
     );
   };
@@ -750,26 +751,26 @@ function FieldEdit({ label, value, onChange, placeholder, multiline = false, key
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: '#eef4fb', flex: 1 },
-  header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#dce8f7', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingBottom: 12, paddingHorizontal: 16 },
-  headerTitle: { color: '#0f172a', fontSize: 17, fontWeight: '700' },
-  tabs: { flexDirection: 'row', gap: 8 },
-  tabBar: { backgroundColor: '#fff', borderBottomColor: '#dce8f7', borderBottomWidth: 1, paddingVertical: 10, paddingHorizontal: 12 },
-  tabBarContent: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+  header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#dce8f7', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingBottom: spacing.md, paddingHorizontal: spacing.lg },
+  headerTitle: { color: '#0f172a', fontSize: fontSize.subheading, fontWeight: fontWeight.bold },
+  tabs: { flexDirection: 'row', gap: spacing.sm },
+  tabBar: { backgroundColor: '#fff', borderBottomColor: '#dce8f7', borderBottomWidth: 1, paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.md },
+  tabBarContent: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   tabContent: { flex: 1 },
-  tab: { alignItems: 'center', borderRadius: 12, flexShrink: 0, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 9 },
+  tab: { alignItems: 'center', borderRadius: radius.md, flexShrink: 0, justifyContent: 'center', paddingHorizontal: spacing.md + 2, paddingVertical: spacing.sm + 1 },
   tabActive: { backgroundColor: '#e7efff' },
-  tabText: { color: '#64748b', fontSize: 13, fontWeight: '600' },
-  tabTextActive: { color: '#2563eb', fontWeight: '700' },
-  content: { padding: 16, paddingBottom: 40 },
-  configurationHero: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, flexDirection: 'row', padding: 14 },
-  titleCopy: { flex: 1, marginLeft: 14 },
-  channelName: { color: '#0f172a', fontSize: 19, fontWeight: '800' },
-  heroSub: { color: '#64748b', fontSize: 12, lineHeight: 17, marginTop: 2 },
+  tabText: { color: '#64748b', fontSize: fontSize.caption, fontWeight: fontWeight.semibold },
+  tabTextActive: { color: '#2563eb', fontWeight: fontWeight.bold },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxxl + spacing.sm },
+  configurationHero: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: radius.xl, borderWidth: 1, flexDirection: 'row', padding: spacing.md + 2 },
+  titleCopy: { flex: 1, marginLeft: spacing.md + 2 },
+  channelName: { color: '#0f172a', fontSize: fontSize.heading + 1, fontWeight: fontWeight.extrabold },
+  heroSub: { color: '#64748b', fontSize: fontSize.small, lineHeight: 17, marginTop: 2 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
-  card: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 20, borderWidth: 1, marginTop: 16, padding: 16 },
+  cardSpacing: { marginTop: spacing.lg },
   cardHead: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  cardTitle: { color: '#0f172a', fontSize: 16, fontWeight: '700' },
-  cardSub: { color: '#64748b', fontSize: 13, lineHeight: 19, marginTop: 4 },
+  cardTitle: { color: '#0f172a', fontSize: fontSize.subheading, fontWeight: fontWeight.bold },
+  cardSub: { color: '#64748b', fontSize: fontSize.caption, lineHeight: 19, marginTop: spacing.xs },
   statusGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },
   statusGridInline: { alignItems: 'stretch', flexDirection: 'row', flexWrap: 'nowrap', gap: 6, marginTop: 14 },
   statusTile: { backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 14, borderWidth: 1, flexGrow: 1, minWidth: '30%', padding: 12 },
@@ -777,17 +778,17 @@ const styles = StyleSheet.create({
   statusTileIcon: { alignItems: 'center', borderRadius: 10, height: 32, justifyContent: 'center', marginBottom: 10, width: 32 },
   statusTileIconCompact: { height: 25, marginBottom: 0, width: 25 },
   statusTileCopyCompact: { alignSelf: 'stretch', minWidth: 0 },
-  statusTileTitle: { color: '#64748b', fontSize: 11, fontWeight: '700' },
-  statusTileTitleCompact: { fontSize: 10, lineHeight: 13 },
-  statusTileValue: { color: '#0f172a', fontSize: 13, fontWeight: '800', marginTop: 3 },
-  statusTileValueCompact: { fontSize: 11, lineHeight: 14, marginTop: 1 },
-  configFields: { gap: 12, marginTop: 16 },
-  configField: { gap: 6 },
-  configLabel: { color: '#64748b', fontSize: 12, fontWeight: '600' },
-  configFieldRow: { alignItems: 'stretch', flexDirection: 'row', gap: 8 },
+  statusTileTitle: { color: '#64748b', fontSize: fontSize.tiny + 1, fontWeight: fontWeight.bold },
+  statusTileTitleCompact: { fontSize: fontSize.tiny, lineHeight: 13 },
+  statusTileValue: { color: '#0f172a', fontSize: fontSize.caption, fontWeight: fontWeight.extrabold, marginTop: 3 },
+  statusTileValueCompact: { fontSize: fontSize.small - 1, lineHeight: 14, marginTop: 1 },
+  configFields: { gap: spacing.md, marginTop: spacing.lg },
+  configField: { gap: spacing.xs + 2 },
+  configLabel: { color: '#64748b', fontSize: fontSize.small, fontWeight: fontWeight.semibold },
+  configFieldRow: { alignItems: 'stretch', flexDirection: 'row', gap: spacing.sm },
   configValueBox: { backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 12, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 42, paddingHorizontal: 12, paddingVertical: 8 },
-  configValue: { color: '#0f172a', fontSize: 13, fontWeight: '600', lineHeight: 18 },
-  configValueMono: { fontFamily: 'monospace', fontSize: 12 },
+  configValue: { color: '#0f172a', fontSize: fontSize.caption, fontWeight: fontWeight.semibold, lineHeight: 18 },
+  configValueMono: { fontFamily: 'monospace', fontSize: fontSize.small },
   configCopyButton: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 12, borderWidth: 1, height: 42, justifyContent: 'center', width: 42 },
   fieldLabel: { color: '#64748b', fontSize: 12, marginTop: 12 },
   dangerCard: { backgroundColor: '#fff1f2', borderColor: '#fecdd3', borderRadius: 16, borderWidth: 1, marginTop: 16, padding: 14 },
