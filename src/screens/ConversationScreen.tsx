@@ -46,6 +46,7 @@ import { isWhatsappCallSupported } from '../lib/whatsapp-calling';
 import { useInboxAppearance } from '../hooks/useInboxAppearance';
 import { getCountryCodeFromPhone, getCountryFlag } from '../lib/countryFromPhone';
 import { useTheme } from '../theme/ThemeContext';
+import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 
 type Attachment = { id: string; messageId?: string | null; mediaType: string; mimeType: string; originalName: string | null; downloadUrl: string; previewUrl: string | null; thumbnailUrl: string | null; durationMs: number | null };
 type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBOUND'; senderType?: string | null; sender?: { userName?: string | null; userEmail?: string | null } | null; type: string; text: string | null; deliveryStatus?: string; failureReason?: string | null; campaignId?: string | null; campaignName?: string | null; templateName?: string | null; templateComponentsJson?: unknown; replyToMessageId?: string | null; replyTo?: { id?: string; sender?: { userName?: string | null } | null; text?: string | null; type?: string; attachments?: Attachment[] } | null; sentAt?: string | null; createdAt?: string; metadata?: any; attachments?: Attachment[] };
@@ -57,7 +58,7 @@ function timelineKeyExtractor(row: TimelineRow) {
 }
 
 function TimelineSeparator() {
-  return <View style={{ height: 10 }} />;
+  return <View style={styles.rowGap} />;
 }
 
 const TimelineRowItem = memo(function TimelineRowItem({
@@ -137,7 +138,7 @@ export function ConversationScreen() {
   const isFocused = useIsFocused();
   const realtimeStatus = useSyncExternalStore(subscribeRealtimeConnectionStatus, getRealtimeConnectionStatus);
   const { session } = useAuth();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const callController = useCallController();
   const listRef = useRef<FlatList>(null);
   const [draft, setDraft] = useState(''); const [replyTo, setReplyTo] = useState<Message | null>(null);
@@ -1003,8 +1004,8 @@ export function ConversationScreen() {
                   styles.windowLabel,
                   {
                     color: conversationWindowLabel.tone === 'expired'
-                      ? colors.error
-                      : '#16a34a',
+                        ? colors.error
+                      : colors.success,
                   },
                 ]}
                 numberOfLines={1}
@@ -1087,7 +1088,7 @@ export function ConversationScreen() {
             <ConversationSkeleton />
           )}
           {!atBottom ? (
-            <Pressable style={[styles.fab, { backgroundColor: colors.primary }]} onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}><ChevronDown color="#fff" size={22} /></Pressable>
+            <Pressable style={[styles.fab, { backgroundColor: colors.primary }]} onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}><ChevronDown color={colors.primaryText} size={22} /></Pressable>
           ) : null}
         </View>
         {messages.isError ? (
@@ -1107,19 +1108,19 @@ export function ConversationScreen() {
               style={[
                 styles.reopenBtn,
                 {
-                  backgroundColor: isDark ? '#182130' : '#ffffff',
-                  borderColor: isDark ? colors.cardBorder : '#dce8f8',
+                  backgroundColor: colors.surface,
+                  borderColor: colors.cardBorder,
                 },
               ]}
             >
               {statusMutation.isPending ? (
-                <ActivityIndicator color="#315efb" size="small" />
+                <ActivityIndicator color={colors.primary} size="small" />
               ) : (
-                <View style={[styles.reopenIcon, { backgroundColor: isDark ? 'rgba(56,189,248,0.15)' : '#eff6ff' }]}>
-                  <RotateCcw color={isDark ? '#7dd3fc' : '#315efb'} size={14} strokeWidth={2.4} />
+                <View style={[styles.reopenIcon, { backgroundColor: colors.primarySoft }]}>
+                  <RotateCcw color={colors.primary} size={14} strokeWidth={2.4} />
                 </View>
               )}
-              <Text style={[styles.reopenText, { color: isDark ? '#7dd3fc' : '#315efb' }]}>Reopen conversation</Text>
+              <Text style={[styles.reopenText, { color: colors.primary }]}>Reopen conversation</Text>
             </Pressable>
           </View>
         ) : (
@@ -1268,9 +1269,6 @@ const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, 
       leftThreshold={28}
       overshootLeft={false}
       overshootRight={false}
-      // Prefer a clear rightward reply swipe; require 18px from the left edge
-      // so vertical scroll stays smooth (activeOffsetX/failOffsetY were
-      // removed from ReanimatedSwipeable in gesture-handler 2.30).
       dragOffsetFromLeftEdge={18}
       renderLeftActions={renderLeftActions}
       onSwipeableWillOpen={handleWillOpen}
@@ -1285,48 +1283,48 @@ const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, 
 const styles = StyleSheet.create({
   screen: { backgroundColor: 'transparent', flex: 1 },
   body: { backgroundColor: 'transparent', flex: 1 },
-  header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#dbe4f1', borderBottomWidth: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 10, paddingVertical: 9 },
+  header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#dbe4f1', borderBottomWidth: 1, flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.sm + 2, paddingVertical: spacing.sm + 1 },
   avatarWrap: { flexShrink: 0, position: 'relative' },
-  headerIdentity: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 8, minWidth: 0 },
-  presence: { backgroundColor: '#22c55e', borderColor: '#fff', borderRadius: 6, borderWidth: 1.5, bottom: 1, height: 12, position: 'absolute', right: 1, width: 12 },
+  headerIdentity: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: spacing.sm, minWidth: 0 },
+  presence: { backgroundColor: '#22c55e', borderColor: '#fff', borderRadius: radius.sm - 2, borderWidth: 1.5, bottom: 1, height: 12, position: 'absolute', right: 1, width: 12 },
   presenceExpired: { backgroundColor: '#ef4444' },
   titleBlock: { flex: 1, minWidth: 0 },
-  name: { color: '#0f172a', fontWeight: '700' },
-  contactSubtitleRow: { alignItems: 'center', flexDirection: 'row', gap: 5, marginTop: 1, minWidth: 0 },
-  contactCountryFlag: { fontSize: 12 },
-  contactSubtitle: { color: '#64748b', flexShrink: 1, fontSize: 12, fontWeight: '500', minWidth: 0 },
-  windowLabel: { fontSize: 11, fontWeight: '700', marginTop: 1, width: '100%' },
-  headerActions: { alignItems: 'center', flexDirection: 'row', flexShrink: 0, gap: 8 },
+  name: { color: '#0f172a', fontWeight: fontWeight.bold },
+  contactSubtitleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs + 1, marginTop: 1, minWidth: 0 },
+  contactCountryFlag: { fontSize: fontSize.small },
+  contactSubtitle: { color: '#64748b', flexShrink: 1, fontSize: fontSize.small, fontWeight: fontWeight.medium, minWidth: 0 },
+  windowLabel: { fontSize: fontSize.tiny + 1, fontWeight: fontWeight.bold, marginTop: 1, width: '100%' },
+  headerActions: { alignItems: 'center', flexDirection: 'row', flexShrink: 0, gap: spacing.sm },
   list: { backgroundColor: 'transparent', flex: 1 },
   listWrap: { backgroundColor: 'transparent', flex: 1, minHeight: 0 },
-  error: { backgroundColor: 'transparent', color: '#dc2626', padding: 14, textAlign: 'center' },
-  listContent: { paddingHorizontal: 14, paddingVertical: 14 },
-  rowGap: { height: 10 },
+  error: { backgroundColor: 'transparent', color: '#dc2626', padding: spacing.md + 2, textAlign: 'center' },
+  listContent: { paddingHorizontal: spacing.md + 2, paddingVertical: spacing.md + 2 },
+  rowGap: { height: spacing.sm + 2 },
   timelineRow: { paddingBottom: 2 },
-  highlightRow: { backgroundColor: 'rgba(50,102,246,0.10)', borderRadius: 14, paddingVertical: 2 },
-  group: { alignItems: 'flex-start', gap: 6 },
+  highlightRow: { backgroundColor: 'rgba(50,102,246,0.10)', borderRadius: radius.lg, paddingVertical: 2 },
+  group: { alignItems: 'flex-start', gap: spacing.sm - 2 },
   outgoingGroup: { alignItems: 'flex-end' },
-  dayDivider: { alignSelf: 'center', backgroundColor: '#e8eef7', borderRadius: 999, color: '#526987', fontSize: 12, fontWeight: '600', marginVertical: 8, overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 6 },
-  olderPill: { alignSelf: 'center', color: '#64748b', fontSize: 12 },
-  olderSpacer: { alignItems: 'center', height: 28, justifyContent: 'center' },
-  reopenWrap: { alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10 },
+  dayDivider: { alignSelf: 'center', backgroundColor: '#e8eef7', borderRadius: radius.pill, color: '#526987', fontSize: fontSize.small, fontWeight: fontWeight.semibold, marginVertical: spacing.sm, overflow: 'hidden', paddingHorizontal: spacing.md + 2, paddingVertical: spacing.xs + 2 },
+  olderPill: { alignSelf: 'center', color: '#64748b', fontSize: fontSize.small },
+  olderSpacer: { alignItems: 'center', height: spacing.xxl + spacing.xs, justifyContent: 'center' },
+  reopenWrap: { alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2 },
   reopenBtn: {
     alignItems: 'center',
-    borderRadius: 999,
+    borderRadius: radius.pill,
     borderWidth: 1,
     flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md + 2,
+    paddingVertical: spacing.xs + 2,
   },
   reopenIcon: { alignItems: 'center', borderRadius: 11, height: 22, justifyContent: 'center', width: 22 },
-  reopenText: { fontSize: 12, fontWeight: '600' },
-  fab: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 22, bottom: 16, elevation: 3, height: 44, justifyContent: 'center', position: 'absolute', right: 16, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 5, width: 44 },
+  reopenText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
+  fab: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: radius.xxl + 2, bottom: spacing.lg, elevation: 3, height: 44, justifyContent: 'center', position: 'absolute', right: spacing.lg, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 5, width: 44 },
   replyAction: { alignItems: 'center', justifyContent: 'center', marginVertical: 3, width: 56 },
   replyIconCircle: {
     alignItems: 'center',
     backgroundColor: '#e8f0ff',
-    borderRadius: 18,
+    borderRadius: radius.xl,
     height: 36,
     justifyContent: 'center',
     width: 36,
