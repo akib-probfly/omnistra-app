@@ -1,5 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  CalendarClock,
+  CalendarPlus,
   CheckCircle2,
   Clock,
   Eye,
@@ -138,6 +140,21 @@ export function BroadcastCampaignScreen() {
   const canSend = campaign?.status === 'DRAFT' || campaign?.status === 'SCHEDULED';
   const canCancel = campaign?.status === 'DRAFT' || campaign?.status === 'SCHEDULED' || campaign?.status === 'SENDING';
   const canEdit = campaign?.status === 'DRAFT' || campaign?.status === 'SCHEDULED';
+  const funnelMetrics = campaign ? [
+    { Icon: Send, value: campaign.totalSent, color: colors.primary },
+    { Icon: CheckCircle2, value: campaign.totalDelivered, color: colors.success },
+    { Icon: Eye, value: campaign.totalRead, color: colors.indigo },
+    { Icon: Reply, value: campaign.totalReplied, color: colors.amber },
+    { Icon: XCircle, value: campaign.totalFailed, color: colors.error },
+    { Icon: Clock, value: unreached, color: colors.warning },
+  ] : [];
+  const funnelRows = campaign ? [
+    { label: 'Delivered', value: campaign.totalDelivered, tone: colors.success },
+    { label: 'Read', value: campaign.totalRead, tone: colors.indigo },
+    { label: 'Replied', value: campaign.totalReplied, tone: colors.amber },
+    { label: 'Failed', value: campaign.totalFailed, tone: colors.error },
+    { label: 'Unreached', value: unreached, tone: colors.warning },
+  ] : [];
 
   const invalidate = async () => {
     await queryClient.invalidateQueries({ queryKey: ['broadcast'] });
@@ -212,28 +229,48 @@ export function BroadcastCampaignScreen() {
             {campaign.description ? (
               <Text style={[styles.body, { color: colors.textSecondary }]}>{campaign.description}</Text>
             ) : null}
-            <Text style={[styles.meta, { color: colors.textMuted }]}>
-              Created {formatCampaignDate(campaign.createdAt)}
-              {campaign.scheduledAt ? ` · Scheduled ${formatCampaignDate(campaign.scheduledAt)}` : ''}
-              {campaign.sentAt ? ` · Sent ${formatCampaignDate(campaign.sentAt)}` : ''}
-            </Text>
+            <View style={[styles.dateGrid, { borderTopColor: colors.separator }]}>
+              <View style={styles.dateRow}>
+                <CalendarPlus color={colors.textMuted} size={15} />
+                <View style={styles.dateCopy}>
+                  <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Created</Text>
+                  <Text style={[styles.dateValue, { color: colors.text }]}>{formatCampaignDate(campaign.createdAt)}</Text>
+                </View>
+              </View>
+              {campaign.scheduledAt ? (
+                <View style={styles.dateRow}>
+                  <CalendarClock color={colors.primary} size={15} />
+                  <View style={styles.dateCopy}>
+                    <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Scheduled</Text>
+                    <Text style={[styles.dateValue, { color: colors.text }]}>{formatCampaignDate(campaign.scheduledAt)}</Text>
+                  </View>
+                </View>
+              ) : null}
+              {campaign.sentAt ? (
+                <View style={styles.dateRow}>
+                  <Send color={colors.success} size={15} />
+                  <View style={styles.dateCopy}>
+                    <Text style={[styles.dateLabel, { color: colors.textSecondary }]}>Sent</Text>
+                    <Text style={[styles.dateValue, { color: colors.text }]}>{formatCampaignDate(campaign.sentAt)}</Text>
+                  </View>
+                </View>
+              ) : null}
+            </View>
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Delivery funnel</Text>
             <View style={styles.metricIcons}>
-              <View style={styles.metricChip}><Send color={colors.primary} size={14} /><Text style={[styles.metricChipText, { color: colors.text }]}>{campaign.totalSent.toLocaleString()}</Text></View>
-              <View style={styles.metricChip}><CheckCircle2 color={colors.success} size={14} /><Text style={[styles.metricChipText, { color: colors.text }]}>{campaign.totalDelivered.toLocaleString()}</Text></View>
-              <View style={styles.metricChip}><Eye color={colors.indigo} size={14} /><Text style={[styles.metricChipText, { color: colors.text }]}>{campaign.totalRead.toLocaleString()}</Text></View>
-              <View style={styles.metricChip}><Reply color={colors.amber} size={14} /><Text style={[styles.metricChipText, { color: colors.text }]}>{campaign.totalReplied.toLocaleString()}</Text></View>
-              <View style={styles.metricChip}><XCircle color={colors.error} size={14} /><Text style={[styles.metricChipText, { color: colors.text }]}>{campaign.totalFailed.toLocaleString()}</Text></View>
-              <View style={styles.metricChip}><Clock color={colors.warning} size={14} /><Text style={[styles.metricChipText, { color: colors.text }]}>{unreached.toLocaleString()}</Text></View>
+              {funnelMetrics.map(({ Icon, value, color }) => (
+                <View key={color} style={styles.metricChip}>
+                  <Icon color={color} size={14} />
+                  <Text style={[styles.metricChipText, { color: colors.text }]}>{value.toLocaleString()}</Text>
+                </View>
+              ))}
             </View>
-            <FunnelRow label="Delivered" value={campaign.totalDelivered} total={sentBase} tone={colors.success} />
-            <FunnelRow label="Read" value={campaign.totalRead} total={sentBase} tone={colors.indigo} />
-            <FunnelRow label="Replied" value={campaign.totalReplied} total={sentBase} tone={colors.amber} />
-            <FunnelRow label="Failed" value={campaign.totalFailed} total={sentBase} tone={colors.error} />
-            <FunnelRow label="Unreached" value={unreached} total={sentBase} tone={colors.warning} />
+            {funnelRows.map(({ label, value, tone }) => (
+              <FunnelRow key={label} label={label} value={value} total={sentBase} tone={tone} />
+            ))}
           </View>
 
           <View style={styles.actions}>
@@ -312,7 +349,11 @@ const styles = StyleSheet.create({
   titleRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   cardTitle: { flex: 1, fontSize: 18, fontWeight: '800' },
   body: { fontSize: 13, lineHeight: 19, marginTop: 8 },
-  meta: { fontSize: 12, marginTop: 8 },
+  dateGrid: { borderTopWidth: 1, gap: 10, marginTop: 14, paddingTop: 12 },
+  dateRow: { alignItems: 'center', flexDirection: 'row', gap: 9 },
+  dateCopy: { flex: 1, gap: 2 },
+  dateLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' },
+  dateValue: { fontSize: 13, fontVariant: ['tabular-nums'], fontWeight: '600' },
   sectionTitle: { fontSize: 15, fontWeight: '800', marginBottom: 12 },
   metricIcons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   metricChip: { alignItems: 'center', flexDirection: 'row', gap: 6 },
