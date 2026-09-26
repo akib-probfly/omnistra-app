@@ -116,6 +116,7 @@ export function ContactsScreen() {
   const [channelIds, setChannelIds] = useState<string[]>([]);
   const [expandedPlatformKeys, setExpandedPlatformKeys] = useState<string[]>([]);
   const [tagIds, setTagIds] = useState<string[]>([]);
+  const [selectedTagLabels, setSelectedTagLabels] = useState<Record<string, string>>({});
   const [countryCodes, setCountryCodes] = useState<string[]>([]);
   const [countrySearch, setCountrySearch] = useState('');
   const [ownerId, setOwnerId] = useState<string | null>(null);
@@ -347,6 +348,7 @@ export function ContactsScreen() {
     setChannelIds([]);
     setExpandedPlatformKeys([]);
     setTagIds([]);
+    setSelectedTagLabels({});
     setCountryCodes([]);
     setCountrySearch('');
     setOwnerId(null);
@@ -656,6 +658,29 @@ export function ContactsScreen() {
               {filterLayer === 'labels' ? (
                 <>
                   <AppSearchField value={tagSearch} onChangeText={setTagSearch} placeholder="Search tags" tone="background" />
+                  {tagIds.length ? (
+                    <View style={styles.selectedLabelRow}>
+                      <Text style={[styles.selectedLabelHeading, { color: colors.textSecondary }]}>Selected:</Text>
+                      {tagIds.map((tagId) => (
+                        <Pressable
+                          key={tagId}
+                          style={[styles.selectedLabelChip, { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder }]}
+                          onPress={() => {
+                            setTagIds((current) => current.filter((id) => id !== tagId));
+                            setSelectedTagLabels((current) => {
+                              const next = { ...current };
+                              delete next[tagId];
+                              return next;
+                            });
+                          }}
+                          accessibilityLabel={`Remove ${selectedTagLabels[tagId] ?? 'label'} filter`}
+                        >
+                          <Text style={[styles.selectedLabelText, { color: colors.primary }]} numberOfLines={1}>{selectedTagLabels[tagId] ?? 'Label'}</Text>
+                          <X color={colors.primary} size={13} />
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
                   {tagOptions.map((tag) => {
                     const active = tagIds.includes(tag.id);
                     const color = tag.color?.trim() || '#64748b';
@@ -663,7 +688,17 @@ export function ContactsScreen() {
                       <Pressable
                         key={tag.id}
                         style={[styles.optionRow, active && [styles.optionRowActive, { backgroundColor: colors.surfaceSecondary }]]}
-                        onPress={() => setTagIds((current) => (active ? current.filter((id) => id !== tag.id) : [...current, tag.id]))}
+                        onPress={() => {
+                          setTagIds((current) => (active ? current.filter((id) => id !== tag.id) : [...current, tag.id]));
+                          setSelectedTagLabels((current) => {
+                            if (active) {
+                              const next = { ...current };
+                              delete next[tag.id];
+                              return next;
+                            }
+                            return { ...current, [tag.id]: tag.text };
+                          });
+                        }}
                       >
                         <View style={[styles.tagDot, { backgroundColor: color }]} />
                         <Text style={[styles.optionText, { color: colors.textSecondary }, active && [styles.optionTextActive, { color: colors.primary }]]} numberOfLines={1}>{tag.text}</Text>
@@ -971,6 +1006,7 @@ const ContactRow = memo(function ContactRow({ contact, navigation }: { contact: 
           </View>
         ) : null}
       </View>
+
       <View style={styles.copy}>
         <View style={styles.contactHeading}>
           <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{title}</Text>
@@ -1149,6 +1185,10 @@ const styles = StyleSheet.create({
   addButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   iconButton: { alignItems: 'center', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, height: 36, justifyContent: 'center', width: 36 },
   searchRow: { alignItems: 'center', flexDirection: 'row', gap: 10, marginHorizontal: 16, marginTop: 16 },
+  selectedLabelRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 16, paddingTop: 8 },
+  selectedLabelHeading: { fontSize: 12, fontWeight: '600' },
+  selectedLabelChip: { alignItems: 'center', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 4, maxWidth: '100%', paddingHorizontal: 8, paddingVertical: 4 },
+  selectedLabelText: { fontSize: 12, fontWeight: '600', maxWidth: 160 },
   filterButton: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 18, borderWidth: 1, height: 44, justifyContent: 'center', position: 'relative', width: 44 },
   filterButtonActive: { borderColor: '#2563eb' },
   filterDot: { backgroundColor: '#2563eb', borderRadius: 4, height: 8, position: 'absolute', right: 8, top: 8, width: 8 },
