@@ -35,7 +35,8 @@ import { ErrorState } from '../components/ErrorState';
 import { ListSkeleton } from '../components/Skeleton';
 import { useWorkspaceAccess } from '../lib/workspace-access';
 import { useTheme } from '../theme/ThemeContext';
-import { AppButton, AppIconButton, AppSearchField, AppTextField, ScreenHeader } from '../ui';
+import { AppBadge, AppButton, AppCard, AppIconButton, AppSearchField, AppTextField, ScreenHeader, SettingsSection } from '../ui';
+import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 
 const DEFAULT_TAG_COLOR = WORKSPACE_TAG_COLOR_OPTIONS[0].color;
 
@@ -287,7 +288,7 @@ export function TagsSettingsScreen() {
               keyExtractor={(item) => item.id}
               contentContainerStyle={[styles.listContent, { paddingBottom: Math.max(insets.bottom, 24) }]}
               ListEmptyComponent={(
-                <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+                <AppCard style={styles.emptyCard}>
                   <Tag color={colors.textMuted} size={28} />
                   <Text style={[styles.emptyTitle, { color: colors.text }]}>No tags found</Text>
                   <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>
@@ -296,7 +297,7 @@ export function TagsSettingsScreen() {
                   {canUpdate ? (
                     <AppButton block style={styles.primaryButtonSpacing} icon={Plus} label="Add tag" onPress={openCreate} />
                   ) : null}
-                </View>
+                </AppCard>
               )}
               renderItem={({ item }) => (
                 <View style={[styles.itemCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, item.isArchived && styles.archivedCard]}>
@@ -309,9 +310,7 @@ export function TagsSettingsScreen() {
                     </Text>
                   </View>
                   {item.isArchived ? (
-                    <View style={[styles.archivedBadge, { backgroundColor: colors.surfaceSecondary }]}>
-                      <Text style={[styles.archivedBadgeText, { color: colors.textSecondary }]}>Archived</Text>
-                    </View>
+                    <AppBadge label="Archived" tone="neutral" size="sm" />
                   ) : canUpdate ? (
                     <View style={styles.itemActions}>
                       <Pressable style={styles.iconButton} onPress={() => openEdit(item)} hitSlop={8} accessibilityLabel={`Edit ${item.text}`}>
@@ -341,7 +340,7 @@ export function TagsSettingsScreen() {
       )}
 
       <BottomSheet visible={editorOpen} onClose={closeEditor} sheetStyle={styles.sheetSurface}>
-        <Text style={[styles.sheetTitle, { color: colors.text }]}>{editing ? 'Edit tag' : 'New tag'}</Text>
+        <SettingsSection title={editing ? 'Edit tag' : 'New tag'}>
         <SheetScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" style={styles.sheetScroll} contentContainerStyle={styles.sheetContent}>
           <AppTextField
             label="Name"
@@ -391,6 +390,7 @@ export function TagsSettingsScreen() {
             onPress={() => void handleSave()}
           />
         </View>
+        </SettingsSection>
       </BottomSheet>
 
       <ConfirmDialog
@@ -411,18 +411,18 @@ export function TagsSettingsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  addButton: { alignItems: 'center', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
-  metrics: { flexDirection: 'row', gap: 10, marginTop: 16, paddingHorizontal: 16 },
+  addButton: { alignItems: 'center', borderRadius: radius.pill, height: 36, justifyContent: 'center', width: 36 },
+  metrics: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg, paddingHorizontal: spacing.lg },
   metricCard: {
-    borderRadius: 14,
+    borderRadius: radius.lg,
     flex: 1,
-    gap: 4,
+    gap: spacing.xs,
     minWidth: 0,
     overflow: 'hidden',
-    padding: 12,
+    padding: spacing.md,
   },
-  metricValue: { color: '#fff', fontSize: 22, fontWeight: '800' },
-  metricLabel: { color: 'rgba(255,255,255,0.88)', fontSize: 11, fontWeight: '600', marginTop: 3 },
+  metricValue: { color: '#fff', fontSize: fontSize.title, fontWeight: fontWeight.extrabold },
+  metricLabel: { color: 'rgba(255,255,255,0.88)', fontSize: fontSize.tiny, fontWeight: fontWeight.semibold, marginTop: spacing.xs },
   orb: { backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: 999, position: 'absolute' },
   orbA: { height: 72, right: -20, top: -24, width: 72 },
   orbB: { bottom: -22, height: 56, left: -16, width: 56 },
