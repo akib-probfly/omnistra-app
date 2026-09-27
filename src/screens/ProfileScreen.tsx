@@ -8,6 +8,7 @@ import { showNotice } from '../components/AppToast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeContext';
+import { fontSize, fontWeight, inputHeight, radius, spacing } from '../theme/tokens';
 import { apiUrl } from '../api/client';
 import { fetchMyProfile, updateMyProfile } from '../api/profile';
 import { useAuth } from '../auth/AuthContext';
@@ -191,27 +192,27 @@ export function ProfileScreen() {
 
 const styles = StyleSheet.create({
   screen: { backgroundColor: '#f8fafc', flex: 1 },
-  header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#dbe4f1', borderBottomWidth: 1, flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingVertical: 10 },
+  header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#dbe4f1', borderBottomWidth: 1, flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   headerCopy: { flex: 1, minWidth: 0 },
-  headerTitle: { color: '#0f172a', fontSize: 17, fontWeight: '800' },
-  headerSubtitle: { color: '#64748b', fontSize: 12, marginTop: 2 },
-  content: { padding: 16, paddingBottom: 40 },
-  card: { backgroundColor: '#fff', borderRadius: 18, padding: 18 },
-  cardTitle: { color: '#0f172a', fontSize: 16, fontWeight: '800' },
-  cardDescription: { color: '#64748b', fontSize: 13, marginTop: 3 },
-  avatarRow: { alignItems: 'flex-start', flexDirection: 'row', gap: 16, marginTop: 16 },
+  headerTitle: { color: '#0f172a', fontSize: fontSize.subheading, fontWeight: fontWeight.extrabold },
+  headerSubtitle: { color: '#64748b', fontSize: fontSize.small, marginTop: spacing.xs / 2 },
+  content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+  card: { backgroundColor: '#fff', borderRadius: radius.xl, padding: spacing.lg },
+  cardTitle: { color: '#0f172a', fontSize: fontSize.body, fontWeight: fontWeight.extrabold },
+  cardDescription: { color: '#64748b', fontSize: fontSize.caption, marginTop: spacing.xs },
+  avatarRow: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.lg, marginTop: spacing.lg },
   avatarWrap: { height: 64, position: 'relative', width: 64 },
-  avatar: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 32, height: 64, justifyContent: 'center', width: 64 },
-  avatarImage: { backgroundColor: '#e8eef7', borderRadius: 32, height: 64, width: 64 },
-  avatarText: { color: '#fff', fontSize: 20, fontWeight: '700' },
-  avatarEdit: { alignItems: 'center', backgroundColor: '#2563eb', borderColor: '#fff', borderRadius: 15, borderWidth: 2, bottom: -9, elevation: 6, height: 30, justifyContent: 'center', position: 'absolute', right: -9, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, width: 30, zIndex: 10 },
+  avatar: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: radius.pill, height: 64, justifyContent: 'center', width: 64 },
+  avatarImage: { backgroundColor: '#e8eef7', borderRadius: radius.pill, height: 64, width: 64 },
+  avatarText: { color: '#fff', fontSize: fontSize.title, fontWeight: fontWeight.bold },
+  avatarEdit: { alignItems: 'center', backgroundColor: '#2563eb', borderColor: '#fff', borderRadius: radius.pill, borderWidth: 2, bottom: -9, elevation: 6, height: 30, justifyContent: 'center', position: 'absolute', right: -9, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, width: 30, zIndex: 10 },
   avatarFields: { flex: 1, minWidth: 0 },
-  fieldLabel: { color: '#64748b', fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginBottom: 6, marginTop: 12, textTransform: 'uppercase' },
-  profileField: { marginTop: 12 },
-  input: { backgroundColor: '#f8fafc', borderColor: '#cfe1ff', borderRadius: 12, borderWidth: 1, color: '#0f172a', fontSize: 14, paddingHorizontal: 12, paddingVertical: 10 },
+  fieldLabel: { color: '#64748b', fontSize: fontSize.tiny, fontWeight: fontWeight.bold, letterSpacing: 0.5, marginBottom: spacing.sm, marginTop: spacing.md, textTransform: 'uppercase' },
+  profileField: { marginTop: spacing.md },
+  input: { backgroundColor: '#f8fafc', borderColor: '#cfe1ff', borderRadius: radius.md, borderWidth: 1, color: '#0f172a', fontSize: fontSize.small, minHeight: inputHeight, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   inputDisabled: { backgroundColor: '#f1f5f9' },
-  inputDisabledText: { color: '#64748b', fontSize: 14 },
-  sectionDivider: { backgroundColor: '#e2e8f0', height: StyleSheet.hairlineWidth, marginVertical: 20 },
-  passwordFields: { marginTop: 4 },
-  submit: { marginTop: 24 },
+  inputDisabledText: { color: '#64748b', fontSize: fontSize.small },
+  sectionDivider: { backgroundColor: '#e2e8f0', height: StyleSheet.hairlineWidth, marginVertical: spacing.xl },
+  passwordFields: { marginTop: spacing.xs },
+  submit: { marginTop: spacing.xl },
 });
