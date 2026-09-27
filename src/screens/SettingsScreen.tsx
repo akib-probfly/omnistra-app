@@ -37,7 +37,7 @@ import { useWorkspaceAccess } from '../lib/workspace-access';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
 import { fontWeight, iconTiles, radius, spacing } from '../theme/tokens';
-import { AppBadge, AppCard, AppText, SettingsSection } from '../ui';
+import { AppCard, AppText, SettingsGridItem, SettingsSection } from '../ui';
 
 type BillingTab = 'current' | 'packages' | 'invoices' | 'history';
 
@@ -229,20 +229,17 @@ export function SettingsScreen() {
                     const isDisabled = item.kind === 'route' && item.id === 'products';
                     const RowIcon = isAppearance ? (isDark ? Moon : Sun) : item.icon;
                     return (
-                      <Pressable
+                      <SettingsGridItem
                         key={item.id}
-                        accessibilityRole="button"
-                        onPress={isDisabled ? undefined : () => onPressRow(item)}
+                        icon={RowIcon}
+                        iconBg={item.iconBg}
+                        iconColor={item.iconColor}
+                        label={item.label}
+                        accessory={isAppearance ? themeLabel : undefined}
+                        badge={item.kind === 'route' ? item.badge : undefined}
                         disabled={isDisabled}
-                        style={[styles.gridItem, isDisabled && styles.disabledItem]}
-                      >
-                        <View style={[styles.gridIcon, styles.gridIconShadow, { backgroundColor: item.iconBg }]}>
-                          <RowIcon color={item.iconColor} size={22} />
-                        </View>
-                        <AppText variant="caption" numberOfLines={2} style={styles.gridLabel}>{item.label}</AppText>
-                        {isAppearance ? <AppText variant="tiny" tone="primary" style={styles.appearanceMode}>{themeLabel}</AppText> : null}
-                        {item.kind === 'route' && item.badge ? <AppBadge label={item.badge} /> : null}
-                      </Pressable>
+                        onPress={isDisabled ? undefined : () => onPressRow(item)}
+                      />
                     );
                   })}
                 </View>
@@ -317,31 +314,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md + 2,
   },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -spacing.xs },
-  disabledItem: { opacity: 0.58 },
-  gridItem: {
-    alignItems: 'center',
-    minHeight: 112,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.md,
-    width: '33.333%',
-  },
-  gridIcon: {
-    alignItems: 'center',
-    borderRadius: radius.xxl,
-    height: 52,
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-    width: 52,
-  },
-  gridIconShadow: {
-    elevation: 1,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  gridLabel: { fontSize: 12, fontWeight: fontWeight.semibold, textAlign: 'center' },
-  appearanceMode: { fontSize: 10, marginTop: 2, textAlign: 'center' },
   groupCard: {
     overflow: 'hidden',
     padding: spacing.xs,

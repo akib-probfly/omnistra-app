@@ -11,5 +11,6 @@ export { AppText } from './AppText';
 export { AppTextField } from './AppTextField';
 export { EmptyState } from './EmptyState';
 export { ScreenHeader } from './ScreenHeader';
+export { SettingsGridItem } from './SettingsGridItem';
 export { SettingsSection } from './SettingsSection';
 export { toneForStatus } from './statusTones';
