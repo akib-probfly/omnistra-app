@@ -13,6 +13,7 @@ import {
   type MobilePushProvider,
 } from "../api/notifications";
 import { fetchMyWorkspaces } from "../api/workspaces";
+import { isExpoGo } from "./expo-go";
 
 const REGISTRATION_STORAGE_KEY = "mobile-push-device-registration";
 const PREFERENCE_AUTO_ENABLE_KEY = "mobile-push-pref-auto-enabled";
@@ -244,6 +245,12 @@ async function registerOnce(
   }
 
   if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
+    return false;
+  }
+
+  // Remote push was removed from Expo Go (throws since SDK 55). This covers
+  // every Go variant (store, CLI sideload, TestFlight), not just StoreClient.
+  if (isExpoGo()) {
     return false;
   }
 

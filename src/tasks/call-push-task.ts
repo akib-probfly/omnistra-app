@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
+import { isExpoGo } from '../lib/expo-go';
 import { declineConversationCall } from '../api/inbox';
 import {
   ANSWER_CALL_ACTION_ID,
@@ -101,6 +102,10 @@ TaskManager.defineTask<Notifications.NotificationTaskPayload>(CALL_PUSH_TASK, as
 });
 
 export function registerCallPushTask() {
+  // Expo Go does not ship the native remote-push module. Do not even touch
+  // notification categories/channels while the JS bundle is booting there.
+  if (isExpoGo()) return;
+
   void ensureIncomingCallCategory();
   void ensureMessageNotificationCategory();
   void ensureMobilePushChannels().catch((error) => {

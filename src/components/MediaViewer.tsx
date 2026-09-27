@@ -5,7 +5,10 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-g
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { showNotice } from './AppToast';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as MediaLibrary from 'expo-media-library';
+// This screen uses the legacy save-to-gallery API. Importing the SDK 57 root
+// entrypoint eagerly loads ExpoMediaLibraryNext, which is not present in all
+// generated clients and causes a runtime native-module crash.
+import * as MediaLibrary from 'expo-media-library/legacy';
 import { Download } from 'lucide-react-native';
 import { getImageRequestHeaders, prepareLocalImageForLibrary } from './AuthenticatedImage';
 

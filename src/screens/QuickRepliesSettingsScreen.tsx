@@ -231,7 +231,6 @@ export function QuickRepliesSettingsScreen() {
 
   useEffect(() => () => {
     if (newAttachmentIds.length) void cleanupNewAttachments(newAttachmentIds);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const pickAttachments = async (source: 'image' | 'document') => {

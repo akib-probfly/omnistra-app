@@ -26,18 +26,9 @@ if (!isDevClientBuild && Array.isArray(expo.plugins)) {
     return name !== 'expo-dev-client';
   });
 
-  expo.autolinking = {
-    ...(expo.autolinking || {}),
-    exclude: [
-      ...new Set([
-        ...((expo.autolinking && expo.autolinking.exclude) || []),
-        'expo-dev-client',
-        'expo-dev-launcher',
-        'expo-dev-menu',
-        'expo-dev-menu-interface',
-      ]),
-    ],
-  };
+  // NOTE: no `expo.autolinking` here — the SDK 56+ config schema rejects it.
+  // Dev-client exclusion from native builds is handled by
+  // plugins/exclude-dev-client-from-release-autolinking (settings.gradle).
 
   // The network inspector wires dev-only interception code into the native
   // build (EX_DEV_CLIENT_NETWORK_INSPECTOR=true). Keep it for dev builds,

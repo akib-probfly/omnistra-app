@@ -15,6 +15,8 @@ import { BroadcastSettingsScreen } from '../screens/BroadcastSettingsScreen';
 import { BroadcastCampaignScreen } from '../screens/BroadcastCampaignScreen';
 import { BroadcastCreateScreen } from '../screens/BroadcastCreateScreen';
 import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
+import { ProductsScreen } from '../screens/ProductsScreen';
+import { ProductFormScreen } from '../screens/ProductFormScreen';
 import type { BillingInterval } from '../api/billing';
 
 export type SettingsStackParamList = {
@@ -47,6 +49,8 @@ export type SettingsStackParamList = {
     workspaceId: string;
   };
   PrivacyPolicy: undefined;
+  Products: undefined;
+  ProductForm: { productId?: string } | undefined;
 };
 
 const Stack = createNativeStackNavigator<SettingsStackParamList>();
@@ -70,6 +74,8 @@ export function SettingsStack() {
       <Stack.Screen name="BillingPlanDetails" component={BillingPlanDetailsScreen} />
       <Stack.Screen name="BillingCheckout" component={BillingCheckoutScreen} />
       <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+      <Stack.Screen name="Products" component={ProductsScreen} />
+      <Stack.Screen name="ProductForm" component={ProductFormScreen} />
     </Stack.Navigator>
   );
 }

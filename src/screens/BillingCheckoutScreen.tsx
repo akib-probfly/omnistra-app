@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   body: { flex: 1 },
   webview: { flex: 1 },
   loader: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,

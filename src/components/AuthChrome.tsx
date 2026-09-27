@@ -10,7 +10,7 @@ export function AuthChrome() {
         colors={isDark ? [colors.background, '#0b1f4a', colors.background] : [colors.background, '#dbeafe', colors.background]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
       <View style={[styles.orb, styles.orbTop, { backgroundColor: colors.primary }]} />
       <View style={[styles.orb, styles.orbBottom, { backgroundColor: colors.primary }]} />
