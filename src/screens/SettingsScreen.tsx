@@ -37,7 +37,7 @@ import { useWorkspaceAccess } from '../lib/workspace-access';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
 import { fontWeight, iconTiles, radius, spacing } from '../theme/tokens';
-import { AppBadge, AppCard, AppText } from '../ui';
+import { AppBadge, AppCard, AppText, SettingsSection } from '../ui';
 
 type BillingTab = 'current' | 'packages' | 'invoices' | 'history';
 
@@ -221,8 +221,7 @@ export function SettingsScreen() {
 
         {visibleGroups.map((group) => {
           return (
-            <View key={group.label} style={styles.group}>
-              <AppText variant="section" style={styles.groupTitle}>{group.label}</AppText>
+            <SettingsSection key={group.label} title={group.label}>
               <AppCard style={styles.groupCard}>
                 <View style={styles.grid}>
                   {group.items.map((item) => {
@@ -248,7 +247,7 @@ export function SettingsScreen() {
                   })}
                 </View>
               </AppCard>
-            </View>
+            </SettingsSection>
           );
         })}
       </ScrollView>
@@ -317,8 +316,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md + 2,
     paddingVertical: spacing.md + 2,
   },
-  group: { gap: spacing.sm },
-  groupTitle: { paddingHorizontal: spacing.xs, textTransform: 'uppercase', letterSpacing: 0.5 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -spacing.xs },
   disabledItem: { opacity: 0.58 },
   gridItem: {
@@ -346,7 +343,6 @@ const styles = StyleSheet.create({
   gridLabel: { fontSize: 12, fontWeight: fontWeight.semibold, textAlign: 'center' },
   appearanceMode: { fontSize: 10, marginTop: 2, textAlign: 'center' },
   groupCard: {
-    marginTop: spacing.sm,
     overflow: 'hidden',
     padding: spacing.xs,
   },
