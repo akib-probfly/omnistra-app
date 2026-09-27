@@ -2,7 +2,7 @@
     "expo":  {
                  "name":  "Zurvis",
                  "slug":  "osaas-mobile",
-                 "version":  "1.0.16",
+                 "version":  "1.0.17",
                  "scheme":  "osaas",
                  "icon":  "./assets/icon.png",
                  "userInterfaceStyle":  "light",
@@ -27,7 +27,7 @@
                                  "softwareKeyboardLayoutMode":  "resize",
                                  "backgroundColor":  "#f4f7fb",
                                  "package":  "com.zurvis.mobile",
-                                 "versionCode":  19,
+                                 "versionCode":  20,
                                  "predictiveBackGestureEnabled":  false,
                                  "blockedPermissions":  [
                                                             "android.permission.READ_EXTERNAL_STORAGE",
