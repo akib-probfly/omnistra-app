@@ -12,7 +12,7 @@ import { showNotice } from '../components/AppToast';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
-import { AppButton, AppSearchField, AppTextField, ScreenHeader } from '../ui';
+import { AppButton, AppCard, AppSearchField, AppTextField, ScreenHeader, SettingsSection } from '../ui';
 import {
   fetchMyWorkspaces,
   fetchTimezones,
@@ -103,27 +103,26 @@ export function WorkspaceSettingsScreen() {
         />
       ) : (
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}>
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+          <AppCard style={styles.card}>
             <View style={[styles.cardIcon, { backgroundColor: colors.surfaceSecondary }]}>
               <Building2 color={colors.primary} size={20} />
             </View>
-            <Text style={[styles.cardTitle, { color: colors.text }]}>Workspace details</Text>
-            <Text style={[styles.cardBody, { color: colors.textSecondary }]}>Update how this workspace appears across Zurvis.</Text>
-
-            <AppTextField
+            <SettingsSection title="Workspace details" description="Update how this workspace appears across Zurvis.">
+              <AppTextField
               label="Workspace name"
               value={name}
               onChangeText={setName}
               placeholder="Workspace name"
               autoCapitalize="words"
               style={styles.workspaceNameField}
-            />
+              />
 
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Timezone</Text>
-            <Pressable style={[styles.inputButton, { backgroundColor: colors.background, borderColor: colors.inputBorder }]} onPress={() => setTimezonePickerOpen(true)}>
-              <Text style={[styles.inputButtonText, { color: colors.text }]} numberOfLines={1}>{timezone || 'Select timezone'}</Text>
-            </Pressable>
-          </View>
+              <Text style={[styles.label, { color: colors.textSecondary }]}>Timezone</Text>
+              <Pressable style={[styles.inputButton, { backgroundColor: colors.background, borderColor: colors.inputBorder }]} onPress={() => setTimezonePickerOpen(true)}>
+                <Text style={[styles.inputButtonText, { color: colors.text }]} numberOfLines={1}>{timezone || 'Select timezone'}</Text>
+              </Pressable>
+            </SettingsSection>
+          </AppCard>
 
           <AppButton
             block
