@@ -23,6 +23,7 @@ import {
 import { ErrorState } from '../components/ErrorState';
 import { BottomSheet, SheetFlatList } from '../components/BottomSheet';
 import { FormSkeleton, PanelSkeleton } from '../components/Skeleton';
+import { fontSize, fontWeight, inputHeight, radius, spacing } from '../theme/tokens';
 
 export function WorkspaceSettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -176,22 +177,23 @@ export function WorkspaceSettingsScreen() {
 const styles = StyleSheet.create({
   screen: { backgroundColor: '#f8fafc', flex: 1 },
   loader: { marginTop: 60 },
-  content: { gap: 14, padding: 16 },
-  card: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, padding: 16 },
-  cardIcon: { alignItems: 'center', backgroundColor: '#eff6ff', borderRadius: 12, height: 40, justifyContent: 'center', marginBottom: 12, width: 40 },
-  cardTitle: { color: '#0f172a', fontSize: 16, fontWeight: '800' },
-  cardBody: { color: '#64748b', fontSize: 13, marginTop: 4 },
-  workspaceNameField: { marginTop: 14 },
-  inputButton: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 14 },
-  inputButtonText: { color: '#0f172a', fontSize: 14, fontWeight: '600' },
+  content: { gap: spacing.md, padding: spacing.lg },
+  card: { borderWidth: 1, padding: spacing.lg },
+  cardIcon: { alignItems: 'center', borderRadius: radius.md, height: 40, justifyContent: 'center', marginBottom: spacing.md, width: 40 },
+  cardTitle: { fontSize: fontSize.subheading, fontWeight: fontWeight.extrabold },
+  cardBody: { fontSize: fontSize.small, marginTop: spacing.xs },
+  workspaceNameField: { marginTop: spacing.md },
+  label: { fontSize: fontSize.small, fontWeight: fontWeight.semibold, marginBottom: spacing.xs + 2, marginTop: spacing.md },
+  inputButton: { borderRadius: radius.md, borderWidth: 1, minHeight: inputHeight, paddingHorizontal: spacing.md + 2, paddingVertical: spacing.sm },
+  inputButtonText: { fontSize: fontSize.subheading, fontWeight: fontWeight.semibold },
   saveDisabled: { opacity: 0.5 },
   saveText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   sheetOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },
-  sheetSurface: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 },
-  sheetTitle: { color: '#0f172a', fontSize: 18, fontWeight: '800', marginBottom: 12 },
-  timezoneRow: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 12 },
-  timezoneRowActive: { backgroundColor: '#dbeafe' },
-  timezoneName: { color: '#0f172a', fontSize: 14, fontWeight: '700' },
-  timezoneMeta: { color: '#64748b', fontSize: 12, marginTop: 2 },
-  empty: { color: '#94a3b8', fontSize: 13, paddingVertical: 16, textAlign: 'center' },
+  sheetSurface: { paddingBottom: spacing.lg + 4, paddingHorizontal: spacing.xl, paddingTop: spacing.sm },
+  sheetTitle: { fontSize: fontSize.heading, fontWeight: fontWeight.extrabold, marginBottom: spacing.md },
+  timezoneRow: { borderRadius: radius.md, paddingHorizontal: spacing.sm + 2, paddingVertical: spacing.md },
+  timezoneRowActive: {},
+  timezoneName: { fontSize: fontSize.subheading, fontWeight: fontWeight.bold },
+  timezoneMeta: { fontSize: fontSize.caption, marginTop: 2 },
+  empty: { fontSize: fontSize.small, paddingVertical: spacing.lg, textAlign: 'center' },
 });
