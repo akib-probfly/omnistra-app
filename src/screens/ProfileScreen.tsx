@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { ArrowLeft, Camera, Eye, EyeOff, Lock, Save } from 'lucide-react-native';
+import { ArrowLeft, Eye, EyeOff, Lock, Save } from 'lucide-react-native';
 import { useCallback, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { showNotice } from '../components/AppToast';
@@ -12,7 +11,7 @@ import { fontSize, fontWeight, inputHeight, radius, spacing } from '../theme/tok
 import { apiUrl } from '../api/client';
 import { fetchMyProfile, updateMyProfile } from '../api/profile';
 import { useAuth } from '../auth/AuthContext';
-import { AppButton, AppTextField } from '../ui';
+import { AppButton, AppCard, AppTextField, AvatarPicker, SettingsSection } from '../ui';
 
 function getInitials(value?: string | null) {
   const parts = (value ?? '?').split(' ').filter(Boolean).map((part) => part[0]).slice(0, 2);
@@ -112,19 +111,10 @@ export function ProfileScreen() {
         </View>
       </View>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Personal information</Text>
-          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>Update your name, avatar, and password.</Text>
-
+        <AppCard style={styles.card}>
+          <SettingsSection title="Personal information" description="Update your name, avatar, and password.">
           <View style={styles.avatarRow}>
-            <View style={styles.avatarWrap}>
-              {displayAvatarUrl ? <Image source={{ uri: displayAvatarUrl }} cachePolicy="memory-disk" allowDownscaling contentFit="cover" style={[styles.avatarImage, { backgroundColor: colors.surfaceSecondary }]} /> : (
-                <View style={styles.avatar}><Text style={styles.avatarText}>{getInitials(displayName)}</Text></View>
-              )}
-              <Pressable style={styles.avatarEdit} onPress={handlePickAvatar} hitSlop={12}>
-                <Camera color="#fff" size={12} />
-              </Pressable>
-            </View>
+            <AvatarPicker uri={displayAvatarUrl} initials={getInitials(displayName)} onPress={handlePickAvatar} />
             <View style={styles.avatarFields}>
               <AppTextField
                 label="Display name"
@@ -141,10 +131,10 @@ export function ProfileScreen() {
               </View>
             </View>
           </View>
+          </SettingsSection>
 
           <View style={[styles.sectionDivider, { backgroundColor: colors.separator }]} />
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Change password</Text>
-          <Text style={[styles.cardDescription, { color: colors.textSecondary }]}>{PASSWORD_RULES}</Text>
+          <SettingsSection title="Change password" description={PASSWORD_RULES}>
 
           <View style={styles.passwordFields}>
             <AppTextField
@@ -184,7 +174,8 @@ export function ProfileScreen() {
             disabled={!canSubmit || profileMutation.isPending}
             loading={profileMutation.isPending}
           />
-        </View>
+          </SettingsSection>
+        </AppCard>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -198,14 +189,7 @@ const styles = StyleSheet.create({
   headerSubtitle: { color: '#64748b', fontSize: fontSize.small, marginTop: spacing.xs / 2 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
   card: { backgroundColor: '#fff', borderRadius: radius.xl, padding: spacing.lg },
-  cardTitle: { color: '#0f172a', fontSize: fontSize.body, fontWeight: fontWeight.extrabold },
-  cardDescription: { color: '#64748b', fontSize: fontSize.caption, marginTop: spacing.xs },
   avatarRow: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.lg, marginTop: spacing.lg },
-  avatarWrap: { height: 64, position: 'relative', width: 64 },
-  avatar: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: radius.pill, height: 64, justifyContent: 'center', width: 64 },
-  avatarImage: { backgroundColor: '#e8eef7', borderRadius: radius.pill, height: 64, width: 64 },
-  avatarText: { color: '#fff', fontSize: fontSize.title, fontWeight: fontWeight.bold },
-  avatarEdit: { alignItems: 'center', backgroundColor: '#2563eb', borderColor: '#fff', borderRadius: radius.pill, borderWidth: 2, bottom: -9, elevation: 6, height: 30, justifyContent: 'center', position: 'absolute', right: -9, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, width: 30, zIndex: 10 },
   avatarFields: { flex: 1, minWidth: 0 },
   fieldLabel: { color: '#64748b', fontSize: fontSize.tiny, fontWeight: fontWeight.bold, letterSpacing: 0.5, marginBottom: spacing.sm, marginTop: spacing.md, textTransform: 'uppercase' },
   profileField: { marginTop: spacing.md },

@@ -1,5 +1,6 @@
 export { AppBadge, badgePalette, type BadgeTone } from './AppBadge';
 export { AppButton } from './AppButton';
+export { AvatarPicker } from './AvatarPicker';
 export { AppCard } from './AppCard';
 export { AppChip } from './AppChip';
 export { AppIconButton } from './AppIconButton';
@@ -10,4 +11,5 @@ export { AppText } from './AppText';
 export { AppTextField } from './AppTextField';
 export { EmptyState } from './EmptyState';
 export { ScreenHeader } from './ScreenHeader';
+export { SettingsSection } from './SettingsSection';
 export { toneForStatus } from './statusTones';
