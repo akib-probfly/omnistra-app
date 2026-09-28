@@ -8,6 +8,7 @@ import { ActivityIndicator, Animated, Easing, Linking, Modal, Pressable, ScrollV
 import Toast from 'react-native-toast-message';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { ThemeColors } from '../theme/colors';
 import {
   fetchChannelDetails,
   fetchWhatsappBusinessProfile,
@@ -122,10 +123,11 @@ export function ChannelDetailsScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteProp<ChannelsStackParamList, 'ChannelDetails'>>();
   const queryClient = useQueryClient();
+  const { colors } = useTheme();
   const channelId = route.params.channelId;
   const [tab, setTab] = useState<string>('overview');
   const [channelConfirm, setChannelConfirm] = useState<'remove' | 'pause' | 'resume' | null>(null);
-  const { colors } = useTheme();
+  const styles = useChannelDetailsStyles(colors);
 
   const details = useQuery({
     queryKey: ['channel-details', channelId],
@@ -267,7 +269,7 @@ export function ChannelDetailsScreen() {
         <View style={{ alignItems: 'center', padding: 32, marginTop: 40 }}>
           <Text style={[styles.msgTitle, { color: colors.text }]}>Could not load channel</Text>
           <Text style={[styles.msgText, { color: colors.textSecondary }]}>{details.error instanceof Error ? details.error.message : 'Please try again or return to the list.'}</Text>
-          <Pressable style={[styles.primaryButton, { alignSelf: 'center', marginTop: 20, paddingHorizontal: 18, paddingVertical: 9, backgroundColor: colors.primary }]} onPress={() => details.refetch()}><RefreshCw color="#fff" size={14} /><Text style={[styles.primaryButtonText, { fontSize: 13 }]}>Retry</Text></Pressable>
+          <Pressable style={[styles.primaryButton, { alignSelf: 'center', marginTop: spacing.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, backgroundColor: colors.primary }]} onPress={() => details.refetch()}><RefreshCw color={colors.primaryText} size={14} /><Text style={[styles.primaryButtonText, { fontSize: fontSize.caption }]}>Retry</Text></Pressable>
         </View>
       </View>
     );
@@ -479,7 +481,7 @@ export function ChannelDetailsScreen() {
         </Pressable>
 
         <Pressable style={[styles.primaryButton, { marginTop: 18, backgroundColor: colors.primary }]} onPress={() => save.mutate()} disabled={isBusy}>
-          {save.isPending ? <ActivityIndicator color="#fff" size="small" /> : <Save color="#fff" size={16} />}
+          {save.isPending ? <ActivityIndicator color={colors.primaryText} size="small" /> : <Save color={colors.primaryText} size={16} />}
           <Text style={styles.primaryButtonText}>{save.isPending ? 'Saving...' : 'Save profile'}</Text>
         </Pressable>
       </AppCard>
@@ -584,6 +586,7 @@ function HeaderBar({
 }) {
   const spin = useRef(new Animated.Value(0)).current;
   const { colors } = useTheme();
+  const styles = useChannelDetailsStyles(colors);
 
   useEffect(() => {
     if (!refreshing) {
@@ -620,6 +623,7 @@ function HeaderBar({
 
 function TabButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   const { colors } = useTheme();
+  const styles = useChannelDetailsStyles(colors);
   return (
     <Pressable onPress={onPress} style={[styles.tab, active && styles.tabActive, active && { backgroundColor: colors.surfaceSecondary }]}>
       <Text style={[styles.tabText, active && styles.tabTextActive, { color: active ? colors.primary : colors.textSecondary }]} numberOfLines={1}>{label}</Text>
@@ -644,6 +648,7 @@ function ChannelConfigurationHero({
   colors: ReturnType<typeof useTheme>['colors'];
   onRestore: () => void;
 }) {
+  const styles = useChannelDetailsStyles(colors);
   return (
     <>
       <View style={[styles.configurationHero, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
@@ -675,6 +680,7 @@ function ChannelConfigurationHero({
 
 function StatusTile({ icon, title, value, tone = 'neutral', compact = false }: { icon: 'phone' | 'message' | 'link' | 'unlink'; title: string; value: string; tone?: BadgeTone; compact?: boolean }) {
   const { colors } = useTheme();
+  const styles = useChannelDetailsStyles(colors);
   const Icon = icon === 'phone' ? Phone : icon === 'message' ? MessageSquare : icon === 'link' ? Link2 : Unlink2;
   const palette = badgePalette(colors, tone);
   const toneColor = palette.fg;
@@ -695,6 +701,7 @@ function StatusTile({ icon, title, value, tone = 'neutral', compact = false }: {
 
 function ConfigCopyButton({ value }: { value: string }) {
   const { colors } = useTheme();
+  const styles = useChannelDetailsStyles(colors);
   const [copied, setCopied] = useState(false);
 
   const copyValue = async () => {
@@ -712,6 +719,7 @@ function ConfigCopyButton({ value }: { value: string }) {
 
 function ConfigField({ label, value, copy = false, mono = false, openUrl }: { label: string; value: string; copy?: boolean; mono?: boolean; openUrl?: string | null }) {
   const { colors } = useTheme();
+  const styles = useChannelDetailsStyles(colors);
   const canCopy = copy && !['Not linked', 'Not available', 'None', 'No webhook failures recorded'].includes(value);
 
   return (
@@ -735,6 +743,8 @@ function ConfigField({ label, value, copy = false, mono = false, openUrl }: { la
 }
 
 function FieldEdit({ label, value, onChange, placeholder, multiline = false, keyboardType }: { label: string; value: string; onChange: (text: string) => void; placeholder: string; multiline?: boolean; keyboardType?: 'email-address' }) {
+  const { colors } = useTheme();
+  const styles = useChannelDetailsStyles(colors);
   return (
     <AppTextField
       label={label}
@@ -749,77 +759,79 @@ function FieldEdit({ label, value, onChange, placeholder, multiline = false, key
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { backgroundColor: '#eef4fb', flex: 1 },
-  header: { alignItems: 'center', backgroundColor: '#fff', borderBottomColor: '#dce8f7', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingBottom: spacing.md, paddingHorizontal: spacing.lg },
-  headerTitle: { color: '#0f172a', fontSize: fontSize.subheading, fontWeight: fontWeight.bold },
+function useChannelDetailsStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+  screen: { backgroundColor: colors.background, flex: 1 },
+  header: { alignItems: 'center', backgroundColor: colors.surface, borderBottomColor: colors.separator, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingBottom: spacing.md, paddingHorizontal: spacing.lg },
+  headerTitle: { color: colors.text, fontSize: fontSize.subheading, fontWeight: fontWeight.bold },
   tabs: { flexDirection: 'row', gap: spacing.sm },
-  tabBar: { backgroundColor: '#fff', borderBottomColor: '#dce8f7', borderBottomWidth: 1, paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.md },
+  tabBar: { backgroundColor: colors.surface, borderBottomColor: colors.separator, borderBottomWidth: 1, paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.md },
   tabBarContent: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   tabContent: { flex: 1 },
   tab: { alignItems: 'center', borderRadius: radius.md, flexShrink: 0, justifyContent: 'center', paddingHorizontal: spacing.md + 2, paddingVertical: spacing.sm + 1 },
-  tabActive: { backgroundColor: '#e7efff' },
-  tabText: { color: '#64748b', fontSize: fontSize.caption, fontWeight: fontWeight.semibold },
-  tabTextActive: { color: '#2563eb', fontWeight: fontWeight.bold },
+  tabActive: { backgroundColor: colors.primarySoft },
+  tabText: { color: colors.textSecondary, fontSize: fontSize.caption, fontWeight: fontWeight.semibold },
+  tabTextActive: { color: colors.primary, fontWeight: fontWeight.bold },
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl + spacing.sm },
-  configurationHero: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: radius.xl, borderWidth: 1, flexDirection: 'row', padding: spacing.md + 2 },
+  configurationHero: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.cardBorder, borderRadius: radius.xl, borderWidth: 1, flexDirection: 'row', padding: spacing.md + 2 },
   titleCopy: { flex: 1, marginLeft: spacing.md + 2 },
-  channelName: { color: '#0f172a', fontSize: fontSize.heading + 1, fontWeight: fontWeight.extrabold },
-  heroSub: { color: '#64748b', fontSize: fontSize.small, lineHeight: 17, marginTop: 2 },
+  channelName: { color: colors.text, fontSize: fontSize.heading + 1, fontWeight: fontWeight.extrabold },
+  heroSub: { color: colors.textSecondary, fontSize: fontSize.small, lineHeight: 17, marginTop: 2 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
   cardSpacing: { marginTop: spacing.lg },
   cardHead: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  cardTitle: { color: '#0f172a', fontSize: fontSize.subheading, fontWeight: fontWeight.bold },
-  cardSub: { color: '#64748b', fontSize: fontSize.caption, lineHeight: 19, marginTop: spacing.xs },
+  cardTitle: { color: colors.text, fontSize: fontSize.subheading, fontWeight: fontWeight.bold },
+  cardSub: { color: colors.textSecondary, fontSize: fontSize.caption, lineHeight: 19, marginTop: spacing.xs },
   statusGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },
   statusGridInline: { alignItems: 'stretch', flexDirection: 'row', flexWrap: 'nowrap', gap: 6, marginTop: 14 },
-  statusTile: { backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 14, borderWidth: 1, flexGrow: 1, minWidth: '30%', padding: 12 },
+  statusTile: { backgroundColor: colors.primarySoft, borderColor: colors.cardBorder, borderRadius: radius.lg, borderWidth: 1, flexGrow: 1, minWidth: '30%', padding: spacing.md },
   statusTileCompact: { alignItems: 'flex-start', flex: 1, flexDirection: 'column', gap: 5, minWidth: 0, padding: 9 },
   statusTileIcon: { alignItems: 'center', borderRadius: 10, height: 32, justifyContent: 'center', marginBottom: 10, width: 32 },
   statusTileIconCompact: { height: 25, marginBottom: 0, width: 25 },
   statusTileCopyCompact: { alignSelf: 'stretch', minWidth: 0 },
-  statusTileTitle: { color: '#64748b', fontSize: fontSize.tiny + 1, fontWeight: fontWeight.bold },
+  statusTileTitle: { color: colors.textSecondary, fontSize: fontSize.tiny + 1, fontWeight: fontWeight.bold },
   statusTileTitleCompact: { fontSize: fontSize.tiny, lineHeight: 13 },
-  statusTileValue: { color: '#0f172a', fontSize: fontSize.caption, fontWeight: fontWeight.extrabold, marginTop: 3 },
+  statusTileValue: { color: colors.text, fontSize: fontSize.caption, fontWeight: fontWeight.extrabold, marginTop: 3 },
   statusTileValueCompact: { fontSize: fontSize.small - 1, lineHeight: 14, marginTop: 1 },
   configFields: { gap: spacing.md, marginTop: spacing.lg },
   configField: { gap: spacing.xs + 2 },
-  configLabel: { color: '#64748b', fontSize: fontSize.small, fontWeight: fontWeight.semibold },
+  configLabel: { color: colors.textSecondary, fontSize: fontSize.small, fontWeight: fontWeight.semibold },
   configFieldRow: { alignItems: 'stretch', flexDirection: 'row', gap: spacing.sm },
-  configValueBox: { backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 12, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 42, paddingHorizontal: 12, paddingVertical: 8 },
-  configValue: { color: '#0f172a', fontSize: fontSize.caption, fontWeight: fontWeight.semibold, lineHeight: 18 },
+  configValueBox: { backgroundColor: colors.primarySoft, borderColor: colors.cardBorder, borderRadius: radius.md, borderWidth: 1, flex: 1, justifyContent: 'center', minHeight: 42, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  configValue: { color: colors.text, fontSize: fontSize.caption, fontWeight: fontWeight.semibold, lineHeight: 18 },
   configValueMono: { fontFamily: 'monospace', fontSize: fontSize.small },
-  configCopyButton: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 12, borderWidth: 1, height: 42, justifyContent: 'center', width: 42 },
-  fieldLabel: { color: '#64748b', fontSize: 12, marginTop: 12 },
-  dangerCard: { backgroundColor: '#fff1f2', borderColor: '#fecdd3', borderRadius: 16, borderWidth: 1, marginTop: 16, padding: 14 },
-  dangerTitle: { color: '#be123c', fontSize: 15, fontWeight: '700' },
-  dangerText: { color: '#881337', fontSize: 13, lineHeight: 19, marginTop: 4 },
-  primaryButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 14, flexDirection: 'row', gap: 6, justifyContent: 'center', paddingVertical: 12 },
-  primaryButtonText: { color: '#fff', flexShrink: 1, fontSize: 13, fontWeight: '700', textAlign: 'center' },
-  outlineButton: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 6, justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 12 },
-  outlineButtonText: { color: '#2563eb', flexShrink: 1, fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  configCopyButton: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.cardBorder, borderRadius: radius.md, borderWidth: 1, height: 42, justifyContent: 'center', width: 42 },
+  fieldLabel: { color: colors.textSecondary, fontSize: fontSize.small, marginTop: spacing.md },
+  dangerCard: { backgroundColor: colors.dangerSoft, borderColor: colors.dangerBorder, borderRadius: radius.lg, borderWidth: 1, marginTop: spacing.lg, padding: spacing.md },
+  dangerTitle: { color: colors.error, fontSize: fontSize.body, fontWeight: fontWeight.bold },
+  dangerText: { color: colors.error, fontSize: fontSize.caption, lineHeight: 19, marginTop: spacing.xs },
+  primaryButton: { alignItems: 'center', backgroundColor: colors.primary, borderRadius: radius.lg, flexDirection: 'row', gap: spacing.xs + 2, justifyContent: 'center', paddingVertical: spacing.md },
+  primaryButtonText: { color: colors.primaryText, flexShrink: 1, fontSize: fontSize.caption, fontWeight: fontWeight.bold, textAlign: 'center' },
+  outlineButton: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.primaryBorder, borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', gap: spacing.xs + 2, justifyContent: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  outlineButtonText: { color: colors.primary, flexShrink: 1, fontSize: fontSize.caption, fontWeight: fontWeight.bold, textAlign: 'center' },
   mb: { marginBottom: 10 },
-  syncButton: { alignItems: 'center', backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 5, paddingHorizontal: 12, paddingVertical: 7 },
-  syncText: { color: '#315efb', fontSize: 13, fontWeight: '700' },
-  profilePreview: { alignItems: 'center', backgroundColor: '#f6f9ff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 12, marginTop: 18, padding: 14 },
-  profilePhoto: { alignItems: 'center', backgroundColor: '#fff', borderRadius: 18, height: 58, justifyContent: 'center', overflow: 'hidden', width: 58 },
+  syncButton: { alignItems: 'center', backgroundColor: colors.primarySoft, borderColor: colors.cardBorder, borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 3 },
+  syncText: { color: colors.primary, fontSize: fontSize.caption, fontWeight: fontWeight.bold },
+  profilePreview: { alignItems: 'center', backgroundColor: colors.primarySoft, borderColor: colors.cardBorder, borderRadius: radius.xl, borderWidth: 1, flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg, padding: spacing.md },
+  profilePhoto: { alignItems: 'center', backgroundColor: colors.surface, borderRadius: radius.xl, height: 58, justifyContent: 'center', overflow: 'hidden', width: 58 },
   profilePhotoImage: { height: 58, width: 58 },
   profilePreviewCopy: { flex: 1, minWidth: 0 },
-  profilePreviewName: { color: '#0f172a', fontSize: 16, fontWeight: '800' },
-  profilePreviewMeta: { color: '#64748b', fontSize: 12, lineHeight: 17, marginTop: 3 },
-  uploadButton: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 13, borderWidth: 1, flexDirection: 'row', flexShrink: 0, gap: 5, paddingHorizontal: 10, paddingVertical: 8 },
-  uploadButtonText: { color: '#2563eb', fontSize: 12, fontWeight: '700' },
+  profilePreviewName: { color: colors.text, fontSize: fontSize.subheading, fontWeight: fontWeight.extrabold },
+  profilePreviewMeta: { color: colors.textSecondary, fontSize: fontSize.small, lineHeight: 17, marginTop: 3 },
+  uploadButton: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.cardBorder, borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', flexShrink: 0, gap: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm },
+  uploadButtonText: { color: colors.primary, fontSize: fontSize.small, fontWeight: fontWeight.bold },
   fieldEdit: { marginTop: 14 },
-  charHint: { color: '#64748b', fontSize: 11, marginTop: 6 },
-  select: { alignItems: 'center', backgroundColor: '#f8fbff', borderColor: '#cfe1ff', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 8, height: 46, justifyContent: 'space-between', paddingHorizontal: 14, marginTop: 6 },
-  selectText: { color: '#0f172a', flex: 1, fontSize: 14 },
-  selectPlaceholder: { color: '#94a3b8', flex: 1, fontSize: 14 },
-  modalBackdrop: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'center', padding: 24 },
-  modalSheet: { backgroundColor: '#fff', borderRadius: 22, padding: 18 },
-  modalTitle: { color: '#0f172a', fontSize: 16, fontWeight: '700', marginBottom: 8 },
-  modalRow: { paddingVertical: 12 },
-  modalRowText: { color: '#334155', fontSize: 14 },
-  modalRowActive: { color: '#2563eb', fontSize: 14, fontWeight: '700' },
-  msgTitle: { color: '#0f172a', fontSize: 17, fontWeight: '700' },
-  msgText: { color: '#64748b', fontSize: 13, lineHeight: 19, marginTop: 6, textAlign: 'center' },
-});
+  charHint: { color: colors.textSecondary, fontSize: fontSize.tiny, marginTop: 6 },
+  select: { alignItems: 'center', backgroundColor: colors.background, borderColor: colors.primaryBorder, borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, height: 46, justifyContent: 'space-between', paddingHorizontal: spacing.md, marginTop: 6 },
+  selectText: { color: colors.text, flex: 1, fontSize: fontSize.caption },
+  selectPlaceholder: { color: colors.textMuted, flex: 1, fontSize: fontSize.caption },
+  modalBackdrop: { backgroundColor: colors.background, flex: 1, justifyContent: 'center', padding: spacing.xxl },
+  modalSheet: { backgroundColor: colors.surface, borderRadius: radius.xxl, padding: spacing.lg },
+  modalTitle: { color: colors.text, fontSize: fontSize.subheading, fontWeight: fontWeight.bold, marginBottom: spacing.sm },
+  modalRow: { paddingVertical: spacing.md },
+  modalRowText: { color: colors.textSecondary, fontSize: fontSize.caption },
+  modalRowActive: { color: colors.primary, fontSize: fontSize.caption, fontWeight: fontWeight.bold },
+  msgTitle: { color: colors.text, fontSize: fontSize.heading, fontWeight: fontWeight.bold },
+  msgText: { color: colors.textSecondary, fontSize: fontSize.caption, lineHeight: 19, marginTop: 6, textAlign: 'center' },
+  });
+}
