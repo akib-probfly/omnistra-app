@@ -39,6 +39,7 @@ import {
 } from '../api/broadcast';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
+import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 import { AppBadge, AppButton, AppChip, AppSearchField, EmptyState, ScreenHeader, toneForStatus } from '../ui';
 
 const AUDIENCE_STATUSES = [
@@ -321,7 +322,7 @@ export function BroadcastCampaignScreen() {
                 label={audienceQuery.isFetchingNextPage ? 'Loading…' : 'Load more'}
                 loading={audienceQuery.isFetchingNextPage}
                 onPress={() => void audienceQuery.fetchNextPage()}
-                style={{ marginTop: 12 }}
+                style={{ marginTop: spacing.md }}
               />
             ) : null}
           </View>
@@ -344,30 +345,30 @@ export function BroadcastCampaignScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  content: { gap: 12, padding: 16 },
-  card: { borderRadius: 18, borderWidth: 1, padding: 16 },
-  titleRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  cardTitle: { flex: 1, fontSize: 18, fontWeight: '800' },
-  body: { fontSize: 13, lineHeight: 19, marginTop: 8 },
-  dateGrid: { borderTopWidth: 1, gap: 10, marginTop: 14, paddingTop: 12 },
-  dateRow: { alignItems: 'center', flexDirection: 'row', gap: 9 },
+  content: { gap: spacing.md, padding: spacing.lg },
+  card: { borderRadius: radius.xl, borderWidth: 1, padding: spacing.lg },
+  titleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  cardTitle: { flex: 1, fontSize: fontSize.heading, fontWeight: fontWeight.extrabold },
+  body: { fontSize: fontSize.caption, lineHeight: 19, marginTop: spacing.sm },
+  dateGrid: { borderTopWidth: 1, gap: spacing.sm, marginTop: spacing.md, paddingTop: spacing.md },
+  dateRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   dateCopy: { flex: 1, gap: 2 },
-  dateLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' },
-  dateValue: { fontSize: 13, fontVariant: ['tabular-nums'], fontWeight: '600' },
-  sectionTitle: { fontSize: 15, fontWeight: '800', marginBottom: 12 },
-  metricIcons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  metricChip: { alignItems: 'center', flexDirection: 'row', gap: 6 },
-  metricChipText: { fontSize: 13, fontVariant: ['tabular-nums'], fontWeight: '700' },
-  funnelRow: { marginTop: 10 },
-  funnelCopy: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  funnelLabel: { fontSize: 12, fontWeight: '600' },
-  funnelValue: { fontSize: 12, fontVariant: ['tabular-nums'], fontWeight: '700' },
-  funnelTrack: { borderRadius: 999, height: 6, overflow: 'hidden' },
-  funnelFill: { borderRadius: 999, height: 6 },
-  actions: { gap: 10 },
-  chipRow: { gap: 8, paddingVertical: 12 },
-  audienceRow: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', paddingVertical: 10 },
-  audienceCopy: { flex: 1, minWidth: 0, paddingRight: 8 },
-  audienceName: { fontSize: 14, fontWeight: '700' },
-  audienceMeta: { fontSize: 12, marginTop: 2 },
+  dateLabel: { fontSize: fontSize.tiny, fontWeight: fontWeight.bold, letterSpacing: 0.4, textTransform: 'uppercase' },
+  dateValue: { fontSize: fontSize.caption, fontVariant: ['tabular-nums'], fontWeight: fontWeight.semibold },
+  sectionTitle: { fontSize: fontSize.body, fontWeight: fontWeight.extrabold, marginBottom: spacing.md },
+  metricIcons: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
+  metricChip: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs + 2 },
+  metricChipText: { fontSize: fontSize.caption, fontVariant: ['tabular-nums'], fontWeight: fontWeight.bold },
+  funnelRow: { marginTop: spacing.sm },
+  funnelCopy: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs + 2 },
+  funnelLabel: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
+  funnelValue: { fontSize: fontSize.small, fontVariant: ['tabular-nums'], fontWeight: fontWeight.bold },
+  funnelTrack: { borderRadius: radius.pill, height: 6, overflow: 'hidden' },
+  funnelFill: { borderRadius: radius.pill, height: 6 },
+  actions: { gap: spacing.sm },
+  chipRow: { gap: spacing.sm, paddingVertical: spacing.md },
+  audienceRow: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', paddingVertical: spacing.sm },
+  audienceCopy: { flex: 1, minWidth: 0, paddingRight: spacing.sm },
+  audienceName: { fontSize: fontSize.caption, fontWeight: fontWeight.bold },
+  audienceMeta: { fontSize: fontSize.small, marginTop: 2 },
 });
