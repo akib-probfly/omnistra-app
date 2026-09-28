@@ -25,6 +25,7 @@ import Toast from 'react-native-toast-message';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import type { ThemeColors } from '../theme/colors';
 import { fontSize, fontWeight, inputHeight, radius, spacing } from '../theme/tokens';
 import { AppButton, AppSearchField, ScreenHeader } from '../ui';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -99,6 +100,7 @@ export function QuickRepliesSettingsScreen() {
   const navigation = useNavigation();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
+  const styles = useQuickRepliesStyles(colors);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [editorOpen, setEditorOpen] = useState(false);
@@ -391,7 +393,7 @@ export function QuickRepliesSettingsScreen() {
         onBack={() => navigation.goBack()}
         right={
           <Pressable style={[styles.addButton, { backgroundColor: colors.primary }]} onPress={openCreate}>
-            <Plus color="#fff" size={18} />
+            <Plus color={colors.primaryText} size={18} />
           </Pressable>
         }
       />
@@ -452,7 +454,7 @@ export function QuickRepliesSettingsScreen() {
                     <PencilLine color={colors.primary} size={18} />
                   </Pressable>
                   <Pressable style={styles.iconButton} onPress={() => confirmDelete(item)} hitSlop={8}>
-                    <Trash2 color="#e11d48" size={18} />
+                    <Trash2 color={colors.error} size={18} />
                   </Pressable>
                 </View>
               )}
@@ -560,7 +562,7 @@ export function QuickRepliesSettingsScreen() {
                   <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Files</Text>
                 </Pressable>
               </View>
-              {uploading ? <ActivityIndicator color={colors.primary} style={{ marginTop: 10 }} /> : null}
+              {uploading ? <ActivityIndicator color={colors.primary} style={styles.uploadIndicator} /> : null}
               {form.attachments.map((attachment) => {
                 const previewUrl = quickReplyAttachmentPreviewUrl(attachment);
                 const showImage = Boolean(previewUrl) && isQuickReplyImageAttachment(attachment);
@@ -577,7 +579,7 @@ export function QuickRepliesSettingsScreen() {
                       {attachment.originalName || attachment.id}
                     </Text>
                     <Pressable onPress={() => removeAttachment(attachment.id)} hitSlop={8}>
-                      <X color="#e11d48" size={16} />
+                      <X color={colors.error} size={16} />
                     </Pressable>
                   </View>
                 );
@@ -611,13 +613,13 @@ export function QuickRepliesSettingsScreen() {
                       ) : null}
                       {fileAttachments.map((attachment) => (
                         <View key={attachment.id} style={styles.previewFileRow}>
-                          <Paperclip color="#dbeafe" size={15} />
+                          <Paperclip color={colors.primaryText} size={15} />
                           <Text style={styles.previewFileName} numberOfLines={1}>{attachment.originalName || attachment.id}</Text>
                         </View>
                       ))}
                       <View style={styles.previewMeta}>
                         <Text style={styles.previewMetaText}>Sent</Text>
-                        <Check color="#dbeafe" size={13} />
+                        <Check color={colors.primaryText} size={13} />
                         <Text style={styles.previewMetaText}>{new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</Text>
                       </View>
                     </View>
@@ -646,7 +648,7 @@ export function QuickRepliesSettingsScreen() {
           onChangeText={setChannelSearch}
           placeholder="Search channel accounts"
           placeholderTextColor={colors.textMuted}
-          style={[styles.input, { backgroundColor: colors.background, borderColor: colors.cardBorder, color: colors.text, marginTop: 12 }]}
+          style={[styles.input, styles.channelSearchInput, { backgroundColor: colors.background, borderColor: colors.cardBorder, color: colors.text }]}
         />
         <SheetFlatList
           data={visibleChannelAccounts}
@@ -654,7 +656,7 @@ export function QuickRepliesSettingsScreen() {
           style={styles.channelList}
           keyboardShouldPersistTaps="handled"
           ListEmptyComponent={(
-            <Text style={[styles.helpText, { color: colors.textMuted, marginTop: 16 }]}>
+            <Text style={[styles.helpText, styles.channelEmptyText, { color: colors.textMuted }]}>
               {channelAccountOptions.length === 0 ? 'No connected channel accounts found' : 'No matching channel accounts'}
             </Text>
           )}
@@ -706,7 +708,8 @@ export function QuickRepliesSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function useQuickRepliesStyles(colors: ThemeColors) {
+  return StyleSheet.create({
   screen: { flex: 1 },
   addButton: { alignItems: 'center', borderRadius: radius.pill, height: 36, justifyContent: 'center', width: 36 },
   loader: { marginTop: 60 },
@@ -716,7 +719,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: fontSize.body, fontWeight: fontWeight.extrabold, marginTop: spacing.md },
   emptyBody: { fontSize: fontSize.caption, marginBottom: spacing.lg, marginTop: spacing.xs, textAlign: 'center' },
   itemCard: { alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, padding: spacing.md },
-  itemIcon: { alignItems: 'center', backgroundColor: '#eff6ff', borderRadius: radius.md, height: 40, justifyContent: 'center', width: 40 },
+  itemIcon: { alignItems: 'center', backgroundColor: colors.primarySoft, borderRadius: radius.md, height: 40, justifyContent: 'center', width: 40 },
   itemCopy: { flex: 1, minWidth: 0 },
   itemTitle: { fontSize: fontSize.body, fontWeight: fontWeight.bold },
   itemBody: { fontSize: fontSize.small, marginTop: spacing.xs / 2 },
@@ -724,7 +727,7 @@ const styles = StyleSheet.create({
   iconButton: { alignItems: 'center', height: 34, justifyContent: 'center', width: 34 },
   primaryButtonSpacing: { marginTop: spacing.md },
   disabled: { opacity: 0.55 },
-  sheetOverlay: { backgroundColor: 'rgba(15,23,42,0.45)', flex: 1, justifyContent: 'flex-end' },
+  sheetOverlay: { backgroundColor: `${colors.text}73`, flex: 1, justifyContent: 'flex-end' },
   sheetSurface: { maxHeight: '100%', paddingBottom: spacing.xl, paddingHorizontal: spacing.xl, paddingTop: spacing.sm },
   sheetHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.md },
   sheetTitle: { fontSize: fontSize.heading, fontWeight: fontWeight.extrabold },
@@ -735,7 +738,7 @@ const styles = StyleSheet.create({
   labelRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm, marginTop: spacing.md },
   input: { borderRadius: radius.md, borderWidth: 1, minHeight: inputHeight, paddingHorizontal: spacing.md, paddingVertical: spacing.md },
   textArea: { minHeight: 110 },
-  variableChip: { alignItems: 'center', backgroundColor: '#eff6ff', borderRadius: radius.pill, flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  variableChip: { alignItems: 'center', backgroundColor: colors.primarySoft, borderRadius: radius.pill, flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   variableChipText: { fontSize: fontSize.small, fontWeight: fontWeight.bold },
   helpText: { fontSize: fontSize.small, lineHeight: fontSize.small * 1.5, marginBottom: spacing.sm },
   select: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: inputHeight, paddingHorizontal: spacing.md, paddingVertical: spacing.md },
@@ -749,23 +752,27 @@ const styles = StyleSheet.create({
   channelLabel: { fontSize: fontSize.small, fontWeight: fontWeight.bold },
   channelMeta: { fontSize: fontSize.tiny, marginTop: spacing.xs / 2 },
   channelStatus: { fontSize: fontSize.small, fontWeight: fontWeight.bold, marginTop: spacing.sm },
-  errorText: { color: '#e11d48', fontSize: fontSize.small, marginTop: spacing.xs },
+  errorText: { color: colors.error, fontSize: fontSize.small, marginTop: spacing.xs },
   attachActions: { flexDirection: 'row', gap: spacing.sm },
-  secondaryButton: { alignItems: 'center', backgroundColor: '#eff6ff', borderRadius: radius.md, flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  secondaryButton: { alignItems: 'center', backgroundColor: colors.primarySoft, borderRadius: radius.md, flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   secondaryButtonText: { fontSize: fontSize.caption, fontWeight: fontWeight.bold },
   attachmentRow: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm },
   attachmentThumb: { borderRadius: radius.sm, height: 44, marginRight: spacing.sm, width: 44 },
   attachmentThumbFallback: { alignItems: 'center', justifyContent: 'center' },
-  attachmentName: { flex: 1, fontSize: 13, marginRight: 8 },
-  previewStage: { borderRadius: 18, borderWidth: 1, marginBottom: 4, padding: 12 },
-  previewBubble: { alignSelf: 'flex-end', backgroundColor: '#315efb', borderBottomLeftRadius: 20, borderBottomRightRadius: 6, borderTopLeftRadius: 20, borderTopRightRadius: 20, elevation: 1, maxWidth: '85%', overflow: 'hidden', paddingHorizontal: 14, paddingVertical: 10, shadowColor: '#0f172a', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 10 },
-  previewText: { color: '#fff', fontSize: 15 },
-  previewPlaceholder: { color: '#dbeafe', fontSize: 14, fontStyle: 'italic' },
-  previewImage: { borderRadius: 12, height: 180, marginBottom: 8, width: '100%' },
-  previewImageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 8 },
-  previewImageCell: { borderRadius: 8, height: 76, width: 76 },
-  previewFileRow: { alignItems: 'center', flexDirection: 'row', gap: 10, marginTop: 8 },
-  previewFileName: { color: '#dbeafe', flex: 1, fontSize: 13, fontWeight: '600' },
-  previewMeta: { alignItems: 'center', flexDirection: 'row', gap: 4, justifyContent: 'flex-end', marginTop: 6 },
-  previewMetaText: { color: '#dbeafe', fontSize: 11 },
-});
+  attachmentName: { flex: 1, fontSize: fontSize.caption, marginRight: spacing.sm },
+  previewStage: { borderRadius: radius.xl, borderWidth: 1, marginBottom: spacing.xs, padding: spacing.md },
+  previewBubble: { alignSelf: 'flex-end', backgroundColor: colors.primary, borderBottomLeftRadius: radius.xl, borderBottomRightRadius: radius.sm, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, elevation: 1, maxWidth: '85%', overflow: 'hidden', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, shadowColor: colors.text, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 10 },
+  previewText: { color: colors.primaryText, fontSize: fontSize.body },
+  previewPlaceholder: { color: colors.primaryText, fontSize: fontSize.caption, fontStyle: 'italic', opacity: 0.82 },
+  previewImage: { borderRadius: radius.md, height: 180, marginBottom: spacing.sm, width: '100%' },
+  previewImageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.sm },
+  previewImageCell: { borderRadius: radius.sm, height: 76, width: 76 },
+  previewFileRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm },
+  previewFileName: { color: colors.primaryText, flex: 1, fontSize: fontSize.caption, fontWeight: fontWeight.semibold, opacity: 0.82 },
+  previewMeta: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, justifyContent: 'flex-end', marginTop: spacing.xs },
+  previewMetaText: { color: colors.primaryText, fontSize: fontSize.tiny, opacity: 0.82 },
+  uploadIndicator: { marginTop: spacing.sm },
+  channelSearchInput: { marginTop: spacing.md },
+  channelEmptyText: { marginTop: spacing.lg },
+  });
+}
