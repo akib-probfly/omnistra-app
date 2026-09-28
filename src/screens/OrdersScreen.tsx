@@ -9,7 +9,7 @@ import { ErrorState } from '../components/ErrorState';
 import { FormSkeleton } from '../components/Skeleton';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
-import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
+import { fontSize, fontWeight, inputHeight, radius, spacing } from '../theme/tokens';
 import { AppBadge, AppCard, ScreenHeader } from '../ui';
 
 const STATUSES: Array<OrderStatus | 'ALL'> = ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'RETURNED', 'CANCELLED', 'ALL'];
@@ -54,7 +54,7 @@ export function OrdersScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <ScreenHeader title="Orders" subtitle="Track customer orders" onBack={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, spacing.xxl) }]} keyboardShouldPersistTaps="handled">
         <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
           <Search color={colors.textMuted} size={17} />
           <TextInput value={search} onChangeText={setSearch} placeholder="Search orders or customers" placeholderTextColor={colors.textMuted} style={[styles.input, { color: colors.text }]} />
@@ -71,7 +71,7 @@ export function OrdersScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 }, content: { gap: spacing.md, padding: spacing.lg },
   search: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md },
-  input: { flex: 1, fontSize: fontSize.body, height: 48 }, filters: { gap: spacing.sm },
+  input: { flex: 1, fontSize: fontSize.body, height: inputHeight }, filters: { gap: spacing.sm },
   filter: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }, filterText: { fontSize: fontSize.small, fontWeight: fontWeight.bold },
-  card: { gap: spacing.md }, header: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm }, icon: { alignItems: 'center', borderRadius: radius.md, height: 38, justifyContent: 'center', width: 38 }, copy: { flex: 1, minWidth: 0 }, name: { fontSize: fontSize.body, fontWeight: fontWeight.bold }, meta: { fontSize: fontSize.small, marginTop: 2 }, summary: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }, total: { fontSize: fontSize.body, fontWeight: fontWeight.bold }, address: { fontSize: fontSize.small }, empty: { fontSize: fontSize.body, textAlign: 'center' },
+  card: { gap: spacing.md }, header: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm }, icon: { alignItems: 'center', borderRadius: radius.md, height: spacing.xxxl + spacing.xs, justifyContent: 'center', width: spacing.xxxl + spacing.xs }, copy: { flex: 1, minWidth: 0 }, name: { fontSize: fontSize.body, fontWeight: fontWeight.bold }, meta: { fontSize: fontSize.small, marginTop: spacing.xs / 2 }, summary: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }, total: { fontSize: fontSize.body, fontWeight: fontWeight.bold }, address: { fontSize: fontSize.small }, empty: { fontSize: fontSize.body, textAlign: 'center' },
 });
