@@ -35,6 +35,7 @@ import { ErrorState } from '../components/ErrorState';
 import { FormSkeleton } from '../components/Skeleton';
 import type { ContactsStackParamList } from '../navigation/ContactsStack';
 import { useTheme } from '../theme/ThemeContext';
+import type { ThemeColors } from '../theme/colors';
 import { AppButton, AppCard, ScreenHeader } from '../ui';
 import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 
@@ -65,6 +66,7 @@ export function ContactDetailsScreen() {
   const route = useRoute<RouteProp<ContactsStackParamList, 'ContactDetails'>>();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
+  const styles = useContactDetailsStyles(colors);
   const { contactId, contactName } = route.params;
   const [noteDraft, setNoteDraft] = useState('');
   const [emailDraft, setEmailDraft] = useState<string | null>(null);
@@ -342,7 +344,7 @@ export function ContactDetailsScreen() {
           onRetry={() => contactQuery.refetch()}
         />
       ) : (
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, spacing.xxl) }]}>
           <AppCard style={styles.profileCard}>
             <View style={styles.profileTopRow}>
               <View style={[styles.avatar, { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder }]}>
@@ -358,7 +360,7 @@ export function ContactDetailsScreen() {
                 {contact.channelName ? <Text style={[styles.profileChannel, { color: colors.textSecondary }]}>{contact.channelName}</Text> : null}
                 {showBlockedBadge ? (
                   <View style={styles.bannedBadge}>
-                    <Ban color="#e11d48" size={11} />
+                    <Ban color={colors.error} size={11} />
                     <Text style={styles.bannedBadgeText}>Banned</Text>
                   </View>
                 ) : null}
@@ -443,7 +445,7 @@ export function ContactDetailsScreen() {
             {selectedTags.length ? (
               <View style={styles.tagRow}>
                 {selectedTags.map((tag) => {
-                  const color = tag.color?.trim() || '#64748b';
+                  const color = tag.color?.trim() || colors.textMuted;
                   return (
                     <Pressable
                       key={tag.id}
@@ -478,7 +480,7 @@ export function ContactDetailsScreen() {
 
             <View style={styles.tagPickerList}>
               {searchableTags.map((tag) => {
-                const color = tag.color?.trim() || '#64748b';
+                const color = tag.color?.trim() || colors.textMuted;
                 return (
                   <Pressable
                     key={tag.id}
@@ -621,7 +623,7 @@ export function ContactDetailsScreen() {
                 setDeleteOpen(true);
               }}
             >
-              <Trash2 color="#fff" size={16} />
+              <Trash2 color={colors.primaryText} size={16} />
               <Text style={styles.deleteButtonText}>Delete contact</Text>
             </Pressable>
           </View>
@@ -655,7 +657,7 @@ export function ContactDetailsScreen() {
               <X color={colors.textMuted} size={20} />
             </Pressable>
             <View style={[styles.deleteModalIcon, { backgroundColor: colors.surfaceSecondary }]}>
-              <AlertTriangle color="#f43f5e" size={28} />
+              <AlertTriangle color={colors.error} size={28} />
             </View>
             <Text style={[styles.deleteModalTitle, { color: colors.text }]}>Confirm deletion</Text>
             <Text style={[styles.deleteModalBody, { color: colors.textSecondary }]}>
@@ -693,7 +695,7 @@ export function ContactDetailsScreen() {
                 onPress={() => deleteMutation.mutate()}
               >
                 {deleteMutation.isPending ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={colors.primaryText} />
                 ) : (
                   <Text style={styles.deleteButtonText}>Delete</Text>
                 )}
@@ -706,153 +708,146 @@ export function ContactDetailsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { backgroundColor: '#eef4fb', flex: 1 },
-  messageButton: { alignItems: 'center', backgroundColor: '#eff6ff', borderRadius: radius.xl, height: 36, justifyContent: 'center', width: 36 },
+function useContactDetailsStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+  screen: { flex: 1 },
+  messageButton: { alignItems: 'center', borderRadius: radius.xl, height: 36, justifyContent: 'center', width: 36 },
   loader: { marginTop: spacing.xxxl + spacing.xxl + spacing.sm },
   content: { gap: spacing.md, padding: spacing.lg },
   profileCard: { alignItems: 'center', paddingHorizontal: spacing.md + 2, paddingVertical: spacing.md + 2 },
   profileTopRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, width: '100%' },
   avatar: { alignItems: 'center', backgroundColor: 'transparent', borderRadius: 34, borderWidth: 2, height: 68, justifyContent: 'center', position: 'relative', width: 68 },
   avatarImage: { borderRadius: 36, height: 72, width: 72 },
-  avatarText: { color: '#1d4ed8', fontSize: fontSize.title, fontWeight: fontWeight.bold },
-  channelBadge: { borderColor: '#fff', borderRadius: radius.md, borderWidth: 2, bottom: -2, overflow: 'hidden', position: 'absolute', right: -2 },
+  avatarText: { color: colors.primary, fontSize: fontSize.title, fontWeight: fontWeight.bold },
+  channelBadge: { borderRadius: radius.md, borderWidth: 2, bottom: -2, overflow: 'hidden', position: 'absolute', right: -2 },
   profileIdentity: { alignItems: 'flex-start', flex: 1, gap: 2, minWidth: 0 },
-  profileName: { color: '#0f172a', fontSize: fontSize.heading, fontWeight: fontWeight.extrabold },
-  bannedBadge: { alignItems: 'center', backgroundColor: '#fff1f2', borderColor: '#fecdd3', borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: 3 },
-  bannedBadgeText: { color: '#e11d48', fontSize: fontSize.small, fontWeight: fontWeight.bold },
-  profileChannel: { color: '#64748b', fontSize: fontSize.caption, marginTop: spacing.xs },
+  profileName: { fontSize: fontSize.heading, fontWeight: fontWeight.extrabold },
+  bannedBadge: { alignItems: 'center', backgroundColor: colors.dangerSoft, borderColor: colors.dangerBorder, borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  bannedBadgeText: { color: colors.error, fontSize: fontSize.small, fontWeight: fontWeight.bold },
+  profileChannel: { fontSize: fontSize.caption, marginTop: spacing.xs },
   profileMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm - 2, justifyContent: 'flex-start', marginTop: spacing.md - 2, width: '100%' },
-  metaChip: { alignItems: 'center', backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: radius.sm + 2, borderWidth: 1, flexDirection: 'row', gap: spacing.xs + 1, minHeight: 32, paddingHorizontal: spacing.sm, paddingVertical: 5 },
-  metaChipText: { color: '#475569', flexShrink: 1, fontSize: fontSize.small, fontWeight: fontWeight.semibold, maxWidth: 190 },
+  metaChip: { alignItems: 'center', borderRadius: radius.sm + 2, borderWidth: 1, flexDirection: 'row', gap: spacing.xs + 1, minHeight: 32, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  metaChipText: { flexShrink: 1, fontSize: fontSize.small, fontWeight: fontWeight.semibold, maxWidth: 190 },
   metaCopyButton: { alignItems: 'center', height: 22, justifyContent: 'center', width: 22 },
-  section: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: radius.xl, borderWidth: 1, padding: spacing.lg },
-  sectionTitle: { color: '#0f172a', fontSize: fontSize.body, fontWeight: fontWeight.extrabold, marginBottom: spacing.sm + 2 },
-  fieldLabel: { color: '#64748b', fontSize: fontSize.small, fontWeight: fontWeight.bold, marginBottom: spacing.sm - 2, marginTop: spacing.sm },
-  fieldInput: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, color: '#0f172a', paddingHorizontal: 12, paddingVertical: 11 },
-  helperText: { color: '#64748b', fontSize: fontSize.small, marginTop: spacing.sm },
-  phoneField: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: 11 },
-  phoneFieldText: { color: '#0f172a', flex: 1, fontSize: fontSize.body - 1 },
+  section: { borderRadius: radius.xl, borderWidth: 1, padding: spacing.lg },
+  sectionTitle: { fontSize: fontSize.body, fontWeight: fontWeight.extrabold, marginBottom: spacing.sm + 2 },
+  fieldLabel: { fontSize: fontSize.small, fontWeight: fontWeight.bold, marginBottom: spacing.sm - 2, marginTop: spacing.sm },
+  fieldInput: { borderRadius: radius.md, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 3 },
+  helperText: { fontSize: fontSize.small, marginTop: spacing.sm },
+  phoneField: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 3 },
+  phoneFieldText: { flex: 1, fontSize: fontSize.body - 1 },
   phoneCopyButton: { alignItems: 'center', height: 26, justifyContent: 'center', width: 26 },
-  countryRow: { alignItems: 'center', backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm + 2, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2 },
-  countryCodeBadge: { backgroundColor: '#fff', borderColor: '#e2e8f0', borderRadius: radius.sm, borderWidth: 1, paddingHorizontal: spacing.sm, paddingVertical: 3 },
-  countryCodeText: { color: '#475569', fontSize: 11, fontWeight: fontWeight.bold },
-  countryNameText: { color: '#0f172a', flex: 1, fontSize: 14, fontWeight: fontWeight.semibold },
+  countryRow: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm + 2, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2 },
+  countryCodeBadge: { borderRadius: radius.sm, borderWidth: 1, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  countryCodeText: { fontSize: fontSize.small, fontWeight: fontWeight.bold },
+  countryNameText: { flex: 1, fontSize: fontSize.body - 1, fontWeight: fontWeight.semibold },
   actionButton: { marginTop: spacing.md },
   saveDisabled: { opacity: 0.55 },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm + 2 },
   tagChip: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.xs + 1, paddingHorizontal: spacing.sm + 2, paddingVertical: 5 },
   tagChipText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
-  tagSearch: { alignItems: 'center', backgroundColor: '#fffaf0', borderColor: '#cfe1ff', borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', marginTop: spacing.xs, paddingHorizontal: spacing.sm + 2 },
-  tagSearchInput: { color: '#0f172a', flex: 1, height: 42, marginLeft: spacing.sm },
+  tagSearch: { alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', marginTop: spacing.xs, paddingHorizontal: spacing.sm + 2 },
+  tagSearchInput: { flex: 1, height: 42, marginLeft: spacing.sm },
   tagPickerList: { gap: spacing.xs, marginTop: spacing.sm + 2 },
   tagOption: { alignItems: 'center', borderRadius: radius.md, flexDirection: 'row', gap: spacing.sm + 2, paddingHorizontal: spacing.sm + 2, paddingVertical: spacing.sm + 2 },
-  tagOptionActive: { backgroundColor: '#dbeafe' },
-  tagOptionText: { color: '#334155', flex: 1, fontSize: 14, fontWeight: fontWeight.medium },
-  tagOptionTextActive: { color: '#1d4ed8', fontWeight: fontWeight.bold },
+  tagOptionActive: { backgroundColor: colors.primarySoft },
+  tagOptionText: { flex: 1, fontSize: fontSize.body - 1, fontWeight: fontWeight.medium },
+  tagOptionTextActive: { color: colors.primary, fontWeight: fontWeight.bold },
   tagDot: { borderRadius: 5, height: 10, width: 10 },
-  createTagBox: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: radius.lg, borderWidth: 1, marginTop: spacing.sm + 2, padding: spacing.md },
-  createTagLabel: { color: '#0f172a', fontSize: fontSize.caption, fontWeight: fontWeight.bold },
+  createTagBox: { borderRadius: radius.lg, borderWidth: 1, marginTop: spacing.sm + 2, padding: spacing.md },
+  createTagLabel: { fontSize: fontSize.caption, fontWeight: fontWeight.bold },
   colorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm + 2 },
   colorSwatch: { borderRadius: radius.md, height: 24, width: 24 },
-  colorSwatchActive: { borderColor: '#0f172a', borderWidth: 2 },
-  conversationRow: { borderColor: '#e2e8f0', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm + 2, marginBottom: spacing.sm, padding: spacing.md },
-  conversationStatus: { color: '#2563eb', fontSize: 11, fontWeight: fontWeight.bold, textTransform: 'uppercase' },
-  conversationPreview: { color: '#334155', fontSize: fontSize.caption, marginTop: 3 },
-  conversationTime: { color: '#94a3b8', fontSize: 11, fontWeight: fontWeight.semibold },
-  emptySection: { color: '#94a3b8', fontSize: 13 },
+  colorSwatchActive: { borderWidth: 2 },
+  conversationRow: { borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm + 2, marginBottom: spacing.sm, padding: spacing.md },
+  conversationStatus: { color: colors.primary, fontSize: fontSize.small, fontWeight: fontWeight.bold, textTransform: 'uppercase' },
+  conversationPreview: { fontSize: fontSize.caption, marginTop: spacing.xs / 2 },
+  conversationTime: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
+  emptySection: { fontSize: fontSize.caption },
   banAction: { alignItems: 'center', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 12, paddingHorizontal: 12, paddingVertical: 12 },
   banActionTitle: { fontSize: 14, fontWeight: fontWeight.bold },
   banActionHint: { fontSize: 12, lineHeight: 17, marginTop: 2 },
-  noteInput: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, color: '#0f172a', minHeight: 84, paddingHorizontal: 12, paddingVertical: 10, textAlignVertical: 'top' },
-  noteCard: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, marginTop: 10, padding: 12 },
-  noteBody: { color: '#0f172a', fontSize: 13, lineHeight: 18 },
-  noteMeta: { color: '#94a3b8', fontSize: 11, marginTop: 6 },
-  dangerSection: { backgroundColor: '#fff', borderColor: '#fecdd3', borderRadius: 18, borderWidth: 1, padding: 16 },
-  dangerHint: { color: '#64748b', fontSize: 13, lineHeight: 18, marginBottom: 4 },
+  noteInput: { borderRadius: radius.md, borderWidth: 1, minHeight: 84, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, textAlignVertical: 'top' },
+  noteCard: { borderRadius: radius.md, borderWidth: 1, marginTop: spacing.sm, padding: spacing.md },
+  noteBody: { fontSize: fontSize.caption, lineHeight: fontSize.caption * 1.4 },
+  noteMeta: { fontSize: fontSize.small, marginTop: spacing.xs + 2 },
+  dangerSection: { borderRadius: radius.xl, borderWidth: 1, padding: spacing.lg },
+  dangerHint: { fontSize: fontSize.caption, lineHeight: fontSize.caption * 1.4, marginBottom: spacing.xs },
   deleteButton: {
     alignItems: 'center',
-    backgroundColor: '#e11d48',
-    borderRadius: 12,
+    backgroundColor: colors.error,
+    borderRadius: radius.md,
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
     justifyContent: 'center',
-    marginTop: 12,
-    paddingVertical: 12,
+    marginTop: spacing.md,
+    paddingVertical: spacing.md,
   },
-  deleteButtonText: { color: '#fff', fontSize: 14, fontWeight: fontWeight.bold },
+  deleteButtonText: { color: colors.primaryText, fontSize: fontSize.body - 1, fontWeight: fontWeight.bold },
   deleteModalOverlay: {
     alignItems: 'center',
-    backgroundColor: 'rgba(15,23,42,0.45)',
+    backgroundColor: `${colors.text}73`,
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.xl,
   },
   deleteModalCard: {
-    backgroundColor: '#fff',
-    borderRadius: 28,
+    borderRadius: radius.xxl + spacing.sm,
     maxWidth: 420,
-    paddingHorizontal: 22,
-    paddingVertical: 24,
+    paddingHorizontal: spacing.xxl - spacing.xs / 2,
+    paddingVertical: spacing.xxl,
     width: '100%',
   },
   deleteModalClose: { position: 'absolute', right: 14, top: 14, zIndex: 2 },
   deleteModalIcon: {
     alignItems: 'center',
     alignSelf: 'center',
-    backgroundColor: '#ffe4e6',
-    borderRadius: 28,
-    height: 56,
+    borderRadius: radius.xxl + spacing.sm,
+    height: spacing.xxxl + spacing.xxl,
     justifyContent: 'center',
-    width: 56,
+    width: spacing.xxxl + spacing.xxl,
   },
   deleteModalTitle: {
-    color: '#0f172a',
-    fontSize: 22,
+    fontSize: fontSize.title,
     fontWeight: fontWeight.extrabold,
-    marginTop: 16,
+    marginTop: spacing.lg,
     textAlign: 'center',
   },
   deleteModalBody: {
-    color: '#64748b',
-    fontSize: 14,
-    lineHeight: 21,
-    marginTop: 10,
+    fontSize: fontSize.body - 1,
+    lineHeight: fontSize.body * 1.4,
+    marginTop: spacing.sm,
     textAlign: 'center',
   },
-  deleteModalStrong: { color: '#0f172a', fontWeight: fontWeight.bold },
+  deleteModalStrong: { fontWeight: fontWeight.bold },
   deleteConfirmInput: {
-    backgroundColor: '#fff1f2',
-    borderColor: '#fda4af',
-    borderRadius: 16,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    color: '#0f172a',
-    fontSize: 15,
-    marginTop: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    fontSize: fontSize.body,
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md + 2,
     textAlign: 'center',
   },
   deleteModalActions: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 18,
+    gap: spacing.sm + 2,
+    marginTop: spacing.lg,
   },
   deleteCancelButton: {
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    borderColor: '#e2e8f0',
-    borderRadius: 999,
+    borderRadius: radius.pill,
     borderWidth: 1,
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
   },
-  deleteCancelText: { color: '#0f172a', fontSize: 14, fontWeight: fontWeight.bold },
+  deleteCancelText: { fontSize: fontSize.body - 1, fontWeight: fontWeight.bold },
   deleteConfirmButton: {
     alignItems: 'center',
-    backgroundColor: '#e11d48',
-    borderRadius: 999,
+    backgroundColor: colors.error,
+    borderRadius: radius.pill,
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
   },
-});
+  });
+}
