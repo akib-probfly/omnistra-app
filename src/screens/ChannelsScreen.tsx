@@ -13,7 +13,7 @@ import { NotificationBell, NotificationCenter } from '../components/Notification
 import { ListSkeleton } from '../components/Skeleton';
 import type { ChannelsStackParamList } from '../navigation/ChannelsStack';
 import { useTheme } from '../theme/ThemeContext';
-import { fontWeight, radius, spacing } from '../theme/tokens';
+import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 import { AppBadge, AppSearchField, AppText, EmptyState } from '../ui';
 
 type Channel = {
@@ -52,9 +52,9 @@ export function ChannelsScreen() {
   const summary = channels.data?.summary;
   const openDetails = (channel: Channel) => navigation.navigate('ChannelDetails', { channelId: channel.id, channelName: channel.channelName ?? channel.name ?? 'Channel' });
   const metrics = [
-    { label: 'Connected', value: summary?.connectedCount ?? items.filter((item) => item.status === 'CONNECTED').length, colors: ['#047857', '#34d399'] as [string, string] },
-    { label: 'Active today', value: summary?.activeTodayCount ?? 0, colors: ['#1d4ed8', '#60a5fa'] as [string, string] },
-    { label: 'Issues', value: summary?.issuesCount ?? items.filter((item) => item.status && item.status !== 'CONNECTED').length, colors: ['#c2410c', '#fb923c'] as [string, string] },
+    { label: 'Connected', value: summary?.connectedCount ?? items.filter((item) => item.status === 'CONNECTED').length, colors: [colors.success, colors.successSoft] as [string, string] },
+    { label: 'Active today', value: summary?.activeTodayCount ?? 0, colors: [colors.primary, colors.primaryBorder] as [string, string] },
+    { label: 'Issues', value: summary?.issuesCount ?? items.filter((item) => item.status && item.status !== 'CONNECTED').length, colors: [colors.warning, colors.warningSoft] as [string, string] },
   ];
 
   return (
@@ -75,10 +75,10 @@ export function ChannelsScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.metricCard}
           >
-            <View style={[styles.orb, styles.orbA]} />
-            <View style={[styles.orb, styles.orbB]} />
-            <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{metric.value}</Text>
-            <Text style={styles.metricLabel}>{metric.label}</Text>
+            <View style={[styles.orb, styles.orbA, { backgroundColor: `${colors.primaryText}29` }]} />
+            <View style={[styles.orb, styles.orbB, { backgroundColor: `${colors.primaryText}29` }]} />
+            <Text style={[styles.metricValue, { color: colors.primaryText }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{metric.value}</Text>
+            <Text style={[styles.metricLabel, { color: `${colors.primaryText}E0` }]}>{metric.label}</Text>
           </LinearGradient>
         ))}
       </View>
@@ -163,9 +163,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     padding: spacing.md,
   },
-  metricValue: { color: '#fff', fontSize: 22, fontWeight: '800' },
-  metricLabel: { color: 'rgba(255,255,255,0.88)', fontSize: 11, fontWeight: '600', marginTop: 3 },
-  orb: { backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: radius.pill, position: 'absolute' },
+  metricValue: { fontSize: fontSize.title, fontWeight: fontWeight.extrabold },
+  metricLabel: { fontSize: fontSize.tiny, fontWeight: fontWeight.semibold, marginTop: spacing.xs / 2 },
+  orb: { borderRadius: radius.pill, position: 'absolute' },
   orbA: { height: 72, right: -20, top: -24, width: 72 },
   orbB: { bottom: -22, height: 56, left: -16, width: 56 },
   searchRow: { flexDirection: 'row', margin: spacing.lg, marginBottom: 0 },
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   copy: { flex: 1, marginLeft: spacing.md },
   nameLine: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   name: { flexShrink: 1 },
-  detail: { marginTop: 3 },
-  metaLine: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'space-between', marginTop: 5 },
+  detail: { marginTop: spacing.xs / 2 },
+  metaLine: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'space-between', marginTop: spacing.xs },
   idText: { flex: 1 },
 });
