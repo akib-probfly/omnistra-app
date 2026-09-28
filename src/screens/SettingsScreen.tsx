@@ -14,6 +14,7 @@ import {
   Palette,
   Plus,
   Receipt,
+  ShoppingBag,
   Sun,
   Tag,
   UserRound,
@@ -41,7 +42,7 @@ import { AppCard, AppText, SettingsGridItem, SettingsSection } from '../ui';
 
 type BillingTab = 'current' | 'packages' | 'invoices' | 'history';
 
-type GeneralRoute = 'Profile' | 'Workspace' | 'Members' | 'Notifications' | 'InboxAppearance' | 'QuickReplies' | 'Tags' | 'AssignmentPolicy' | 'Broadcast' | 'BroadcastCreate' | 'Products' | '__appearance__';
+type GeneralRoute = 'Profile' | 'Workspace' | 'Members' | 'Notifications' | 'InboxAppearance' | 'QuickReplies' | 'Tags' | 'AssignmentPolicy' | 'Broadcast' | 'BroadcastCreate' | 'Products' | 'Orders' | '__appearance__';
 
 type SettingsRow =
   | { kind: 'route'; id: string; label: string; description: string; icon: LucideIcon; iconBg: string; iconColor: string; route: GeneralRoute; badge?: string }
@@ -64,7 +65,8 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
       { kind: 'route', id: 'assignment', label: 'Assignment Policy', description: 'Auto-assign and call routing rules', icon: Workflow, iconBg: iconTiles.indigo.bg, iconColor: iconTiles.indigo.fg, route: 'AssignmentPolicy' },
       { kind: 'route', id: 'quick-replies', label: 'Quick Replies', description: 'Create and manage reply snippets', icon: Zap, iconBg: iconTiles.yellow.bg, iconColor: iconTiles.yellow.fg, route: 'QuickReplies' },
       { kind: 'route', id: 'tags', label: 'Tags', description: 'Organize conversations and contacts', icon: Tag, iconBg: iconTiles.pink.bg, iconColor: iconTiles.pink.fg, route: 'Tags' },
-      { kind: 'route', id: 'products', label: 'Products', description: 'Manage your product catalog', icon: Package, iconBg: iconTiles.green.bg, iconColor: iconTiles.green.fg, route: 'Products', badge: 'Coming soon' },
+      { kind: 'route', id: 'products', label: 'Products', description: 'Manage your product catalog', icon: Package, iconBg: iconTiles.green.bg, iconColor: iconTiles.green.fg, route: 'Products' },
+      { kind: 'route', id: 'orders', label: 'Orders', description: 'Track customer orders and fulfillment', icon: ShoppingBag, iconBg: iconTiles.orange.bg, iconColor: iconTiles.orange.fg, route: 'Orders' },
     ],
   },
   {

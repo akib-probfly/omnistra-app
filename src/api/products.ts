@@ -104,3 +104,31 @@ export function updateProductStatus(productId: string, isActive: boolean, whatsa
 export function deleteProduct(productId: string) {
   return apiFetch<void>(`/products/${productId}`, { method: 'DELETE' });
 }
+
+export type OrderStatus = 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'RETURNED' | 'CANCELLED';
+
+export type OrderSummary = {
+  id: string;
+  status: OrderStatus;
+  source: string;
+  date: string;
+  total: number;
+  matchScore?: number;
+  recipient: { name: string; phone: string; address: string; payment: string };
+  items: Array<{ name: string; qty: number; price: number }>;
+  courier: { partner: string; tracking: string; status: string } | null;
+};
+
+export type OrdersListResponse = { items: OrderSummary[]; total: number };
+
+export function listOrders(params?: { search?: string; phone?: string; source?: string; status?: OrderStatus; page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.search) query.set('search', params.search);
+  if (params?.phone) query.set('phone', params.phone);
+  if (params?.source) query.set('source', params.source);
+  if (params?.status) query.set('status', params.status);
+  if (params?.page) query.set('page', String(params.page));
+  if (params?.limit) query.set('limit', String(params.limit));
+  const suffix = query.toString() ? `?${query.toString()}` : '';
+  return apiFetch<OrdersListResponse>(`/orders${suffix}`);
+}

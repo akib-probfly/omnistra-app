@@ -17,6 +17,7 @@ import { BroadcastCreateScreen } from '../screens/BroadcastCreateScreen';
 import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
 import { ProductsScreen } from '../screens/ProductsScreen';
 import { ProductFormScreen } from '../screens/ProductFormScreen';
+import { OrdersScreen } from '../screens/OrdersScreen';
 import type { BillingInterval } from '../api/billing';
 
 export type SettingsStackParamList = {
@@ -50,6 +51,7 @@ export type SettingsStackParamList = {
   };
   PrivacyPolicy: undefined;
   Products: undefined;
+  Orders: undefined;
   ProductForm: { productId?: string } | undefined;
 };
 
@@ -75,6 +77,7 @@ export function SettingsStack() {
       <Stack.Screen name="BillingCheckout" component={BillingCheckoutScreen} />
       <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
       <Stack.Screen name="Products" component={ProductsScreen} />
+      <Stack.Screen name="Orders" component={OrdersScreen} />
       <Stack.Screen name="ProductForm" component={ProductFormScreen} />
     </Stack.Navigator>
   );
