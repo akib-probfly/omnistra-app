@@ -64,6 +64,7 @@ import {
 import { listCountryCallingCodes } from '../lib/countryFromPhone';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
+import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 import { AppButton, AppChip, AppSearchField, AppSegmentedControl, ScreenHeader } from '../ui';
 
 type StepKey = 'details' | 'message' | 'mapping' | 'audience' | 'review';
@@ -522,7 +523,7 @@ export function BroadcastCreateScreen() {
                     <AppChip key={category} label={category[0] + category.slice(1).toLowerCase()} selected={templateCategory === category} onPress={() => setTemplateCategory(category)} />
                   ))}
                 </View>
-                {templatesQuery.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginTop: 16 }} /> : null}
+                {templatesQuery.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.lg }} /> : null}
                 {filteredTemplates.length === 0 && !templatesQuery.isLoading ? (
                   <Text style={[styles.hint, { color: colors.textSecondary }]}>No approved {templateCategory.toLowerCase()} templates on this channel.</Text>
                 ) : null}
@@ -839,7 +840,7 @@ export function BroadcastCreateScreen() {
           />
         ) : null}
         {picker === 'countries' || picker === 'includeTags' || picker === 'excludeTags' || picker === 'assignTags' ? (
-          <AppButton block label="Done" onPress={() => setPicker(null)} style={{ marginTop: 12 }} />
+          <AppButton block label="Done" onPress={() => setPicker(null)} style={{ marginTop: spacing.md }} />
         ) : null}
       </BottomSheet>
     </View>
@@ -918,7 +919,7 @@ function TagPickerSheet({
               style={[styles.sheetRow, selected && { backgroundColor: colors.surfaceSecondary }]}
               onPress={() => onToggle(item.id)}
             >
-              <View style={[styles.tagDot, { backgroundColor: item.color?.trim() || '#64748b' }]} />
+              <View style={[styles.tagDot, { backgroundColor: item.color?.trim() || colors.textSecondary }]} />
               <Text style={[styles.sheetRowText, { color: selected ? colors.primary : colors.text, flex: 1 }]} numberOfLines={1}>
                 {item.text}
               </Text>
@@ -970,48 +971,48 @@ function formatChannelStatus(status?: string | null) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  progress: { borderBottomWidth: 1, flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 10 },
-  progressItem: { alignItems: 'center', flex: 1, gap: 4 },
+  progress: { borderBottomWidth: 1, flexDirection: 'row', paddingHorizontal: spacing.sm, paddingVertical: spacing.sm },
+  progressItem: { alignItems: 'center', flex: 1, gap: spacing.xs },
   progressLocked: { opacity: 0.7 },
-  progressDot: { alignItems: 'center', borderRadius: 11, height: 22, justifyContent: 'center', width: 22 },
-  progressIndex: { fontSize: 11, fontWeight: '800' },
-  progressLabel: { fontSize: 10, fontWeight: '700' },
-  content: { gap: 12, padding: 16 },
-  card: { borderRadius: 18, borderWidth: 1, padding: 16 },
-  label: { fontSize: 12, fontWeight: '700', marginBottom: 6, marginTop: 12 },
-  input: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 12 },
+  progressDot: { alignItems: 'center', borderRadius: radius.md, height: 22, justifyContent: 'center', width: 22 },
+  progressIndex: { fontSize: fontSize.tiny, fontWeight: fontWeight.extrabold },
+  progressLabel: { fontSize: fontSize.tiny, fontWeight: fontWeight.bold },
+  content: { gap: spacing.md, padding: spacing.lg },
+  card: { borderRadius: radius.xl, borderWidth: 1, padding: spacing.lg },
+  label: { fontSize: fontSize.small, fontWeight: fontWeight.bold, marginBottom: spacing.xs + 2, marginTop: spacing.md },
+  input: { borderRadius: radius.md, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.md },
   textArea: { minHeight: 110 },
-  inputButton: { alignItems: 'center', borderRadius: 12, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 12 },
-  inputButtonCopy: { flex: 1, marginLeft: 10, marginRight: 8, minWidth: 0 },
-  inputButtonText: { flex: 1, fontSize: 14, marginRight: 8 },
-  inputButtonMeta: { fontSize: 11, marginTop: 2 },
-  hint: { fontSize: 12, lineHeight: 18, marginTop: 8 },
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
-  templateRow: { alignItems: 'center', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 10, marginTop: 10, padding: 12 },
+  inputButton: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.md },
+  inputButtonCopy: { flex: 1, marginLeft: spacing.md, marginRight: spacing.sm, minWidth: 0 },
+  inputButtonText: { flex: 1, fontSize: fontSize.caption, marginRight: spacing.sm },
+  inputButtonMeta: { fontSize: fontSize.tiny, marginTop: 2 },
+  hint: { fontSize: fontSize.small, lineHeight: 18, marginTop: spacing.sm },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
+  templateRow: { alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm, padding: spacing.md },
   templateCopy: { flex: 1, minWidth: 0 },
-  templateName: { fontSize: 14, fontWeight: '800' },
-  templateBody: { fontSize: 12, marginTop: 4 },
-  mapBlock: { gap: 10 },
-  varBlock: { marginTop: 4 },
-  varName: { fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }), fontSize: 13, fontWeight: '700' },
-  mediaButton: { alignItems: 'center', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: 8, marginTop: 8, padding: 12 },
-  mediaButtonText: { flex: 1, fontSize: 13, fontWeight: '700' },
-  audienceCount: { fontSize: 16, fontWeight: '800', marginTop: 8 },
-  toggleRow: { alignItems: 'center', flexDirection: 'row', gap: 12, marginTop: 16 },
+  templateName: { fontSize: fontSize.caption, fontWeight: fontWeight.extrabold },
+  templateBody: { fontSize: fontSize.small, marginTop: spacing.xs },
+  mapBlock: { gap: spacing.sm },
+  varBlock: { marginTop: spacing.xs },
+  varName: { fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }), fontSize: fontSize.caption, fontWeight: fontWeight.bold },
+  mediaButton: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm, padding: spacing.md },
+  mediaButtonText: { flex: 1, fontSize: fontSize.caption, fontWeight: fontWeight.bold },
+  audienceCount: { fontSize: fontSize.subheading, fontWeight: fontWeight.extrabold, marginTop: spacing.sm },
+  toggleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
   toggleCopy: { flex: 1 },
-  reviewActions: { gap: 10 },
-  sheetSurface: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 },
-  sheetTitle: { fontSize: 18, fontWeight: '800', marginBottom: 12 },
-  sheetList: { marginTop: 8, maxHeight: 320 },
+  reviewActions: { gap: spacing.sm },
+  sheetSurface: { paddingBottom: spacing.xl, paddingHorizontal: spacing.xl, paddingTop: spacing.sm },
+  sheetTitle: { fontSize: fontSize.heading, fontWeight: fontWeight.extrabold, marginBottom: spacing.md },
+  sheetList: { marginTop: spacing.sm, maxHeight: 320 },
   sheetListContent: { flexGrow: 0, paddingBottom: 4 },
-  sheetRow: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 10, paddingHorizontal: 10, paddingVertical: 12 },
+  sheetRow: { alignItems: 'center', borderRadius: radius.md, flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.md },
   sheetRowDisabled: { opacity: 0.58 },
-  sheetRowCopy: { flex: 1, minWidth: 0, paddingRight: 8 },
-  sheetRowText: { fontSize: 15, fontWeight: '700' },
-  sheetRowMeta: { fontSize: 12, marginTop: 2 },
-  sheetEmpty: { fontSize: 13, paddingVertical: 16, textAlign: 'center' },
-  selectedChipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  selectedChip: { alignItems: 'center', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 6, maxWidth: '100%', paddingHorizontal: 10, paddingVertical: 6 },
-  selectedChipText: { flexShrink: 1, fontSize: 12, fontWeight: '700' },
-  tagDot: { borderRadius: 5, height: 10, width: 10 },
+  sheetRowCopy: { flex: 1, minWidth: 0, paddingRight: spacing.sm },
+  sheetRowText: { fontSize: fontSize.body, fontWeight: fontWeight.bold },
+  sheetRowMeta: { fontSize: fontSize.small, marginTop: 2 },
+  sheetEmpty: { fontSize: fontSize.caption, paddingVertical: spacing.lg, textAlign: 'center' },
+  selectedChipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
+  selectedChip: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.xs + 2, maxWidth: '100%', paddingHorizontal: spacing.sm, paddingVertical: spacing.xs + 2 },
+  selectedChipText: { flexShrink: 1, fontSize: fontSize.small, fontWeight: fontWeight.bold },
+  tagDot: { borderRadius: spacing.xs, height: 10, width: 10 },
 });
