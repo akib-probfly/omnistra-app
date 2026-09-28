@@ -1,9 +1,10 @@
-const { withAppBuildGradle, withDangerousMod, withGradleProperties } = require('@expo/config-plugins');
+const { withAppBuildGradle, withProjectBuildGradle, withDangerousMod, withGradleProperties } = require('@expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
 
 const OPTIMIZED_PROGUARD = 'proguard-android-optimize.txt';
 const LEGACY_PROGUARD = 'proguard-android.txt';
+const ANDROID_GRADLE_PLUGIN_VERSION = '8.12.0';
 
 function upsertProperty(properties, key, value) {
   const existing = properties.find((item) => item.type === 'property' && item.key === key);
@@ -65,8 +66,8 @@ const ZURVIS_PROGUARD_RULES = `
 module.exports = function enableR8Optimization(config) {
   config = withGradleProperties(config, (configWithProperties) => {
     upsertProperty(configWithProperties.modResults, 'android.enableMinifyInReleaseBuilds', 'true');
-    upsertProperty(configWithProperties.modResults, 'android.enableShrinkResourcesInReleaseBuilds', 'false');
-    upsertProperty(configWithProperties.modResults, 'android.r8.optimizedResourceShrinking', 'false');
+    upsertProperty(configWithProperties.modResults, 'android.enableShrinkResourcesInReleaseBuilds', 'true');
+    upsertProperty(configWithProperties.modResults, 'android.r8.optimizedResourceShrinking', 'true');
     return configWithProperties;
   });
 
@@ -75,6 +76,16 @@ module.exports = function enableR8Optimization(config) {
     if (!configWithBuildGradle.modResults.contents.includes(LEGACY_PROGUARD)) return configWithBuildGradle;
 
     configWithBuildGradle.modResults.contents = useOptimizedProguardFile(configWithBuildGradle.modResults.contents);
+    return configWithBuildGradle;
+  });
+
+  config = withProjectBuildGradle(config, (configWithBuildGradle) => {
+    if (configWithBuildGradle.modResults.language !== 'groovy') return configWithBuildGradle;
+
+    configWithBuildGradle.modResults.contents = configWithBuildGradle.modResults.contents.replace(
+      /classpath\(['"]com\.android\.tools\.build:gradle['"]\)/,
+      `classpath('com.android.tools.build:gradle:${ANDROID_GRADLE_PLUGIN_VERSION}')`,
+    );
     return configWithBuildGradle;
   });
 
