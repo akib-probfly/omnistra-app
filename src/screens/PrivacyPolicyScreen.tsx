@@ -3,6 +3,7 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-na
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import { fontSize, fontWeight, spacing } from '../theme/tokens';
 import { ScreenHeader } from '../ui';
 import {
   PRIVACY_CONTACT_EMAIL,
@@ -24,7 +25,7 @@ export function PrivacyPolicyScreen({ onBack }: { onBack?: () => void }) {
       <ScreenHeader title="Privacy Policy" subtitle={`Last updated: ${PRIVACY_LAST_UPDATED}`} onBack={handleBack} />
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 24 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.xl }]}
         showsVerticalScrollIndicator={false}
       >
         {PRIVACY_POLICY_BLOCKS.map((block, index) => {
@@ -71,12 +72,12 @@ export function PrivacyPolicyScreen({ onBack }: { onBack?: () => void }) {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingTop: 20 },
-  heading: { fontSize: 17, fontWeight: '800', marginBottom: 8, marginTop: 22 },
-  body: { fontSize: 15, lineHeight: 22, marginTop: 4 },
-  bulletList: { gap: 10, marginTop: 4 },
-  bulletRow: { flexDirection: 'row', gap: 10 },
-  bulletMark: { fontSize: 16, lineHeight: 22, marginTop: 1 },
+  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
+  heading: { fontSize: fontSize.heading, fontWeight: fontWeight.extrabold, marginBottom: spacing.sm, marginTop: spacing.xl },
+  body: { fontSize: fontSize.body, lineHeight: fontSize.body * 1.5, marginTop: spacing.xs },
+  bulletList: { gap: spacing.sm, marginTop: spacing.xs },
+  bulletRow: { flexDirection: 'row', gap: spacing.sm },
+  bulletMark: { fontSize: fontSize.body, lineHeight: fontSize.body * 1.5, marginTop: 1 },
   bulletText: { flex: 1 },
-  link: { fontSize: 15, fontWeight: '600', marginTop: 14 },
+  link: { fontSize: fontSize.body, fontWeight: fontWeight.semibold, marginTop: spacing.md },
 });
