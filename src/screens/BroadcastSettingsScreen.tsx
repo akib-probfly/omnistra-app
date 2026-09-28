@@ -41,6 +41,8 @@ import { fetchMyWorkspaces } from '../api/workspaces';
 import { canViewBroadcast } from '../lib/broadcast-access';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
+import type { ThemeColors } from '../theme/colors';
+import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 import { AppBadge, AppButton, AppChip, AppSearchField, EmptyState, ScreenHeader } from '../ui';
 
 const STATUS_FILTERS: Array<{ value: CampaignStatus | 'ALL'; label: string }> = [
@@ -52,14 +54,25 @@ const STATUS_FILTERS: Array<{ value: CampaignStatus | 'ALL'; label: string }> = 
   { value: 'FAILED', label: 'Failed' },
 ];
 
-const METRIC_TONES: Array<{ label: string; key: keyof ReturnType<typeof buildMetrics>; colors: [string, string] }> = [
-  { label: 'Total sent', key: 'sent', colors: ['#1d4ed8', '#60a5fa'] },
-  { label: 'Delivered', key: 'delivered', colors: ['#047857', '#34d399'] },
-  { label: 'Read', key: 'read', colors: ['#4338ca', '#818cf8'] },
-  { label: 'Replied', key: 'replied', colors: ['#c2410c', '#fb923c'] },
-  { label: 'Failed', key: 'failed', colors: ['#b91c1c', '#f87171'] },
-  { label: 'Unreached', key: 'unreached', colors: ['#b45309', '#fbbf24'] },
+const METRIC_TONES: Array<{ label: string; key: keyof ReturnType<typeof buildMetrics> }> = [
+  { label: 'Total sent', key: 'sent' },
+  { label: 'Delivered', key: 'delivered' },
+  { label: 'Read', key: 'read' },
+  { label: 'Replied', key: 'replied' },
+  { label: 'Failed', key: 'failed' },
+  { label: 'Unreached', key: 'unreached' },
 ];
+
+function metricGradient(key: keyof ReturnType<typeof buildMetrics>, colors: ThemeColors): [string, string] {
+  switch (key) {
+    case 'delivered': return [colors.success, colors.primary];
+    case 'read': return [colors.indigo, colors.primary];
+    case 'replied': return [colors.warning, colors.amber];
+    case 'failed': return [colors.error, colors.dangerBorder];
+    case 'unreached': return [colors.amber, colors.warning];
+    default: return [colors.primary, colors.primaryBorder];
+  }
+}
 
 function buildMetrics(analytics: { totalSent: number; totalDelivered: number; totalRead: number; totalReplied: number; totalFailed: number }) {
   return {
@@ -89,6 +102,7 @@ function campaignStatusIcon(status: CampaignStatus): LucideIcon {
 
 function CampaignRow({ campaign, onPress }: { campaign: Campaign; onPress: () => void }) {
   const { colors } = useTheme();
+  const styles = useBroadcastStyles(colors);
   const tone = getCampaignStatusTone(campaign.status);
   const StatusIcon = campaignStatusIcon(campaign.status);
   const message = campaign.messages?.[0];
@@ -124,6 +138,7 @@ export function BroadcastSettingsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp<SettingsStackParamList>>();
   const { colors } = useTheme();
+  const styles = useBroadcastStyles(colors);
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search.trim());
   const [status, setStatus] = useState<CampaignStatus | 'ALL'>('ALL');
@@ -198,7 +213,7 @@ export function BroadcastSettingsScreen() {
             onPress={() => navigation.navigate('BroadcastCreate')}
             accessibilityLabel="Create campaign"
           >
-            <Plus color="#fff" size={18} />
+            <Plus color={colors.primaryText} size={18} />
           </Pressable>
         )}
       />
@@ -233,7 +248,7 @@ export function BroadcastSettingsScreen() {
                       {row.map((metric) => (
                         <LinearGradient
                           key={metric.key}
-                          colors={metric.colors}
+                          colors={metricGradient(metric.key, colors)}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 1 }}
                           style={styles.metricCard}
@@ -280,7 +295,7 @@ export function BroadcastSettingsScreen() {
                 icon={Megaphone}
                 title="No campaigns yet"
                 message="Create your first WhatsApp broadcast to reach customers at scale."
-                action={<AppButton style={{ marginTop: 16 }} icon={Plus} label="Create campaign" onPress={() => navigation.navigate('BroadcastCreate')} />}
+                action={<AppButton style={{ marginTop: spacing.lg }} icon={Plus} label="Create campaign" onPress={() => navigation.navigate('BroadcastCreate')} />}
               />
             )
           }
@@ -311,43 +326,45 @@ export function BroadcastSettingsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function useBroadcastStyles(colors: ThemeColors) {
+  return StyleSheet.create({
   screen: { flex: 1 },
-  addButton: { alignItems: 'center', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
-  headerBlock: { paddingBottom: 8, paddingTop: 12 },
-  metricsWrap: { gap: 10, paddingHorizontal: 16 },
-  metrics: { flexDirection: 'row', gap: 10 },
+  addButton: { alignItems: 'center', borderRadius: radius.lg, height: 36, justifyContent: 'center', width: 36 },
+  headerBlock: { paddingBottom: spacing.sm, paddingTop: spacing.md },
+  metricsWrap: { gap: spacing.sm, paddingHorizontal: spacing.lg },
+  metrics: { flexDirection: 'row', gap: spacing.sm },
   metricCard: {
-    borderRadius: 14,
+    borderRadius: radius.lg,
     flex: 1,
-    gap: 4,
+    gap: spacing.xs,
     minWidth: 0,
     overflow: 'hidden',
-    padding: 12,
+    padding: spacing.md,
   },
-  metricValue: { color: '#fff', fontSize: 22, fontWeight: '800' },
-  metricLabel: { color: 'rgba(255,255,255,0.88)', fontSize: 11, fontWeight: '600', marginTop: 3 },
-  orb: { backgroundColor: 'rgba(255,255,255,0.16)', borderRadius: 999, position: 'absolute' },
+  metricValue: { color: colors.primaryText, fontSize: fontSize.title, fontWeight: fontWeight.extrabold },
+  metricLabel: { color: colors.primaryText, fontSize: fontSize.tiny, fontWeight: fontWeight.semibold, marginTop: 3, opacity: 0.88 },
+  orb: { backgroundColor: colors.primaryText, borderRadius: radius.pill, opacity: 0.16, position: 'absolute' },
   orbA: { height: 72, right: -20, top: -24, width: 72 },
   orbB: { bottom: -22, height: 56, left: -16, width: 56 },
-  searchRow: { marginHorizontal: 16, marginTop: 16 },
-  chipRow: { gap: 8, paddingHorizontal: 16, paddingVertical: 12 },
+  searchRow: { marginHorizontal: spacing.lg, marginTop: spacing.lg },
+  chipRow: { gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   card: {
     alignItems: 'center',
-    borderRadius: 18,
+    borderRadius: radius.xl,
     borderWidth: 1,
     flexDirection: 'row',
-    marginHorizontal: 16,
-    marginTop: 10,
-    padding: 14,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    padding: spacing.md,
   },
-  copy: { flex: 1, marginLeft: 12, minWidth: 0 },
-  nameLine: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-  name: { flexShrink: 1, fontSize: 15, fontWeight: '700' },
-  detail: { fontSize: 13, marginTop: 3 },
-  metaLine: { alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'space-between', marginTop: 5 },
-  idText: { flex: 1, fontSize: 11 },
-  msg24h: { fontSize: 11, fontWeight: '600' },
-  loadMore: { alignSelf: 'center', marginTop: 16 },
+  copy: { flex: 1, marginLeft: spacing.md, minWidth: 0 },
+  nameLine: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  name: { flexShrink: 1, fontSize: fontSize.body, fontWeight: fontWeight.bold },
+  detail: { fontSize: fontSize.caption, marginTop: 3 },
+  metaLine: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, justifyContent: 'space-between', marginTop: 5 },
+  idText: { flex: 1, fontSize: fontSize.tiny },
+  msg24h: { fontSize: fontSize.tiny, fontWeight: fontWeight.semibold },
+  loadMore: { alignSelf: 'center', marginTop: spacing.lg },
   inlineLoader: { position: 'absolute', right: 18, top: 12 },
-});
+  });
+}
