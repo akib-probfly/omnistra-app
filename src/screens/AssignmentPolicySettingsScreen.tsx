@@ -21,6 +21,7 @@ import { showNotice } from '../components/AppToast';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 import { AppButton, ScreenHeader } from '../ui';
 import {
   fetchWorkspaceAssignmentPolicy,
@@ -87,7 +88,15 @@ function ModeCard({
   selected: boolean;
   disabled?: boolean;
   onSelect: () => void;
-  colors: { text: string; textSecondary: string; primary: string; surface: string; cardBorder: string };
+  colors: {
+    text: string;
+    textSecondary: string;
+    primary: string;
+    primaryText: string;
+    primarySoft: string;
+    surface: string;
+    cardBorder: string;
+  };
 }) {
   return (
     <Pressable
@@ -95,8 +104,8 @@ function ModeCard({
       disabled={disabled}
       onPress={onSelect}
     >
-      <View style={[styles.modeIcon, selected && { backgroundColor: colors.primary }]}>
-        <Icon color={selected ? '#fff' : colors.textSecondary} size={18} />
+      <View style={[styles.modeIcon, { backgroundColor: selected ? colors.primary : colors.primarySoft }]}>
+        <Icon color={selected ? colors.primaryText : colors.textSecondary} size={18} />
       </View>
       <View style={styles.modeCopy}>
         <View style={styles.modeTitleRow}>
@@ -228,9 +237,9 @@ function AssignmentPolicyForm({
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}>
         {!canUpdate ? (
-          <View style={styles.infoBanner}>
-            <AlertCircle color="#c2410c" size={16} />
-            <Text style={styles.infoBannerText}>You can view this policy, but only admins and managers can change it.</Text>
+          <View style={[styles.infoBanner, { backgroundColor: colors.warningSoft, borderColor: colors.warningBorder }]}>
+            <AlertCircle color={colors.warning} size={16} />
+            <Text style={[styles.infoBannerText, { color: colors.warning }]}>You can view this policy, but only admins and managers can change it.</Text>
           </View>
         ) : null}
 
@@ -239,7 +248,16 @@ function AssignmentPolicyForm({
             <View style={styles.flexCopy}>
               <View style={styles.titleLine}>
                 <Text style={[styles.cardTitle, { color: colors.text }]}>Auto-assign conversations</Text>
-                <Text style={[styles.badge, enabled ? styles.badgeOn : styles.badgeOff]}>{enabled ? 'On' : 'Off'}</Text>
+                <Text
+                  style={[
+                    styles.badge,
+                    enabled
+                      ? { backgroundColor: colors.successSoft, color: colors.success }
+                      : { backgroundColor: colors.surfaceSecondary, color: colors.textSecondary },
+                  ]}
+                >
+                  {enabled ? 'On' : 'Off'}
+                </Text>
               </View>
               <Text style={[styles.cardBody, { color: colors.textSecondary }]}>Route new threads automatically using your selected mode below.</Text>
             </View>
@@ -315,8 +333,8 @@ function AssignmentPolicyForm({
           </View>
 
           <View style={styles.fallbackRow}>
-            <View style={styles.fallbackIcon}>
-              <AlertCircle color="#d97706" size={16} />
+            <View style={[styles.fallbackIcon, { backgroundColor: colors.amberSoft }]}>
+              <AlertCircle color={colors.amber} size={16} />
             </View>
             <View style={styles.flexCopy}>
               <Text style={[styles.rowTitle, { color: colors.text }]}>Fallback behavior</Text>
@@ -389,7 +407,7 @@ function AssignmentPolicyForm({
               <SheetFlatList
                 data={owners}
                 keyExtractor={keyExtractorOwner}
-                style={{ marginTop: 10, maxHeight: 360 }}
+                style={{ marginTop: spacing.sm, maxHeight: 360 }}
                 keyboardShouldPersistTaps="handled"
                 renderItem={renderOwnerItem}
                 ListEmptyComponent={<Text style={[styles.emptyOwners, { color: colors.textMuted }]}>No active members match your search.</Text>}
@@ -460,42 +478,40 @@ export function AssignmentPolicySettingsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  content: { gap: 12, padding: 16 },
-  infoBanner: { alignItems: 'flex-start', backgroundColor: '#fff7ed', borderColor: '#fed7aa', borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 8, padding: 12 },
-  infoBannerText: { color: '#c2410c', flex: 1, fontSize: 13, lineHeight: 18 },
-  card: { borderRadius: 18, borderWidth: 1, padding: 16 },
-  cardTitle: { fontSize: 15, fontWeight: '800' },
-  cardBody: { fontSize: 12, lineHeight: 18, marginTop: 4 },
-  rowBetween: { alignItems: 'flex-start', flexDirection: 'row', gap: 12 },
+  content: { gap: spacing.md, padding: spacing.lg },
+  infoBanner: { alignItems: 'flex-start', borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, padding: spacing.md },
+  infoBannerText: { flex: 1, fontSize: fontSize.caption, lineHeight: 18 },
+  card: { borderRadius: radius.xl, borderWidth: 1, padding: spacing.lg },
+  cardTitle: { fontSize: fontSize.body, fontWeight: fontWeight.extrabold },
+  cardBody: { fontSize: fontSize.small, lineHeight: 18, marginTop: spacing.xs },
+  rowBetween: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.md },
   flexCopy: { flex: 1, minWidth: 0 },
-  titleLine: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  badge: { borderRadius: 999, fontSize: 10, fontWeight: '800', overflow: 'hidden', paddingHorizontal: 8, paddingVertical: 2, textTransform: 'uppercase' },
-  badgeOn: { backgroundColor: '#ecfdf5', color: '#047857' },
-  badgeOff: { backgroundColor: '#f1f5f9', color: '#64748b' },
-  modeList: { gap: 10, marginTop: 14 },
-  modeCard: { alignItems: 'center', borderRadius: 16, borderWidth: 1, flexDirection: 'row', gap: 12, padding: 12 },
-  modeIcon: { alignItems: 'center', backgroundColor: '#edf4ff', borderRadius: 14, height: 40, justifyContent: 'center', width: 40 },
+  titleLine: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  badge: { borderRadius: radius.pill, fontSize: fontSize.tiny, fontWeight: fontWeight.extrabold, overflow: 'hidden', paddingHorizontal: spacing.sm, paddingVertical: 2, textTransform: 'uppercase' },
+  modeList: { gap: spacing.sm, marginTop: spacing.md },
+  modeCard: { alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', gap: spacing.md, padding: spacing.md },
+  modeIcon: { alignItems: 'center', borderRadius: radius.lg, height: 40, justifyContent: 'center', width: 40 },
   modeCopy: { flex: 1, minWidth: 0 },
   modeTitleRow: { alignItems: 'center', flexDirection: 'row', gap: 6 },
-  modeTitle: { fontSize: 14, fontWeight: '700' },
-  modeBody: { fontSize: 12, marginTop: 2 },
-  nestedCard: { borderRadius: 16, borderWidth: 1, marginTop: 14, padding: 12 },
-  ownerButton: { borderRadius: 12, borderWidth: 1, marginTop: 10, paddingHorizontal: 12, paddingVertical: 12 },
-  ownerButtonText: { fontSize: 14, fontWeight: '600' },
-  helperText: { fontSize: 12, lineHeight: 18, marginTop: 12 },
-  constraintRow: { alignItems: 'center', flexDirection: 'row', gap: 12, paddingVertical: 14 },
+  modeTitle: { fontSize: fontSize.caption, fontWeight: fontWeight.bold },
+  modeBody: { fontSize: fontSize.small, marginTop: 2 },
+  nestedCard: { borderRadius: radius.lg, borderWidth: 1, marginTop: spacing.md, padding: spacing.md },
+  ownerButton: { borderRadius: radius.md, borderWidth: 1, marginTop: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md },
+  ownerButtonText: { fontSize: fontSize.caption, fontWeight: fontWeight.semibold },
+  helperText: { fontSize: fontSize.small, lineHeight: 18, marginTop: spacing.md },
+  constraintRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, paddingVertical: 14 },
   rowBorder: { borderBottomWidth: 1 },
-  rowTitle: { fontSize: 14, fontWeight: '700' },
-  numberInput: { borderRadius: 12, borderWidth: 1, minWidth: 100, paddingHorizontal: 12, paddingVertical: 10, textAlign: 'center' },
-  fallbackRow: { flexDirection: 'row', gap: 12, paddingTop: 14 },
-  fallbackIcon: { alignItems: 'center', backgroundColor: '#fffbeb', borderRadius: 999, height: 32, justifyContent: 'center', width: 32 },
-  saveButtonSpacing: { marginTop: 4 },
+  rowTitle: { fontSize: fontSize.caption, fontWeight: fontWeight.bold },
+  numberInput: { borderRadius: radius.md, borderWidth: 1, minWidth: 100, paddingHorizontal: spacing.md, paddingVertical: 10, textAlign: 'center' },
+  fallbackRow: { flexDirection: 'row', gap: spacing.md, paddingTop: 14 },
+  fallbackIcon: { alignItems: 'center', borderRadius: radius.pill, height: 32, justifyContent: 'center', width: 32 },
+  saveButtonSpacing: { marginTop: spacing.xs },
   disabled: { opacity: 0.55 },
-  sheetSurface: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 },
-  sheetTitle: { fontSize: 18, fontWeight: '800', marginBottom: 12 },
-  searchInput: { borderRadius: 12, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 12 },
-  ownerRow: { alignItems: 'center', borderRadius: 12, flexDirection: 'row', gap: 10, paddingHorizontal: 10, paddingVertical: 12 },
-  ownerName: { fontSize: 14, fontWeight: '700' },
-  ownerEmail: { fontSize: 12, marginTop: 2 },
-  emptyOwners: { fontSize: 13, paddingVertical: 16, textAlign: 'center' },
+  sheetSurface: { paddingBottom: spacing.xl, paddingHorizontal: spacing.xl, paddingTop: spacing.sm },
+  sheetTitle: { fontSize: fontSize.heading, fontWeight: fontWeight.extrabold, marginBottom: spacing.md },
+  searchInput: { borderRadius: radius.md, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.md },
+  ownerRow: { alignItems: 'center', borderRadius: radius.md, flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.md },
+  ownerName: { fontSize: fontSize.caption, fontWeight: fontWeight.bold },
+  ownerEmail: { fontSize: fontSize.small, marginTop: 2 },
+  emptyOwners: { fontSize: fontSize.caption, paddingVertical: spacing.lg, textAlign: 'center' },
 });
