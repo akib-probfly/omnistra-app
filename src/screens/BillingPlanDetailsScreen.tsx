@@ -15,6 +15,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import type { ThemeColors } from '../theme/colors';
+import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 import { ScreenHeader } from '../ui';
 import {
   calculateProration,
@@ -45,6 +47,7 @@ export function BillingPlanDetailsScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList>>();
   const { colors } = useTheme();
+  const styles = useBillingPlanStyles(colors);
   const route = useRoute<RouteProp<SettingsStackParamList, 'BillingPlanDetails'>>();
   const queryClient = useQueryClient();
   const { planKey, workspaceId, cycle: initialCycle } = route.params;
@@ -390,7 +393,7 @@ export function BillingPlanDetailsScreen() {
             disabled={busy || hasScheduledDowngrade || effectiveIntervalUnavailable || selectedIntervalUnavailable || (isCurrentPlan && !isCurrentTrialPlan)}
             onPress={() => { void handlePrimaryAction(); }}
           >
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaText}>{ctaLabel}</Text>}
+            {busy ? <ActivityIndicator color={colors.primaryText} /> : <Text style={styles.ctaText}>{ctaLabel}</Text>}
           </Pressable>
         </View>
 
@@ -425,8 +428,9 @@ function SummaryLine({
   label: string;
   value: string;
   valueTone?: 'credit' | 'emphasis';
-  colors: { textSecondary: string; text: string };
+  colors: ThemeColors;
 }) {
+  const styles = useBillingPlanStyles(colors);
   return (
     <View style={styles.summaryLine}>
       <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{label}</Text>
@@ -444,103 +448,105 @@ function SummaryLine({
   );
 }
 
-const styles = StyleSheet.create({
+function useBillingPlanStyles(colors: ThemeColors) {
+  return StyleSheet.create({
   screen: { flex: 1 },
   centered: { alignItems: 'center', justifyContent: 'center' },
-  content: { gap: 12, padding: 16 },
+  content: { gap: spacing.md, padding: spacing.lg },
   card: {
-    borderRadius: 24,
+    borderRadius: radius.xxl,
     borderWidth: 1,
-    padding: 18,
+    padding: spacing.lg,
   },
   eyebrow: {
-    color: '#4c84ff',
-    fontSize: 11,
-    fontWeight: '800',
+    color: colors.primary,
+    fontSize: fontSize.tiny,
+    fontWeight: fontWeight.extrabold,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
-  planTitle: { fontSize: 28, fontWeight: '800', letterSpacing: -0.6, marginTop: 8 },
-  description: { fontSize: 13, lineHeight: 20, marginTop: 8 },
+  planTitle: { fontSize: fontSize.display, fontWeight: fontWeight.extrabold, letterSpacing: -0.6, marginTop: spacing.sm },
+  description: { fontSize: fontSize.caption, lineHeight: 20, marginTop: spacing.sm },
   priceBox: {
-    borderRadius: 18,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    marginTop: 16,
-    padding: 14,
+    marginTop: spacing.lg,
+    padding: spacing.md,
   },
-  priceLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
-  priceValue: { fontSize: 28, fontWeight: '800', marginTop: 4 },
-  priceSuffix: { fontSize: 14, fontWeight: '600' },
+  priceLabel: { fontSize: fontSize.tiny, fontWeight: fontWeight.bold, textTransform: 'uppercase' },
+  priceValue: { fontSize: fontSize.display, fontWeight: fontWeight.extrabold, marginTop: spacing.xs },
+  priceSuffix: { fontSize: fontSize.caption, fontWeight: fontWeight.semibold },
   upgradeBanner: {
-    backgroundColor: '#ecfdf5',
-    borderColor: '#a7f3d0',
-    borderRadius: 16,
+    backgroundColor: colors.successSoft,
+    borderColor: colors.primaryBorder,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    marginTop: 14,
-    padding: 12,
+    marginTop: spacing.md,
+    padding: spacing.md,
   },
-  upgradeTitle: { color: '#047857', fontSize: 13, fontWeight: '800' },
-  upgradeBody: { color: '#065f46', fontSize: 12, lineHeight: 18, marginTop: 4 },
+  upgradeTitle: { color: colors.success, fontSize: fontSize.caption, fontWeight: fontWeight.extrabold },
+  upgradeBody: { color: colors.textSecondary, fontSize: fontSize.small, lineHeight: 18, marginTop: spacing.xs },
   cycleToggle: {
     borderRadius: 999,
     borderWidth: 1,
     flexDirection: 'row',
-    gap: 4,
-    marginTop: 14,
+    gap: spacing.xs,
+    marginTop: spacing.md,
     padding: 4,
   },
-  cycleOption: { borderRadius: 999, flex: 1, paddingVertical: 10 },
+  cycleOption: { borderRadius: radius.pill, flex: 1, paddingVertical: 10 },
   cycleOptionDisabled: { opacity: 0.4 },
-  cycleOptionText: { fontSize: 13, fontWeight: '700', textAlign: 'center' },
-  cycleOptionTextActive: { color: '#fff' },
-  sectionTitle: { fontSize: 16, fontWeight: '800', marginBottom: 10 },
-  featureRow: { alignItems: 'flex-start', flexDirection: 'row', gap: 10, marginBottom: 10 },
+  cycleOptionText: { fontSize: fontSize.caption, fontWeight: fontWeight.bold, textAlign: 'center' },
+  cycleOptionTextActive: { color: colors.primaryText },
+  sectionTitle: { fontSize: fontSize.subheading, fontWeight: fontWeight.extrabold, marginBottom: spacing.sm },
+  featureRow: { alignItems: 'flex-start', flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
   featureIcon: {
     alignItems: 'center',
-    backgroundColor: '#eff6ff',
-    borderRadius: 999,
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.pill,
     height: 22,
     justifyContent: 'center',
     marginTop: 1,
     width: 22,
   },
-  featureText: { flex: 1, fontSize: 13, fontWeight: '600', lineHeight: 19 },
-  summaryTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.4, marginTop: 6 },
+  featureText: { flex: 1, fontSize: fontSize.caption, fontWeight: fontWeight.semibold, lineHeight: 19 },
+  summaryTitle: { fontSize: fontSize.title, fontWeight: fontWeight.extrabold, letterSpacing: -0.4, marginTop: spacing.xs },
   summaryBox: {
-    borderRadius: 16,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    marginTop: 14,
-    padding: 12,
+    marginTop: spacing.md,
+    padding: spacing.md,
   },
   prorationBox: {
-    backgroundColor: '#ecfdf5',
-    borderColor: '#a7f3d0',
-    borderRadius: 16,
+    backgroundColor: colors.successSoft,
+    borderColor: colors.primaryBorder,
+    borderRadius: radius.lg,
     borderWidth: 1,
-    marginTop: 14,
-    padding: 12,
+    marginTop: spacing.md,
+    padding: spacing.md,
   },
-  prorationDivider: { backgroundColor: '#a7f3d0', height: 1, marginVertical: 10 },
-  summaryLine: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  summaryLabel: { fontSize: 13 },
-  summaryValue: { fontSize: 13, fontWeight: '700' },
-  summaryCredit: { color: '#047857' },
-  summaryEmphasis: { color: '#047857', fontSize: 18 },
-  prorationLoading: { alignItems: 'center', flexDirection: 'row', gap: 8, marginTop: 12 },
-  prorationLoadingText: { fontSize: 12, fontWeight: '600' },
+  prorationDivider: { backgroundColor: colors.primaryBorder, height: 1, marginVertical: spacing.sm },
+  summaryLine: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm },
+  summaryLabel: { fontSize: fontSize.caption },
+  summaryValue: { fontSize: fontSize.caption, fontWeight: fontWeight.bold },
+  summaryCredit: { color: colors.success },
+  summaryEmphasis: { color: colors.success, fontSize: fontSize.heading },
+  prorationLoading: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  prorationLoadingText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
   ctaButton: {
     alignItems: 'center',
-    borderRadius: 999,
-    marginTop: 16,
+    borderRadius: radius.pill,
+    marginTop: spacing.lg,
     paddingVertical: 13,
   },
   ctaDisabled: { opacity: 0.5 },
-  ctaText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  ctaText: { color: colors.primaryText, fontSize: fontSize.caption, fontWeight: fontWeight.bold },
   nextCard: {
-    borderRadius: 24,
+    borderRadius: radius.xxl,
     borderStyle: 'dashed',
     borderWidth: 1,
-    padding: 18,
+    padding: spacing.lg,
   },
-  nextStep: { fontSize: 13, lineHeight: 20, marginTop: 8 },
-});
+  nextStep: { fontSize: fontSize.caption, lineHeight: 20, marginTop: spacing.sm },
+  });
+}
