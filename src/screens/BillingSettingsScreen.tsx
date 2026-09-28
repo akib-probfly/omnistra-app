@@ -14,6 +14,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
+import type { ThemeColors } from '../theme/colors';
+import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 import { AppBadge, ScreenHeader, toneForStatus } from '../ui';
 import {
   confirmReturnedPipraPayPayment,
@@ -77,6 +79,7 @@ export function BillingSettingsScreen() {
   const route = useRoute<RouteProp<SettingsStackParamList, 'Billing'>>();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
+  const styles = useBillingStyles(colors);
   const initialTab = route.params?.tab ?? (isBillingLocked() ? 'packages' : 'current');
   const [tab, setTab] = useState<BillingTab>(initialTab);
   const [packageCycle, setPackageCycle] = useState<BillingInterval>('monthly');
@@ -321,7 +324,7 @@ export function BillingSettingsScreen() {
 
                 {hasScheduledDowngrade ? (
                   <View style={styles.warnBanner}>
-                    <AlertTriangle color="#d97706" size={16} />
+                    <AlertTriangle color={colors.amber} size={16} />
                     <Text style={styles.warnBannerText}>
                       A downgrade to {pendingChangePlanName} is already scheduled. Package changes are locked until that plan becomes active.
                     </Text>
@@ -426,6 +429,7 @@ function CurrentPlanSection({
   onBrowsePackages: () => void;
 }) {
   const { colors } = useTheme();
+  const styles = useBillingStyles(colors);
   const statusLabel = isTrialing
     ? 'Free Trial'
     : resolvedStatus
@@ -478,7 +482,7 @@ function CurrentPlanSection({
 
         {pendingChangePlanKey && !isTrialing ? (
           <View style={styles.warnBanner}>
-            <AlertTriangle color="#d97706" size={16} />
+            <AlertTriangle color={colors.amber} size={16} />
             <Text style={styles.warnBannerText}>
               Scheduled to change to {pendingChangePlanName ?? pendingChangePlanKey} at the end of this billing period.
             </Text>
@@ -487,7 +491,7 @@ function CurrentPlanSection({
 
         {isExpired ? (
           <View style={styles.dangerBanner}>
-            <AlertTriangle color="#e11d48" size={16} />
+            <AlertTriangle color={colors.error} size={16} />
             <Text style={styles.dangerBannerText}>
               This subscription has expired. Renew or choose a package to restore full access.
             </Text>
@@ -510,7 +514,7 @@ function CurrentPlanSection({
         </View>
         {isExpired ? (
           <View style={styles.warnBanner}>
-            <AlertTriangle color="#d97706" size={16} />
+            <AlertTriangle color={colors.amber} size={16} />
             <Text style={styles.warnBannerText}>
               Usage is shown against the expired plan. Renew to bring the workspace back into an active billing state.
             </Text>
@@ -526,10 +530,11 @@ function CurrentPlanSection({
 
 function UsageRow({ label, count, limit }: { label: string; count: number; limit: number | null }) {
   const { colors } = useTheme();
+  const styles = useBillingStyles(colors);
   const percent = usagePercent(count, limit);
   const isNearLimit = limit != null && percent >= 80 && percent < 100;
   const isOverLimit = limit != null && percent >= 100;
-  const fillColor = isOverLimit ? '#f43f5e' : isNearLimit ? '#f59e0b' : '#2563eb';
+  const fillColor = isOverLimit ? colors.error : isNearLimit ? colors.amber : colors.primary;
   const valueLabel = limit == null
     ? `${formatNumber(count)} / Unlimited`
     : `${formatNumber(count)} / ${formatNumber(limit)}`;
@@ -572,6 +577,7 @@ function PlanCard({
   onPress: () => void;
 }) {
   const { colors } = useTheme();
+  const styles = useBillingStyles(colors);
   const unavailable = Boolean(plan.intervals) && !getPlanInterval(plan, cycle);
   const price = unavailable ? 'Unavailable' : getPlanPrice(plan, cycle) ?? '—';
   const features = getPlanFeatures(plan, cycle).slice(0, 5);
@@ -633,6 +639,7 @@ function PlanCard({
 
 function InvoiceRow({ invoice }: { invoice: WorkspaceInvoice }) {
   const { colors } = useTheme();
+  const styles = useBillingStyles(colors);
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
       <View style={styles.rowBetween}>
@@ -651,6 +658,7 @@ function InvoiceRow({ invoice }: { invoice: WorkspaceInvoice }) {
 
 function HistoryRow({ item }: { item: SubscriptionView }) {
   const { colors } = useTheme();
+  const styles = useBillingStyles(colors);
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
       <View style={styles.historyHeader}>
@@ -670,30 +678,31 @@ function HistoryRow({ item }: { item: SubscriptionView }) {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { backgroundColor: '#f8fafc', flex: 1 },
-  tabs: { backgroundColor: '#fff', borderBottomColor: '#e8eef7', borderBottomWidth: 1, flexDirection: 'row', gap: 6, paddingHorizontal: 12, paddingVertical: 10 },
-  tab: { backgroundColor: '#f1f5f9', borderRadius: 999, flex: 1, paddingHorizontal: 8, paddingVertical: 8 },
-  tabActive: { backgroundColor: '#dbeafe' },
-  tabText: { color: '#64748b', fontSize: 12, fontWeight: '600', textAlign: 'center' },
-  tabTextActive: { color: '#1d4ed8', fontWeight: '700' },
+function useBillingStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+  screen: { backgroundColor: colors.background, flex: 1 },
+  tabs: { backgroundColor: colors.surface, borderBottomColor: colors.separator, borderBottomWidth: 1, flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  tab: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.pill, flex: 1, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm },
+  tabActive: { backgroundColor: colors.primarySoft },
+  tabText: { color: colors.textSecondary, fontSize: fontSize.small, fontWeight: fontWeight.semibold, textAlign: 'center' },
+  tabTextActive: { color: colors.primary, fontWeight: fontWeight.bold },
   loader: { marginTop: 60 },
-  content: { gap: 12, padding: 16 },
-  card: { backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 22, borderWidth: 1, padding: 16 },
-  cardHighlight: { borderColor: '#2563eb' },
-  cardHeader: { alignItems: 'center', flexDirection: 'row', gap: 8, marginBottom: 8 },
-  cardTitle: { color: '#0f172a', fontSize: 15, fontWeight: '800' },
-  cardBody: { color: '#64748b', fontSize: 13, marginTop: 8 },
+  content: { gap: spacing.md, padding: spacing.lg },
+  card: { backgroundColor: colors.surface, borderColor: colors.cardBorder, borderRadius: radius.xxl, borderWidth: 1, padding: spacing.lg },
+  cardHighlight: { borderColor: colors.primary },
+  cardHeader: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+  cardTitle: { color: colors.text, fontSize: fontSize.body, fontWeight: fontWeight.extrabold },
+  cardBody: { color: colors.textSecondary, fontSize: fontSize.caption, marginTop: spacing.sm },
   planHero: {
-    backgroundColor: '#fff',
-    borderColor: '#cfe1ff',
+    backgroundColor: colors.surface,
+    borderColor: colors.primaryBorder,
     borderRadius: 26,
     borderWidth: 1,
     padding: 18,
   },
   planHeroExpired: {
-    backgroundColor: '#fff7f8',
-    borderColor: '#fecdd3',
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.dangerBorder,
   },
   planHeroTop: {
     alignItems: 'center',
@@ -703,35 +712,35 @@ const styles = StyleSheet.create({
   },
   planHeroIcon: {
     alignItems: 'center',
-    backgroundColor: '#eff6ff',
+    backgroundColor: colors.primarySoft,
     borderRadius: 14,
     height: 36,
     justifyContent: 'center',
     width: 36,
   },
   planHeroEyebrow: {
-    color: '#64748b',
+    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.2,
     textTransform: 'uppercase',
   },
   planHeroName: {
-    color: '#0f172a',
+    color: colors.text,
     fontSize: 26,
     fontWeight: '800',
     letterSpacing: -0.5,
     marginTop: 4,
   },
   planHeroSubtitle: {
-    color: '#64748b',
+    color: colors.textSecondary,
     fontSize: 13,
     marginTop: 6,
   },
   priceChip: {
     alignItems: 'flex-end',
-    backgroundColor: '#f8fbff',
-    borderColor: '#dbeafe',
+    backgroundColor: colors.background,
+    borderColor: colors.primaryBorder,
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: 'row',
@@ -740,19 +749,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  priceChipValue: { color: '#2563eb', fontSize: 22, fontWeight: '800' },
-  priceChipSuffix: { color: '#64748b', fontSize: 13, fontWeight: '600', paddingBottom: 3 },
-  priceChipCycle: { color: '#94a3b8', fontSize: 12, fontWeight: '600', paddingBottom: 3 },
+  priceChipValue: { color: colors.primary, fontSize: 22, fontWeight: fontWeight.extrabold },
+  priceChipSuffix: { color: colors.textSecondary, fontSize: fontSize.caption, fontWeight: fontWeight.semibold, paddingBottom: 3 },
+  priceChipCycle: { color: colors.textMuted, fontSize: fontSize.small, fontWeight: fontWeight.semibold, paddingBottom: 3 },
   metaRow: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 6,
     marginTop: 12,
   },
-  metaText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
+  metaText: { color: colors.textSecondary, fontSize: fontSize.small, fontWeight: fontWeight.semibold },
   warnBanner: {
-    backgroundColor: '#fffbeb',
-    borderColor: '#fde68a',
+    backgroundColor: colors.amberSoft,
+    borderColor: colors.warningBorder,
     borderRadius: 14,
     borderWidth: 1,
     flexDirection: 'row',
@@ -760,10 +769,10 @@ const styles = StyleSheet.create({
     marginTop: 12,
     padding: 12,
   },
-  warnBannerText: { color: '#92400e', flex: 1, fontSize: 12, lineHeight: 17 },
+  warnBannerText: { color: colors.amber, flex: 1, fontSize: fontSize.small, lineHeight: 17 },
   dangerBanner: {
-    backgroundColor: '#fff1f2',
-    borderColor: '#fecdd3',
+    backgroundColor: colors.dangerSoft,
+    borderColor: colors.dangerBorder,
     borderRadius: 14,
     borderWidth: 1,
     flexDirection: 'row',
@@ -771,25 +780,25 @@ const styles = StyleSheet.create({
     marginTop: 12,
     padding: 12,
   },
-  dangerBannerText: { color: '#9f1239', flex: 1, fontSize: 12, lineHeight: 17 },
+  dangerBannerText: { color: colors.error, flex: 1, fontSize: fontSize.small, lineHeight: 17 },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#2563eb',
+    backgroundColor: colors.primary,
     borderRadius: 999,
     marginTop: 16,
     paddingVertical: 12,
   },
-  primaryButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  primaryButtonText: { color: colors.primaryText, fontSize: fontSize.caption, fontWeight: fontWeight.bold },
   packagesIntro: { alignItems: 'center', marginBottom: 4, paddingHorizontal: 8 },
   packagesTitle: {
-    color: '#0f172a',
+    color: colors.text,
     fontSize: 24,
     fontWeight: '800',
     letterSpacing: -0.5,
     textAlign: 'center',
   },
   packagesSubtitle: {
-    color: '#64748b',
+    color: colors.textSecondary,
     fontSize: 13,
     lineHeight: 19,
     marginTop: 8,
@@ -797,8 +806,8 @@ const styles = StyleSheet.create({
   },
   cycleToggle: {
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderColor: '#cfe1ff',
+    backgroundColor: colors.surface,
+    borderColor: colors.primaryBorder,
     borderRadius: 999,
     borderWidth: 1,
     flexDirection: 'row',
@@ -807,55 +816,55 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   cycleOption: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9 },
-  cycleOptionActive: { backgroundColor: '#2563eb' },
-  cycleOptionText: { color: '#64748b', fontSize: 13, fontWeight: '700' },
-  cycleOptionTextActive: { color: '#fff' },
+  cycleOptionActive: { backgroundColor: colors.primary },
+  cycleOptionText: { color: colors.textSecondary, fontSize: fontSize.caption, fontWeight: fontWeight.bold },
+  cycleOptionTextActive: { color: colors.primaryText },
   saveBadge: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: colors.successSoft,
     borderRadius: 999,
     marginRight: 4,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  saveBadgeText: { color: '#15803d', fontSize: 11, fontWeight: '800' },
+  saveBadgeText: { color: colors.success, fontSize: fontSize.tiny, fontWeight: fontWeight.extrabold },
   packageCard: {
-    backgroundColor: '#fff',
-    borderColor: '#d8e6fb',
+    backgroundColor: colors.surface,
+    borderColor: colors.cardBorder,
     borderRadius: 24,
     borderWidth: 1,
     padding: 18,
   },
   packageBadge: {
     alignSelf: 'center',
-    backgroundColor: '#4C84FF',
+    backgroundColor: colors.primary,
     borderRadius: 999,
     marginBottom: 10,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  packageBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  priceSuffix: { color: '#64748b', fontSize: 13, fontWeight: '600' },
+  packageBadgeText: { color: colors.primaryText, fontSize: fontSize.tiny, fontWeight: fontWeight.bold },
+  priceSuffix: { color: colors.textSecondary, fontSize: fontSize.caption, fontWeight: fontWeight.semibold },
   packageCta: {
     alignItems: 'center',
-    backgroundColor: '#2563eb',
+    backgroundColor: colors.primary,
     borderRadius: 999,
     marginTop: 14,
     paddingVertical: 12,
   },
   packageCtaDisabled: {
-    backgroundColor: '#fff',
-    borderColor: '#d8e6ff',
+    backgroundColor: colors.surface,
+    borderColor: colors.primaryBorder,
     borderWidth: 1,
   },
-  packageCtaText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  packageCtaTextDisabled: { color: '#64748b' },
+  packageCtaText: { color: colors.primaryText, fontSize: fontSize.caption, fontWeight: fontWeight.bold },
+  packageCtaTextDisabled: { color: colors.textSecondary },
   featureList: { marginTop: 14 },
   featureItem: { alignItems: 'flex-start', flexDirection: 'row', gap: 8, marginTop: 8 },
   viewDetailsLink: { alignItems: 'center', marginTop: 14 },
-  viewDetailsText: { color: '#2563eb', fontSize: 13, fontWeight: '700' },
+  viewDetailsText: { color: colors.primary, fontSize: fontSize.caption, fontWeight: fontWeight.bold },
   usageCardExpired: {
-    backgroundColor: '#fffdf7',
-    borderColor: '#fde68a',
+    backgroundColor: colors.amberSoft,
+    borderColor: colors.warningBorder,
   },
   usageTitleRow: {
     alignItems: 'center',
@@ -865,30 +874,31 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   usageCard: {
-    backgroundColor: '#fff',
-    borderColor: '#e2e8f0',
+    backgroundColor: colors.surface,
+    borderColor: colors.inputBorder,
     borderRadius: 16,
     borderWidth: 1,
     marginTop: 10,
     padding: 12,
   },
-  planName: { color: '#0f172a', fontSize: 18, fontWeight: '800' },
-  priceLine: { color: '#2563eb', fontSize: 16, fontWeight: '800', marginTop: 6 },
-  muted: { color: '#64748b', fontSize: 12, marginTop: 4 },
+  planName: { color: colors.text, fontSize: fontSize.heading, fontWeight: fontWeight.extrabold },
+  priceLine: { color: colors.primary, fontSize: fontSize.subheading, fontWeight: fontWeight.extrabold, marginTop: 6 },
+  muted: { color: colors.textSecondary, fontSize: fontSize.small, marginTop: 4 },
   usageHeader: { flexDirection: 'row', justifyContent: 'space-between' },
-  usageLabel: { color: '#0f172a', fontSize: 13, fontWeight: '700' },
-  usageValue: { color: '#64748b', fontSize: 12, fontWeight: '600' },
-  usageTrack: { backgroundColor: '#e2e8f0', borderRadius: 999, height: 8, marginTop: 8, overflow: 'hidden' },
-  usageFill: { backgroundColor: '#2563eb', height: 8 },
-  usageHintWarn: { color: '#d97706', fontSize: 11, fontWeight: '600', marginTop: 6 },
-  usageHintDanger: { color: '#e11d48', fontSize: 11, fontWeight: '600', marginTop: 6 },
+  usageLabel: { color: colors.text, fontSize: fontSize.caption, fontWeight: fontWeight.bold },
+  usageValue: { color: colors.textSecondary, fontSize: fontSize.small, fontWeight: fontWeight.semibold },
+  usageTrack: { backgroundColor: colors.surfaceSecondary, borderRadius: radius.pill, height: 8, marginTop: 8, overflow: 'hidden' },
+  usageFill: { backgroundColor: colors.primary, height: 8 },
+  usageHintWarn: { color: colors.amber, fontSize: fontSize.tiny, fontWeight: fontWeight.semibold, marginTop: 6 },
+  usageHintDanger: { color: colors.error, fontSize: fontSize.tiny, fontWeight: fontWeight.semibold, marginTop: 6 },
   planHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  featureLine: { color: '#475569', fontSize: 13, marginTop: 6 },
-  emptyCard: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, padding: 28 },
-  emptyTitle: { color: '#0f172a', fontSize: 16, fontWeight: '800', marginTop: 12 },
-  emptyBody: { color: '#64748b', fontSize: 13, marginTop: 4, textAlign: 'center' },
+  featureLine: { color: colors.textSecondary, fontSize: fontSize.caption, marginTop: 6 },
+  emptyCard: { alignItems: 'center', backgroundColor: colors.surface, borderColor: colors.cardBorder, borderRadius: radius.xl, borderWidth: 1, padding: spacing.xxl },
+  emptyTitle: { color: colors.text, fontSize: fontSize.subheading, fontWeight: fontWeight.extrabold, marginTop: spacing.md },
+  emptyBody: { color: colors.textSecondary, fontSize: fontSize.caption, marginTop: spacing.xs, textAlign: 'center' },
   rowBetween: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   historyHeader: { alignItems: 'flex-start', flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
-  historyPlanName: { color: '#0f172a', flex: 1, flexShrink: 1, fontSize: 18, fontWeight: '800', lineHeight: 22, minWidth: 0 },
+  historyPlanName: { color: colors.text, flex: 1, flexShrink: 1, fontSize: fontSize.heading, fontWeight: fontWeight.extrabold, lineHeight: 22, minWidth: 0 },
   historyStatusPill: { flexShrink: 0, marginTop: 2 },
-});
+  });
+}
