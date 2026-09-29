@@ -615,10 +615,10 @@ function TeamCommandCenter({ data, colors, isDark }: { data: DashboardResponse |
           {list.length === 0 ? (
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No agents in this state.</Text>
           ) : list.map((row) => (
-            <View style={[styles.memberCard, { backgroundColor: colors.background, borderColor: colors.cardBorder }, row.status === 'offline' && styles.memberOffline]} key={row.key}>
+            <View style={[styles.memberCard, { backgroundColor: colors.background, borderColor: colors.separator }, row.status === 'offline' && styles.memberOffline]} key={row.key}>
               <View style={styles.memberTop}>
                 <View style={styles.memberAvatarWrap}>
-                  <View style={[styles.memberAvatar, { backgroundColor: isDark ? colors.surfaceSecondary : '#eef4ff' }]}><Text style={[styles.memberInitials, { color: colors.primary }]}>{row.initials}</Text></View>
+                  <View style={[styles.memberAvatar, { backgroundColor: colors.primarySoft }]}><Text style={[styles.memberInitials, { color: colors.primary }]}>{row.initials}</Text></View>
                   <View style={[styles.presenceDot, { backgroundColor: row.status === 'online' ? '#22c55e' : colors.textMuted, borderColor: colors.surface }]} />
                 </View>
                 <View style={styles.memberIdentity}>
@@ -633,14 +633,19 @@ function TeamCommandCenter({ data, colors, isDark }: { data: DashboardResponse |
               </View>
 
               <View style={styles.memberMetrics}>
-                <Text style={[styles.memberMetric, { color: colors.textSecondary }]}><Text style={[styles.memberMetricStrong, { color: colors.text }]}>{formatNumber(row.replied)}</Text> replied</Text>
-                <Text style={[styles.memberMetricDot, { color: colors.textMuted }]}>·</Text>
-                <Text style={[styles.memberMetric, { color: colors.textSecondary }]}><Text style={[styles.memberMetricBlue, { color: colors.primary }]}>{formatNumber(row.open)}</Text> open</Text>
-                <Text style={[styles.memberMetricDot, { color: colors.textMuted }]}>·</Text>
-                <Text style={[styles.memberMetric, { color: colors.textSecondary }]}><Text style={[styles.memberMetricStrong, { color: colors.text }]}>{formatNumber(row.assigned)}</Text> assigned</Text>
+                {[
+                  { label: 'Replied', value: row.replied, color: colors.text },
+                  { label: 'Open', value: row.open, color: colors.primary },
+                  { label: 'Assigned', value: row.assigned, color: colors.text },
+                ].map((metric) => (
+                  <View key={metric.label} style={[styles.memberMetricTile, { backgroundColor: colors.surface }]}>
+                    <Text style={[styles.memberMetricValue, { color: metric.color }]}>{formatNumber(metric.value)}</Text>
+                    <Text style={[styles.memberMetricLabel, { color: colors.textMuted }]}>{metric.label}</Text>
+                  </View>
+                ))}
               </View>
 
-              <View style={styles.memberBottom}>
+              <View style={[styles.memberBottom, { borderTopColor: colors.separator }]}>
                 <View style={styles.memberProgressWrap}>
                   <View style={[styles.memberProgressTrack, { backgroundColor: colors.cardBorder }]}>
                     <View style={[styles.memberProgressFill, { width: `${Math.min(Math.max(row.progress, 0), 100)}%`, backgroundColor: row.status === 'online' ? '#10b981' : colors.textMuted }]} />
@@ -1346,16 +1351,21 @@ const styles = StyleSheet.create({
   statusCountTextActive: { color: '#fff' },
   statusActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
 
-  memberList: { gap: 10 },
+  memberList: { gap: 12 },
   memberCard: {
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    padding: 12,
+    padding: 14,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.035,
+    shadowRadius: 8,
+    elevation: 1,
   },
   memberOffline: { opacity: 0.72 },
-  memberTop: { alignItems: 'center', flexDirection: 'row', gap: 10 },
+  memberTop: { alignItems: 'center', flexDirection: 'row', gap: 11 },
   memberAvatarWrap: { position: 'relative' },
-  memberAvatar: { alignItems: 'center', borderRadius: 20, height: 40, justifyContent: 'center', width: 40 },
+  memberAvatar: { alignItems: 'center', borderRadius: 23, height: 46, justifyContent: 'center', width: 46 },
   memberInitials: { fontSize: 13, fontWeight: '700' },
   presenceDot: { borderRadius: 6, borderWidth: 2, bottom: -1, height: 12, position: 'absolute', right: -1, width: 12 },
   memberIdentity: { flex: 1, minWidth: 0 },
@@ -1363,12 +1373,11 @@ const styles = StyleSheet.create({
   memberActivity: { fontSize: 12, marginTop: 2 },
   presenceBadge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 },
   presenceBadgeText: { fontSize: 11, fontWeight: '700' },
-  memberMetrics: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 10 },
-  memberMetric: { fontSize: 12 },
-  memberMetricDot: { fontSize: 12 },
-  memberMetricStrong: { fontWeight: '700' },
-  memberMetricBlue: { fontWeight: '700' },
-  memberBottom: { alignItems: 'center', flexDirection: 'row', gap: 10, marginTop: 10 },
+  memberMetrics: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  memberMetricTile: { alignItems: 'center', borderRadius: 12, flex: 1, minWidth: 0, paddingHorizontal: 5, paddingVertical: 8 },
+  memberMetricValue: { fontSize: 15, fontWeight: '800' },
+  memberMetricLabel: { fontSize: 10, fontWeight: '600', marginTop: 2 },
+  memberBottom: { alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 10, marginTop: 12, paddingTop: 10 },
   memberProgressWrap: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 8, minWidth: 0 },
   memberProgressTrack: { borderRadius: 999, flex: 1, height: 5, overflow: 'hidden' },
   memberProgressFill: { borderRadius: 999, height: '100%' },
