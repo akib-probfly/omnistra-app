@@ -210,7 +210,7 @@ function NotificationRow({
   );
 }
 
-export function NotificationBell({ onOpen }: { onOpen: () => void }) {
+export function NotificationBell({ onOpen, tone = 'default' }: { onOpen: () => void; tone?: 'default' | 'hero' }) {
   const { colors } = useTheme();
   // Keep the list query mounted so realtime cache patches + invalidations stay active.
   useQuery({
@@ -251,8 +251,16 @@ export function NotificationBell({ onOpen }: { onOpen: () => void }) {
   }, [unreadCount, blink]);
 
   return (
-    <Pressable style={[styles.bellButton, { borderColor: colors.cardBorder }]} onPress={onOpen} hitSlop={8}>
-      <Bell color={colors.textMuted} size={18} />
+    <Pressable
+      style={[
+        styles.bellButton,
+        { borderColor: colors.cardBorder },
+        tone === 'hero' && { backgroundColor: colors.surface, borderColor: colors.surface, elevation: 2 },
+      ]}
+      onPress={onOpen}
+      hitSlop={8}
+    >
+      <Bell color={tone === 'hero' ? colors.primary : colors.textMuted} size={18} />
       {unreadCount > 0 ? (
         <Animated.View style={[styles.bellBadge, { borderColor: colors.surface, opacity: blink }]}>
           <Text style={styles.bellBadgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>

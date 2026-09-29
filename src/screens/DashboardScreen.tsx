@@ -21,8 +21,10 @@ import { fetchDashboard, type DashboardChannelHealthItem, type DashboardResponse
 import { channelBrandColor, ChannelLogo } from '../components/ChannelLogo';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 import { DashboardSkeleton } from '../components/Skeleton';
+import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { useWorkspaceAccess } from '../lib/workspace-access';
 import { isBillingLocked, pollingWhileUnlocked } from '../lib/billing-lock';
+import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import type { ThemeColors } from '../theme/colors';
 import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
@@ -761,6 +763,7 @@ function MetricCarousel({
 
 export function DashboardScreen() {
   const { colors, isDark } = useTheme();
+  const { session } = useAuth();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const isFocused = useIsFocused();
@@ -842,26 +845,44 @@ export function DashboardScreen() {
 
   const applySearch = () => setSearch(searchInput.trim());
   const glanceWidth = Math.max(windowWidth - 32, 280);
+  const introGradient: [string, string, string] = isDark
+    ? [mixHex(colors.primary, colors.background, 0.76), mixHex(colors.primary, colors.background, 0.86), colors.background]
+    : [mixHex(colors.primary, '#ffffff', 0.9), mixHex(colors.primary, '#ffffff', 0.84), mixHex(colors.primary, '#ffffff', 0.78)];
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={[styles.topbar, { paddingTop: insets.top + 8, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
-        <View style={styles.topbarCopy}>
-          <Text style={[styles.topTitle, { color: colors.text }]}>Dashboard</Text>
-          <Text style={[styles.topDate, { color: colors.textSecondary }]} numberOfLines={1}>{rangeLabel}</Text>
-        </View>
-        <NotificationBell onOpen={() => setNotificationsOpen(true)} />
-      </View>
-
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={pullRefreshing} onRefresh={onPullRefresh} tintColor={colors.primary} />}
       >
-        <View style={[styles.controlsCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-          <View style={[styles.search, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
-            <Search color={colors.textMuted} size={18} />
+        <LinearGradient
+          colors={introGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.dashboardIntro, { paddingTop: insets.top + 12 }]}
+        >
+          <View pointerEvents="none" style={styles.introPatternLarge} />
+          <View pointerEvents="none" style={styles.introPatternSmall} />
+          <View style={styles.dashboardHeaderIdentity}>
+            <View style={styles.greetingCopy}>
+              <Text style={[styles.greeting, { color: colors.textSecondary }]}>Hello,</Text>
+              <Text style={[styles.greetingName, { color: colors.text }]} numberOfLines={1}>{session?.user.name?.trim() || 'Welcome back'}!</Text>
+            </View>
+            <View style={styles.headerActions}>
+              <NotificationBell tone="hero" onOpen={() => setNotificationsOpen(true)} />
+              <View style={[styles.headerAvatar, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+                <ColorfulAvatar name={session?.user.name ?? session?.user.email ?? 'You'} size={40} url={session?.user.avatarUrl ?? null} />
+              </View>
+            </View>
+          </View>
+          <Text style={[styles.heroDate, { color: colors.textMuted }]} numberOfLines={1}>{rangeLabel}</Text>
+          <View style={[styles.headerSearch, {
+            backgroundColor: isDark ? colors.surface : 'rgba(255,255,255,0.78)',
+            borderColor: isDark ? colors.cardBorder : 'rgba(255,255,255,0.9)',
+          }]}>
+            <Search color={colors.textMuted} size={17} />
             <TextInput
               value={searchInput}
               onChangeText={setSearchInput}
@@ -877,8 +898,14 @@ export function DashboardScreen() {
               </Pressable>
             ) : null}
           </View>
-          <RangeSegment value={preset} onChange={setPreset} colors={colors} />
-        </View>
+          <View style={styles.periodRow}>
+            <View style={styles.periodCopy}>
+              <Text style={[styles.periodTitle, { color: colors.text }]}>Period</Text>
+              <Text style={[styles.periodSubtitle, { color: colors.textMuted }]}>Choose a range</Text>
+            </View>
+            <RangeSegment value={preset} onChange={setPreset} colors={colors} />
+          </View>
+        </LinearGradient>
 
         {dashboard.isLoading && !dashboard.data ? (
           <DashboardSkeleton />
@@ -946,31 +973,57 @@ export function DashboardScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  content: { paddingTop: spacing.md },
-  topbar: {
+  content: { paddingBottom: spacing.xl },
+  dashboardIntro: {
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    gap: spacing.md,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    overflow: 'hidden',
+  },
+  introPatternLarge: {
+    borderColor: 'rgba(255,255,255,0.48)',
+    borderRadius: 140,
+    borderWidth: 1,
+    height: 280,
+    position: 'absolute',
+    right: -74,
+    top: -112,
+    width: 280,
+  },
+  introPatternSmall: {
+    borderColor: 'rgba(255,255,255,0.38)',
+    borderRadius: 90,
+    borderWidth: 1,
+    height: 180,
+    position: 'absolute',
+    right: -25,
+    top: -62,
+    width: 180,
+  },
+  dashboardHeaderIdentity: {
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingBottom: spacing.md,
-    paddingHorizontal: spacing.lg,
   },
-  topbarCopy: { flex: 1, minWidth: 0, paddingRight: spacing.md },
-  topTitle: { fontSize: fontSize.title, fontWeight: fontWeight.extrabold, letterSpacing: -0.3 },
-  topDate: { fontSize: fontSize.caption, marginTop: 2 },
-
-  controlsCard: {
-    borderRadius: radius.xxl,
-    borderWidth: 1,
-    gap: spacing.md,
-    marginHorizontal: spacing.lg,
-    padding: spacing.md + 2,
-  },
-  search: {
+  greetingCopy: { flex: 1, minWidth: 0, paddingRight: spacing.md },
+  greeting: { fontSize: fontSize.body, fontWeight: fontWeight.medium },
+  greetingName: { fontSize: 22, fontWeight: fontWeight.extrabold, letterSpacing: -0.4, marginTop: 1 },
+  heroDate: { fontSize: 11, marginTop: -spacing.sm },
+  headerActions: { alignItems: 'center', flexDirection: 'row', gap: 10 },
+  headerAvatar: { borderRadius: 24, borderWidth: 1, padding: 2 },
+  periodRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  periodCopy: { minWidth: 78 },
+  periodTitle: { fontSize: fontSize.caption, fontWeight: fontWeight.bold },
+  periodSubtitle: { fontSize: 10, marginTop: 2 },
+  headerSearch: {
     alignItems: 'center',
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     borderWidth: 1,
     flexDirection: 'row',
+    height: 44,
     paddingHorizontal: spacing.md,
   },
   searchInput: {
@@ -985,15 +1038,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   rangeChipRow: {
+    flex: 1,
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: 4,
   },
   rangeChip: {
     alignItems: 'center',
-    borderRadius: radius.pill,
+    borderRadius: radius.md,
     flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 3,
+    paddingHorizontal: 5,
+    paddingVertical: spacing.sm + 2,
   },
   rangeChipText: {
     fontSize: fontSize.caption,
