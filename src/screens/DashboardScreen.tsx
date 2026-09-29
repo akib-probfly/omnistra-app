@@ -11,7 +11,7 @@ import {
   Users,
   Wifi,
 } from 'lucide-react-native';
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, PanResponder, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
@@ -309,14 +309,16 @@ function HScroll({ children }: { children: ReactNode }) {
 
 function MetricStack({ children, itemCount }: { children: ReactNode[]; itemCount: number }) {
   const { width: screenWidth } = useWindowDimensions();
+  const { colors } = useTheme();
   const [activeIndex, setActiveIndex] = useState(0);
   const dragX = useRef(new Animated.Value(0)).current;
+  const depthValues = useRef(new Map<number, Animated.Value>());
   const safeActiveIndex = activeIndex % Math.max(itemCount, 1);
   const advance = useCallback((direction: -1 | 1) => {
     setActiveIndex((current) => ((current % itemCount) + direction + itemCount) % itemCount);
   }, [itemCount]);
   const panResponder = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.2,
+    onMoveShouldSetPanResponder: (_event, gesture) => itemCount > 1 && Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.2,
     onPanResponderMove: (_event, gesture) => dragX.setValue(gesture.dx),
     onPanResponderRelease: (_event, gesture) => {
       const direction: -1 | 1 = gesture.dx < 0 ? 1 : -1;
@@ -327,41 +329,58 @@ function MetricStack({ children, itemCount }: { children: ReactNode[]; itemCount
           useNativeDriver: true,
         }).start(({ finished }) => {
           if (!finished) return;
-          dragX.setValue(0);
           advance(direction);
+          dragX.setValue(0);
         });
       } else {
         Animated.spring(dragX, { toValue: 0, useNativeDriver: true, speed: 18, bounciness: 7 }).start();
       }
     },
     onPanResponderTerminate: () => Animated.spring(dragX, { toValue: 0, useNativeDriver: true }).start(),
-  }), [advance, dragX, screenWidth]);
+  }), [advance, dragX, itemCount, screenWidth]);
 
-  const reveal = dragX.interpolate({ inputRange: [-120, 0, 120], outputRange: [1, 0, 1], extrapolate: 'clamp' });
+  useEffect(() => {
+    for (let depth = 0; depth < Math.min(itemCount, 3); depth += 1) {
+      const index = (safeActiveIndex + depth) % itemCount;
+      const value = depthValues.current.get(index);
+      if (value) {
+        Animated.spring(value, { toValue: depth, useNativeDriver: true, speed: 18, bounciness: 3 }).start();
+      }
+    }
+  }, [itemCount, safeActiveIndex]);
 
   const visibleCards = Array.from({ length: Math.min(itemCount, 3) }, (_, depth) => {
     const index = (safeActiveIndex + depth) % itemCount;
-    return { child: children[index], depth, index };
+    let depthValue = depthValues.current.get(index);
+    if (!depthValue) {
+      depthValue = new Animated.Value(depth);
+      depthValues.current.set(index, depthValue);
+    }
+    return { child: children[index], depth, depthValue, index };
   }).reverse();
 
   return (
     <View style={styles.metricDeck} {...panResponder.panHandlers}>
-      {visibleCards.map(({ child, depth, index }) => {
+      {itemCount === 1 ? (
+        <>
+          <View pointerEvents="none" style={[styles.metricDeckSingleBack, styles.metricDeckSingleBackFar, { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder }]} />
+          <View pointerEvents="none" style={[styles.metricDeckSingleBack, styles.metricDeckSingleBackNear, { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder }]} />
+        </>
+      ) : null}
+      {visibleCards.map(({ child, depth, depthValue, index }) => {
         const isFront = depth === 0;
-        const cardMotionStyle = isFront ? {
+        const cardMotionStyle = {
           transform: [
-            { translateX: dragX },
-            { rotate: dragX.interpolate({ inputRange: [-180, 0, 180], outputRange: ['-2deg', '0deg', '2deg'], extrapolate: 'clamp' }) },
-          ],
-        } : {
-          transform: [
-            { translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [depth * 9, Math.max(0, depth - 1) * 9] }) },
-            { scale: reveal.interpolate({ inputRange: [0, 1], outputRange: [1 - depth * 0.045, 1 - Math.max(0, depth - 1) * 0.045] }) },
+            { translateX: isFront ? dragX : 0 },
+            { translateY: depthValue.interpolate({ inputRange: [0, 1, 2], outputRange: [0, 9, 18] }) },
+            { scale: depthValue.interpolate({ inputRange: [0, 1, 2], outputRange: [1, 0.955, 0.91] }) },
+            { rotate: isFront ? dragX.interpolate({ inputRange: [-180, 0, 180], outputRange: ['-2deg', '0deg', '2deg'], extrapolate: 'clamp' }) : '0deg' },
           ],
         };
         return (
           <Animated.View
-            key={`${index}-${depth}`}
+            // Keep the card instance stable as it moves from the stack to front.
+            key={index}
             pointerEvents={isFront ? 'auto' : 'none'}
             style={[
               styles.metricDeckCard,
@@ -1103,6 +1122,22 @@ const styles = StyleSheet.create({
     left: 0,
     position: 'absolute',
     right: 0,
+  },
+  metricDeckSingleBack: {
+    borderRadius: 22,
+    borderWidth: 1,
+    height: 168,
+    left: 8,
+    position: 'absolute',
+    right: 8,
+  },
+  metricDeckSingleBackNear: {
+    top: 9,
+    zIndex: 2,
+  },
+  metricDeckSingleBackFar: {
+    top: 18,
+    zIndex: 1,
   },
   metricDeckFooter: {
     alignItems: 'center',
