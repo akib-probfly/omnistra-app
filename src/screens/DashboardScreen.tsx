@@ -293,20 +293,6 @@ function CarouselSection({
   );
 }
 
-function HScroll({ children }: { children: ReactNode }) {
-  return (
-    <ScrollView
-      horizontal
-      nestedScrollEnabled
-      showsHorizontalScrollIndicator={false}
-      decelerationRate="normal"
-      contentContainerStyle={styles.carouselContent}
-    >
-      {children}
-    </ScrollView>
-  );
-}
-
 function MetricStack({ children, itemCount }: { children: ReactNode[]; itemCount: number }) {
   const { width: screenWidth } = useWindowDimensions();
   const { colors } = useTheme();
@@ -514,7 +500,7 @@ function ChannelMix({ mix, colors }: { mix: DashboardResponse['channelMix']; col
 
 function TeamCommandCenter({ data, colors, isDark }: { data: DashboardResponse | undefined; colors: ThemeColors; isDark: boolean }) {
   const { width: windowWidth } = useWindowDimensions();
-  const statWidth = Math.min(220, Math.max(188, windowWidth * 0.55));
+  const statWidth = Math.max(windowWidth - 32, 280);
   const [filter, setFilter] = useState<PresenceFilter>('all');
   const team = data?.teamCommandCenter;
   const enriched = useMemo(() => {
@@ -591,7 +577,7 @@ function TeamCommandCenter({ data, colors, isDark }: { data: DashboardResponse |
           })}
         </View>
 
-        <HScroll>
+        <MetricStack itemCount={teamStats.length}>
           {teamStats.map((stat) => {
             const Icon = stat.Icon;
             return (
@@ -607,7 +593,7 @@ function TeamCommandCenter({ data, colors, isDark }: { data: DashboardResponse |
               />
             );
           })}
-        </HScroll>
+        </MetricStack>
       </CarouselSection>
 
       <Section title="Your agents" subtitle={filter === 'all' ? 'Sorted by assigned load' : `${filter} agents`} colors={colors}>
@@ -1112,11 +1098,6 @@ const styles = StyleSheet.create({
   carouselSubtitle: {
     fontSize: 13,
     marginTop: 3,
-  },
-  carouselContent: {
-    gap: 14,
-    paddingHorizontal: 16,
-    paddingRight: 32,
   },
   metricDeck: {
     height: 220,
