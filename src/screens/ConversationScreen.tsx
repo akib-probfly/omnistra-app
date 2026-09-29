@@ -33,7 +33,7 @@ import { VideoPlayerModal } from '../components/VideoPlayer';
 import { MessageBubble } from '../components/MessageBubble';
 import { AssignmentHistoryItem } from '../components/AssignmentHistoryItem';
 import { ReactionPicker } from '../components/ReactionPicker';
-import { fetchConversationAssignmentEvents, fetchConversationCallSessions, fetchMessagesPage, markConversationRead, markConversationUnread, sendReaction, sendTemplateMessage, updateConversationAssignment, updateConversationStar, updateConversationStatus, type AssigneeFilterOption, type ConversationCallSession } from '../api/inbox';
+import { fetchConversationAssignmentEvents, fetchConversationCallSessions, fetchConversationMessages, fetchMessagesPage, markConversationRead, markConversationUnread, sendReaction, sendTemplateMessage, updateConversationAssignment, updateConversationStar, updateConversationStatus, type AssigneeFilterOption, type ConversationCallSession } from '../api/inbox';
 import { fetchConversationAttachments } from '../api/conversationDetails';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { InboxStackParamList } from '../navigation/InboxStack';
@@ -216,7 +216,7 @@ export function ConversationScreen() {
     queryFn: async () => {
       // The messages endpoint includes each message's attachments. Avoid the broad
       // conversation attachment request here; it was duplicating every page load.
-      const page = await apiFetch<{ items: Message[]; pageInfo?: { nextCursor?: string | null; hasMore?: boolean }; conversation?: any }>(`/conversations/${route.params.conversationId}/messages?limit=50`);
+      const page = await fetchConversationMessages<Message>(route.params.conversationId);
       const items: Message[] = page.items.map((message) => {
         const messageAttachments = message.attachments ?? [];
         const mediaOnly = messageAttachments.length > 0 && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(message.type);
@@ -249,15 +249,15 @@ export function ConversationScreen() {
 
       updateAwaitingDelivery(items);
 
-      return { items, nextCursor: page.pageInfo?.nextCursor ?? null, hasMore: page.pageInfo?.hasMore ?? false, conversation: page.conversation ?? null };
+      return { items, nextCursor: page.nextCursor, hasMore: page.hasMore, conversation: page.conversation };
     },
     enabled: isFocused,
     staleTime: 60_000,
     gcTime: 10 * 60_000,
-    // The inbox preview can be updated independently by realtime events. Always
-    // refresh the first message page when opening the thread so it cannot render
-    // an older cached page than the sidebar.
-    refetchOnMount: 'always',
+    // Render cached messages immediately when returning to a thread. Realtime
+    // events and the safety poll keep the active conversation current, while
+    // stale cached data refreshes in the background.
+    refetchOnMount: true,
     refetchOnReconnect: false,
     // Realtime updates the open thread; keep a slow poll as a safety net for zombie sockets.
     // Briefly poll faster after send for delivery receipts.

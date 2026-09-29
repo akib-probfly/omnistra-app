@@ -99,6 +99,25 @@ export type ConversationListItem = {
 
 export type ConversationsListResponse = { items: ConversationListItem[]; pageInfo?: { nextCursor?: string | null; hasMore?: boolean } };
 
+export type ConversationMessagesResponse<TMessage = Record<string, any>> = {
+  items: TMessage[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  conversation: any;
+};
+
+export async function fetchConversationMessages<TMessage = Record<string, any>>(conversationId: string): Promise<ConversationMessagesResponse<TMessage>> {
+  const page = await apiFetch<{ items: TMessage[]; pageInfo?: { nextCursor?: string | null; hasMore?: boolean }; conversation?: any }>(
+    `/conversations/${conversationId}/messages?limit=50`,
+  );
+  return {
+    items: page.items,
+    nextCursor: page.pageInfo?.nextCursor ?? null,
+    hasMore: page.pageInfo?.hasMore ?? false,
+    conversation: page.conversation ?? null,
+  };
+}
+
 export type ConversationsFilters = {
   workspaceId?: string;
   status?: 'OPEN' | 'ASSIGNED' | 'CLOSED';

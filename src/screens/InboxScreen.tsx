@@ -13,7 +13,7 @@ import { DateRangeFilter } from '../components/DateRangeFilter';
 import { InboxCallsPane } from '../components/InboxCallsPane';
 import { ListSkeleton, PanelSkeleton } from '../components/Skeleton';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { fetchConversations, fetchConversationCount, fetchConversationUnreadCount, fetchAssigneeOptions, type ConversationCallSession, type ConversationListItem } from '../api/inbox';
+import { fetchConversations, fetchConversationCount, fetchConversationMessages, fetchConversationUnreadCount, fetchAssigneeOptions, type ConversationCallSession, type ConversationListItem } from '../api/inbox';
 import { fetchWorkspaceTags } from '../api/conversationDetails';
 import { countryDialCodeQueryKey, fetchCountryDialCodes } from '../api/countryDialCodes';
 import { apiFetch } from '../api/client';
@@ -330,8 +330,10 @@ export function InboxScreen() {
 
   const keyExtractor = useCallback((item: ConversationListItem) => item.id, []);
   const renderConversationRow = useCallback(
-    ({ item }: { item: ConversationListItem }) => <ConversationRow conversation={item} navigation={navigation} />,
-    [navigation],
+    ({ item }: { item: ConversationListItem }) => (
+      <ConversationRow conversation={item} navigation={navigation} queryClient={queryClient} />
+    ),
+    [navigation, queryClient],
   );
 
   useEffect(() => () => {
@@ -886,7 +888,7 @@ function ConversationPreviewContent({
   return <Text style={[styles.preview, { color: colors.textSecondary }]} numberOfLines={1}>{preview}</Text>;
 }
 
-const ConversationRow = memo(function ConversationRow({ conversation, navigation }: { conversation: ConversationListItem; navigation: any }) {
+const ConversationRow = memo(function ConversationRow({ conversation, navigation, queryClient }: { conversation: ConversationListItem; navigation: any; queryClient: ReturnType<typeof useQueryClient> }) {
   const { colors } = useTheme();
   const presentation = getConversationLastInteractionPresentation(conversation);
   const direction = presentation?.direction ?? null;
@@ -897,6 +899,20 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
   const windowExpired = isConversationCustomerWindowExpired(conversation);
   const isBlocked = Boolean(conversation.blockedAt ?? conversation.contact.blockedAt);
   const onPress = useCallback(() => {
+    // Start loading the thread before the transition finishes so its first
+    // render can use the warm React Query cache instead of waiting on the API.
+    void queryClient.fetchQuery({
+      queryKey: ['messages', conversation.id],
+      queryFn: () => fetchConversationMessages(conversation.id).then((page) => ({
+        ...page,
+        items: page.items.map((message) => {
+          const attachments = message.attachments ?? [];
+          const mediaOnly = attachments.length > 0 && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(message.type);
+          return { ...message, text: mediaOnly ? null : message.text, attachments };
+        }),
+      })),
+      staleTime: 60_000,
+    });
     navigation.navigate('Conversation', {
       conversationId: conversation.id,
       contactName: conversation.contact.displayName ?? 'Unknown contact',
@@ -904,7 +920,7 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
       channelId: conversation.channel?.channelId,
       channelType: conversation.channel?.channelType,
     });
-  }, [navigation, conversation]);
+  }, [navigation, conversation, queryClient]);
   return (
     <Pressable onPress={onPress} style={[styles.rowPressable, { backgroundColor: colors.surface }]}>
       <View style={[styles.row, { backgroundColor: colors.surface, borderBottomColor: colors.separator }]}>
