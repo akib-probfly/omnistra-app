@@ -871,7 +871,7 @@ export function DashboardScreen() {
               <Text style={[styles.greetingName, { color: colors.text }]} numberOfLines={1}>{session?.user.name?.trim() || 'Welcome back'}!</Text>
             </View>
             <View style={styles.headerActions}>
-              <NotificationBell tone="hero" onOpen={() => setNotificationsOpen(true)} />
+              <NotificationBell onOpen={() => setNotificationsOpen(true)} />
               <View style={[styles.headerAvatar, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
                 <ColorfulAvatar name={session?.user.name ?? session?.user.email ?? 'You'} size={40} url={session?.user.avatarUrl ?? null} />
               </View>
