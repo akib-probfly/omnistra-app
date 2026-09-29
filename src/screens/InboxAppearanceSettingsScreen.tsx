@@ -1,16 +1,16 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowLeft, Check, Palette } from 'lucide-react-native';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Check, Palette } from 'lucide-react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/ThemeContext';
 import { AppToggle } from '../components/AppToggle';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { useInboxAppearance } from '../hooks/useInboxAppearance';
 import { INBOX_PATTERNS, type InboxPatternId } from '../lib/inbox-patterns';
+import { AppCard, AppText, ScreenHeader } from '../ui';
+import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 
 export function InboxAppearanceSettingsScreen() {
-  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { colors } = useTheme();
   const {
@@ -24,21 +24,17 @@ export function InboxAppearanceSettingsScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 10, backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={8} style={styles.backButton}>
-          <ArrowLeft color={colors.text} size={22} />
-        </Pressable>
-        <View style={styles.headerCopy}>
-          <Text style={[styles.headerTitle, { color: colors.text }]}>Inbox Appearance</Text>
-          <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Choose a background pattern for the inbox thread.</Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Inbox Appearance"
+        subtitle="Choose a background pattern for the inbox thread."
+        onBack={() => navigation.goBack()}
+      />
 
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Pattern</Text>
+        <AppText variant="tiny" tone="secondary" style={styles.sectionLabel}>Pattern</AppText>
         <View style={styles.patternGrid}>
           {INBOX_PATTERNS.map((item) => {
             const selected = item.id === pattern;
@@ -48,7 +44,7 @@ export function InboxAppearanceSettingsScreen() {
                 style={styles.patternItem}
                 onPress={() => setPattern(item.id as InboxPatternId)}
               >
-                <View style={[styles.patternPreview, { borderColor: colors.cardBorder }, selected && styles.patternPreviewSelected]}>
+                <View style={[styles.patternPreview, { borderColor: colors.cardBorder }, selected && { borderColor: colors.primary, borderWidth: 2 }]}>
                   {item.thumbSource ? (
                     <Image source={item.thumbSource} style={styles.patternImage} resizeMode="cover" />
                   ) : (
@@ -60,38 +56,37 @@ export function InboxAppearanceSettingsScreen() {
                     />
                   )}
                   {selected ? (
-                    <View style={styles.checkBadge}>
-                      <Check color="#fff" size={14} strokeWidth={3} />
+                    <View style={[styles.checkBadge, { backgroundColor: colors.primary }]}>
+                      <Check color={colors.primaryText} size={14} strokeWidth={3} />
                     </View>
                   ) : null}
                 </View>
-                <Text style={[styles.patternLabel, { color: colors.textSecondary }, selected && styles.patternLabelSelected]}>
-                  {item.label}
-                </Text>
+                <AppText variant="caption" tone={selected ? 'primary' : 'secondary'} style={styles.patternLabel}>{item.label}</AppText>
               </Pressable>
             );
           })}
         </View>
 
         <Pressable
-          style={[styles.checkboxCard, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}
           onPress={() => setChannelSpecific(!channelSpecific)}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: channelSpecific }}
         >
-          <View style={[styles.checkbox, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, channelSpecific && styles.checkboxOn]}>
-            {channelSpecific ? <Check color="#fff" size={14} strokeWidth={3} /> : null}
-          </View>
-          <View style={styles.checkboxCopy}>
-            <Text style={[styles.checkboxTitle, { color: colors.text }]}>Channel specific background</Text>
-            <Text style={[styles.checkboxBody, { color: colors.textSecondary }]}>
-              By selecting this checkbox, channel specific backgrounds will override the selected pattern.
-            </Text>
-          </View>
+          <AppCard padding="md" style={styles.checkboxCard}>
+            <View style={[styles.checkbox, { borderColor: colors.cardBorder }, channelSpecific && { backgroundColor: colors.primary, borderColor: colors.primary }]}>
+              {channelSpecific ? <Check color={colors.primaryText} size={14} strokeWidth={3} /> : null}
+            </View>
+            <View style={styles.checkboxCopy}>
+              <AppText variant="bodyStrong">Channel specific background</AppText>
+              <AppText variant="caption" tone="secondary" style={styles.checkboxBody}>
+                By selecting this checkbox, channel specific backgrounds will override the selected pattern.
+              </AppText>
+            </View>
+          </AppCard>
         </Pressable>
 
-        <Text style={[styles.sectionLabel, styles.sectionSpacer, { color: colors.textSecondary }]}>User Avatars</Text>
-        <View style={[styles.avatarCard, { backgroundColor: colors.background, borderColor: colors.cardBorder }]}>
+        <AppText variant="tiny" tone="secondary" style={[styles.sectionLabel, styles.sectionSpacer]}>User Avatars</AppText>
+        <AppCard padding="md" style={styles.avatarCard}>
           <View style={styles.avatarStack}>
             <ColorfulAvatar name="Maria A" size={40} />
             <View style={styles.avatarOverlap}>
@@ -104,18 +99,18 @@ export function InboxAppearanceSettingsScreen() {
           <View style={styles.avatarCopy}>
             <View style={styles.avatarTitleRow}>
               <Palette color={colors.primary} size={16} />
-              <Text style={[styles.avatarTitle, { color: colors.text }]}>Colorful avatars</Text>
+              <AppText variant="caption" style={styles.avatarTitle}>Colorful avatars</AppText>
             </View>
-            <Text style={[styles.avatarBody, { color: colors.textSecondary }]}>
+            <AppText variant="small" tone="secondary" style={styles.avatarBody}>
               Replace plain initials with vibrant generated avatars in the inbox, conversation list and call log.
-            </Text>
+            </AppText>
           </View>
           <AppToggle
             value={colorfulAvatars}
             onValueChange={setColorfulAvatars}
             accessibilityLabel="Colorful avatars"
           />
-        </View>
+        </AppCard>
       </ScrollView>
     </View>
   );
@@ -123,48 +118,25 @@ export function InboxAppearanceSettingsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  header: {
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    flexDirection: 'row',
-    gap: 10,
-    paddingBottom: 12,
-    paddingHorizontal: 14,
-  },
-  backButton: {
-    alignItems: 'center',
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
-  },
-  headerCopy: { flex: 1, minWidth: 0 },
-  headerTitle: { fontSize: 20, fontWeight: '800' },
-  headerSubtitle: { fontSize: 13, marginTop: 2 },
-  content: { paddingHorizontal: 16, paddingTop: 18 },
+  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xxl },
   sectionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
     letterSpacing: 0.4,
-    marginBottom: 12,
+    marginBottom: spacing.md,
     textTransform: 'uppercase',
   },
-  sectionSpacer: { marginTop: 28 },
+  sectionSpacer: { marginTop: spacing.xxxl - spacing.xs },
   patternGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: spacing.md,
     justifyContent: 'space-between',
   },
   patternItem: { width: '48%' },
   patternPreview: {
-    borderRadius: 16,
+    borderRadius: radius.xl,
     borderWidth: 1,
     height: 96,
     overflow: 'hidden',
-  },
-  patternPreviewSelected: {
-    borderColor: '#2B6BFF',
-    borderWidth: 2,
   },
   patternImage: {
     height: '100%',
@@ -172,8 +144,8 @@ const styles = StyleSheet.create({
   },
   checkBadge: {
     alignItems: 'center',
-    backgroundColor: '#2B6BFF',
-    borderRadius: 12,
+    backgroundColor: '#2563eb',
+    borderRadius: radius.md,
     height: 24,
     justifyContent: 'center',
     position: 'absolute',
@@ -182,49 +154,35 @@ const styles = StyleSheet.create({
     width: 24,
   },
   patternLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 8,
+    marginTop: spacing.sm,
     textAlign: 'center',
   },
-  patternLabelSelected: { color: '#2B6BFF' },
   checkboxCard: {
     alignItems: 'flex-start',
-    borderRadius: 16,
-    borderWidth: 1,
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 18,
-    padding: 14,
+    gap: spacing.md,
+    marginTop: spacing.lg,
   },
   checkbox: {
     alignItems: 'center',
-    borderRadius: 999,
+    borderRadius: radius.pill,
     borderWidth: 1,
-    height: 22,
+    height: spacing.xl,
     justifyContent: 'center',
     marginTop: 2,
-    width: 22,
-  },
-  checkboxOn: {
-    backgroundColor: '#2B6BFF',
-    borderColor: '#2B6BFF',
+    width: spacing.xl,
   },
   checkboxCopy: { flex: 1, minWidth: 0 },
-  checkboxTitle: { fontSize: 15, fontWeight: '700' },
-  checkboxBody: { fontSize: 13, lineHeight: 18, marginTop: 4 },
+  checkboxBody: { lineHeight: fontSize.caption + spacing.xs, marginTop: spacing.xs },
   avatarCard: {
     alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
     flexDirection: 'row',
-    gap: 12,
-    padding: 14,
+    gap: spacing.md,
   },
   avatarStack: { alignItems: 'center', flexDirection: 'row' },
   avatarOverlap: { marginLeft: -8 },
   avatarCopy: { flex: 1, minWidth: 0 },
   avatarTitleRow: { alignItems: 'center', flexDirection: 'row', gap: 6 },
-  avatarTitle: { fontSize: 14, fontWeight: '700' },
-  avatarBody: { fontSize: 12, lineHeight: 17, marginTop: 4 },
+  avatarTitle: { fontWeight: fontWeight.bold },
+  avatarBody: { marginTop: spacing.xs, lineHeight: fontSize.small + spacing.xs },
 });
