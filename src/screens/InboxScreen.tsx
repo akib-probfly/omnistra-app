@@ -34,6 +34,7 @@ import { pollingWhileUnlocked } from '../lib/billing-lock';
 import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { useTheme } from '../theme/ThemeContext';
 import { AppBadge } from '../ui';
+import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 
 type SidebarTab = 'chats' | 'calls';
 type Tab = 'all' | 'unread' | 'closed';
@@ -348,7 +349,7 @@ export function InboxScreen() {
             <MessageSquareText color={sidebarTab === 'chats' ? colors.primary : colors.textMuted} size={15} />
             <Text style={[styles.sidebarTabText, { color: sidebarTab === 'chats' ? colors.primary : colors.textMuted }]}>Chats</Text>
             {chatsUnreadCount > 0 ? (
-              <Text style={[styles.sidebarTabCount, { backgroundColor: colors.primary, color: '#fff' }]}>
+              <Text style={[styles.sidebarTabCount, { backgroundColor: colors.primary, color: colors.primaryText }]}>
                 {chatsUnreadCount > 99 ? '99+' : chatsUnreadCount}
               </Text>
             ) : null}
@@ -581,7 +582,7 @@ export function InboxScreen() {
                             <Text style={[styles.countryOptionDialCode, { color: colors.textMuted }]}>+{country.dialCode}</Text>
                           </View>
                           <View style={[styles.userCheck, { borderColor: active ? colors.primary : colors.cardBorder, backgroundColor: active ? colors.primary : 'transparent' }]}>
-                            {active ? <Check color="#fff" size={14} strokeWidth={3} /> : null}
+                            {active ? <Check color={colors.primaryText} size={14} strokeWidth={3} /> : null}
                           </View>
                         </Pressable>
                       );
@@ -632,7 +633,7 @@ export function InboxScreen() {
                               <Text style={[styles.userEmail, { color: colors.textMuted }]} numberOfLines={1}>{member.email}</Text>
                             </View>
                             <View style={[styles.userCheck, { borderColor: active ? colors.primary : colors.cardBorder, backgroundColor: active ? colors.primary : 'transparent' }]}>
-                              {active ? <Check color="#fff" size={14} strokeWidth={3} /> : null}
+                              {active ? <Check color={colors.primaryText} size={14} strokeWidth={3} /> : null}
                             </View>
                           </Pressable>
                         );
@@ -699,7 +700,7 @@ export function InboxScreen() {
                     accessibilityLabel="Starred only"
                   >
                     <View style={styles.switchRowCopy}>
-                      <Star color="#f59e0b" size={16} fill={starredOnly ? '#f59e0b' : 'none'} />
+                      <Star color={colors.amber} size={16} fill={starredOnly ? colors.amber : 'none'} />
                       <Text style={[styles.switchRowLabel, { color: colors.textSecondary }]}>Starred only</Text>
                     </View>
                     <AppToggle value={starredOnly} tone="amber" />
@@ -734,8 +735,9 @@ export function InboxScreen() {
 }
 
 function WindowPulseDot({ expired }: { expired: boolean }) {
-  const color = expired ? '#ef4444' : '#22c55e';
-  const ringColor = expired ? 'rgba(239,68,68,0.35)' : 'rgba(34,197,94,0.35)';
+  const { colors } = useTheme();
+  const color = expired ? colors.error : colors.success;
+  const ringColor = expired ? colors.dangerBorder : colors.successSoft;
   const pulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -790,7 +792,7 @@ function ConversationTagChips({ tags, maxVisible = 2 }: { tags?: ConversationLis
   return (
     <View style={styles.tagRow}>
       {visible.map((tag) => {
-        const color = tag.color?.trim() || '#64748b';
+        const color = tag.color?.trim() || colors.textSecondary;
         return (
           <View
             key={tag.id}
@@ -811,11 +813,12 @@ function ConversationTagChips({ tags, maxVisible = 2 }: { tags?: ConversationLis
 }
 
 function InteractionDirectionIndicator({ direction }: { direction: 'INBOUND' | 'OUTBOUND' | null }) {
+  const { colors } = useTheme();
   if (!direction) return null;
   const inbound = direction === 'INBOUND';
   return inbound
-    ? <ArrowDownLeft color="#f59e0b" size={14} strokeWidth={3} />
-    : <ArrowUpRight color="#3b82f6" size={14} strokeWidth={3} />;
+    ? <ArrowDownLeft color={colors.amber} size={14} strokeWidth={3} />
+    : <ArrowUpRight color={colors.primary} size={14} strokeWidth={3} />;
 }
 
 function ConversationPreviewContent({
@@ -917,8 +920,8 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
           <View style={styles.nameLine}>
             <Text style={[styles.name, { color: colors.text }, hasUnread && styles.nameUnread]} numberOfLines={1}>{conversation.contact.displayName ?? 'Unknown contact'}</Text>
             {isBlocked ? (
-              <View style={styles.bannedBadge} accessibilityLabel="Banned customer">
-                <Ban color="#e11d48" size={10} />
+              <View style={[styles.bannedBadge, { backgroundColor: colors.dangerSoft, borderColor: colors.dangerBorder }]} accessibilityLabel="Banned customer">
+                <Ban color={colors.error} size={10} />
               </View>
             ) : null}
             {showWindowDot ? <WindowPulseDot expired={windowExpired} /> : null}
@@ -957,37 +960,35 @@ function formatTime(value: string | null) {
 }
 
 const styles = StyleSheet.create({
-  screen: { backgroundColor: '#fff', flex: 1 },
-  list: { paddingBottom: 16 },
+  screen: { flex: 1 },
+  list: { paddingBottom: spacing.lg },
   listFill: { flex: 1, minHeight: 0 },
   header: {
     alignItems: 'flex-end',
-    backgroundColor: '#fff',
-    borderBottomColor: '#e8eef7',
     borderBottomWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingBottom: 0,
-    paddingHorizontal: 14,
+    paddingHorizontal: spacing.md + 2,
   },
-  headerTitleLine: { alignItems: 'center', flexDirection: 'row', gap: 6, paddingBottom: 10 },
-  headerTitle: { color: '#111827', fontSize: 18, fontWeight: '800' },
-  sidebarTabs: { flexDirection: 'row', gap: 14 },
-  sidebarTab: { alignItems: 'center', flexDirection: 'row', gap: 5, paddingBottom: 10, paddingTop: 2, position: 'relative' },
-  sidebarTabText: { color: '#94a3b8', fontSize: 13, fontWeight: '600' },
-  sidebarTabTextActive: { color: '#2563eb' },
-  sidebarTabCount: { backgroundColor: '#f1f5f9', borderRadius: 999, color: '#64748b', fontSize: 10, fontWeight: '700', minWidth: 18, overflow: 'hidden', paddingHorizontal: 5, paddingVertical: 1, textAlign: 'center' },
-  sidebarTabUnderline: { backgroundColor: '#2563eb', borderRadius: 999, bottom: 0, height: 2, left: 0, position: 'absolute', right: 0 },
-  searchRow: { alignItems: 'center', borderBottomColor: '#eef2f7', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 8, paddingBottom: 8, paddingHorizontal: 12, paddingTop: 8 },
-  search: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#e2e8f0', borderRadius: 18, borderWidth: 1, flex: 1, flexDirection: 'row', minWidth: 0, paddingHorizontal: 12 },
-  input: { color: '#17233a', flex: 1, height: 36, marginLeft: 6, paddingVertical: 0 },
-  clearSearch: { color: '#94a3b8', fontSize: 14, padding: 4 },
-  filtersRow: { alignItems: 'center', borderBottomColor: '#e2e8f0', borderBottomWidth: 1, flexDirection: 'row', gap: 8, paddingBottom: 8, paddingHorizontal: 12, paddingTop: 8 },
-  filters: { backgroundColor: '#f1f5f9', borderRadius: 18, flex: 1, flexDirection: 'row', minWidth: 0, padding: 3 },
-  filterPill: { alignItems: 'center', borderRadius: 15, flex: 1, justifyContent: 'center', paddingVertical: 6 },
+  headerTitleLine: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm - 2, paddingBottom: spacing.md - 2 },
+  headerTitle: { fontSize: fontSize.heading, fontWeight: fontWeight.extrabold },
+  sidebarTabs: { flexDirection: 'row', gap: spacing.md },
+  sidebarTab: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, paddingBottom: spacing.md - 2, paddingTop: 2, position: 'relative' },
+  sidebarTabText: { fontSize: fontSize.caption, fontWeight: fontWeight.semibold },
+  sidebarTabTextActive: {},
+  sidebarTabCount: { borderRadius: radius.pill, fontSize: fontSize.tiny, fontWeight: fontWeight.bold, minWidth: 18, overflow: 'hidden', paddingHorizontal: spacing.xs + 1, paddingVertical: 1, textAlign: 'center' },
+  sidebarTabUnderline: { borderRadius: radius.pill, bottom: 0, height: 2, left: 0, position: 'absolute', right: 0 },
+  searchRow: { alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: spacing.sm, paddingBottom: spacing.sm, paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  search: { alignItems: 'center', borderRadius: radius.xl, borderWidth: 1, flex: 1, flexDirection: 'row', minWidth: 0, paddingHorizontal: spacing.md },
+  input: { flex: 1, height: 36, marginLeft: spacing.sm - 2, paddingVertical: 0 },
+  clearSearch: { fontSize: fontSize.body, padding: spacing.xs },
+  filtersRow: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', gap: spacing.sm, paddingBottom: spacing.sm, paddingHorizontal: spacing.md, paddingTop: spacing.sm },
+  filters: { borderRadius: radius.xl, flex: 1, flexDirection: 'row', minWidth: 0, padding: 3 },
+  filterPill: { alignItems: 'center', borderRadius: radius.lg, flex: 1, justifyContent: 'center', paddingVertical: spacing.xs + 2 },
   filterPillActive: { backgroundColor: '#fff', elevation: 1, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 4 },
-  filterText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
-  filterTextActive: { color: '#17233a', fontWeight: '700' },
+  filterText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
+  filterTextActive: { fontWeight: fontWeight.bold },
   closedBanner: { backgroundColor: '#eff6ff', borderColor: '#dbeafe', borderRadius: 10, borderWidth: 1, marginHorizontal: 12, marginTop: 8, paddingHorizontal: 10, paddingVertical: 6 },
   closedBannerTitle: { color: '#0f172a', fontSize: 12, fontWeight: '700' },
   unrepliedToggle: { alignItems: 'center', borderColor: '#e2e8f0', borderRadius: 16, borderWidth: 1, flexDirection: 'row', flexShrink: 0, gap: 6, paddingHorizontal: 8, paddingVertical: 5 },
@@ -1068,9 +1069,9 @@ const styles = StyleSheet.create({
   filterApplyText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   emptyClearButton: { backgroundColor: '#eff6ff', borderRadius: 12, marginTop: 14, paddingHorizontal: 14, paddingVertical: 10 },
   emptyClearButtonText: { color: '#2563eb', fontSize: 13, fontWeight: '700' },
-  rowPressable: { backgroundColor: '#fff' },
-  row: { backgroundColor: '#fff', borderBottomColor: '#eef2f7', borderBottomWidth: 1, flexDirection: 'row', overflow: 'hidden', paddingHorizontal: 12, paddingVertical: 12 },
-  avatar: { alignItems: 'center', backgroundColor: 'transparent', borderRadius: 999, borderWidth: 2, height: 54, justifyContent: 'center', overflow: 'visible', position: 'relative', width: 54 },
+  rowPressable: {},
+  row: { borderBottomWidth: 1, flexDirection: 'row', overflow: 'hidden', paddingHorizontal: spacing.md, paddingVertical: spacing.md },
+  avatar: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 2, height: 54, justifyContent: 'center', overflow: 'visible', position: 'relative', width: 54 },
   avatarImage: { borderRadius: 24, height: 48, width: 48 },
   avatarText: { color: '#111827', fontSize: 18, fontWeight: '700' },
   channelBadgeWrap: { alignItems: 'center', borderColor: '#fff', borderRadius: 10, borderWidth: 2, bottom: -2, height: 20, justifyContent: 'center', overflow: 'hidden', position: 'absolute', right: -2, width: 20 },
