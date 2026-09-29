@@ -11,8 +11,8 @@ import {
   Users,
   Wifi,
 } from 'lucide-react-native';
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Animated, PanResponder, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -302,6 +302,84 @@ function HScroll({ children }: { children: ReactNode }) {
     >
       {children}
     </ScrollView>
+  );
+}
+
+function MetricStack({ children, itemCount }: { children: ReactNode[]; itemCount: number }) {
+  const { width: screenWidth } = useWindowDimensions();
+  const [activeIndex, setActiveIndex] = useState(0);
+  const dragX = useRef(new Animated.Value(0)).current;
+  const safeActiveIndex = activeIndex % Math.max(itemCount, 1);
+  const advance = useCallback((direction: -1 | 1) => {
+    setActiveIndex((current) => ((current % itemCount) + direction + itemCount) % itemCount);
+  }, [itemCount]);
+  const panResponder = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.2,
+    onPanResponderMove: (_event, gesture) => dragX.setValue(gesture.dx),
+    onPanResponderRelease: (_event, gesture) => {
+      const direction: -1 | 1 = gesture.dx < 0 ? 1 : -1;
+      if (Math.abs(gesture.dx) > 88 || Math.abs(gesture.vx) > 0.65) {
+        Animated.timing(dragX, {
+          toValue: direction > 0 ? -screenWidth : screenWidth,
+          duration: 210,
+          useNativeDriver: true,
+        }).start(({ finished }) => {
+          if (!finished) return;
+          dragX.setValue(0);
+          advance(direction);
+        });
+      } else {
+        Animated.spring(dragX, { toValue: 0, useNativeDriver: true, speed: 18, bounciness: 7 }).start();
+      }
+    },
+    onPanResponderTerminate: () => Animated.spring(dragX, { toValue: 0, useNativeDriver: true }).start(),
+  }), [advance, dragX, screenWidth]);
+
+  const reveal = dragX.interpolate({ inputRange: [-120, 0, 120], outputRange: [1, 0, 1], extrapolate: 'clamp' });
+
+  const visibleCards = Array.from({ length: Math.min(itemCount, 3) }, (_, depth) => {
+    const index = (safeActiveIndex + depth) % itemCount;
+    return { child: children[index], depth, index };
+  }).reverse();
+
+  return (
+    <View style={styles.metricDeck} {...panResponder.panHandlers}>
+      {visibleCards.map(({ child, depth, index }) => {
+        const isFront = depth === 0;
+        const cardMotionStyle = isFront ? {
+          transform: [
+            { translateX: dragX },
+            { rotate: dragX.interpolate({ inputRange: [-180, 0, 180], outputRange: ['-2deg', '0deg', '2deg'], extrapolate: 'clamp' }) },
+          ],
+        } : {
+          transform: [
+            { translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [depth * 9, Math.max(0, depth - 1) * 9] }) },
+            { scale: reveal.interpolate({ inputRange: [0, 1], outputRange: [1 - depth * 0.045, 1 - Math.max(0, depth - 1) * 0.045] }) },
+          ],
+        };
+        return (
+          <Animated.View
+            key={`${index}-${depth}`}
+            pointerEvents={isFront ? 'auto' : 'none'}
+            style={[
+              styles.metricDeckCard,
+              { zIndex: 3 - depth },
+              cardMotionStyle,
+            ]}
+          >
+            {child}
+          </Animated.View>
+        );
+      })}
+      <View style={styles.metricDeckFooter}>
+        <View style={styles.metricDeckDots}>
+          {children.map((_, index) => (
+            <View key={index} style={[styles.metricDeckDot, index === safeActiveIndex && styles.metricDeckDotActive]} />
+          ))}
+        </View>
+        <Text style={styles.metricDeckHint}>Swipe to explore</Text>
+      </View>
+    </View>
   );
 }
 
@@ -668,15 +746,15 @@ function MetricCarousel({
   isDark: boolean;
 }) {
   const { width: windowWidth } = useWindowDimensions();
-  const cardWidth = Math.min(248, Math.max(210, windowWidth * 0.62));
+  const cardWidth = Math.max(windowWidth - 32, 280);
 
   return (
     <CarouselSection title={title} subtitle={subtitle} colors={colors}>
-      <HScroll>
+      <MetricStack itemCount={metrics.length}>
         {metrics.map((metric) => (
           <MetricCard key={metric.label} {...metric} width={cardWidth} isDark={isDark} />
         ))}
-      </HScroll>
+      </MetricStack>
     </CarouselSection>
   );
 }
@@ -763,7 +841,7 @@ export function DashboardScreen() {
   ];
 
   const applySearch = () => setSearch(searchInput.trim());
-  const glanceWidth = Math.min(220, Math.max(188, windowWidth * 0.55));
+  const glanceWidth = Math.max(windowWidth - 32, 280);
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -813,7 +891,7 @@ export function DashboardScreen() {
         ) : (
           <>
             <CarouselSection title="At a glance" colors={colors}>
-              <HScroll>
+              <MetricStack itemCount={overview.length}>
                 {overview.map((item) => {
                   const Icon = item.Icon;
                   return (
@@ -829,7 +907,7 @@ export function DashboardScreen() {
                     />
                   );
                 })}
-              </HScroll>
+              </MetricStack>
             </CarouselSection>
 
             <MetricCarousel title="Key metrics" metrics={metrics} colors={colors} isDark={isDark} />
@@ -961,6 +1039,47 @@ const styles = StyleSheet.create({
     gap: 14,
     paddingHorizontal: 16,
     paddingRight: 32,
+  },
+  metricDeck: {
+    height: 220,
+    marginHorizontal: 16,
+  },
+  metricDeckCard: {
+    alignItems: 'center',
+    left: 0,
+    position: 'absolute',
+    right: 0,
+  },
+  metricDeckFooter: {
+    alignItems: 'center',
+    bottom: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    left: 4,
+    position: 'absolute',
+    right: 4,
+  },
+  metricDeckDots: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 5,
+  },
+  metricDeckDot: {
+    backgroundColor: '#94a3b8',
+    borderRadius: 3,
+    height: 5,
+    opacity: 0.45,
+    width: 5,
+  },
+  metricDeckDotActive: {
+    backgroundColor: '#2563eb',
+    opacity: 1,
+    width: 16,
+  },
+  metricDeckHint: {
+    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '600',
   },
   carouselEmpty: {
     marginHorizontal: 16,
