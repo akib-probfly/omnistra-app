@@ -53,6 +53,22 @@ type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBO
 type MediaItem = { attachId: string; src: string; mediaType: string };
 type TimelineRow = { entry: ConversationTimelineEntry<Message>; showDivider: boolean };
 
+type IdleCallbackHandle = number | ReturnType<typeof setTimeout>;
+type IdleCallbackWindow = typeof globalThis & {
+  requestIdleCallback?: (callback: () => void) => number;
+  cancelIdleCallback?: (handle: number) => void;
+};
+
+function scheduleIdle(callback: () => void): { cancel: () => void } {
+  const idleWindow = globalThis as IdleCallbackWindow;
+  if (idleWindow.requestIdleCallback) {
+    const handle = idleWindow.requestIdleCallback(callback);
+    return { cancel: () => idleWindow.cancelIdleCallback?.(handle) };
+  }
+  const handle: IdleCallbackHandle = setTimeout(callback, 0);
+  return { cancel: () => clearTimeout(handle as ReturnType<typeof setTimeout>) };
+}
+
 function timelineKeyExtractor(row: TimelineRow) {
   return `${row.entry.kind}:${row.entry.id}`;
 }
@@ -136,6 +152,7 @@ const apiUrl = (value: string | null) => {
 export function ConversationScreen() {
   const insets = useSafeAreaInsets(); const navigation = useNavigation<NativeStackNavigationProp<InboxStackParamList, 'Conversation'>>(); const route = useRoute<RouteProp<InboxStackParamList, 'Conversation'>>(); const queryClient = useQueryClient();
   const isFocused = useIsFocused();
+  const [secondaryDataReady, setSecondaryDataReady] = useState(false);
   const realtimeStatus = useSyncExternalStore(subscribeRealtimeConnectionStatus, getRealtimeConnectionStatus);
   const { session } = useAuth();
   const { colors } = useTheme();
@@ -255,13 +272,22 @@ export function ConversationScreen() {
   const attachmentsQuery = useQuery({
     queryKey: ['conversation-attachments', route.params.conversationId],
     queryFn: () => fetchConversationAttachments({ conversationId: route.params.conversationId, limit: 100 }),
-    enabled: isFocused,
+    enabled: isFocused && secondaryDataReady,
     staleTime: 15000,
   });
 
   const suppressAutoMarkReadRef = useRef(false);
   const lastAutoMarkedReadSignatureRef = useRef<string | null>(null);
   const manualReadToggleRef = useRef(false);
+
+  useEffect(() => {
+    setSecondaryDataReady(false);
+    if (!isFocused) return;
+    const task = scheduleIdle(() => {
+      setSecondaryDataReady(true);
+    });
+    return task.cancel;
+  }, [isFocused, route.params.conversationId]);
 
   useEffect(() => {
     suppressAutoMarkReadRef.current = false;
@@ -523,8 +549,6 @@ export function ConversationScreen() {
       setHeader((c) => ({ ...c, unreadCount: 0 }));
       setConversationUnreadInCache(queryClient, route.params.conversationId, 0);
       void queryClient.invalidateQueries({ queryKey: ['inbox-unread-count'], refetchType: 'active' });
-      void queryClient.invalidateQueries({ queryKey: ['conversations'], refetchType: 'active' });
-      void queryClient.invalidateQueries({ queryKey: ['inbox-unread-count'], refetchType: 'active' });
       manualReadToggleRef.current = false;
     },
   });
@@ -622,12 +646,8 @@ export function ConversationScreen() {
     }
 
     setActiveConversationId(route.params.conversationId);
-    void queryClient.invalidateQueries({
-      queryKey: ['messages', route.params.conversationId],
-      refetchType: 'active',
-    });
     return () => setActiveConversationId(null);
-  }, [isFocused, route.params.conversationId, queryClient]);
+  }, [isFocused, route.params.conversationId]);
 
   useEffect(() => {
     if (!isFocused) {
@@ -766,7 +786,7 @@ export function ConversationScreen() {
   const webchatSettingsQuery = useQuery({
     queryKey: ['channel-webchat-settings', channelId],
     queryFn: () => fetchWebchatSettings(channelId!),
-    enabled: isWebchatConversation && Boolean(channelId),
+    enabled: secondaryDataReady && isWebchatConversation && Boolean(channelId),
   });
   const isMessengerConversation = (channelType ?? '').toUpperCase() === 'MESSENGER';
   const isTikTokConversation = (channelType ?? '').toUpperCase() === 'TIKTOK';
@@ -833,7 +853,7 @@ export function ConversationScreen() {
   const callsQuery = useQuery({
     queryKey: ['conversation-calls', route.params.conversationId],
     queryFn: () => fetchConversationCallSessions({ conversationId: route.params.conversationId, limit: 100 }),
-    enabled: isWhatsAppConversation || isWebchatConversation,
+    enabled: secondaryDataReady && (isWhatsAppConversation || isWebchatConversation),
     staleTime: 15_000,
     refetchOnMount: 'always',
   });
@@ -841,6 +861,7 @@ export function ConversationScreen() {
   const assignmentHistoryQuery = useQuery({
     queryKey: ['assignment-events', route.params.conversationId],
     queryFn: () => fetchConversationAssignmentEvents({ conversationId: route.params.conversationId, limit: 100 }),
+    enabled: secondaryDataReady,
     staleTime: 5 * 60 * 1000,
     refetchOnMount: false,
   });
