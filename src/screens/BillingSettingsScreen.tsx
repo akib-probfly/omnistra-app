@@ -347,6 +347,7 @@ export function BillingSettingsScreen() {
                       cycle={packageCycle}
                       isCurrent={isCurrent}
                       isCurrentTrial={isCurrent && isTrialing}
+                      isExpired={isCurrent && isExpired}
                       hasScheduledDowngrade={hasScheduledDowngrade}
                       onPress={() => {
                         if (!workspaceId) return;
@@ -573,6 +574,7 @@ function PlanCard({
   cycle,
   isCurrent,
   isCurrentTrial,
+  isExpired,
   hasScheduledDowngrade,
   onPress,
 }: {
@@ -580,6 +582,7 @@ function PlanCard({
   cycle: BillingInterval;
   isCurrent: boolean;
   isCurrentTrial: boolean;
+  isExpired: boolean;
   hasScheduledDowngrade: boolean;
   onPress: () => void;
 }) {
@@ -588,13 +591,15 @@ function PlanCard({
   const unavailable = Boolean(plan.intervals) && !getPlanInterval(plan, cycle);
   const price = unavailable ? 'Unavailable' : getPlanPrice(plan, cycle) ?? '—';
   const features = getPlanFeatures(plan, cycle).slice(0, 5);
-  const disabled = unavailable || hasScheduledDowngrade || (isCurrent && !isCurrentTrial);
+  const disabled = unavailable || hasScheduledDowngrade || (isCurrent && !isCurrentTrial && !isExpired);
   const cta = unavailable
     ? 'Unavailable'
     : hasScheduledDowngrade
       ? 'Pending downgrade'
       : isCurrent
-        ? isCurrentTrial
+        ? isExpired
+          ? 'Renew plan'
+          : isCurrentTrial
           ? 'Activate now'
           : 'Current plan'
         : plan.buttonLabel ?? 'View details';

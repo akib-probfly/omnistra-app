@@ -107,9 +107,12 @@ export function BillingPlanDetailsScreen() {
     (resolvedStatus ?? '').toLowerCase() === 'trialing'
     || (subscription?.isTrial === true && Boolean(billingState?.trialEndsAt))
   );
+  const isExpired = (resolvedStatus ?? '').toLowerCase() === 'expired'
+    || (billingState?.subscriptionStatus ?? '').toLowerCase() === 'expired';
   const currentPlan = resolvedPlanKey ? plans.find((item) => item.key === resolvedPlanKey) ?? null : null;
   const isCurrentPlan = resolvedPlanKey === planKey;
   const isCurrentTrialPlan = isCurrentPlan && isInTrialPeriod;
+  const canRenewCurrentPlan = isCurrentPlan && isExpired;
   const isDowngrade = Boolean(
     resolvedPlanKey
     && (resolvedStatus ?? '').toLowerCase() === 'active'
@@ -189,7 +192,7 @@ export function BillingPlanDetailsScreen() {
         showNotice('Plan change locked', 'A downgrade is already scheduled. Wait until it becomes active.');
         return;
       }
-      if (isCurrentPlan && !isCurrentTrialPlan) {
+      if (isCurrentPlan && !isCurrentTrialPlan && !canRenewCurrentPlan) {
         showNotice('Already on this plan', 'This is your current subscription.');
         return;
       }
@@ -257,7 +260,9 @@ export function BillingPlanDetailsScreen() {
         : isCurrentTrialPlan
           ? 'Activate now'
           : isCurrentPlan
-            ? 'Already in plan'
+            ? canRenewCurrentPlan
+              ? 'Renew plan'
+              : 'Already in plan'
             : upgradeMode
               ? `Upgrade to ${plan?.name ?? 'plan'}`
               : isDowngrade
@@ -388,9 +393,9 @@ export function BillingPlanDetailsScreen() {
             style={[
               styles.ctaButton,
               { backgroundColor: colors.primary },
-              (busy || hasScheduledDowngrade || effectiveIntervalUnavailable || selectedIntervalUnavailable || (isCurrentPlan && !isCurrentTrialPlan)) && styles.ctaDisabled,
+              (busy || hasScheduledDowngrade || effectiveIntervalUnavailable || selectedIntervalUnavailable || (isCurrentPlan && !isCurrentTrialPlan && !canRenewCurrentPlan)) && styles.ctaDisabled,
             ]}
-            disabled={busy || hasScheduledDowngrade || effectiveIntervalUnavailable || selectedIntervalUnavailable || (isCurrentPlan && !isCurrentTrialPlan)}
+            disabled={busy || hasScheduledDowngrade || effectiveIntervalUnavailable || selectedIntervalUnavailable || (isCurrentPlan && !isCurrentTrialPlan && !canRenewCurrentPlan)}
             onPress={() => { void handlePrimaryAction(); }}
           >
             {busy ? <ActivityIndicator color={colors.primaryText} /> : <Text style={styles.ctaText}>{ctaLabel}</Text>}
