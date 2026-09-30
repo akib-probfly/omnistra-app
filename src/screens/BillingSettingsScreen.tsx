@@ -84,6 +84,13 @@ export function BillingSettingsScreen() {
   const [tab, setTab] = useState<BillingTab>(initialTab);
   const [packageCycle, setPackageCycle] = useState<BillingInterval>('monthly');
   const handledCheckoutRef = useRef<string | null>(null);
+  const handleBack = () => {
+    if (navigation.getState().index > 0) {
+      navigation.goBack();
+      return;
+    }
+    navigation.replace('SettingsList');
+  };
 
   useEffect(() => {
     if (route.params?.tab) setTab(route.params.tab);
@@ -234,7 +241,7 @@ export function BillingSettingsScreen() {
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <ScreenHeader
         title="Billing"
-        onBack={() => navigation.goBack()}
+        onBack={handleBack}
       />
 
       <View style={[styles.tabs, { backgroundColor: colors.surface, borderBottomColor: colors.cardBorder }]}>
