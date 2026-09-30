@@ -709,13 +709,13 @@ function BillingUsageCard({
         <View style={styles.usageRingsRow}>
         {usageBreakdown.map(({ label, count, limit, Icon }, index) => {
           const percent = percentages[index];
-          const circumference = 2 * Math.PI * 22;
+          const circumference = 2 * Math.PI * 18;
           return (
             <View key={label} style={styles.usageRingItem}>
               <View style={styles.usageRing}>
-                <Svg width={68} height={68} viewBox="0 0 68 68">
-                  <Circle cx="34" cy="34" r="22" fill="none" stroke="rgba(255,255,255,0.24)" strokeWidth="5" />
-                  <Circle cx="34" cy="34" r="22" fill="none" stroke="#ffffff" strokeWidth="5" strokeDasharray={`${circumference * percent / 100} ${circumference}`} strokeLinecap="round" rotation="-90" origin="34, 34" />
+                <Svg width={58} height={58} viewBox="0 0 58 58">
+                  <Circle cx="29" cy="29" r="18" fill="none" stroke="rgba(255,255,255,0.24)" strokeWidth="5" />
+                  <Circle cx="29" cy="29" r="18" fill="none" stroke="#ffffff" strokeWidth="5" strokeDasharray={`${circumference * percent / 100} ${circumference}`} strokeLinecap="round" rotation="-90" origin="29, 29" />
                 </Svg>
                 <View style={styles.usageRingCenter}><Text style={[styles.usageRingPercent, { color: textColor }]}>{loading || !usage ? '—' : `${percent}%`}</Text></View>
               </View>
@@ -1295,24 +1295,24 @@ const styles = StyleSheet.create({
   deltaPositiveDark: { color: '#4ade80' },
   deltaNegativeDark: { color: '#fca5a5' },
 
-  billingUsageCard: { borderRadius: radius.xl, gap: spacing.md, overflow: 'hidden', padding: spacing.lg },
+  billingUsageCard: { borderRadius: radius.xl, gap: spacing.sm + 2, overflow: 'hidden', padding: spacing.md + 2 },
   usageGlowLarge: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 120, height: 240, position: 'absolute', right: -95, top: -150, width: 240 },
   billingUsageHeader: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   billingUsageHeaderCopy: { flex: 1, minWidth: 0 },
   billingUsageEyebrow: { fontSize: fontSize.tiny, fontWeight: fontWeight.bold, letterSpacing: 0.8 },
   billingUsageTitle: { fontSize: fontSize.body, fontWeight: fontWeight.bold, marginTop: 1, textTransform: 'capitalize' },
-  billingUsageIcon: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: radius.md, height: 34, justifyContent: 'center', width: 34 },
-  billingUsageAction: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: radius.pill, height: 32, justifyContent: 'center', width: 32 },
-  usageSummary: { gap: spacing.sm, paddingHorizontal: spacing.xs },
+  billingUsageIcon: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: radius.md, height: 30, justifyContent: 'center', width: 30 },
+  billingUsageAction: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: radius.pill, height: 28, justifyContent: 'center', width: 28 },
+  usageSummary: { gap: spacing.xs, paddingHorizontal: spacing.xs },
   usageSummaryLine: { alignItems: 'flex-end', flexDirection: 'row', justifyContent: 'space-between' },
   usageSummaryLabel: { fontSize: fontSize.tiny, fontWeight: fontWeight.semibold },
-  usageSummaryPercent: { fontSize: 28, fontWeight: fontWeight.extrabold, lineHeight: 32 },
+  usageSummaryPercent: { fontSize: 25, fontWeight: fontWeight.extrabold, lineHeight: 28 },
   usageSummaryDetail: { fontSize: fontSize.tiny, fontWeight: fontWeight.medium, marginBottom: 3, maxWidth: '48%', textAlign: 'right' },
-  usageSummaryTrack: { backgroundColor: 'rgba(255,255,255,0.32)', borderRadius: radius.pill, height: 7, overflow: 'hidden' },
+  usageSummaryTrack: { backgroundColor: 'rgba(255,255,255,0.32)', borderRadius: radius.pill, height: 6, overflow: 'hidden' },
   usageSummaryFill: { backgroundColor: '#ffffff', borderRadius: radius.pill, height: '100%' },
-  usageRingsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: spacing.xs, paddingTop: spacing.xs },
-  usageRingItem: { alignItems: 'center', flex: 1, gap: 3, minWidth: 0 },
-  usageRing: { alignItems: 'center', height: 68, justifyContent: 'center', width: 68 },
+  usageRingsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: spacing.xs },
+  usageRingItem: { alignItems: 'center', flex: 1, gap: 2, minWidth: 0 },
+  usageRing: { alignItems: 'center', height: 58, justifyContent: 'center', width: 58 },
   usageRingCenter: { alignItems: 'center', justifyContent: 'center', position: 'absolute' },
   usageRingPercent: { fontSize: fontSize.tiny, fontWeight: fontWeight.extrabold },
   usageRingLabelRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
