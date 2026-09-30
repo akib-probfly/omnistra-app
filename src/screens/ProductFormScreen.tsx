@@ -11,6 +11,7 @@ import { fetchChannels, fetchWhatsappProductCatalog } from '../api/channels';
 import { createProductCategory, fetchProductCategories } from '../api/productCategories';
 import { uploadFile } from '../api/client';
 import { ErrorState } from '../components/ErrorState';
+import { SheetScrollView } from '../components/BottomSheet';
 import { FormSkeleton } from '../components/Skeleton';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
@@ -62,14 +63,14 @@ function productToForm(product: ProductResponse): FormState {
   };
 }
 
-export function ProductFormScreen() {
+export function ProductFormScreen({ embedded = false, onClose, onSaved }: { embedded?: boolean; onClose?: () => void; onSaved?: () => void }) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<SettingsStackParamList, 'ProductForm'>>();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const { workspace } = useWorkspaceAccess();
-  const productId = route.params?.productId;
+  const productId = embedded ? undefined : route.params?.productId;
   const editing = Boolean(productId);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
@@ -140,7 +141,8 @@ export function ProductFormScreen() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['products'] });
       if (editing) await queryClient.invalidateQueries({ queryKey: ['product', productId] });
-      navigation.goBack();
+      if (embedded) onSaved?.();
+      else navigation.goBack();
     },
     onError: (value: Error) => setError(value.message),
   });
@@ -162,11 +164,12 @@ export function ProductFormScreen() {
 
   if (editing && productQuery.isLoading) return <FormSkeleton fields={7} />;
   if (editing && (productQuery.isError || !productQuery.data)) return <ErrorState message="Could not load product." onRetry={() => productQuery.refetch()} />;
+  const FormScrollView = embedded ? SheetScrollView : ScrollView;
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <ScreenHeader title={editing ? 'Edit product' : 'Create product'} onBack={() => navigation.goBack()} />
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]} keyboardShouldPersistTaps="handled">
+    <View style={[embedded ? styles.embeddedScreen : styles.screen, { backgroundColor: colors.background }]}>
+      {embedded ? <View style={[styles.embeddedHeader, { borderBottomColor: colors.cardBorder }]}><Text style={[styles.embeddedTitle, { color: colors.text }]}>Create product</Text><Pressable onPress={onClose} hitSlop={10} accessibilityLabel="Close create product"><X color={colors.textSecondary} size={21} /></Pressable></View> : <ScreenHeader title={editing ? 'Edit product' : 'Create product'} onBack={() => navigation.goBack()} />}
+      <FormScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]} keyboardShouldPersistTaps="handled">
         <AppCard>
           <Text style={[styles.variantTitle, { color: colors.text }]}>Product gallery</Text>
           <View style={styles.gallery}>
@@ -222,13 +225,16 @@ export function ProductFormScreen() {
           {error ? <ErrorState message={error} /> : null}
           <AppButton block icon={Save} label={mutation.isPending ? 'Saving...' : editing ? 'Save product' : 'Create product'} loading={mutation.isPending} disabled={!form.name.trim() || mutation.isPending || (channelsQuery.isLoading || catalogQueries.some((query) => query.isLoading))} onPress={() => { setError(null); mutation.mutate(); }} style={styles.save} />
         </AppCard>
-      </ScrollView>
+      </FormScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  embeddedScreen: { flex: 1, minHeight: 0 },
+  embeddedHeader: { alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  embeddedTitle: { fontSize: 18, fontWeight: '800' },
   content: { padding: spacing.lg },
   fields: { gap: spacing.md },
   dimensionRow: { flexDirection: 'row', gap: spacing.sm },
