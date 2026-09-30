@@ -1,12 +1,12 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Clock3,
+  ArrowUpRight,
   Inbox,
   MessageSquareText,
   Percent,
   RefreshCw,
   Search,
-  TrendingUp,
   UserCheck,
   Users,
   Wifi,
@@ -14,21 +14,24 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, PanResponder, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused, useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 import { fetchDashboard, type DashboardChannelHealthItem, type DashboardResponse, type DashboardTeamCommandCenterMember, type DashboardTrendPoint } from '../api/dashboard';
+import { fetchWorkspaceUsage, type WorkspaceUsage } from '../api/billing';
 import { channelBrandColor, ChannelLogo } from '../components/ChannelLogo';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 import { DashboardSkeleton } from '../components/Skeleton';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { useWorkspaceAccess } from '../lib/workspace-access';
+import { workspaceIdFromAccessToken } from '../lib/jwt-workspace';
 import { isBillingLocked, pollingWhileUnlocked } from '../lib/billing-lock';
 import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import type { ThemeColors } from '../theme/colors';
 import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 import { AppButton, AppCard } from '../ui';
+import type { MainTabParamList } from '../navigation/MainTabs';
 
 type RangePreset = 'today' | '7d' | '30d';
 type PresenceFilter = 'all' | 'online' | 'offline';
@@ -100,41 +103,6 @@ function formatDuration(minutes: number | null) {
   if (hours > 0) return `${hours}h ${mins}m`;
   if (mins > 0) return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
   return `${secs}s`;
-}
-
-function getNiceAxisMax(value: number) {
-  if (!Number.isFinite(value) || value <= 0) return 1;
-  const magnitude = 10 ** Math.floor(Math.log10(value));
-  const normalized = value / magnitude;
-  if (normalized <= 1) return 1 * magnitude;
-  if (normalized <= 2) return 2 * magnitude;
-  if (normalized <= 5) return 5 * magnitude;
-  return 10 * magnitude;
-}
-
-function buildSmoothPath(points: Array<{ x: number; y: number }>) {
-  if (points.length === 0) return '';
-  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
-  let path = `M ${points[0].x} ${points[0].y}`;
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const current = points[index];
-    const next = points[index + 1];
-    const previous = points[index - 1] ?? current;
-    const afterNext = points[index + 2] ?? next;
-    const c1x = current.x + (next.x - previous.x) / 6;
-    const c1y = current.y + (next.y - previous.y) / 6;
-    const c2x = next.x - (afterNext.x - current.x) / 6;
-    const c2y = next.y - (afterNext.y - current.y) / 6;
-    path += ` C ${c1x} ${c1y} ${c2x} ${c2y} ${next.x} ${next.y}`;
-  }
-  return path;
-}
-
-function buildAreaPath(points: Array<{ x: number; y: number }>, baseline: number) {
-  if (points.length === 0) return '';
-  const first = points[0];
-  const last = points[points.length - 1];
-  return `${buildSmoothPath(points)} L ${last.x} ${baseline} L ${first.x} ${baseline} Z`;
 }
 
 function compareValues(previous: number | null | undefined, current: number | null | undefined, higherIsBetter = true) {
@@ -216,53 +184,6 @@ function Section({ title, subtitle, action, children, colors }: { title: string;
       </View>
       {children}
     </AppCard>
-  );
-}
-
-function VolumeChart({ trends, width, colors }: { trends: DashboardTrendPoint[]; width: number; colors: ThemeColors }) {
-  const chart = useMemo(() => {
-    const height = 160;
-    const pad = { top: 12, right: 4, bottom: 8, left: 4 };
-    const chartW = Math.max(width - pad.left - pad.right, 1);
-    const chartH = height - pad.top - pad.bottom;
-    const points = trends ?? [];
-    const max = Math.max(1, ...points.flatMap((p) => [p.incoming, p.resolved]));
-    const axisMax = getNiceAxisMax(max);
-    const scaleY = (v: number) => pad.top + chartH - (v / axisMax) * chartH;
-    const scaleX = (i: number) => pad.left + (i * chartW) / Math.max(points.length - 1, 1);
-    const series = points.map((p, i) => ({ x: scaleX(i), incoming: scaleY(p.incoming), resolved: scaleY(p.resolved) }));
-    const baseline = pad.top + chartH;
-    return {
-      series,
-      incomingPath: buildSmoothPath(series.map((s) => ({ x: s.x, y: s.incoming }))),
-      resolvedPath: buildSmoothPath(series.map((s) => ({ x: s.x, y: s.resolved }))),
-      incomingArea: buildAreaPath(series.map((s) => ({ x: s.x, y: s.incoming })), baseline),
-      tickLines: [0, axisMax / 2, axisMax].map((t) => ({ y: pad.top + chartH - (t / axisMax) * chartH, value: t })),
-      pad,
-      width,
-      height,
-    };
-  }, [trends, width]);
-
-  if (!chart.series.length) {
-    return (
-      <View style={[styles.emptyBox, { borderColor: colors.cardBorder }]}>
-        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No conversation volume in this range.</Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.chartWrap}>
-      <Svg height={chart.height} viewBox={`0 0 ${chart.width} ${chart.height}`} width={chart.width}>
-        {chart.tickLines.map((line) => (
-          <Path key={line.value} d={`M ${chart.pad.left} ${line.y} L ${chart.width - chart.pad.right} ${line.y}`} stroke={colors.cardBorder} strokeDasharray="4 6" />
-        ))}
-        <Path d={chart.incomingArea} fill={colors.primary} opacity={0.15} />
-        <Path d={chart.incomingPath} fill="none" stroke={colors.primary} strokeWidth={2.25} strokeLinecap="round" />
-        <Path d={chart.resolvedPath} fill="none" stroke="#10b981" strokeWidth={2.25} strokeLinecap="round" />
-      </Svg>
-    </View>
   );
 }
 
@@ -736,6 +657,80 @@ function MetricCard({
   );
 }
 
+function BillingUsageCard({
+  usage,
+  loading,
+  onPress,
+  isDark,
+}: {
+  usage?: WorkspaceUsage;
+  loading: boolean;
+  onPress: () => void;
+  isDark: boolean;
+}) {
+  const conversationCount = usage?.conversationCount;
+  const conversationLimit = usage?.conversationLimit;
+  const conversationPercent = conversationLimit != null && conversationLimit > 0 && conversationCount != null
+    ? Math.min(100, Math.round(conversationCount / conversationLimit * 100))
+    : 0;
+  const textColor = '#ffffff';
+  const mutedColor = 'rgba(255,255,255,0.78)';
+  const usageBreakdown = [
+    { label: 'Team', count: usage?.seatCount, limit: usage?.seatLimit, Icon: Users },
+    { label: 'Channels', count: usage?.channelCount, limit: usage?.channelLimit, Icon: Wifi },
+  ];
+  const percentages = usageBreakdown.map(({ count, limit }) => limit != null && limit > 0 && count != null ? Math.min(100, Math.round(count / limit * 100)) : 0);
+  const mainUsagePercent = loading || !usage ? 0 : conversationPercent;
+
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Open billing and plan usage">
+      <LinearGradient colors={isDark ? ['#c86b5b', '#a94362'] : ['#f4775d', '#e65370']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.billingUsageCard}>
+        <View pointerEvents="none" style={styles.usageGlowLarge} />
+        <View style={styles.billingUsageHeader}>
+          <View style={styles.billingUsageIcon}><MessageSquareText color={textColor} size={16} strokeWidth={2.2} /></View>
+          <View style={styles.billingUsageHeaderCopy}>
+            <Text style={[styles.billingUsageEyebrow, { color: mutedColor }]}>CURRENT PLAN</Text>
+            <Text style={[styles.billingUsageTitle, { color: textColor }]} numberOfLines={1}>{usage?.planKey ? usage.planKey.replace(/[_-]+/g, ' ') : 'Plan usage'}</Text>
+          </View>
+          <View style={styles.billingUsageAction}><ArrowUpRight color={textColor} size={17} /></View>
+        </View>
+
+        <View style={styles.usageSummary}>
+          <View style={styles.usageSummaryLine}>
+            <View>
+              <Text style={[styles.usageSummaryLabel, { color: mutedColor }]}>Conversations this cycle</Text>
+              <Text style={[styles.usageSummaryPercent, { color: textColor }]}>{loading || !usage ? '—' : `${conversationPercent}%`}</Text>
+            </View>
+            <Text style={[styles.usageSummaryDetail, { color: mutedColor }]}>{loading || !usage ? 'Loading usage' : `${formatNumber(conversationCount)} / ${conversationLimit == null ? '∞' : formatNumber(conversationLimit)} conversations`}</Text>
+          </View>
+          <View style={styles.usageSummaryTrack}><View style={[styles.usageSummaryFill, { width: `${mainUsagePercent}%` }]} /></View>
+        </View>
+
+        <View style={styles.usageRingsRow}>
+        {usageBreakdown.map(({ label, count, limit, Icon }, index) => {
+          const percent = percentages[index];
+          const circumference = 2 * Math.PI * 22;
+          return (
+            <View key={label} style={styles.usageRingItem}>
+              <View style={styles.usageRing}>
+                <Svg width={68} height={68} viewBox="0 0 68 68">
+                  <Circle cx="34" cy="34" r="22" fill="none" stroke="rgba(255,255,255,0.24)" strokeWidth="5" />
+                  <Circle cx="34" cy="34" r="22" fill="none" stroke="#ffffff" strokeWidth="5" strokeDasharray={`${circumference * percent / 100} ${circumference}`} strokeLinecap="round" rotation="-90" origin="34, 34" />
+                </Svg>
+                <View style={styles.usageRingCenter}><Text style={[styles.usageRingPercent, { color: textColor }]}>{loading || !usage ? '—' : `${percent}%`}</Text></View>
+              </View>
+              <View style={styles.usageRingLabelRow}><Icon color={textColor} size={12} /><Text style={[styles.usageRingLabel, { color: textColor }]} numberOfLines={1}>{label}</Text></View>
+              <Text style={[styles.usageRingDetail, { color: mutedColor }]} numberOfLines={1}>{loading || !usage ? '—' : `${formatNumber(count)} / ${limit == null ? '∞' : formatNumber(limit)}`}</Text>
+            </View>
+          );
+        })}
+        </View>
+        <Text style={[styles.billingUsageFooter, { color: textColor }]}>View billing details</Text>
+      </LinearGradient>
+    </Pressable>
+  );
+}
+
 function MetricCarousel({
   title,
   subtitle,
@@ -774,12 +769,13 @@ function MetricCarousel({
 export function DashboardScreen() {
   const { colors, isDark } = useTheme();
   const { session } = useAuth();
+  const navigation = useNavigation<NavigationProp<MainTabParamList>>();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const isFocused = useIsFocused();
-  const { canManage } = useWorkspaceAccess();
+  const { canManage, workspace } = useWorkspaceAccess();
+  const workspaceId = workspace?.id ?? workspaceIdFromAccessToken();
   const { width: windowWidth } = useWindowDimensions();
-  const contentWidth = Math.max(windowWidth - 32, 280);
   const [preset, setPreset] = useState<RangePreset>('7d');
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
@@ -797,6 +793,12 @@ export function DashboardScreen() {
     refetchOnWindowFocus: false,
     refetchOnReconnect: () => !isBillingLocked(),
     placeholderData: keepPreviousData,
+  });
+  const usage = useQuery({
+    queryKey: ['billing-usage', workspaceId],
+    queryFn: () => fetchWorkspaceUsage(workspaceId!),
+    enabled: Boolean(workspaceId),
+    staleTime: 30_000,
   });
 
   // Silent refresh when returning to the tab — only if cached data is stale.
@@ -949,17 +951,18 @@ export function DashboardScreen() {
 
             <MetricCarousel title="Key metrics" metrics={metrics} colors={colors} isDark={isDark} />
 
-            <Section
-              title="Conversation volume"
-              colors={colors}
-              action={<TrendingUp color={colors.textSecondary} size={18} />}
-            >
-              <View style={styles.legend}>
-                <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: colors.primary }]} /><Text style={[styles.legendText, { color: colors.textSecondary }]}>Incoming</Text></View>
-                <View style={styles.legendItem}><View style={[styles.legendDot, { backgroundColor: '#10b981' }]} /><Text style={[styles.legendText, { color: colors.textSecondary }]}>Resolved</Text></View>
+            <View style={styles.usageSection}>
+              <View style={styles.usageSectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Current usage</Text>
+                <Text style={[styles.sectionSubtitle, { color: colors.textSecondary }]}>Your billing cycle at a glance</Text>
               </View>
-              <VolumeChart trends={trends} width={contentWidth - 32} colors={colors} />
-            </Section>
+              <BillingUsageCard
+                usage={usage.data}
+                loading={usage.isLoading}
+                onPress={() => navigation.navigate('Settings', { screen: 'Billing', params: { tab: 'current' } })}
+                isDark={isDark}
+              />
+            </View>
 
             <Section title="Channel mix" colors={colors}>
               <ChannelMix mix={mix} colors={colors} />
@@ -1075,6 +1078,8 @@ const styles = StyleSheet.create({
   sectionHeaderCopy: { flex: 1, minWidth: 0 },
   sectionTitle: { fontSize: 17, fontWeight: '800', letterSpacing: -0.2 },
   sectionSubtitle: { fontSize: 12, lineHeight: 16, marginTop: 3 },
+  usageSection: { marginHorizontal: spacing.lg, marginTop: spacing.md },
+  usageSectionHeader: { marginBottom: spacing.md + 2 },
 
   carouselSection: {
     marginTop: 22,
@@ -1290,11 +1295,30 @@ const styles = StyleSheet.create({
   deltaPositiveDark: { color: '#4ade80' },
   deltaNegativeDark: { color: '#fca5a5' },
 
-  legend: { flexDirection: 'row', gap: 16, marginBottom: 8 },
-  legendItem: { alignItems: 'center', flexDirection: 'row', gap: 6 },
-  legendDot: { borderRadius: 4, height: 8, width: 8 },
-  legendText: { fontSize: 12, fontWeight: '600' },
-  chartWrap: { marginTop: 4 },
+  billingUsageCard: { borderRadius: radius.xl, gap: spacing.md, overflow: 'hidden', padding: spacing.lg },
+  usageGlowLarge: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 120, height: 240, position: 'absolute', right: -95, top: -150, width: 240 },
+  billingUsageHeader: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  billingUsageHeaderCopy: { flex: 1, minWidth: 0 },
+  billingUsageEyebrow: { fontSize: fontSize.tiny, fontWeight: fontWeight.bold, letterSpacing: 0.8 },
+  billingUsageTitle: { fontSize: fontSize.body, fontWeight: fontWeight.bold, marginTop: 1, textTransform: 'capitalize' },
+  billingUsageIcon: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: radius.md, height: 34, justifyContent: 'center', width: 34 },
+  billingUsageAction: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: radius.pill, height: 32, justifyContent: 'center', width: 32 },
+  usageSummary: { gap: spacing.sm, paddingHorizontal: spacing.xs },
+  usageSummaryLine: { alignItems: 'flex-end', flexDirection: 'row', justifyContent: 'space-between' },
+  usageSummaryLabel: { fontSize: fontSize.tiny, fontWeight: fontWeight.semibold },
+  usageSummaryPercent: { fontSize: 28, fontWeight: fontWeight.extrabold, lineHeight: 32 },
+  usageSummaryDetail: { fontSize: fontSize.tiny, fontWeight: fontWeight.medium, marginBottom: 3, maxWidth: '48%', textAlign: 'right' },
+  usageSummaryTrack: { backgroundColor: 'rgba(255,255,255,0.32)', borderRadius: radius.pill, height: 7, overflow: 'hidden' },
+  usageSummaryFill: { backgroundColor: '#ffffff', borderRadius: radius.pill, height: '100%' },
+  usageRingsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: spacing.xs, paddingTop: spacing.xs },
+  usageRingItem: { alignItems: 'center', flex: 1, gap: 3, minWidth: 0 },
+  usageRing: { alignItems: 'center', height: 68, justifyContent: 'center', width: 68 },
+  usageRingCenter: { alignItems: 'center', justifyContent: 'center', position: 'absolute' },
+  usageRingPercent: { fontSize: fontSize.tiny, fontWeight: fontWeight.extrabold },
+  usageRingLabelRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
+  usageRingLabel: { fontSize: fontSize.tiny, fontWeight: fontWeight.semibold },
+  usageRingDetail: { fontSize: 9, fontWeight: fontWeight.medium },
+  billingUsageFooter: { alignSelf: 'flex-end', fontSize: fontSize.tiny, fontWeight: fontWeight.semibold, marginTop: -spacing.xs },
 
   mixLayout: { alignItems: 'center', flexDirection: 'row', gap: 16 },
   donut: { alignItems: 'center', height: 120, justifyContent: 'center', position: 'relative', width: 120 },
