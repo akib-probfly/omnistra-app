@@ -32,23 +32,32 @@ export async function updateMyProfile(input: UpdateUserProfileInput) {
   if (input.newPassword !== undefined) form.append('newPassword', input.newPassword);
   if (input.confirmNewPassword !== undefined) form.append('confirmNewPassword', input.confirmNewPassword);
   if (input.avatar) form.append('avatar', { uri: input.avatar.uri, name: input.avatar.name, type: input.avatar.mimeType } as any);
-  const response = await fetch(`${API_BASE_URL}/users/me/profile`, {
-    method: 'PATCH',
-    headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    body: form,
+  const responseText = await new Promise<string>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open('PATCH', `${API_BASE_URL}/users/me/profile`);
+    request.setRequestHeader('Accept', 'application/json');
+    if (token) request.setRequestHeader('Authorization', `Bearer ${token}`);
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) {
+        resolve(request.responseText);
+        return;
+      }
+      let message = `Request failed with status ${request.status}`;
+      try {
+        const parsed = JSON.parse(request.responseText) as { message?: string | string[]; error?: string };
+        const serverMessage = parsed.message ?? parsed.error;
+        if (Array.isArray(serverMessage)) message = serverMessage.join(', ');
+        else if (serverMessage) message = serverMessage;
+      } catch {
+        if (request.responseText && request.responseText.length < 240) message = request.responseText;
+      }
+      reject(new Error(message));
+    };
+    request.onerror = () => reject(new Error('Request failed due to a network error.'));
+    request.onabort = () => reject(new Error('Request was cancelled.'));
+    request.send(form);
   });
-  if (!response.ok) {
-    const raw = await response.text();
-    let message = `Request failed with status ${response.status}`;
-    try {
-      const parsed = JSON.parse(raw) as { message?: string; error?: string };
-      message = parsed.message ?? parsed.error ?? message;
-    } catch {
-      if (raw && raw.length < 240) message = raw;
-    }
-    throw new Error(message);
-  }
-  const payload = await response.json() as UserProfile | { data?: UserProfile };
+  const payload = JSON.parse(responseText) as UserProfile | { data?: UserProfile };
   if (typeof payload === 'object' && payload !== null && 'data' in payload && payload.data !== undefined) {
     return payload.data as UserProfile;
   }

@@ -752,17 +752,13 @@ function isVideoAttachment(attachment: any): boolean {
   return false;
 }
 
-function toDownloadUrl(value?: string | null): string {
-  if (!value) return '';
-  // WhatsApp document-images frequently have no preview variant generated;
-  // the full download endpoint is the reliable source (same as the gallery).
-  return value.replace(/\/preview\/?(?:\?.*)?$/i, '/download');
-}
-
 function previewUrl(attachment: any): string {
   const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.zurvis.io/api/v1';
-  const value = attachment.downloadUrl ?? attachment.previewUrl ?? attachment.thumbnailUrl;
-  return resolveMediaUrl(base, toDownloadUrl(value) || value);
+  // Keep the image preview URL stable across optimistic-to-server message
+  // reconciliation. The full download endpoint can be slower and may reload
+  // the bubble while the preview derivative is already available.
+  const value = attachment.previewUrl ?? attachment.thumbnailUrl ?? attachment.downloadUrl;
+  return resolveMediaUrl(base, value);
 }
 
 function videoPosterUrl(attachment: any): string {

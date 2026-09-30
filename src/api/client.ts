@@ -52,18 +52,40 @@ export function setAuthExpiredHandler(handler: (() => void) | null) {
 }
 
 export async function uploadFile(path: string, uri: string, name: string, mimeType: string, fields: Record<string, string> = {}) {
-  const token = await SecureStore.getItemAsync('access-token');
+  const token = latestAccessToken ?? await SecureStore.getItemAsync('access-token');
   setLatestAccessToken(token);
   const form = new FormData();
   Object.entries(fields).forEach(([key, value]) => form.append(key, value));
+  // React Native's native XHR networking supports local URI file parts.
+  // Expo's fetch FormData converter rejects these React Native descriptors.
   form.append('file', { uri, name, type: mimeType } as any);
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: 'POST',
-    headers: { Accept: 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-    body: form,
+
+  const responseText = await new Promise<string>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open('POST', `${API_BASE_URL}${path}`);
+    request.setRequestHeader('Accept', 'application/json');
+    if (token) request.setRequestHeader('Authorization', `Bearer ${token}`);
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) {
+        resolve(request.responseText);
+        return;
+      }
+      let message = `File upload failed (${request.status})`;
+      try {
+        const parsed = JSON.parse(request.responseText) as { message?: string | string[]; error?: string };
+        const serverMessage = parsed.message ?? parsed.error;
+        if (Array.isArray(serverMessage)) message = serverMessage.join(', ');
+        else if (serverMessage) message = serverMessage;
+      } catch {
+        if (request.responseText && request.responseText.length < 240) message = request.responseText;
+      }
+      reject(new ApiError(message, request.status));
+    };
+    request.onerror = () => reject(new Error('File upload failed due to a network error.'));
+    request.onabort = () => reject(new Error('File upload was cancelled.'));
+    request.send(form);
   });
-  if (!response.ok) throw new Error(`File upload failed (${response.status})`);
-  const payload = await response.json() as any;
+  const payload = JSON.parse(responseText) as any;
   return (payload?.data ?? payload) as {
     id: string;
     mimeType?: string;
