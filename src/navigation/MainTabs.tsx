@@ -9,6 +9,7 @@ import { ContactsStack } from './ContactsStack';
 import { InboxStack, type InboxStackParamList } from './InboxStack';
 import { SettingsStack, type SettingsStackParamList } from './SettingsStack';
 import { useWorkspaceAccess } from '../lib/workspace-access';
+import { isBillingLocked } from '../lib/billing-lock';
 import { useTheme } from '../theme/ThemeContext';
 
 export type MainTabParamList = {
@@ -63,7 +64,7 @@ export function MainTabs() {
     );
   }
 
-  if (error) {
+  if (error && !isBillingLocked()) {
     return (
       <View style={{ alignItems: 'center', backgroundColor: colors.surface, flex: 1, justifyContent: 'center', padding: 24 }}>
         <Text style={{ color: colors.text, fontSize: 16, fontWeight: '600', marginBottom: 8, textAlign: 'center' }}>Unable to load your workspace</Text>

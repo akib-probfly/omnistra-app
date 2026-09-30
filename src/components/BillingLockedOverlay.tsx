@@ -62,7 +62,6 @@ export function BillingLockedOverlay() {
           style={[styles.primary, { backgroundColor: colors.primary }]}
           onPress={() => {
             if (!navigationRef.isReady()) return;
-            setCurrentRoute('Billing');
             navigationRef.navigate(
               'Main',
               {
