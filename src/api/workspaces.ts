@@ -4,6 +4,7 @@ export type Workspace = {
   id: string;
   name: string;
   timezone: string;
+  ecommerceEnabled?: boolean;
   broadcastSmartDelayEnabled?: boolean;
   broadcastDelaySeconds?: number;
   broadcastMultipleTemplateEnabled?: boolean;
@@ -34,6 +35,7 @@ export async function updateWorkspaceSettings(
     broadcastSmartDelayEnabled?: boolean;
     broadcastDelaySeconds?: number;
     broadcastMultipleTemplateEnabled?: boolean;
+    ecommerceEnabled?: boolean;
   },
 ): Promise<Workspace> {
   return apiFetch(`/workspaces/${workspaceId}/settings`, {

@@ -43,7 +43,7 @@ import { AppCard, AppText, SettingsGridItem, SettingsSection } from '../ui';
 
 type BillingTab = 'current' | 'packages' | 'invoices' | 'history';
 
-type GeneralRoute = 'Profile' | 'Workspace' | 'Members' | 'Notifications' | 'InboxAppearance' | 'QuickReplies' | 'Tags' | 'AssignmentPolicy' | 'Broadcast' | 'BroadcastCreate' | 'Products' | 'Orders' | 'IntegrationCatalog' | '__appearance__';
+type GeneralRoute = 'Profile' | 'Workspace' | 'Members' | 'Notifications' | 'InboxAppearance' | 'QuickReplies' | 'Tags' | 'AssignmentPolicy' | 'Broadcast' | 'BroadcastCreate' | 'Products' | 'Orders' | 'Integrations' | 'IntegrationCatalog' | '__appearance__';
 
 type SettingsRow =
   | { kind: 'route'; id: string; label: string; description: string; icon: LucideIcon; iconBg: string; iconColor: string; route: GeneralRoute; badge?: string }
@@ -78,7 +78,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
   {
     label: 'Integrations',
     items: [
-      { kind: 'route', id: 'integration-catalog', label: 'Connectors', description: 'Connect a store or delivery partner', icon: Puzzle, iconBg: iconTiles.indigo.bg, iconColor: iconTiles.indigo.fg, route: 'IntegrationCatalog' },
+      { kind: 'route', id: 'integration-catalog', label: 'Connectors', description: 'Connect a store or delivery partner', icon: Puzzle, iconBg: iconTiles.indigo.bg, iconColor: iconTiles.indigo.fg, route: 'Integrations' },
     ],
   },
   {
@@ -123,6 +123,7 @@ export function SettingsScreen() {
     () => SETTINGS_GROUPS
       .map((group) => {
         if (group.label === 'Broadcast' && !showBroadcast) return { ...group, items: [] };
+        if (group.label === 'Commerce' && !workspace?.ecommerceEnabled) return { ...group, items: [] };
         if (group.label === 'Billing' && !canManage && !subscriptionExpired) return { ...group, items: [] };
         if (group.label === 'Billing' && subscriptionExpired) {
           return {
@@ -140,7 +141,7 @@ export function SettingsScreen() {
         return group;
       })
       .filter((group) => group.items.length > 0),
-    [showBroadcast, canManage, subscriptionExpired],
+    [showBroadcast, canManage, subscriptionExpired, workspace?.ecommerceEnabled],
   );
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);

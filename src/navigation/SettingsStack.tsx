@@ -19,6 +19,7 @@ import { ProductsScreen } from '../screens/ProductsScreen';
 import { ProductFormScreen } from '../screens/ProductFormScreen';
 import { OrdersScreen } from '../screens/OrdersScreen';
 import { IntegrationCatalogScreen } from '../screens/IntegrationCatalogScreen';
+import { IntegrationsScreen } from '../screens/IntegrationsScreen';
 import { CreateOrderScreen } from '../screens/CreateOrderScreen';
 import type { BillingInterval } from '../api/billing';
 
@@ -56,6 +57,7 @@ export type SettingsStackParamList = {
   Orders: undefined;
   CreateOrder: undefined;
   IntegrationCatalog: undefined;
+  Integrations: undefined;
   ProductForm: { productId?: string } | undefined;
 };
 
@@ -84,6 +86,7 @@ export function SettingsStack() {
       <Stack.Screen name="Orders" component={OrdersScreen} />
       <Stack.Screen name="CreateOrder" component={CreateOrderScreen} />
       <Stack.Screen name="IntegrationCatalog" component={IntegrationCatalogScreen} />
+      <Stack.Screen name="Integrations" component={IntegrationsScreen} />
       <Stack.Screen name="ProductForm" component={ProductFormScreen} />
     </Stack.Navigator>
   );
