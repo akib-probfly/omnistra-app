@@ -10,7 +10,7 @@
                  "ios":  {
                              "supportsTablet":  true,
                              "bundleIdentifier":  "com.zurvis.mobile",
-                             "buildNumber":  "22",
+                             "buildNumber":  "23",
                              "infoPlist":  {
                                                "CFBundleDisplayName":  "Zurvis",
                                                "CFBundleName":  "Zurvis",
