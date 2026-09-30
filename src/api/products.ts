@@ -68,6 +68,9 @@ export async function listProducts(params?: {
   search?: string;
   category?: string | string[];
   status?: string | string[];
+  availability?: 'LOW_STOCK' | 'OUT_OF_STOCK' | Array<'LOW_STOCK' | 'OUT_OF_STOCK'>;
+  salesChannelIds?: string[];
+  localOnly?: boolean;
   page?: number;
   limit?: number;
 }) {
@@ -76,6 +79,9 @@ export async function listProducts(params?: {
   if (params?.search) query.set('search', params.search);
   if (params?.category) query.set('category', serialize(params.category));
   if (params?.status) query.set('status', serialize(params.status));
+  if (params?.availability) query.set('availability', serialize(params.availability));
+  if (params?.salesChannelIds?.length) query.set('salesChannelIds', params.salesChannelIds.join(','));
+  if (params?.localOnly) query.set('localOnly', 'true');
   if (params?.page) query.set('page', String(params.page));
   if (params?.limit) query.set('limit', String(params.limit));
   const suffix = query.toString() ? `?${query.toString()}` : '';
@@ -104,31 +110,26 @@ export function updateProductStatus(productId: string, isActive: boolean, whatsa
 export function deleteProduct(productId: string) {
   return apiFetch<void>(`/products/${productId}`, { method: 'DELETE' });
 }
+export function deleteProducts(productIds: string[]) {
+  return apiFetch<{ deleted: number; archived: number }>('/products', {
+    method: 'DELETE',
+    body: JSON.stringify({ productIds, removeFromChannels: true }),
+  });
+}
 
-export type OrderStatus = 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'RETURNED' | 'CANCELLED';
+export type ProductImportField = 'name' | 'sku' | 'category' | 'description' | 'shortDescription' | 'currency' | 'basePrice' | 'salePrice' | 'weight' | 'dimensionL' | 'dimensionW' | 'dimensionH' | 'initialStock' | 'stockAlert' | 'isActive' | 'images';
+export type ProductImportJob = { id: string; fileName: string; status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'; totalRows: number; importedRows: number; invalidRows: number; failedRows: number; errorMessage: string | null };
+export type ProductExportJob = { id: string; fileName: string; status: 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED'; totalRows: number; errorMessage: string | null };
 
-export type OrderSummary = {
-  id: string;
-  status: OrderStatus;
-  source: string;
-  date: string;
-  total: number;
-  matchScore?: number;
-  recipient: { name: string; phone: string; address: string; payment: string };
-  items: Array<{ name: string; qty: number; price: number }>;
-  courier: { partner: string; tracking: string; status: string } | null;
-};
-
-export type OrdersListResponse = { items: OrderSummary[]; total: number };
-
-export function listOrders(params?: { search?: string; phone?: string; source?: string; status?: OrderStatus; page?: number; limit?: number }) {
-  const query = new URLSearchParams();
-  if (params?.search) query.set('search', params.search);
-  if (params?.phone) query.set('phone', params.phone);
-  if (params?.source) query.set('source', params.source);
-  if (params?.status) query.set('status', params.status);
-  if (params?.page) query.set('page', String(params.page));
-  if (params?.limit) query.set('limit', String(params.limit));
-  const suffix = query.toString() ? `?${query.toString()}` : '';
-  return apiFetch<OrdersListResponse>(`/orders${suffix}`);
+export function importProducts(input: { csvText: string; fileName: string; columnMapping: Partial<Record<ProductImportField, string>> }) {
+  return apiFetch<ProductImportJob>('/products/imports', { method: 'POST', body: JSON.stringify(input) });
+}
+export function fetchProductImports() {
+  return apiFetch<{ items: ProductImportJob[] }>('/products/imports', { method: 'GET' });
+}
+export function exportProducts() {
+  return apiFetch<ProductExportJob>('/products/exports/products', { method: 'POST', body: JSON.stringify({ mode: 'all' }) });
+}
+export function fetchProductExports() {
+  return apiFetch<{ items: ProductExportJob[] }>('/products/exports', { method: 'GET' });
 }

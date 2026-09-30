@@ -20,6 +20,7 @@ import {
   UserRound,
   UsersRound,
   Workflow,
+  Puzzle,
   Zap,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -37,12 +38,12 @@ import { useBillingLockReason } from '../lib/billing-lock';
 import { useWorkspaceAccess } from '../lib/workspace-access';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
-import { fontWeight, iconTiles, radius, spacing } from '../theme/tokens';
+import { iconTiles, radius, spacing } from '../theme/tokens';
 import { AppCard, AppText, SettingsGridItem, SettingsSection } from '../ui';
 
 type BillingTab = 'current' | 'packages' | 'invoices' | 'history';
 
-type GeneralRoute = 'Profile' | 'Workspace' | 'Members' | 'Notifications' | 'InboxAppearance' | 'QuickReplies' | 'Tags' | 'AssignmentPolicy' | 'Broadcast' | 'BroadcastCreate' | 'Products' | 'Orders' | '__appearance__';
+type GeneralRoute = 'Profile' | 'Workspace' | 'Members' | 'Notifications' | 'InboxAppearance' | 'QuickReplies' | 'Tags' | 'AssignmentPolicy' | 'Broadcast' | 'BroadcastCreate' | 'Products' | 'Orders' | 'IntegrationCatalog' | '__appearance__';
 
 type SettingsRow =
   | { kind: 'route'; id: string; label: string; description: string; icon: LucideIcon; iconBg: string; iconColor: string; route: GeneralRoute; badge?: string }
@@ -65,8 +66,19 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
       { kind: 'route', id: 'assignment', label: 'Assignment Policy', description: 'Auto-assign and call routing rules', icon: Workflow, iconBg: iconTiles.indigo.bg, iconColor: iconTiles.indigo.fg, route: 'AssignmentPolicy' },
       { kind: 'route', id: 'quick-replies', label: 'Quick Replies', description: 'Create and manage reply snippets', icon: Zap, iconBg: iconTiles.yellow.bg, iconColor: iconTiles.yellow.fg, route: 'QuickReplies' },
       { kind: 'route', id: 'tags', label: 'Tags', description: 'Organize conversations and contacts', icon: Tag, iconBg: iconTiles.pink.bg, iconColor: iconTiles.pink.fg, route: 'Tags' },
+    ],
+  },
+  {
+    label: 'Commerce',
+    items: [
       { kind: 'route', id: 'products', label: 'Products', description: 'Manage your product catalog', icon: Package, iconBg: iconTiles.green.bg, iconColor: iconTiles.green.fg, route: 'Products' },
       { kind: 'route', id: 'orders', label: 'Orders', description: 'Track customer orders and fulfillment', icon: ShoppingBag, iconBg: iconTiles.orange.bg, iconColor: iconTiles.orange.fg, route: 'Orders' },
+    ],
+  },
+  {
+    label: 'Integrations',
+    items: [
+      { kind: 'route', id: 'integration-catalog', label: 'Connectors', description: 'Connect a store or delivery partner', icon: Puzzle, iconBg: iconTiles.indigo.bg, iconColor: iconTiles.indigo.fg, route: 'IntegrationCatalog' },
     ],
   },
   {
@@ -228,7 +240,6 @@ export function SettingsScreen() {
                 <View style={styles.grid}>
                   {group.items.map((item) => {
                     const isAppearance = item.kind === 'route' && item.route === '__appearance__';
-                    const isDisabled = item.kind === 'route' && item.id === 'products';
                     const RowIcon = isAppearance ? (isDark ? Moon : Sun) : item.icon;
                     return (
                       <SettingsGridItem
@@ -239,8 +250,7 @@ export function SettingsScreen() {
                         label={item.label}
                         accessory={isAppearance ? themeLabel : undefined}
                         badge={item.kind === 'route' ? item.badge : undefined}
-                        disabled={isDisabled}
-                        onPress={isDisabled ? undefined : () => onPressRow(item)}
+                        onPress={() => onPressRow(item)}
                       />
                     );
                   })}

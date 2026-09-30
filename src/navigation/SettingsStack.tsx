@@ -18,6 +18,8 @@ import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
 import { ProductsScreen } from '../screens/ProductsScreen';
 import { ProductFormScreen } from '../screens/ProductFormScreen';
 import { OrdersScreen } from '../screens/OrdersScreen';
+import { IntegrationCatalogScreen } from '../screens/IntegrationCatalogScreen';
+import { CreateOrderScreen } from '../screens/CreateOrderScreen';
 import type { BillingInterval } from '../api/billing';
 
 export type SettingsStackParamList = {
@@ -52,6 +54,8 @@ export type SettingsStackParamList = {
   PrivacyPolicy: undefined;
   Products: undefined;
   Orders: undefined;
+  CreateOrder: undefined;
+  IntegrationCatalog: undefined;
   ProductForm: { productId?: string } | undefined;
 };
 
@@ -78,6 +82,8 @@ export function SettingsStack() {
       <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
       <Stack.Screen name="Products" component={ProductsScreen} />
       <Stack.Screen name="Orders" component={OrdersScreen} />
+      <Stack.Screen name="CreateOrder" component={CreateOrderScreen} />
+      <Stack.Screen name="IntegrationCatalog" component={IntegrationCatalogScreen} />
       <Stack.Screen name="ProductForm" component={ProductFormScreen} />
     </Stack.Navigator>
   );
