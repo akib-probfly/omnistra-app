@@ -16,7 +16,7 @@
                                                "CFBundleName":  "Zurvis",
                                                "ITSAppUsesNonExemptEncryption":  false,
                                                "NSMicrophoneUsageDescription":  "Allow Zurvis to use your microphone for WhatsApp voice calls and voice notes.",
-                                               "NSCameraUsageDescription":  "Allow Zurvis to use your camera for WhatsApp calling if required by the device.",
+                                               "NSCameraUsageDescription":  "Allow Zurvis to scan order QR codes and barcodes, send photos or videos, and support WhatsApp calling when needed.",
                                                "UIBackgroundModes":  [
                                                                          "audio",
                                                                          "remote-notification"
@@ -71,6 +71,15 @@
                                  "./plugins/exclude-dev-client-from-release-autolinking",
                                  "./plugins/enable-r8-optimization",
                                  [
+                                     "expo-camera",
+                                     {
+                                         "cameraPermission":  "Allow Zurvis to scan order QR codes and barcodes.",
+                                         "microphonePermission":  "Allow Zurvis to use your microphone for WhatsApp voice calls and voice notes.",
+                                         "recordAudioAndroid":  false,
+                                         "barcodeScannerEnabled":  true
+                                     }
+                                 ],
+                                 [
                                      "expo-notifications",
                                      {
                                          "icon":  "./assets/android-icon-monochrome.png",
@@ -100,7 +109,7 @@
                                      "expo-image-picker",
                                      {
                                          "photosPermission":  "Allow Zurvis to access your photos to share images and videos.",
-                                         "cameraPermission":  "Allow Zurvis to access your camera to send photos and videos."
+                                         "cameraPermission":  "Allow Zurvis to scan order codes and send photos or videos."
                                      }
                                  ],
                                  "expo-video",
