@@ -68,27 +68,77 @@ export function DashboardSkeleton() {
   const { colors } = useTheme();
   return (
     <SkeletonPulse style={styles.dashboard}>
-      <View style={[styles.dashControls, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-        <SkeletonBone height={44} radius={14} />
-        <View style={styles.dashChips}>
-          <SkeletonBone width="31%" height={40} radius={999} />
-          <SkeletonBone width="31%" height={40} radius={999} />
-          <SkeletonBone width="31%" height={40} radius={999} />
+      <View style={styles.dashboardSection}>
+        <View style={styles.dashboardSectionHeader}>
+          <SkeletonBone width="34%" height={18} radius={7} />
+        </View>
+        <View style={styles.dashboardStack}>
+          <View pointerEvents="none" style={[styles.dashboardStackBack, styles.dashboardStackBackFar, { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder }]} />
+          <View pointerEvents="none" style={[styles.dashboardStackBack, styles.dashboardStackBackNear, { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder }]} />
+          <View style={[styles.dashboardMetricCard, styles.dashboardStackFront, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <SkeletonBone width={42} height={42} radius={14} />
+            <SkeletonBone width="45%" height={26} radius={8} style={styles.dashboardMetricValue} />
+            <SkeletonBone width="60%" height={13} />
+            <SkeletonBone width="48%" height={11} style={styles.gap} />
+          </View>
+          <View style={styles.dashboardStackFooter}>
+            <View style={styles.dashboardStackDots}>
+              <SkeletonBone width={6} height={6} radius={3} />
+              <SkeletonBone width={6} height={6} radius={3} />
+              <SkeletonBone width={6} height={6} radius={3} />
+            </View>
+            <SkeletonBone width={88} height={10} radius={5} />
+          </View>
         </View>
       </View>
-      <SkeletonBone width="42%" height={20} radius={8} style={styles.sectionTitle} />
-      <View style={styles.dashCarousel}>
-        <SkeletonBone width={220} height={168} radius={22} />
-        <SkeletonBone width={220} height={168} radius={22} />
+      <View style={styles.dashboardSection}>
+        <View style={styles.dashboardSectionHeader}>
+          <SkeletonBone width="30%" height={18} radius={7} />
+          <SkeletonBone width="48%" height={12} radius={6} style={styles.gap} />
+        </View>
+        <View style={[styles.dashboardMetricCard, styles.dashboardWideCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+          <View style={styles.dashboardUsageTop}>
+            <View style={styles.dashboardUsageCopy}>
+              <SkeletonBone width="68%" height={12} radius={6} />
+              <SkeletonBone width="46%" height={28} radius={8} style={styles.gap} />
+            </View>
+            <SkeletonBone width={58} height={58} radius={29} />
+          </View>
+          <View style={[styles.usageSkeletonDivider, { backgroundColor: colors.separator }]} />
+          <View style={styles.usageSkeletonTiles}>
+            <View style={[styles.usageSkeletonTile, { backgroundColor: colors.surfaceSecondary }]}>
+              <SkeletonBone width="48%" height={12} />
+              <SkeletonBone width={38} height={38} radius={19} style={styles.gap} />
+              <SkeletonBone width="64%" height={10} radius={5} style={styles.gap} />
+            </View>
+            <View style={[styles.usageSkeletonTile, { backgroundColor: colors.surfaceSecondary }]}>
+              <SkeletonBone width="48%" height={12} />
+              <SkeletonBone width={38} height={38} radius={19} style={styles.gap} />
+              <SkeletonBone width="64%" height={10} radius={5} style={styles.gap} />
+            </View>
+            <View style={[styles.usageSkeletonTile, { backgroundColor: colors.surfaceSecondary }]}>
+              <SkeletonBone width="48%" height={12} />
+              <SkeletonBone width={38} height={38} radius={19} style={styles.gap} />
+              <SkeletonBone width="64%" height={10} radius={5} style={styles.gap} />
+            </View>
+          </View>
+        </View>
       </View>
-      <SkeletonBone width="48%" height={20} radius={8} style={styles.sectionTitle} />
-      <View style={styles.dashCarousel}>
-        <SkeletonBone width={220} height={168} radius={22} />
-        <SkeletonBone width={220} height={168} radius={22} />
-      </View>
-      <View style={[styles.panel, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-        <SkeletonBone width="40%" height={16} />
-        <SkeletonBone height={140} radius={14} style={styles.gapLg} />
+      <View style={styles.dashboardSection}>
+        <View style={styles.dashboardSectionHeader}>
+          <SkeletonBone width="26%" height={18} radius={7} />
+          <SkeletonBone width="42%" height={12} radius={6} style={styles.gap} />
+        </View>
+        <View style={[styles.dashboardMetricCard, styles.dashboardWideCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+          <View style={styles.dashboardUsageTop}>
+            <View style={styles.dashboardUsageCopy}>
+              <SkeletonBone width="58%" height={14} />
+              <SkeletonBone width="40%" height={12} radius={6} style={styles.gap} />
+            </View>
+            <SkeletonBone width={64} height={64} radius={16} />
+          </View>
+          <SkeletonBone height={48} radius={12} style={styles.gapLg} />
+        </View>
       </View>
     </SkeletonPulse>
   );
@@ -197,6 +247,29 @@ const styles = StyleSheet.create({
   },
 
   dashboard: { paddingTop: 8 },
+  dashboardSection: { marginTop: 18 },
+  dashboardSectionHeader: { gap: 7, marginBottom: 12, paddingHorizontal: 16 },
+  dashboardStack: { height: 232, marginHorizontal: 16, position: 'relative' },
+  dashboardStackBack: { borderRadius: 22, borderWidth: 1, height: 164, left: 0, position: 'absolute', right: 0, top: 0 },
+  dashboardStackBackNear: { left: 8, right: 8, top: 9 },
+  dashboardStackBackFar: { left: 16, right: 16, top: 18 },
+  dashboardStackFront: { left: 0, position: 'absolute', right: 0, top: 0, width: undefined },
+  dashboardStackFooter: { alignItems: 'center', flexDirection: 'row', gap: 12, justifyContent: 'center', position: 'absolute', top: 190, width: '100%' },
+  dashboardStackDots: { alignItems: 'center', flexDirection: 'row', gap: 5 },
+  dashboardMetricCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    minHeight: 164,
+    padding: 16,
+    width: 280,
+  },
+  dashboardMetricValue: { marginTop: 16 },
+  dashboardWideCard: { marginHorizontal: 16, width: undefined },
+  dashboardUsageTop: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  dashboardUsageCopy: { flex: 1, gap: 2 },
+  usageSkeletonDivider: { height: StyleSheet.hairlineWidth, marginVertical: 14 },
+  usageSkeletonTiles: { flexDirection: 'row', gap: 6, justifyContent: 'space-between' },
+  usageSkeletonTile: { alignItems: 'center', borderRadius: 12, flex: 1, gap: 3, minWidth: 0, paddingHorizontal: 2, paddingVertical: 8 },
   dashControls: {
     borderRadius: 20,
     borderWidth: 1,

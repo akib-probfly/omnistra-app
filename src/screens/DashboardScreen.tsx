@@ -662,11 +662,13 @@ function BillingUsageCard({
   loading,
   onPress,
   colors,
+  isDark,
 }: {
   usage?: WorkspaceUsage;
   loading: boolean;
   onPress: () => void;
   colors: ThemeColors;
+  isDark: boolean;
 }) {
   const conversationCount = usage?.conversationCount;
   const conversationLimit = usage?.conversationLimit;
@@ -682,7 +684,7 @@ function BillingUsageCard({
 
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Open billing and plan usage">
-      <View style={[styles.billingUsageCard, { backgroundColor: colors.dangerSoft, borderColor: colors.dangerBorder }]}>
+      <View style={[styles.billingUsageCard, { backgroundColor: isDark ? colors.primarySoft : mixHex(colors.primary, colors.surface, 0.88), borderColor: colors.primaryBorder }]}>
         <View style={styles.usageHero}>
           <View style={styles.usageHeroCopy}>
             <Text style={[styles.usageSummaryLabel, { color: colors.textSecondary }]}>Conversations this cycle</Text>
@@ -704,7 +706,7 @@ function BillingUsageCard({
         {usageBreakdown.map(({ label, count, limit, color, softColor }) => {
           const percent = limit != null && limit > 0 && count != null ? Math.min(100, Math.round(count / limit * 100)) : 0;
           return (
-            <View key={label} style={[styles.usageRingItem, { backgroundColor: colors.warningSoft }]}>
+            <View key={label} style={[styles.usageRingItem, { backgroundColor: colors.surfaceSecondary }]}>
               <Text style={[styles.usageBreakdownValue, { color: colors.text }]} numberOfLines={1}>{loading || !usage ? '—' : formatNumber(count)}</Text>
               <Text style={[styles.usageRingLabel, { color: colors.textSecondary }]} numberOfLines={1}>{label}</Text>
               <View style={styles.usageRing}>
@@ -955,6 +957,7 @@ export function DashboardScreen() {
                 loading={usage.isLoading}
                 onPress={() => navigation.navigate('Settings', { screen: 'Billing', params: { tab: 'current' } })}
                 colors={colors}
+                isDark={isDark}
               />
             </View>
 
