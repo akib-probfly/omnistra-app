@@ -661,72 +661,66 @@ function BillingUsageCard({
   usage,
   loading,
   onPress,
-  isDark,
+  colors,
 }: {
   usage?: WorkspaceUsage;
   loading: boolean;
   onPress: () => void;
-  isDark: boolean;
+  colors: ThemeColors;
 }) {
   const conversationCount = usage?.conversationCount;
   const conversationLimit = usage?.conversationLimit;
   const conversationPercent = conversationLimit != null && conversationLimit > 0 && conversationCount != null
     ? Math.min(100, Math.round(conversationCount / conversationLimit * 100))
     : 0;
-  const textColor = '#ffffff';
-  const mutedColor = 'rgba(255,255,255,0.78)';
   const usageBreakdown = [
-    { label: 'Team', count: usage?.seatCount, limit: usage?.seatLimit, Icon: Users },
-    { label: 'Channels', count: usage?.channelCount, limit: usage?.channelLimit, Icon: Wifi },
+    { label: 'Conversations', count: usage?.conversationCount, limit: usage?.conversationLimit, color: colors.primary, softColor: colors.primarySoft },
+    { label: 'Team members', count: usage?.seatCount, limit: usage?.seatLimit, color: colors.indigo, softColor: colors.indigoSoft },
+    { label: 'Channels', count: usage?.channelCount, limit: usage?.channelLimit, color: colors.success, softColor: colors.successSoft },
   ];
-  const percentages = usageBreakdown.map(({ count, limit }) => limit != null && limit > 0 && count != null ? Math.min(100, Math.round(count / limit * 100)) : 0);
-  const mainUsagePercent = loading || !usage ? 0 : conversationPercent;
+  const circumference = 2 * Math.PI * 23;
 
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Open billing and plan usage">
-      <LinearGradient colors={isDark ? ['#c86b5b', '#a94362'] : ['#f4775d', '#e65370']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.billingUsageCard}>
-        <View pointerEvents="none" style={styles.usageGlowLarge} />
-        <View style={styles.billingUsageHeader}>
-          <View style={styles.billingUsageIcon}><MessageSquareText color={textColor} size={16} strokeWidth={2.2} /></View>
-          <View style={styles.billingUsageHeaderCopy}>
-            <Text style={[styles.billingUsageEyebrow, { color: mutedColor }]}>CURRENT PLAN</Text>
-            <Text style={[styles.billingUsageTitle, { color: textColor }]} numberOfLines={1}>{usage?.planKey ? usage.planKey.replace(/[_-]+/g, ' ') : 'Plan usage'}</Text>
-          </View>
-          <View style={styles.billingUsageAction}><ArrowUpRight color={textColor} size={17} /></View>
-        </View>
-
-        <View style={styles.usageSummary}>
-          <View style={styles.usageSummaryLine}>
-            <View>
-              <Text style={[styles.usageSummaryLabel, { color: mutedColor }]}>Conversations this cycle</Text>
-              <Text style={[styles.usageSummaryPercent, { color: textColor }]}>{loading || !usage ? '—' : `${conversationPercent}%`}</Text>
+      <View style={[styles.billingUsageCard, { backgroundColor: colors.dangerSoft, borderColor: colors.dangerBorder }]}>
+        <View style={styles.usageHero}>
+          <View style={styles.usageHeroCopy}>
+            <Text style={[styles.usageSummaryLabel, { color: colors.textSecondary }]}>Conversations this cycle</Text>
+            <View style={styles.usageHeroValueRow}>
+              <Text style={[styles.usageHeroValue, { color: colors.text }]}>{loading || !usage ? '—' : formatNumber(conversationCount)}</Text>
+              <Text style={[styles.usageHeroLimit, { color: colors.textMuted }]}> / {loading || !usage ? '—' : conversationLimit == null ? '∞' : formatNumber(conversationLimit)}</Text>
             </View>
-            <Text style={[styles.usageSummaryDetail, { color: mutedColor }]}>{loading || !usage ? 'Loading usage' : `${formatNumber(conversationCount)} / ${conversationLimit == null ? '∞' : formatNumber(conversationLimit)} conversations`}</Text>
           </View>
-          <View style={styles.usageSummaryTrack}><View style={[styles.usageSummaryFill, { width: `${mainUsagePercent}%` }]} /></View>
+          <View style={styles.usageHeroRing}>
+            <Svg width={58} height={58} viewBox="0 0 58 58">
+              <Circle cx="29" cy="29" r="23" fill="none" stroke={colors.surfaceSecondary} strokeWidth="5" />
+              <Circle cx="29" cy="29" r="23" fill="none" stroke={colors.text} strokeWidth="5" strokeDasharray={`${circumference * conversationPercent / 100} ${circumference}`} strokeLinecap="round" rotation="-90" origin="29, 29" />
+            </Svg>
+            <View style={styles.usageHeroRingCenter}><Text style={[styles.usageHeroPercent, { color: colors.text }]}>{loading || !usage ? '—' : `${conversationPercent}%`}</Text></View>
+          </View>
         </View>
-
+        <View style={[styles.usageDivider, { backgroundColor: colors.separator }]} />
         <View style={styles.usageRingsRow}>
-        {usageBreakdown.map(({ label, count, limit, Icon }, index) => {
-          const percent = percentages[index];
-          const circumference = 2 * Math.PI * 18;
+        {usageBreakdown.map(({ label, count, limit, color, softColor }) => {
+          const percent = limit != null && limit > 0 && count != null ? Math.min(100, Math.round(count / limit * 100)) : 0;
           return (
-            <View key={label} style={styles.usageRingItem}>
+            <View key={label} style={[styles.usageRingItem, { backgroundColor: colors.warningSoft }]}>
+              <Text style={[styles.usageBreakdownValue, { color: colors.text }]} numberOfLines={1}>{loading || !usage ? '—' : formatNumber(count)}</Text>
+              <Text style={[styles.usageRingLabel, { color: colors.textSecondary }]} numberOfLines={1}>{label}</Text>
               <View style={styles.usageRing}>
-                <Svg width={58} height={58} viewBox="0 0 58 58">
-                  <Circle cx="29" cy="29" r="18" fill="none" stroke="rgba(255,255,255,0.24)" strokeWidth="5" />
-                  <Circle cx="29" cy="29" r="18" fill="none" stroke="#ffffff" strokeWidth="5" strokeDasharray={`${circumference * percent / 100} ${circumference}`} strokeLinecap="round" rotation="-90" origin="29, 29" />
+                <Svg width={38} height={38} viewBox="0 0 38 38">
+                  <Circle cx="19" cy="19" r="15" fill="none" stroke={softColor} strokeWidth="4" />
+                  <Circle cx="19" cy="19" r="15" fill="none" stroke={color} strokeWidth="4" strokeDasharray={`${2 * Math.PI * 15 * percent / 100} ${2 * Math.PI * 15}`} strokeLinecap="round" rotation="-90" origin="19, 19" />
                 </Svg>
-                <View style={styles.usageRingCenter}><Text style={[styles.usageRingPercent, { color: textColor }]}>{loading || !usage ? '—' : `${percent}%`}</Text></View>
+                <View style={styles.usageRingCenter}><Text style={[styles.usageRingPercent, { color: colors.textSecondary }]}>{loading || !usage ? '—' : `${percent}%`}</Text></View>
               </View>
-              <View style={styles.usageRingLabelRow}><Icon color={textColor} size={12} /><Text style={[styles.usageRingLabel, { color: textColor }]} numberOfLines={1}>{label}</Text></View>
-              <Text style={[styles.usageRingDetail, { color: mutedColor }]} numberOfLines={1}>{loading || !usage ? '—' : `${formatNumber(count)} / ${limit == null ? '∞' : formatNumber(limit)}`}</Text>
+              <Text style={[styles.usageRingDetail, { color: colors.textMuted }]} numberOfLines={1}>{loading || !usage ? 'Loading' : `${limit == null ? 'No limit' : `${formatNumber(Math.max(0, limit - (count ?? 0)))} left`}`}</Text>
             </View>
           );
         })}
         </View>
-        <Text style={[styles.billingUsageFooter, { color: textColor }]}>View billing details</Text>
-      </LinearGradient>
+        <View style={styles.billingUsageFooter}><Text style={[styles.billingUsageFooterText, { color: colors.primary }]}>View billing details</Text><ArrowUpRight color={colors.primary} size={14} /></View>
+      </View>
     </Pressable>
   );
 }
@@ -960,7 +954,7 @@ export function DashboardScreen() {
                 usage={usage.data}
                 loading={usage.isLoading}
                 onPress={() => navigation.navigate('Settings', { screen: 'Billing', params: { tab: 'current' } })}
-                isDark={isDark}
+                colors={colors}
               />
             </View>
 
@@ -1295,30 +1289,27 @@ const styles = StyleSheet.create({
   deltaPositiveDark: { color: '#4ade80' },
   deltaNegativeDark: { color: '#fca5a5' },
 
-  billingUsageCard: { borderRadius: radius.xl, gap: spacing.sm + 2, overflow: 'hidden', padding: spacing.md + 2 },
-  usageGlowLarge: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 120, height: 240, position: 'absolute', right: -95, top: -150, width: 240 },
-  billingUsageHeader: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
-  billingUsageHeaderCopy: { flex: 1, minWidth: 0 },
-  billingUsageEyebrow: { fontSize: fontSize.tiny, fontWeight: fontWeight.bold, letterSpacing: 0.8 },
-  billingUsageTitle: { fontSize: fontSize.body, fontWeight: fontWeight.bold, marginTop: 1, textTransform: 'capitalize' },
-  billingUsageIcon: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: radius.md, height: 30, justifyContent: 'center', width: 30 },
-  billingUsageAction: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: radius.pill, height: 28, justifyContent: 'center', width: 28 },
-  usageSummary: { gap: spacing.xs, paddingHorizontal: spacing.xs },
-  usageSummaryLine: { alignItems: 'flex-end', flexDirection: 'row', justifyContent: 'space-between' },
-  usageSummaryLabel: { fontSize: fontSize.tiny, fontWeight: fontWeight.semibold },
-  usageSummaryPercent: { fontSize: 25, fontWeight: fontWeight.extrabold, lineHeight: 28 },
-  usageSummaryDetail: { fontSize: fontSize.tiny, fontWeight: fontWeight.medium, marginBottom: 3, maxWidth: '48%', textAlign: 'right' },
-  usageSummaryTrack: { backgroundColor: 'rgba(255,255,255,0.32)', borderRadius: radius.pill, height: 6, overflow: 'hidden' },
-  usageSummaryFill: { backgroundColor: '#ffffff', borderRadius: radius.pill, height: '100%' },
-  usageRingsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: spacing.xs },
-  usageRingItem: { alignItems: 'center', flex: 1, gap: 2, minWidth: 0 },
-  usageRing: { alignItems: 'center', height: 58, justifyContent: 'center', width: 58 },
+  billingUsageCard: { borderRadius: radius.xl, borderWidth: StyleSheet.hairlineWidth, gap: spacing.md, overflow: 'hidden', padding: spacing.md },
+  usageHero: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', minHeight: 68, paddingHorizontal: spacing.xs },
+  usageHeroCopy: { flex: 1, gap: spacing.xs, minWidth: 0 },
+  usageSummaryLabel: { fontSize: fontSize.caption, fontWeight: fontWeight.medium },
+  usageHeroValueRow: { alignItems: 'baseline', flexDirection: 'row' },
+  usageHeroValue: { fontSize: fontSize.title, fontWeight: fontWeight.bold, lineHeight: 30 },
+  usageHeroLimit: { fontSize: fontSize.heading, fontWeight: fontWeight.medium },
+  usageHeroRing: { alignItems: 'center', height: 58, justifyContent: 'center', marginRight: spacing.xs, width: 58 },
+  usageHeroRingCenter: { alignItems: 'center', justifyContent: 'center', position: 'absolute' },
+  usageHeroPercent: { fontSize: fontSize.tiny, fontWeight: fontWeight.bold },
+  usageDivider: { height: StyleSheet.hairlineWidth, marginHorizontal: spacing.xs },
+  usageRingsRow: { flexDirection: 'row', gap: spacing.xs, justifyContent: 'space-between' },
+  usageRingItem: { alignItems: 'center', borderRadius: radius.md, flex: 1, gap: 2, minWidth: 0, paddingHorizontal: 2, paddingVertical: spacing.xs },
+  usageBreakdownValue: { fontSize: fontSize.caption, fontWeight: fontWeight.bold },
+  usageRing: { alignItems: 'center', height: 38, justifyContent: 'center', marginTop: 1, width: 38 },
   usageRingCenter: { alignItems: 'center', justifyContent: 'center', position: 'absolute' },
-  usageRingPercent: { fontSize: fontSize.tiny, fontWeight: fontWeight.extrabold },
-  usageRingLabelRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
-  usageRingLabel: { fontSize: fontSize.tiny, fontWeight: fontWeight.semibold },
-  usageRingDetail: { fontSize: 9, fontWeight: fontWeight.medium },
-  billingUsageFooter: { alignSelf: 'flex-end', fontSize: fontSize.tiny, fontWeight: fontWeight.semibold, marginTop: -spacing.xs },
+  usageRingPercent: { fontSize: 8, fontWeight: fontWeight.bold },
+  usageRingLabel: { fontSize: 9, fontWeight: fontWeight.semibold, textAlign: 'center' },
+  usageRingDetail: { fontSize: 8, fontWeight: fontWeight.medium },
+  billingUsageFooter: { alignItems: 'center', alignSelf: 'flex-end', flexDirection: 'row', gap: 2, marginTop: -spacing.xs },
+  billingUsageFooterText: { fontSize: fontSize.tiny, fontWeight: fontWeight.semibold },
 
   mixLayout: { alignItems: 'center', flexDirection: 'row', gap: 16 },
   donut: { alignItems: 'center', height: 120, justifyContent: 'center', position: 'relative', width: 120 },
