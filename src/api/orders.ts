@@ -19,7 +19,7 @@ export type OrderSummary = {
 export type OrderLocationOption = { id: string; name: string };
 export type CreateOrderInput = {
   sourceChannelId: string; courierConnectionId: string | null; recipientName: string; recipientPhone: string;
-  recipientEmail: string | null; address: string; cityId: string; zoneId: string; areaId: string; currency: string;
+  recipientEmail: string | null; address: string; cityId: string | null; zoneId: string | null; areaId: string | null; currency: string;
   paymentMethod: 'COD' | 'PAID' | 'PARTIAL'; amountPaidMinor: number; deliveryFeeMinor: number;
   items: Array<{ productId: string; quantity: number; unitPriceMinor: number; weightGrams: number | null }>;
 };

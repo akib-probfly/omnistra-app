@@ -4,6 +4,7 @@ export type Workspace = {
   id: string;
   name: string;
   timezone: string;
+  defaultCurrency?: string;
   ecommerceEnabled?: boolean;
   broadcastSmartDelayEnabled?: boolean;
   broadcastDelaySeconds?: number;
