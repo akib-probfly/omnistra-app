@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Image } from 'expo-image';
 import { Check, Download, Filter, Import, Package, Plus, Search } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -42,10 +43,11 @@ function formatPrice(product: ProductResponse) {
 function ProductRow({ product, selected, onSelect, onToggle, onDelete, onEdit }: { product: ProductResponse; selected: boolean; onSelect: () => void; onToggle: () => void; onDelete: () => void; onEdit: () => void }) {
   const { colors } = useTheme();
   const active = product.status === 'ACTIVE';
+  const imageUrl = product.coverImageUrl || product.imageUrls.find(Boolean) || null;
   return (
     <AppCard style={styles.productCard}>
       <View style={styles.productHeader}>
-        <View style={[styles.icon, { backgroundColor: colors.primarySoft }]}><Package color={colors.primary} size={20} /></View>
+        <View style={[styles.icon, { backgroundColor: colors.primarySoft }]}>{imageUrl ? <Image source={{ uri: imageUrl }} style={styles.productImage} contentFit="cover" cachePolicy="memory-disk" accessibilityLabel={`${product.name} image`} /> : <Package color={colors.primary} size={20} />}</View>
         <View style={styles.productCopy}>
           <Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>{product.name}</Text>
           <Text style={[styles.productMeta, { color: colors.textSecondary }]} numberOfLines={1}>{product.sku || product.category || 'No SKU or category'}</Text>
@@ -247,7 +249,8 @@ const styles = StyleSheet.create({
   filterText: { fontSize: fontSize.small, fontWeight: fontWeight.bold },
   productCard: { gap: spacing.md },
   productHeader: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
-  icon: { alignItems: 'center', borderRadius: radius.md, height: 40, justifyContent: 'center', width: 40 },
+  icon: { alignItems: 'center', borderRadius: radius.md, height: 40, justifyContent: 'center', overflow: 'hidden', width: 40 },
+  productImage: { height: '100%', width: '100%' },
   productCopy: { flex: 1, minWidth: 0 },
   productName: { fontSize: fontSize.subheading, fontWeight: fontWeight.bold },
   productMeta: { fontSize: fontSize.small, marginTop: 2 },
