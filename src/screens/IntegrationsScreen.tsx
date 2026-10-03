@@ -82,7 +82,6 @@ export function IntegrationsScreen() {
           <View style={[styles.emptyState, { borderColor: colors.cardBorder, backgroundColor: colors.surfaceSecondary }]}>
             <View style={[styles.emptyIcon, { backgroundColor: colors.surface }]}><PackageOpen color={colors.textSecondary} size={21} /></View>
             <AppText variant="bodyStrong">No integrations connected yet</AppText>
-            <AppText variant="small" tone="secondary" style={styles.emptyDescription}>Connect a store or delivery partner from the catalog to start receiving orders and tracking shipments.</AppText>
             <AppButton icon={Search} label="Browse Catalog" onPress={browseCatalog} />
           </View>
         )}

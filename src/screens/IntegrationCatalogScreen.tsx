@@ -96,7 +96,7 @@ export function IntegrationCatalogScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <ScreenHeader title="Integration Catalog" subtitle="Connect a store or a delivery partner to your workspace." onBack={() => navigation.goBack()} />
+      <ScreenHeader title="Integration Catalog"  onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.filters}>
           {FILTERS.map((item) => {
