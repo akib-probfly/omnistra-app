@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { Check, ChevronRight, Plus, QrCode, Search, Share2, ShoppingBag, Truck, X } from 'lucide-react-native';
+import { Check, ChevronRight, Filter, Plus, QrCode, Search, Share2, ShoppingBag, Truck, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
@@ -10,13 +10,21 @@ import { fetchChannels } from '../api/channels';
 import { bookCourierShipment, listCourierConnections, listOrderShipments } from '../api/couriers';
 import { bulkUpdateOrderStatus, getAllowedOrderStatusTransitions, listOrderInvoices, listOrders, scanOrder, updateOrderStatus, type OrderStatus, type OrderSummary } from '../api/orders';
 import { ErrorState } from '../components/ErrorState';
+import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
+import { ChannelLogo } from '../components/ChannelLogo';
 import { FormSkeleton } from '../components/Skeleton';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
 import { fontSize, fontWeight, inputHeight, radius, spacing } from '../theme/tokens';
-import { AppBadge, AppButton, AppCard, ScreenHeader } from '../ui';
+import { AppBadge, AppButton, AppCard, AppChip, AppText, ScreenHeader } from '../ui';
 
 const STATUSES: Array<OrderStatus | 'ALL'> = ['ALL', 'PENDING', 'APPROVED', 'PROCESSING', 'SHIPPED', 'IN_TRANSIT', 'DELIVERED', 'CANCELLED', 'RETURNED', 'DAMAGED'];
+const ORDER_FILTER_LAYERS = [
+  { id: 'status', label: 'Status' },
+  { id: 'phone', label: 'Phone' },
+  { id: 'source', label: 'Source' },
+] as const;
+type OrderFilterLayer = (typeof ORDER_FILTER_LAYERS)[number]['id'];
 function formatTotal(value: number, currency = 'BDT') { return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(value / 100); }
 function statusTone(status: OrderStatus) { return status === 'DELIVERED' ? 'success' as const : status === 'CANCELLED' || status === 'DAMAGED' ? 'danger' as const : status === 'RETURNED' ? 'neutral' as const : 'warning' as const; }
 
@@ -29,6 +37,11 @@ export function OrdersScreen() {
   const [phone, setPhone] = useState('');
   const [status, setStatus] = useState<OrderStatus | 'ALL'>('ALL');
   const [sourceIds, setSourceIds] = useState<string[]>([]);
+  const [filtersVisible, setFiltersVisible] = useState(false);
+  const [filterLayer, setFilterLayer] = useState<OrderFilterLayer>('status');
+  const [draftPhone, setDraftPhone] = useState('');
+  const [draftStatus, setDraftStatus] = useState<OrderStatus | 'ALL'>('ALL');
+  const [draftSourceIds, setDraftSourceIds] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [selectedOrder, setSelectedOrder] = useState<OrderSummary | null>(null);
@@ -81,15 +94,56 @@ export function OrdersScreen() {
   };
   const selectedOrders = orders.filter((order) => selectedIds.includes(order.id));
   const bulkOptions = STATUSES.filter((next): next is OrderStatus => next !== 'ALL' && selectedOrders.length > 0 && selectedOrders.every((order) => getAllowedOrderStatusTransitions(order.status).includes(next)));
+  const activeFilterCount = Number(status !== 'ALL') + Number(Boolean(phone.trim())) + sourceIds.length;
+  const draftHasFilters = draftStatus !== 'ALL' || Boolean(draftPhone.trim()) || draftSourceIds.length > 0;
+  const openFilters = () => {
+    setDraftStatus(status);
+    setDraftPhone(phone);
+    setDraftSourceIds(sourceIds);
+    setFiltersVisible(true);
+  };
+  const resetDraftFilters = () => {
+    setDraftStatus('ALL');
+    setDraftPhone('');
+    setDraftSourceIds([]);
+  };
+  const applyFilters = () => {
+    setStatus(draftStatus);
+    setPhone(draftPhone);
+    setSourceIds(draftSourceIds);
+    setSelectedIds([]);
+    setPage(1);
+    setFiltersVisible(false);
+  };
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <ScreenHeader title="Orders" subtitle="Manage customer orders and fulfillment" onBack={() => navigation.goBack()} right={<View style={styles.headerActions}><Pressable onPress={() => { setScanMessage(''); setScanOpen(true); }} style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]} accessibilityLabel="Scan order"><QrCode color={colors.primary} size={19} /></Pressable><Pressable onPress={() => navigation.navigate('CreateOrder')} style={[styles.iconButton, { backgroundColor: colors.primary }]} accessibilityLabel="Create order"><Plus color={colors.primaryText} size={20} /></Pressable></View>} />
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, spacing.xxl) }]} keyboardShouldPersistTaps="handled">
-        <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><Search color={colors.textMuted} size={17} /><TextInput value={search} onChangeText={(value) => { setSearch(value); setPage(1); setSelectedIds([]); }} placeholder="Search order or customer" placeholderTextColor={colors.textMuted} style={[styles.input, { color: colors.text }]} /></View>
-        <TextInput value={phone} onChangeText={(value) => { setPhone(value); setPage(1); setSelectedIds([]); }} placeholder="Filter by phone number" placeholderTextColor={colors.textMuted} style={[styles.phoneSearch, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]} />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>{STATUSES.map((item) => <Pressable key={item} onPress={() => { setStatus(item); setPage(1); setSelectedIds([]); }} style={[styles.filter, { backgroundColor: status === item ? colors.primary : colors.surfaceSecondary }]}><Text style={[styles.filterText, { color: status === item ? colors.primaryText : colors.textSecondary }]}>{item === 'ALL' ? 'All orders' : item.replace('_', ' ')}</Text></Pressable>)}</ScrollView>
-        {(channelsQuery.data?.items ?? []).filter((channel) => channel.status === 'CONNECTED').length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>{(channelsQuery.data?.items ?? []).filter((channel) => channel.status === 'CONNECTED').map((channel) => { const active = sourceIds.includes(channel.id); return <Pressable key={channel.id} onPress={() => { setSourceIds((current) => active ? current.filter((id) => id !== channel.id) : [...current, channel.id]); setPage(1); setSelectedIds([]); }} style={[styles.filter, { backgroundColor: active ? colors.primarySoft : colors.surface, borderColor: active ? colors.primary : colors.cardBorder, borderWidth: 1 }]}><Text style={[styles.filterText, { color: active ? colors.primary : colors.textSecondary }]}>{channel.name}</Text></Pressable>; })}</ScrollView> : null}
+        <View style={styles.searchTools}>
+          <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><Search color={colors.textMuted} size={17} /><TextInput value={search} onChangeText={(value) => { setSearch(value); setPage(1); setSelectedIds([]); }} placeholder="Search order or customer" placeholderTextColor={colors.textMuted} style={[styles.input, { color: colors.text }]} /></View>
+          <Pressable onPress={openFilters} style={[styles.filterIconButton, { backgroundColor: colors.surface, borderColor: activeFilterCount ? colors.primary : colors.cardBorder }]} accessibilityRole="button" accessibilityLabel={activeFilterCount ? `Filters, ${activeFilterCount} active` : 'Filters'}>
+            <Filter color={activeFilterCount ? colors.primary : colors.textSecondary} size={18} />
+            {activeFilterCount ? <View style={[styles.filterActiveDot, { backgroundColor: colors.primary }]} /> : null}
+          </Pressable>
+        </View>
+        <BottomSheet visible={filtersVisible} onClose={() => setFiltersVisible(false)} sheetStyle={styles.filterSheet}>
+          <View style={styles.sheetHeader}><AppText variant="heading">Order filters</AppText></View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.filterLayerTabs, { backgroundColor: colors.surfaceSecondary }]} contentContainerStyle={styles.filterLayerTabsContent}>
+            {ORDER_FILTER_LAYERS.map((layer) => {
+              const selectedCount = layer.id === 'status' ? Number(draftStatus !== 'ALL') : layer.id === 'phone' ? Number(Boolean(draftPhone.trim())) : draftSourceIds.length;
+              const active = filterLayer === layer.id;
+              return <Pressable key={layer.id} style={[styles.filterLayerTab, active && styles.filterLayerTabActive, active && { backgroundColor: colors.surface }]} onPress={() => setFilterLayer(layer.id)}><Text style={[styles.filterLayerTabText, { color: active ? colors.text : colors.textSecondary }]}>{layer.label}</Text>{selectedCount ? <Text style={[styles.filterLayerCount, { color: colors.primary, backgroundColor: `${colors.primary}18` }]}>{selectedCount}</Text> : null}</Pressable>;
+            })}
+          </ScrollView>
+          <SheetScrollView style={styles.filterLayerBody} contentContainerStyle={styles.filterLayerContent} keyboardShouldPersistTaps="handled">
+            {filterLayer === 'status' ? <View style={styles.filterChoices}>{STATUSES.map((item) => <AppChip key={item} label={item === 'ALL' ? 'All orders' : item.replace('_', ' ')} selected={draftStatus === item} onPress={() => setDraftStatus(item)} />)}</View> : null}
+            {filterLayer === 'phone' ? <View style={styles.phoneFilterSection}><AppText variant="small" tone="secondary">Filter orders by customer phone number.</AppText><TextInput value={draftPhone} onChangeText={setDraftPhone} placeholder="Phone number" placeholderTextColor={colors.textMuted} keyboardType="phone-pad" style={[styles.phoneSearch, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]} /></View> : null}
+            {filterLayer === 'source' ? (channelsQuery.data?.items ?? []).filter((channel) => channel.status === 'CONNECTED').length ? <View style={styles.filterChoices}>{(channelsQuery.data?.items ?? []).filter((channel) => channel.status === 'CONNECTED').map((channel) => { const selected = draftSourceIds.includes(channel.id); return <Pressable key={channel.id} onPress={() => setDraftSourceIds((current) => selected ? current.filter((id) => id !== channel.id) : [...current, channel.id])} style={[styles.channelFilter, { backgroundColor: colors.surface, borderColor: selected ? colors.primary : colors.cardBorder }]} accessibilityRole="checkbox" accessibilityState={{ checked: selected }}><ChannelLogo type={channel.type} box={22} glyph={12} radius={8} /><Text numberOfLines={1} style={[styles.channelFilterLabel, { color: selected ? colors.primary : colors.textSecondary }]}>{channel.name}</Text>{selected ? <Check color={colors.primary} size={14} /> : null}</Pressable>; })}</View> : <AppText variant="small" tone="muted">No connected order sources.</AppText> : null}
+          </SheetScrollView>
+          <Pressable style={[styles.filterReset, !draftHasFilters && styles.filterResetDisabled]} onPress={resetDraftFilters} disabled={!draftHasFilters}><Text style={[styles.filterResetText, { color: draftHasFilters ? colors.error : colors.textMuted }]}>Clear all</Text></Pressable>
+          <Pressable style={[styles.filterApply, { backgroundColor: colors.primary }]} onPress={applyFilters}><Text style={[styles.filterApplyText, { color: colors.primaryText }]}>Apply filters</Text></Pressable>
+        </BottomSheet>
         {selectedOrders.length ? <AppCard style={styles.bulkCard}><Text style={[styles.meta, { color: colors.text }]}>{selectedOrders.length} selected · Update all</Text><View style={styles.statusOptions}>{bulkOptions.map((next) => <AppButton key={next} label={next.replace('_', ' ')} variant="secondary" loading={bulkMutation.isPending} onPress={() => bulkMutation.mutate(next)} />)}<AppButton label="Clear" variant="ghost" onPress={() => setSelectedIds([])} /></View></AppCard> : null}
         {ordersQuery.isLoading ? <FormSkeleton fields={5} /> : ordersQuery.isError ? <ErrorState message="Could not load orders." onRetry={() => ordersQuery.refetch()} /> : orders.length ? orders.map((order) => <Pressable key={order.id} onPress={() => setSelectedOrder(order)}><OrderCard order={order} selected={selectedIds.includes(order.id)} onToggle={() => setSelectedIds((current) => current.includes(order.id) ? current.filter((id) => id !== order.id) : [...current, order.id])} /></Pressable>) : <AppCard><Text style={[styles.empty, { color: colors.textMuted }]}>No orders found.</Text></AppCard>}
         <View style={styles.pagination}><AppButton label="Previous" variant="secondary" disabled={page <= 1} onPress={() => setPage((value) => Math.max(1, value - 1))} /><Text style={[styles.meta, { color: colors.textSecondary }]}>{orders.length ? `${(page - 1) * 25 + 1}–${Math.min(page * 25, total)} of ${total}` : '0 orders'}</Text><AppButton label="Next" variant="secondary" disabled={page * 25 >= total} onPress={() => setPage((value) => value + 1)} /></View>
@@ -125,7 +179,8 @@ function DetailLine({ label, value }: { label: string; value: string }) { const 
 
 const styles = StyleSheet.create({
   screen: { flex: 1 }, content: { gap: spacing.md, padding: spacing.lg }, headerActions: { flexDirection: 'row', gap: spacing.sm }, iconButton: { alignItems: 'center', borderRadius: radius.pill, height: 38, justifyContent: 'center', width: 38 },
-  search: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md }, input: { flex: 1, fontSize: fontSize.body, height: inputHeight }, phoneSearch: { borderRadius: radius.md, borderWidth: 1, fontSize: fontSize.body, minHeight: 46, paddingHorizontal: spacing.md }, filters: { gap: spacing.sm }, filter: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }, filterText: { fontSize: fontSize.small, fontWeight: fontWeight.bold },
+  searchTools: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm }, search: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flex: 1, flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md }, input: { flex: 1, fontSize: fontSize.body, height: inputHeight }, filterIconButton: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, height: inputHeight, justifyContent: 'center', position: 'relative', width: inputHeight }, filterActiveDot: { borderRadius: radius.pill, height: spacing.sm, position: 'absolute', right: 5, top: 5, width: spacing.sm },
+  filterSheet: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 }, sheetHeader: { alignItems: 'center', flexDirection: 'row', marginBottom: spacing.md }, filterLayerTabs: { borderRadius: radius.lg, flexGrow: 0, marginBottom: spacing.md, padding: spacing.xs }, filterLayerTabsContent: { alignItems: 'center', flexDirection: 'row', gap: 4 }, filterLayerTab: { alignItems: 'center', borderRadius: 10, flexDirection: 'row', gap: 4, justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 8 }, filterLayerTabActive: { elevation: 1, shadowOpacity: 0.06, shadowRadius: 4 }, filterLayerTabText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold }, filterLayerCount: { borderRadius: 8, fontSize: 10, fontWeight: '700', marginLeft: 3, overflow: 'hidden', paddingHorizontal: 4, paddingVertical: 1 }, filterLayerBody: { maxHeight: 400 }, filterLayerContent: { paddingBottom: spacing.sm }, filterChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }, phoneFilterSection: { gap: spacing.sm }, phoneSearch: { borderRadius: radius.md, borderWidth: 1, fontSize: fontSize.body, minHeight: 46, paddingHorizontal: spacing.md }, channelFilter: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, maxWidth: '100%', paddingHorizontal: spacing.sm, paddingVertical: spacing.xs }, channelFilterLabel: { flexShrink: 1, fontSize: fontSize.small, fontWeight: fontWeight.semibold }, filterReset: { alignItems: 'center', marginTop: 14, paddingVertical: 6 }, filterResetDisabled: { opacity: 0.45 }, filterResetText: { fontSize: fontSize.body, fontWeight: fontWeight.semibold }, filterApply: { alignItems: 'center', borderRadius: radius.md, marginTop: spacing.sm, paddingVertical: spacing.md + 2 }, filterApplyText: { fontSize: fontSize.body, fontWeight: fontWeight.bold },
   card: { gap: spacing.md }, bulkCard: { gap: spacing.sm }, header: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm }, icon: { alignItems: 'center', borderRadius: radius.md, height: spacing.xxxl + spacing.xs, justifyContent: 'center', width: spacing.xxxl + spacing.xs }, copy: { flex: 1, minWidth: 0 }, name: { fontSize: fontSize.body, fontWeight: fontWeight.bold }, meta: { fontSize: fontSize.small, marginTop: spacing.xs / 2 }, summary: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }, total: { fontSize: fontSize.body, fontWeight: fontWeight.bold }, address: { fontSize: fontSize.small }, empty: { fontSize: fontSize.body, textAlign: 'center' }, cardFooter: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }, pagination: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }, selectButton: { alignItems: 'center', borderRadius: radius.sm, height: 24, justifyContent: 'center', width: 24, marginLeft: spacing.xs },
   modal: { flex: 1 }, modalHeader: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', gap: spacing.md, padding: spacing.lg }, modalTitle: { fontSize: fontSize.heading, fontWeight: fontWeight.bold }, modalContent: { gap: spacing.md, padding: spacing.lg, paddingBottom: spacing.xxxl }, sectionTitle: { fontSize: fontSize.subheading, fontWeight: fontWeight.bold, marginBottom: spacing.sm }, detailLine: { alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.xs }, detailValue: { flex: 1, fontSize: fontSize.small, marginLeft: spacing.lg, textAlign: 'right' }, itemRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.sm }, statusOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   scrim: { backgroundColor: '#0008', flex: 1, justifyContent: 'flex-end' }, picker: { borderTopLeftRadius: radius.xxl, borderTopRightRadius: radius.xxl, gap: spacing.md, maxHeight: '75%', padding: spacing.lg }, option: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.md }, optionText: { fontSize: fontSize.body, fontWeight: fontWeight.medium }, error: { fontSize: fontSize.caption }, invoiceDetails: { gap: spacing.xs },
