@@ -36,7 +36,6 @@ export function IntegrationsScreen() {
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <ScreenHeader
         title="Integrations"
-        subtitle="Connect stores and delivery partners to your workspace."
         onBack={() => navigation.goBack()}
         right={<AppButton icon={Search} label="Browse Catalog" onPress={browseCatalog} />}
       />
@@ -52,7 +51,6 @@ export function IntegrationsScreen() {
           <View style={[styles.ecommerceIcon, { backgroundColor: colors.warningSoft }]}><ShoppingBag color={colors.warning} size={20} /></View>
           <View style={styles.ecommerceCopy}>
             <AppText variant="bodyStrong">Ecommerce Setup</AppText>
-            <AppText variant="small" tone="secondary">Adds Orders and Products to the Settings menu.</AppText>
           </View>
           <AppButton
             label={ecommerceMutation.isPending ? 'Saving...' : workspace?.ecommerceEnabled ? 'Disable' : 'Enable'}
