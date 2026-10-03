@@ -201,7 +201,7 @@ export function ProductsScreen() {
           <Pressable style={[styles.filterApply, { backgroundColor: colors.primary }]} onPress={applyFilters}><Text style={[styles.filterApplyText, { color: colors.primaryText }]}>Apply filters</Text></Pressable>
         </BottomSheet>
         <BottomSheet visible={createSheetVisible} onClose={() => setCreateSheetVisible(false)} sheetStyle={styles.createSheet}>
-          {createSheetVisible ? <ProductFormScreen embedded onClose={() => setCreateSheetVisible(false)} onSaved={() => setCreateSheetVisible(false)} /> : null}
+          {createSheetVisible ? <ProductFormScreen embedded onSaved={() => setCreateSheetVisible(false)} /> : null}
         </BottomSheet>
         {selectedIds.length ? <AppCard style={styles.bulkCard}><Text style={{ color: colors.text }}>{selectedIds.length} selected</Text><AppButton label="Delete selected" variant="destructive" loading={bulkDeleteMutation.isPending} onPress={() => Alert.alert('Remove selected products?', 'Products published to connected catalogs may be archived instead of deleted.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Remove', style: 'destructive', onPress: () => bulkDeleteMutation.mutate(selectedIds) }])} /></AppCard> : null}
         {productsQuery.isLoading ? <FormSkeleton fields={5} /> : productsQuery.isError ? <ErrorState message="Could not load products." onRetry={() => productsQuery.refetch()} /> : products.length ? products.map((product) => (

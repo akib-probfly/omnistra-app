@@ -65,7 +65,7 @@ function productToForm(product: ProductResponse): FormState {
   };
 }
 
-export function ProductFormScreen({ embedded = false, onClose, onSaved }: { embedded?: boolean; onClose?: () => void; onSaved?: () => void }) {
+export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: boolean; onSaved?: () => void }) {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<SettingsStackParamList, 'ProductForm'>>();
@@ -195,7 +195,7 @@ export function ProductFormScreen({ embedded = false, onClose, onSaved }: { embe
 
   return (
     <View style={[embedded ? styles.embeddedScreen : styles.screen, { backgroundColor: colors.background }]}>
-      {embedded ? <View style={[styles.embeddedHeader, { borderBottomColor: colors.cardBorder }]}><Text style={[styles.embeddedTitle, { color: colors.text }]}>Create product</Text><AppButton label="Create" loading={mutation.isPending} disabled={mutation.isPending || !catalogsReady} onPress={saveProduct} style={styles.embeddedSave} /><Pressable onPress={onClose} hitSlop={10} accessibilityLabel="Close create product"><X color={colors.textSecondary} size={21} /></Pressable></View> : <ScreenHeader title={editing ? 'Edit product' : 'Create product'} onBack={() => navigation.goBack()} />}
+      {embedded ? <View style={[styles.embeddedHeader, { borderBottomColor: colors.cardBorder }]}><Text style={[styles.embeddedTitle, { color: colors.text }]}>Create product</Text></View> : <ScreenHeader title={editing ? 'Edit product' : 'Create product'} onBack={() => navigation.goBack()} />}
       <FormScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]} keyboardShouldPersistTaps="handled">
         <AppCard padding="md">
           <View style={styles.galleryHeader}><View><AppText variant="section">Product photos</AppText><AppText variant="small" tone="secondary">Optional · Up to 8 images</AppText></View>{images.length ? <AppText variant="small" tone="secondary">{images.length}/8</AppText> : null}</View>
@@ -281,7 +281,6 @@ const styles = StyleSheet.create({
   embeddedScreen: { flex: 1, minHeight: 0 },
   embeddedHeader: { alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: spacing.sm, justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   embeddedTitle: { fontSize: 18, fontWeight: '800' },
-  embeddedSave: { height: 34, paddingHorizontal: spacing.md },
   content: { gap: spacing.md, padding: spacing.lg },
   fields: { gap: spacing.md },
   sectionIntro: { gap: spacing.xs, paddingBottom: spacing.xs },
