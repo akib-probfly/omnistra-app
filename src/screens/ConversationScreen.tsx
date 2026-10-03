@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreVertical, Phone, Reply, RotateCcw, UserRound } from 'lucide-react-native';
+import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreVertical, PackagePlus, Phone, Reply, RotateCcw, UserRound } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
 import { ConversationAssignmentSheet } from '../components/ConversationAssignmentSheet';
@@ -42,6 +42,7 @@ import { CallHistoryItem } from '../components/CallHistoryItem';
 import { useCallController } from '../providers/CallControllerProvider';
 import { getCallChrome, setFocusedCallConversationId, subscribeCallChrome, rememberCallParty, getCallUiRevision } from '../lib/call-chrome';
 import { fetchWebchatSettings } from '../api/channels';
+import { fetchMyWorkspaces } from '../api/workspaces';
 import { isWhatsappCallSupported } from '../lib/whatsapp-calling';
 import { useInboxAppearance } from '../hooks/useInboxAppearance';
 import { getCountryCodeFromPhone, getCountryFlag } from '../lib/countryFromPhone';
@@ -268,6 +269,11 @@ export function ConversationScreen() {
       return realtimeStatus === 'connected' ? 45_000 : 15_000;
     }),
     refetchOnWindowFocus: false,
+  });
+  const workspacesQuery = useQuery({
+    queryKey: ['workspaces', 'mine'],
+    queryFn: fetchMyWorkspaces,
+    staleTime: 30_000,
   });
   const attachmentsQuery = useQuery({
     queryKey: ['conversation-attachments', route.params.conversationId],
@@ -781,6 +787,10 @@ export function ConversationScreen() {
   const currentConversation = header.conversation ?? (messages.data as any)?.conversation ?? null;
   const channelType = currentConversation?.channel?.channelType ?? route.params.channelType;
   const channelId = currentConversation?.channel?.channelId ?? currentConversation?.channel?.id ?? route.params.channelId;
+  const conversationWorkspaceId = currentConversation?.workspaceId ?? route.params.workspaceId;
+  const ecommerceEnabled = conversationWorkspaceId
+    ? Boolean(workspacesQuery.data?.items.find((workspace) => workspace.id === conversationWorkspaceId)?.ecommerceEnabled)
+    : workspacesQuery.data?.items.length === 1 && Boolean(workspacesQuery.data.items[0]?.ecommerceEnabled);
   const isWhatsAppConversation = (channelType ?? '').toUpperCase() === 'WHATSAPP';
   const isWebchatConversation = (channelType ?? '').toUpperCase() === 'WEBCHAT';
   const webchatSettingsQuery = useQuery({
@@ -1037,6 +1047,24 @@ export function ConversationScreen() {
           </View>
         </Pressable>
         <View style={styles.headerActions}>
+          {ecommerceEnabled && currentConversation ? (
+            <Pressable
+              onPress={() => navigation.navigate('CreateOrder', {
+                presentation: 'sheet',
+                initialRecipient: {
+                  name: currentConversation.contact?.displayName ?? title,
+                  phone: currentConversation.contact?.primaryPhone,
+                  email: currentConversation.contact?.primaryEmail,
+                },
+                initialSourceChannelId: channelId,
+              })}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Create order"
+            >
+              <PackagePlus color={colors.primary} size={19} />
+            </Pressable>
+          ) : null}
           {isWhatsAppConversation || isWebchatConversation ? (
             <Pressable
               onPress={startVoiceCall}

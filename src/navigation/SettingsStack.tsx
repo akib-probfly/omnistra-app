@@ -21,6 +21,7 @@ import { OrdersScreen } from '../screens/OrdersScreen';
 import { IntegrationCatalogScreen } from '../screens/IntegrationCatalogScreen';
 import { IntegrationsScreen } from '../screens/IntegrationsScreen';
 import { CreateOrderScreen } from '../screens/CreateOrderScreen';
+import type { CreateOrderRouteParams } from './CreateOrderRouteParams';
 import type { BillingInterval } from '../api/billing';
 
 export type SettingsStackParamList = {
@@ -55,7 +56,7 @@ export type SettingsStackParamList = {
   PrivacyPolicy: undefined;
   Products: undefined;
   Orders: undefined;
-  CreateOrder: undefined;
+  CreateOrder: CreateOrderRouteParams;
   IntegrationCatalog: undefined;
   Integrations: undefined;
   ProductForm: { productId?: string } | undefined;
