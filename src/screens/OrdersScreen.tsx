@@ -185,7 +185,6 @@ export function OrdersScreen() {
               <View style={styles.orderTitleRow}><Text numberOfLines={1} style={[styles.modalTitle, { color: colors.text }]}>{selectedOrder.orderNumber}</Text><AppBadge size="sm" tone={statusTone(selectedOrder.status)} label={selectedOrder.status === 'PROCESSING' ? 'Approved' : selectedOrder.status.replace('_', ' ')} /></View>
               <Text style={[styles.meta, { color: colors.textSecondary }]}>{new Date(selectedOrder.date).toLocaleString()} · {selectedOrder.items.reduce((sum, item) => sum + item.qty, 0)} item{selectedOrder.items.reduce((sum, item) => sum + item.qty, 0) === 1 ? '' : 's'}</Text>
             </View>
-            <Pressable onPress={() => setSelectedOrder(null)} accessibilityLabel="Close order details"><X color={colors.textSecondary} size={22} /></Pressable>
           </View>
           <SheetScrollView style={styles.orderDetailsScroll} contentContainerStyle={styles.modalContent}>
             <AppCard>
