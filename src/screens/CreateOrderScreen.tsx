@@ -7,9 +7,9 @@ import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@r
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchChannels } from '../api/channels';
 import { fetchMyWorkspaces } from '../api/workspaces';
-import { listCourierConnections } from '../api/couriers';
+import { getCourierDeliveryFees, getCourierDeliveryZone, listCourierConnections } from '../api/couriers';
 import { createOrder, listOrderAreas, listOrderCities, listOrderZones, type OrderLocationOption } from '../api/orders';
-import { listProducts, type ProductResponse } from '../api/products';
+import { listProducts, type ProductResponse, type ProductVariant } from '../api/products';
 import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 import { ChannelLogo } from '../components/ChannelLogo';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
@@ -18,14 +18,31 @@ import type { ThemeColors } from '../theme/colors';
 import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 import { AppButton, AppCard, AppText, AppTextField, ScreenHeader } from '../ui';
 
-type Picker = 'source' | 'city' | 'zone' | 'area' | 'courier' | null;
+type Picker = 'source' | 'city' | 'zone' | 'area' | 'courier' | 'variant' | null;
 type PaymentMethod = 'COD' | 'PAID' | 'PARTIAL';
-type CartItem = { product: ProductResponse; quantity: number; unitPrice: string; weightKg: string };
+type CartItem = { id: string; product: ProductResponse | null; productVariantId: string | null; variantLabel: string | null; name: string; imageUrl: string | null; quantity: number; unitPrice: string; weightKg: string };
 
 const SALES_SOURCE_TYPES = new Set(['WHATSAPP', 'MESSENGER', 'TIKTOK', 'INSTAGRAM', 'WEBCHAT', 'SHOPIFY', 'WOOCOMMERCE']);
 
 function productPrice(product: ProductResponse) {
   return product.salePriceMinor ?? product.priceMinor ?? 0;
+}
+
+function productVariantPrice(product: ProductResponse, variant: ProductVariant) {
+  return variant.salePriceMinor ?? variant.priceMinor ?? product.salePriceMinor ?? product.priceMinor ?? 0;
+}
+
+function productVariantLabel(variant: ProductVariant) {
+  return variant.attributes.map((attribute) => `${attribute.attributeName}: ${attribute.value}`).join(' · ');
+}
+
+function findCityInAddress(address: string, cities: OrderLocationOption[]) {
+  const normalizedAddress = address.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const segments = address.split(/[\n,]+/).map((segment) => segment.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim());
+  return cities
+    .map((city) => ({ city, normalizedName: city.name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim() }))
+    .filter(({ normalizedName }) => normalizedName.length >= 2 && normalizedAddress.includes(normalizedName))
+    .sort((left, right) => Number(segments.includes(right.normalizedName)) - Number(segments.includes(left.normalizedName)) || right.normalizedName.length - left.normalizedName.length)[0]?.city ?? null;
 }
 
 function formatMoney(valueMinor: number, currency: string) {
@@ -56,12 +73,15 @@ export function CreateOrderScreen() {
   const [recipientPhone, setRecipientPhone] = useState(initialRecipient?.phone ?? '');
   const [recipientEmail, setRecipientEmail] = useState(initialRecipient?.email ?? '');
   const [address, setAddress] = useState(initialRecipient?.address ?? '');
-  const [deliveryFee, setDeliveryFee] = useState('0.00');
   const [productSearch, setProductSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [locationSearch, setLocationSearch] = useState('');
   const [debouncedLocationSearch, setDebouncedLocationSearch] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<ProductResponse | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
+  const [customProductMode, setCustomProductMode] = useState(false);
+  const [customProductName, setCustomProductName] = useState('');
+  const [customVariantLabel, setCustomVariantLabel] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [unitPrice, setUnitPrice] = useState('0.00');
   const [weightKg, setWeightKg] = useState('0.00');
@@ -76,13 +96,16 @@ export function CreateOrderScreen() {
   const selectedSource = channels.find((item) => item.id === sourceId) ?? null;
   const productsQuery = useQuery({
     queryKey: ['create-order-products', debouncedSearch],
-    queryFn: () => listProducts({ search: debouncedSearch || undefined, status: 'ACTIVE', page: 1, limit: 8 }),
+    queryFn: () => listProducts({ search: debouncedSearch || undefined, status: 'ACTIVE', page: 1, limit: 20 }),
     enabled: Boolean(debouncedSearch),
     staleTime: 30_000,
   });
   const couriersQuery = useQuery({ queryKey: ['courier-connections'], queryFn: listCourierConnections });
   const couriers = (couriersQuery.data?.items ?? []).filter((item) => item.status === 'CONNECTED');
+  const selectedCourier = couriers.find((item) => item.id === courierId) ?? null;
   const citiesQuery = useQuery({ queryKey: ['order-locations', 'cities', debouncedLocationSearch], queryFn: () => listOrderCities(debouncedLocationSearch || undefined), enabled: picker === 'city', staleTime: 10 * 60_000 });
+  const addressCitiesQuery = useQuery({ queryKey: ['order-locations', 'cities', 'all'], queryFn: () => listOrderCities(), enabled: Boolean(address.trim()), staleTime: 10 * 60_000 });
+  const detectedCity = useMemo(() => findCityInAddress(address, addressCitiesQuery.data?.items ?? []), [address, addressCitiesQuery.data?.items]);
   const zonesQuery = useQuery({ queryKey: ['order-locations', 'zones', city?.id, debouncedLocationSearch], queryFn: () => listOrderZones(city!.id, debouncedLocationSearch || undefined), enabled: picker === 'zone' && Boolean(city), staleTime: 10 * 60_000 });
   const areasQuery = useQuery({ queryKey: ['order-locations', 'areas', zone?.id, debouncedLocationSearch], queryFn: () => listOrderAreas(zone!.id, debouncedLocationSearch || undefined), enabled: picker === 'area' && Boolean(zone), staleTime: 10 * 60_000 });
 
@@ -94,9 +117,18 @@ export function CreateOrderScreen() {
     const timer = setTimeout(() => setDebouncedLocationSearch(locationSearch.trim()), 250);
     return () => clearTimeout(timer);
   }, [locationSearch]);
+  useEffect(() => {
+    if (!detectedCity || city?.id === detectedCity.id) return;
+    setCity(detectedCity);
+    setZone(null);
+    setArea(null);
+  }, [city?.id, detectedCity]);
   const selectedCurrency = currency.toUpperCase();
   const subtotalMinor = useMemo(() => cart.reduce((sum, item) => sum + item.quantity * (Math.round((Number.parseFloat(item.unitPrice) || 0) * 100)), 0), [cart]);
-  const deliveryFeeMinor = Math.round((Number.parseFloat(deliveryFee) || 0) * 100);
+  const deliveryZone = getCourierDeliveryZone(city?.name || detectedCity?.name || address);
+  const courierFees = getCourierDeliveryFees(selectedCourier?.providerConfig);
+  const deliveryFee = !selectedCourier ? 0 : deliveryZone === 'OUTSIDE_DHAKA' ? courierFees.outsideDhaka : courierFees.insideDhaka;
+  const deliveryFeeMinor = Math.round(deliveryFee * 100);
   const totalMinor = subtotalMinor + deliveryFeeMinor;
   const paidMinor = payment === 'PAID' ? totalMinor : payment === 'PARTIAL' ? Math.min(Math.max(Math.round((Number.parseFloat(partialAmount) || 0) * 100), 0), totalMinor) : 0;
   const dueMinor = Math.max(totalMinor - paidMinor, 0);
@@ -105,38 +137,81 @@ export function CreateOrderScreen() {
     if (!sourceId && channels.length) setSourceId(channels[0].id);
   }, [channels, sourceId]);
 
-  const changeCartQuantity = (productId: string, delta: number) => setCart((current) => current.map((item) => item.product.id === productId ? { ...item, quantity: item.quantity + delta } : item).filter((item) => item.quantity > 0));
+  const changeCartQuantity = (itemId: string, delta: number) => setCart((current) => current.map((item) => item.id === itemId ? { ...item, quantity: item.quantity + delta } : item).filter((item) => item.quantity > 0));
   const chooseProduct = (product: ProductResponse) => {
     setSelectedProduct(product);
+    setSelectedVariant(null);
+    setCustomProductMode(false);
     setQuantity('1');
-    setUnitPrice(((productPrice(product)) / 100).toFixed(2));
+    setUnitPrice((productPrice(product) / 100).toFixed(2));
     setWeightKg(((product.weightGrams ?? 0) / 1000).toFixed(2));
     setProductSearch('');
     setDebouncedSearch('');
   };
-  const addProduct = () => {
+  const chooseVariant = (variant: ProductVariant) => {
     if (!selectedProduct) return;
+    setSelectedVariant(variant);
+    setUnitPrice((productVariantPrice(selectedProduct, variant) / 100).toFixed(2));
+    setWeightKg(((variant.weightGrams ?? selectedProduct.weightGrams ?? 0) / 1000).toFixed(2));
+  };
+  const startCustomProduct = () => {
+    setSelectedProduct(null);
+    setSelectedVariant(null);
+    setCustomProductMode(true);
+    setCustomProductName(productSearch.trim());
+    setCustomVariantLabel('');
+    setProductSearch('');
+    setDebouncedSearch('');
+    setQuantity('1');
+    setUnitPrice('0.00');
+    setWeightKg('0.00');
+  };
+  const addProduct = () => {
+    if (customProductMode && !customProductName.trim()) {
+      setError('Enter a product name.');
+      return;
+    }
+    if (!customProductMode && !selectedProduct) return;
+    const activeVariants = selectedProduct?.variants?.filter((item) => item.isActive) ?? [];
+    if (!customProductMode && selectedProduct?.hasVariants && activeVariants.length === 0) {
+      setError('This product has no active variations available.');
+      return;
+    }
+    if (!customProductMode && (selectedProduct?.hasVariants || activeVariants.length > 0) && !selectedVariant) {
+      setError('Select a product variation before adding it to the cart.');
+      return;
+    }
     const nextQuantity = Math.max(1, Number.parseInt(quantity, 10) || 1);
     const nextPrice = Math.max(0, Number.parseFloat(unitPrice) || 0).toFixed(2);
     const nextWeight = Math.max(0, Number.parseFloat(weightKg) || 0).toFixed(3);
+    const product = selectedProduct;
+    const variantLabel = selectedVariant ? productVariantLabel(selectedVariant) : customVariantLabel.trim() || null;
+    const itemName = product?.name ?? customProductName.trim();
+    const itemId = product ? `${product.id}:${selectedVariant?.id ?? 'base'}` : `manual-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setCart((current) => {
-      const existing = current.find((item) => item.product.id === selectedProduct.id);
-      if (existing) return current.map((item) => item.product.id === selectedProduct.id ? { ...item, quantity: item.quantity + nextQuantity, unitPrice: nextPrice, weightKg: nextWeight } : item);
-      return [...current, { product: selectedProduct, quantity: nextQuantity, unitPrice: nextPrice, weightKg: nextWeight }];
+      const existing = product ? current.find((item) => item.product?.id === product.id && item.productVariantId === (selectedVariant?.id ?? null)) : undefined;
+      if (existing) return current.map((item) => item.id === existing.id ? { ...item, quantity: item.quantity + nextQuantity, unitPrice: nextPrice, weightKg: nextWeight } : item);
+      return [...current, { id: itemId, product, productVariantId: selectedVariant?.id ?? null, variantLabel, name: itemName, imageUrl: product?.coverImageUrl ?? product?.imageUrls[0] ?? null, quantity: nextQuantity, unitPrice: nextPrice, weightKg: nextWeight }];
     });
     setSelectedProduct(null);
+    setSelectedVariant(null);
+    setCustomProductMode(false);
+    setCustomProductName('');
+    setCustomVariantLabel('');
+    setError('');
     setQuantity('1');
     setUnitPrice('0.00');
     setWeightKg('0.00');
   };
 
-  const pickerOptions: Array<{ id: string; label: string; type?: string }> = picker === 'source'
+  const pickerOptions: Array<{ id: string; label: string; type?: string; variant?: ProductVariant }> = picker === 'source'
     ? channels.map((item) => ({ id: item.id, label: item.name, type: item.type }))
     : picker === 'city' ? (citiesQuery.data?.items ?? []).map((item) => ({ id: item.id, label: item.name }))
       : picker === 'zone' ? (zonesQuery.data?.items ?? []).map((item) => ({ id: item.id, label: item.name }))
         : picker === 'area' ? (areasQuery.data?.items ?? []).map((item) => ({ id: item.id, label: item.name }))
-          : picker === 'courier' ? [{ id: '', label: 'No delivery partner' }, ...couriers.map((item) => ({ id: item.id, label: item.displayName }))] : [];
-  const pickerTitle = picker === 'source' ? 'Order source' : picker === 'city' ? 'Select city' : picker === 'zone' ? 'Select zone' : picker === 'area' ? 'Select area' : 'Delivery partner';
+          : picker === 'courier' ? [{ id: '', label: 'No delivery partner' }, ...couriers.map((item) => ({ id: item.id, label: item.displayName }))]
+            : picker === 'variant' ? (selectedProduct?.variants ?? []).filter((item) => item.isActive).map((variant) => ({ id: variant.id, label: productVariantLabel(variant), variant })) : [];
+  const pickerTitle = picker === 'source' ? 'Order source' : picker === 'city' ? 'Select city' : picker === 'zone' ? 'Select zone' : picker === 'area' ? 'Select area' : picker === 'variant' ? 'Select variation' : 'Delivery partner';
   const pickerLoading = (picker === 'city' && citiesQuery.isLoading) || (picker === 'zone' && zonesQuery.isLoading) || (picker === 'area' && areasQuery.isLoading);
 
   const choose = (id: string) => {
@@ -145,6 +220,10 @@ export function CreateOrderScreen() {
     if (picker === 'zone') { const selected = zonesQuery.data?.items.find((item) => item.id === id) ?? null; setZone(selected); setArea(null); }
     if (picker === 'area') setArea(areasQuery.data?.items.find((item) => item.id === id) ?? null);
     if (picker === 'courier') setCourierId(id);
+    if (picker === 'variant') {
+      const selected = pickerOptions.find((option) => option.id === id)?.variant;
+      if (selected) chooseVariant(selected);
+    }
     setPicker(null);
     setLocationSearch('');
     setDebouncedLocationSearch('');
@@ -165,7 +244,7 @@ export function CreateOrderScreen() {
     if (!recipientName.trim() || !recipientPhone.trim()) { setError('Add the required recipient name and phone number.'); return; }
     if (!address.trim()) { setError('Add the delivery address.'); return; }
     if (!sourceId) { setError('Select a connected sales channel as the order source.'); return; }
-    const numericValues = [deliveryFee, ...cart.map((item) => item.unitPrice), ...cart.map((item) => item.weightKg)];
+    const numericValues = [...cart.map((item) => item.unitPrice), ...cart.map((item) => item.weightKg)];
     if (payment === 'PARTIAL') numericValues.push(partialAmount);
     if (numericValues.some((value) => !Number.isFinite(Number(value)) || Number(value) < 0)) {
       setError('Prices, weight, and payment amounts must be valid non-negative numbers.'); return;
@@ -179,19 +258,29 @@ export function CreateOrderScreen() {
         recipientPhone: recipientPhone.trim(),
         recipientEmail: recipientEmail.trim() || null,
         address: address.trim(),
-        cityId: city?.id ?? null,
+        cityId: city?.id ?? detectedCity?.id ?? null,
         zoneId: zone?.id ?? null,
         areaId: area?.id ?? null,
         currency: selectedCurrency,
         paymentMethod: payment,
         amountPaidMinor: payment === 'PAID' ? totalMinor : paidMinor,
         deliveryFeeMinor,
-        items: cart.map((item) => ({
-          productId: item.product.id,
-          quantity: item.quantity,
-          unitPriceMinor: Math.round(Number.parseFloat(item.unitPrice) * 100),
-          weightGrams: Math.round(Number.parseFloat(item.weightKg) * 1000),
-        })),
+        items: cart.map((item) => item.product
+          ? {
+              productId: item.product.id,
+              productVariantId: item.productVariantId,
+              quantity: item.quantity,
+              unitPriceMinor: Math.round(Number.parseFloat(item.unitPrice) * 100),
+              weightGrams: Math.round(Number.parseFloat(item.weightKg) * 1000),
+            }
+          : {
+              productId: null,
+              productName: item.name,
+              variantLabel: item.variantLabel,
+              quantity: item.quantity,
+              unitPriceMinor: Math.round(Number.parseFloat(item.unitPrice) * 100),
+              weightGrams: Math.round(Number.parseFloat(item.weightKg) * 1000),
+            }),
       });
       await queryClient.invalidateQueries({ queryKey: ['orders'] });
       navigation.goBack();
@@ -211,29 +300,34 @@ export function CreateOrderScreen() {
           <View style={styles.sectionHeading}><Package color={colors.primary} size={18} /><Text style={[styles.sectionTitle, { color: colors.text }]}>Products</Text></View>
           <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><Search color={colors.textMuted} size={17} /><TextInput value={productSearch} onChangeText={setProductSearch} placeholder="Search active products" placeholderTextColor={colors.textMuted} style={[styles.searchInput, { color: colors.text }]} /></View>
           {productSearch.trim() ? <View style={[styles.searchResults, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <Pressable onPress={startCustomProduct} style={[styles.productResult, { borderBottomColor: colors.cardBorder }]}><View style={[styles.productImage, styles.productImagePlaceholder, { backgroundColor: colors.primarySoft }]}><Plus color={colors.primary} size={18} /></View><Text style={[styles.productName, { color: colors.primary }]}>Add “{productSearch.trim()}” manually</Text></Pressable>
             {productsQuery.isFetching ? <ActivityIndicator color={colors.primary} style={styles.searchState} /> : productsQuery.isError ? <Text style={[styles.searchStateText, { color: colors.error }]}>Could not load products. Try another search.</Text> : (productsQuery.data?.items ?? []).length ? (productsQuery.data?.items ?? []).map((product) => <Pressable key={product.id} onPress={() => chooseProduct(product)} style={[styles.productResult, { borderBottomColor: colors.cardBorder }]}>
               {product.coverImageUrl || product.imageUrls[0] ? <Image source={{ uri: product.coverImageUrl ?? product.imageUrls[0] }} style={styles.productImage} contentFit="cover" /> : <View style={[styles.productImage, styles.productImagePlaceholder, { backgroundColor: colors.primarySoft }]}><Package color={colors.primary} size={18} /></View>}
               <View style={styles.productCopy}><Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>{product.name}</Text><Text style={[styles.helper, { color: colors.textSecondary }]}>{product.inventory ?? 0} in stock</Text></View>
               <Text style={[styles.productPrice, { color: colors.text }]}>{formatMoney(productPrice(product), selectedCurrency)}</Text>
             </Pressable>) : <Text style={[styles.searchStateText, { color: colors.textSecondary }]}>No active products match this search.</Text>}
           </View> : null}
-          {selectedProduct ? <View style={[styles.selectedProduct, { backgroundColor: colors.surfaceSecondary }]}>
-            <View style={styles.selectedProductHeading}><Text style={[styles.productName, { color: colors.text, flex: 1 }]} numberOfLines={1}>{selectedProduct.name}</Text><Pressable onPress={() => setSelectedProduct(null)} accessibilityLabel="Remove selected product"><Text style={[styles.helper, { color: colors.error }]}>Cancel</Text></Pressable></View>
+          {selectedProduct || customProductMode ? <View style={[styles.selectedProduct, { backgroundColor: colors.surfaceSecondary }]}>
+            <View style={styles.selectedProductHeading}><Text style={[styles.productName, { color: colors.text, flex: 1 }]} numberOfLines={1}>{selectedProduct?.name ?? 'New manual product'}</Text><Pressable onPress={() => { setSelectedProduct(null); setSelectedVariant(null); setCustomProductMode(false); }} accessibilityLabel="Remove selected product"><Text style={[styles.helper, { color: colors.error }]}>Cancel</Text></Pressable></View>
+            {customProductMode ? <AppTextField label="Product name *" value={customProductName} onChangeText={setCustomProductName} placeholder="Product name" /> : null}
+            {selectedProduct?.hasVariants || (selectedProduct?.variants ?? []).some((item) => item.isActive) ? <PickerButton label="Variation *" value={selectedVariant ? productVariantLabel(selectedVariant) : 'Select a variation'} onPress={() => setPicker('variant')} disabled={!((selectedProduct?.variants ?? []).some((item) => item.isActive))} /> : null}
+            {selectedProduct?.hasVariants && !(selectedProduct.variants ?? []).some((item) => item.isActive) ? <Text style={[styles.helper, { color: colors.error }]}>This product has no active variations available.</Text> : null}
+            {customProductMode ? <AppTextField label="Variant details (optional)" value={customVariantLabel} onChangeText={setCustomVariantLabel} placeholder="e.g. Size: Large" /> : null}
             <View style={styles.editableFields}><AppTextField style={styles.editableField} label={`Unit price (${selectedCurrency})`} value={unitPrice} onChangeText={setUnitPrice} keyboardType="decimal-pad" /><AppTextField style={styles.editableField} label="Weight (kg)" value={weightKg} onChangeText={setWeightKg} keyboardType="decimal-pad" /></View>
             <AppTextField label="Quantity" value={quantity} onChangeText={setQuantity} keyboardType="number-pad" />
             <AppButton block label="Add to cart" icon={Plus} onPress={addProduct} />
             <Text style={[styles.helper, { color: colors.textSecondary }]}>Weight is used for shipping calculations.</Text>
           </View> : null}
           <View style={[styles.cartHeader, { borderTopColor: colors.cardBorder }]}><Text style={[styles.cartTitle, { color: colors.text }]}>Cart items ({cart.length})</Text><Text style={[styles.helper, { color: colors.textSecondary }]}>{cart.reduce((sum, item) => sum + item.quantity, 0)} pcs</Text></View>
-          {!cart.length ? <Text style={[styles.helper, { color: colors.textMuted }]}>No products added yet.</Text> : cart.map((item) => <View key={item.product.id} style={[styles.cartRow, { borderBottomColor: colors.cardBorder }]}>
-            {item.product.coverImageUrl || item.product.imageUrls[0] ? <Image source={{ uri: item.product.coverImageUrl ?? item.product.imageUrls[0] }} style={styles.productImage} contentFit="cover" /> : <View style={[styles.productImage, styles.productImagePlaceholder, { backgroundColor: colors.primarySoft }]}><Package color={colors.primary} size={18} /></View>}
-            <View style={styles.productCopy}><Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>{item.product.name}</Text><Text style={[styles.helper, { color: colors.textSecondary }]}>{formatMoney(Math.round(Number(item.unitPrice) * 100), selectedCurrency)} each</Text></View>
-            <View style={[styles.quantityControl, { borderColor: colors.cardBorder }]}><Pressable onPress={() => changeCartQuantity(item.product.id, -1)} accessibilityLabel={`Decrease ${item.product.name} quantity`}><Minus color={colors.textSecondary} size={15} /></Pressable><Text style={[styles.quantityValue, { color: colors.text }]}>{item.quantity}</Text><Pressable onPress={() => changeCartQuantity(item.product.id, 1)} accessibilityLabel={`Increase ${item.product.name} quantity`}><Plus color={colors.textSecondary} size={15} /></Pressable></View>
+          {!cart.length ? <Text style={[styles.helper, { color: colors.textMuted }]}>No products added yet.</Text> : cart.map((item) => <View key={item.id} style={[styles.cartRow, { borderBottomColor: colors.cardBorder }]}>
+            {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.productImage} contentFit="cover" /> : <View style={[styles.productImage, styles.productImagePlaceholder, { backgroundColor: colors.primarySoft }]}><Package color={colors.primary} size={18} /></View>}
+            <View style={styles.productCopy}><Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>{item.variantLabel ? <Text style={[styles.helper, { color: colors.textMuted }]}>{item.variantLabel}</Text> : null}<Text style={[styles.helper, { color: colors.textSecondary }]}>{formatMoney(Math.round(Number(item.unitPrice) * 100), selectedCurrency)} each</Text></View>
+            <View style={[styles.quantityControl, { borderColor: colors.cardBorder }]}><Pressable onPress={() => changeCartQuantity(item.id, -1)} accessibilityLabel={`Decrease ${item.name} quantity`}><Minus color={colors.textSecondary} size={15} /></Pressable><Text style={[styles.quantityValue, { color: colors.text }]}>{item.quantity}</Text><Pressable onPress={() => changeCartQuantity(item.id, 1)} accessibilityLabel={`Increase ${item.name} quantity`}><Plus color={colors.textSecondary} size={15} /></Pressable></View>
           </View>)}
           <View style={[styles.summary, { borderTopColor: colors.cardBorder }]}>
             <View style={styles.currencyLine}><View><Text style={[styles.helper, { color: colors.textSecondary }]}>Currency</Text><Text style={[styles.currencyValue, { color: colors.text }]}>{selectedCurrency} · workspace default</Text></View><Text style={[styles.helper, { color: colors.textMuted }]}>Used for this order</Text></View>
             <SummaryLine label="Subtotal" value={formatMoney(subtotalMinor, selectedCurrency)} colors={colors} />
-            <View style={styles.deliveryFeeRow}><Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>Delivery fee</Text><TextInput value={deliveryFee} onChangeText={setDeliveryFee} keyboardType="decimal-pad" style={[styles.deliveryFeeInput, { borderColor: colors.cardBorder, color: colors.text }]} /></View>
+            <SummaryLine label={selectedCourier ? `Delivery fee · ${deliveryZone === 'OUTSIDE_DHAKA' ? 'Outside Dhaka' : 'Inside Dhaka'}` : 'Delivery fee'} value={formatMoney(deliveryFeeMinor, selectedCurrency)} colors={colors} />
             <SummaryLine label="Total" value={formatMoney(totalMinor, selectedCurrency)} strong colors={colors} />
             <SummaryLine label="Due on delivery" value={formatMoney(dueMinor, selectedCurrency)} colors={colors} />
           </View>
@@ -246,7 +340,7 @@ export function CreateOrderScreen() {
           <AppTextField label="Email (optional)" value={recipientEmail} onChangeText={setRecipientEmail} placeholder="recipient@example.com" keyboardType="email-address" autoCapitalize="none" />
           <AppTextField label="Address *" value={address} onChangeText={setAddress} placeholder="Street, building, area details" multiline numberOfLines={3} />
           <View style={styles.locationHeading}><Text style={[styles.helper, { color: colors.textSecondary }]}>City, zone & area (optional)</Text><Text style={[styles.helper, { color: colors.textMuted }]}>Search the lists to find a delivery location.</Text></View>
-          <PickerButton label="City" value={city?.name ?? 'Select city'} onPress={() => openPicker('city')} />
+          <PickerButton label="City" value={city?.name ?? detectedCity?.name ?? 'Select city'} onPress={() => openPicker('city')} />
           <PickerButton label="Zone" value={zone?.name ?? 'Select zone'} onPress={() => openPicker('zone')} disabled={!city} />
           <PickerButton label="Area" value={area?.name ?? 'Select area'} onPress={() => openPicker('area')} disabled={!zone} />
         </AppCard>

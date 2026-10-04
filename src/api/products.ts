@@ -8,6 +8,22 @@ export type ProductSalesChannel = {
   catalogName: string | null;
 };
 
+export type ProductVariant = {
+  id: string;
+  sku: string | null;
+  priceMinor: number | null;
+  salePriceMinor: number | null;
+  inventory: number | null;
+  weightGrams: number | null;
+  isActive: boolean;
+  attributes: Array<{
+    attributeId: string;
+    attributeName: string;
+    valueId: string;
+    value: string;
+  }>;
+};
+
 export type ProductResponse = {
   id: string;
   workspaceId: string;
@@ -27,6 +43,8 @@ export type ProductResponse = {
   weightGrams: number | null;
   dimensions: Record<string, unknown> | null;
   inventory: number | null;
+  hasVariants: boolean;
+  variants: ProductVariant[];
   stockAlert: number | null;
   attributes: unknown[] | null;
   status: string;

@@ -5,8 +5,32 @@ export type CourierConnection = {
   provider: string;
   displayName: string;
   status: 'PENDING' | 'CONNECTED' | 'ERROR' | 'DISABLED';
+  providerConfig?: Record<string, unknown> | null;
   lastErrorMessage: string | null;
 };
+
+const DEFAULT_DELIVERY_FEES = { insideDhaka: 50, outsideDhaka: 100 } as const;
+
+export function getCourierDeliveryFees(providerConfig?: Record<string, unknown> | null) {
+  const rawFees = providerConfig?.deliveryFees;
+  const fees = rawFees && typeof rawFees === 'object' && !Array.isArray(rawFees)
+    ? rawFees as Record<string, unknown>
+    : null;
+  const parseFee = (value: unknown, fallback: number) => {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+  };
+  return {
+    insideDhaka: parseFee(fees?.insideDhaka, DEFAULT_DELIVERY_FEES.insideDhaka),
+    outsideDhaka: parseFee(fees?.outsideDhaka, DEFAULT_DELIVERY_FEES.outsideDhaka),
+  };
+}
+
+export function getCourierDeliveryZone(cityName?: string | null) {
+  const normalized = cityName?.trim().toLowerCase();
+  if (!normalized) return null;
+  return normalized.includes('dhaka') ? 'INSIDE_DHAKA' as const : 'OUTSIDE_DHAKA' as const;
+}
 
 export type CourierShipment = {
   id: string;
