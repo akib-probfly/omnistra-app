@@ -26,7 +26,7 @@ const INTEGRATIONS: Integration[] = [
   { id: 'shopify', name: 'Shopify', description: 'Order and delivery alerts over WhatsApp.', category: 'Store', soon: true },
   { id: 'woocommerce', name: 'WooCommerce', description: 'Order and shipping notifications from your WooCommerce store.', category: 'Store', soon: true },
   { id: 'pathao', name: 'Pathao Courier', description: 'Book parcels and track delivery across Bangladesh.', category: 'Delivery Partner', provider: 'PATHAO' },
-  { id: 'steadfast', name: 'Steadfast Courier', description: '', category: 'Delivery Partner', provider: 'STEADFAST' },
+  { id: 'steadfast', name: 'Steadfast Courier', description: 'Book parcels, print labels and track delivery.', category: 'Delivery Partner', provider: 'STEADFAST' },
 ];
 
 type CredentialValues = { displayName: string; providerAccountId: string; apiKey: string; apiSecret: string; username: string; password: string };
