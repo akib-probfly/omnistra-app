@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, ChevronRight, Plug, Truck, X } from 'lucide-react-native';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Check, ChevronRight, Plug, X } from 'lucide-react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { createCourierConnection, DEFAULT_COURIER_DELIVERY_FEES, listCourierConnections } from '../api/couriers';
+import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { IntegrationLogo } from '../components/IntegrationLogo';
 import { useTheme } from '../theme/ThemeContext';
@@ -153,14 +154,14 @@ export function IntegrationCatalogScreen() {
         })}
       </ScrollView>
 
-      <Modal visible={Boolean(selected)} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSelected(null)}>
+      <BottomSheet visible={Boolean(selected)} onClose={() => setSelected(null)} sheetStyle={styles.connectSheet}>
         <View style={[styles.modal, { backgroundColor: colors.background }]}>
           <View style={[styles.modalHeader, { borderBottomColor: colors.cardBorder }]}>
-            <View style={[styles.modalIcon, { backgroundColor: colors.primarySoft }]}><Truck color={colors.primary} size={20} /></View>
-            <View style={styles.copy}><Text style={[styles.modalTitle, { color: colors.text }]}>Connect {selected?.name}</Text><Text style={[styles.description, { color: colors.textSecondary }]}>Add the credentials from your courier account.</Text></View>
+            <IntegrationLogo integrationId={selected?.id ?? ''} size={42} />
+            <View style={styles.copy}><Text style={[styles.modalTitle, { color: colors.text }]}>Connect {selected?.name}</Text></View>
             <Pressable onPress={() => setSelected(null)} accessibilityLabel="Close"><X color={colors.textSecondary} size={22} /></Pressable>
           </View>
-          <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+          <SheetScrollView style={styles.connectFormScroll} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
             <AppTextField label="Connection name" value={credentials.displayName} onChangeText={(value) => patchCredentials('displayName', value)} placeholder="Primary courier account" autoCapitalize="words" />
             {selected?.provider === 'PATHAO' ? <AppTextField label="Provider account ID (optional)" value={credentials.providerAccountId} onChangeText={(value) => patchCredentials('providerAccountId', value)} placeholder="Merchant account ID" /> : null}
             <AppTextField label={selected?.provider === 'PATHAO' ? 'Client ID' : 'API key'} value={credentials.apiKey} onChangeText={(value) => patchCredentials('apiKey', value)} placeholder={selected?.provider === 'PATHAO' ? 'Paste your Client ID' : 'Paste your API key'} autoCapitalize="none" />
@@ -177,9 +178,9 @@ export function IntegrationCatalogScreen() {
             </View>
             {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
             <AppButton label="Connect courier" icon={Plug} onPress={() => void connect()} loading={saving} loadingLabel="Connecting..." disabled={!credentials.displayName.trim() || !credentials.apiKey.trim() || !credentials.apiSecret.trim() || (selected?.provider === 'PATHAO' && (!credentials.username.trim() || !credentials.password))} block />
-          </ScrollView>
+          </SheetScrollView>
         </View>
-      </Modal>
+      </BottomSheet>
     </View>
   );
 }
@@ -204,10 +205,11 @@ const styles = StyleSheet.create({
   actionText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
   disabled: { opacity: 0.6 },
   empty: { fontSize: fontSize.body, padding: spacing.lg, textAlign: 'center' },
-  modal: { flex: 1 },
+  connectSheet: { height: '92%', paddingHorizontal: 0, paddingTop: 0 },
+  modal: { flex: 1, minHeight: 0 },
   modalHeader: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', gap: spacing.md, padding: spacing.lg },
-  modalIcon: { alignItems: 'center', borderRadius: radius.lg, height: 42, justifyContent: 'center', width: 42 },
   modalTitle: { fontSize: fontSize.heading, fontWeight: fontWeight.bold },
+  connectFormScroll: { flex: 1 },
   form: { gap: spacing.lg, padding: spacing.lg, paddingBottom: spacing.xxxl },
   deliveryFeesRow: { flexDirection: 'row', gap: spacing.sm },
   deliveryFeeField: { flex: 1 },
