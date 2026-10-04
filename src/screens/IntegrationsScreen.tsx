@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react-native';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { listCourierConnections } from '../api/couriers';
+import { IntegrationLogo } from '../components/IntegrationLogo';
 import { updateWorkspaceSettings } from '../api/workspaces';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useWorkspaceAccess } from '../lib/workspace-access';
@@ -69,7 +70,7 @@ export function IntegrationsScreen() {
           <View style={styles.connectedList}>
             {connected.map((connection) => (
               <AppCard key={connection.id} style={styles.connectedCard}>
-                <View style={[styles.connectedIcon, { backgroundColor: colors.primarySoft }]}><Truck color={colors.primary} size={18} /></View>
+                <IntegrationLogo integrationId={connection.provider} size={38} />
                 <View style={styles.ecommerceCopy}>
                   <AppText variant="bodyStrong" numberOfLines={1}>{connection.displayName}</AppText>
                   <AppText variant="small" tone="secondary">{connection.provider}</AppText>
@@ -116,7 +117,6 @@ const styles = StyleSheet.create({
   sectionHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   connectedList: { gap: spacing.sm },
   connectedCard: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
-  connectedIcon: { alignItems: 'center', borderRadius: radius.md, height: 38, justifyContent: 'center', width: 38 },
   emptyState: { alignItems: 'center', borderRadius: radius.xl, borderStyle: 'dashed', borderWidth: 1, gap: spacing.sm, justifyContent: 'center', minHeight: 210, padding: spacing.xl },
   emptyIcon: { alignItems: 'center', borderRadius: radius.pill, height: 44, justifyContent: 'center', width: 44 },
   emptyDescription: { lineHeight: 18, maxWidth: 300, textAlign: 'center' },
