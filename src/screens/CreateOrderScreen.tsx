@@ -139,6 +139,11 @@ export function CreateOrderScreen() {
     if (!sourceId && channels.length) setSourceId(channels[0].id);
   }, [channels, sourceId]);
 
+  useEffect(() => {
+    if (couriers.some((courier) => courier.id === courierId)) return;
+    setCourierId(couriers[0]?.id ?? '');
+  }, [courierId, couriers]);
+
   const changeCartQuantity = (itemId: string, delta: number) => setCart((current) => current.map((item) => item.id === itemId ? { ...item, quantity: item.quantity + delta } : item).filter((item) => item.quantity > 0));
   const chooseProduct = (product: ProductResponse) => {
     setSelectedProduct(product);
