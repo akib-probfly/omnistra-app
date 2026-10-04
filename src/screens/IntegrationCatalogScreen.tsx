@@ -3,12 +3,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronRight, Plug, Truck, X } from 'lucide-react-native';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
-import { createCourierConnection, listCourierConnections } from '../api/couriers';
+import { createCourierConnection, DEFAULT_COURIER_DELIVERY_FEES, listCourierConnections } from '../api/couriers';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { IntegrationLogo } from '../components/IntegrationLogo';
 import { useTheme } from '../theme/ThemeContext';
 import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
-import { AppButton, AppCard, AppSearchField, AppTextField, ScreenHeader } from '../ui';
+import { AppButton, AppCard, AppSearchField, AppText, AppTextField, ScreenHeader } from '../ui';
 
 type Category = 'All' | 'Store' | 'Delivery Partner';
 type Integration = {
@@ -41,6 +41,8 @@ export function IntegrationCatalogScreen() {
   const [credentials, setCredentials] = useState(EMPTY_CREDENTIALS);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [insideDhakaFee, setInsideDhakaFee] = useState(String(DEFAULT_COURIER_DELIVERY_FEES.insideDhaka));
+  const [outsideDhakaFee, setOutsideDhakaFee] = useState(String(DEFAULT_COURIER_DELIVERY_FEES.outsideDhaka));
   const connectionsQuery = useQuery({
     queryKey: ['courier-connections'],
     queryFn: listCourierConnections,
@@ -57,11 +59,22 @@ export function IntegrationCatalogScreen() {
   const openConnect = (item: Integration) => {
     setSelected(item);
     setCredentials({ ...EMPTY_CREDENTIALS, displayName: `Primary ${item.id === 'pathao' ? 'Pathao' : 'Steadfast'} account` });
+    setInsideDhakaFee(String(DEFAULT_COURIER_DELIVERY_FEES.insideDhaka));
+    setOutsideDhakaFee(String(DEFAULT_COURIER_DELIVERY_FEES.outsideDhaka));
     setError('');
   };
 
   const connect = async () => {
     if (!selected?.provider) return;
+    const parsedInsideDhakaFee = Number.parseFloat(insideDhakaFee);
+    const parsedOutsideDhakaFee = Number.parseFloat(outsideDhakaFee);
+    if (
+      !Number.isFinite(parsedInsideDhakaFee) || parsedInsideDhakaFee < 0 ||
+      !Number.isFinite(parsedOutsideDhakaFee) || parsedOutsideDhakaFee < 0
+    ) {
+      setError('Enter valid non-negative delivery fees.');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
@@ -72,11 +85,14 @@ export function IntegrationCatalogScreen() {
         ...(credentials.providerAccountId.trim() ? { providerAccountId: credentials.providerAccountId.trim() } : {}),
         apiKey: credentials.apiKey.trim(),
         apiSecret: credentials.apiSecret.trim(),
-        ...(isPathao ? {
-          username: credentials.username.trim(),
-          password: credentials.password,
-          providerConfig: { environment: 'PRODUCTION' },
-        } : {}),
+        ...(isPathao ? { username: credentials.username.trim(), password: credentials.password } : {}),
+        providerConfig: {
+          ...(isPathao ? { environment: 'PRODUCTION' } : {}),
+          deliveryFees: {
+            insideDhaka: parsedInsideDhakaFee,
+            outsideDhaka: parsedOutsideDhakaFee,
+          },
+        },
       });
       if (result.status !== 'CONNECTED') {
         setError(result.lastErrorMessage || 'We could not verify these credentials. Please review them and try again.');
@@ -84,6 +100,7 @@ export function IntegrationCatalogScreen() {
       }
       await queryClient.invalidateQueries({ queryKey: ['courier-connections'] });
       setSelected(null);
+      navigation.goBack();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not connect this courier. Please try again.');
     } finally {
@@ -126,9 +143,9 @@ export function IntegrationCatalogScreen() {
               </View>
               <View style={[styles.cardFooter, { borderTopColor: colors.cardBorder, backgroundColor: colors.surfaceSecondary }]}>
                 <Text style={[styles.categoryLabel, { color: colors.textSecondary }]}>{item.category.toUpperCase()}</Text>
-                <Pressable disabled={item.soon || connected || !item.provider} onPress={() => openConnect(item)} style={[styles.action, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, (item.soon || connected) && styles.disabled]}>
-                  <Text style={[styles.actionText, { color: item.soon ? colors.textMuted : colors.text }]}>{item.soon ? 'Coming soon' : connected ? 'Connected' : 'Connect'}</Text>
-                  {!item.soon && !connected ? <ChevronRight size={16} color={colors.text} /> : null}
+                <Pressable disabled={item.soon || !item.provider} onPress={() => openConnect(item)} style={[styles.action, { backgroundColor: colors.surface, borderColor: colors.cardBorder }, (item.soon || !item.provider) && styles.disabled]}>
+                  <Text style={[styles.actionText, { color: item.soon ? colors.textMuted : colors.text }]}>{item.soon ? 'Coming soon' : 'Connect'}</Text>
+                  {!item.soon && item.provider ? <ChevronRight size={16} color={colors.text} /> : null}
                 </Pressable>
               </View>
             </AppCard>
@@ -152,6 +169,12 @@ export function IntegrationCatalogScreen() {
               <AppTextField label="Merchant email" value={credentials.username} onChangeText={(value) => patchCredentials('username', value)} placeholder="Merchant login email" keyboardType="email-address" autoCapitalize="none" />
               <AppTextField label="Merchant password" value={credentials.password} onChangeText={(value) => patchCredentials('password', value)} placeholder="Merchant login password" secureTextEntry autoCapitalize="none" />
             </> : null}
+            <AppText variant="bodyStrong">Delivery fees (BDT)</AppText>
+            <AppText variant="small" tone="secondary">These fees are added to new orders based on the recipient city.</AppText>
+            <View style={styles.deliveryFeesRow}>
+              <AppTextField style={styles.deliveryFeeField} label="Inside Dhaka" value={insideDhakaFee} onChangeText={setInsideDhakaFee} placeholder="50" keyboardType="decimal-pad" />
+              <AppTextField style={styles.deliveryFeeField} label="Outside Dhaka" value={outsideDhakaFee} onChangeText={setOutsideDhakaFee} placeholder="100" keyboardType="decimal-pad" />
+            </View>
             {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
             <AppButton label="Connect courier" icon={Plug} onPress={() => void connect()} loading={saving} loadingLabel="Connecting..." disabled={!credentials.displayName.trim() || !credentials.apiKey.trim() || !credentials.apiSecret.trim() || (selected?.provider === 'PATHAO' && (!credentials.username.trim() || !credentials.password))} block />
           </ScrollView>
@@ -186,5 +209,7 @@ const styles = StyleSheet.create({
   modalIcon: { alignItems: 'center', borderRadius: radius.lg, height: 42, justifyContent: 'center', width: 42 },
   modalTitle: { fontSize: fontSize.heading, fontWeight: fontWeight.bold },
   form: { gap: spacing.lg, padding: spacing.lg, paddingBottom: spacing.xxxl },
+  deliveryFeesRow: { flexDirection: 'row', gap: spacing.sm },
+  deliveryFeeField: { flex: 1 },
   error: { fontSize: fontSize.caption },
 });

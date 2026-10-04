@@ -9,7 +9,7 @@ export type CourierConnection = {
   lastErrorMessage: string | null;
 };
 
-const DEFAULT_DELIVERY_FEES = { insideDhaka: 50, outsideDhaka: 100 } as const;
+export const DEFAULT_COURIER_DELIVERY_FEES = { insideDhaka: 50, outsideDhaka: 100 } as const;
 
 export function getCourierDeliveryFees(providerConfig?: Record<string, unknown> | null) {
   const rawFees = providerConfig?.deliveryFees;
@@ -21,8 +21,8 @@ export function getCourierDeliveryFees(providerConfig?: Record<string, unknown> 
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
   };
   return {
-    insideDhaka: parseFee(fees?.insideDhaka, DEFAULT_DELIVERY_FEES.insideDhaka),
-    outsideDhaka: parseFee(fees?.outsideDhaka, DEFAULT_DELIVERY_FEES.outsideDhaka),
+    insideDhaka: parseFee(fees?.insideDhaka, DEFAULT_COURIER_DELIVERY_FEES.insideDhaka),
+    outsideDhaka: parseFee(fees?.outsideDhaka, DEFAULT_COURIER_DELIVERY_FEES.outsideDhaka),
   };
 }
 
