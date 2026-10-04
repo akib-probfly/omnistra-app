@@ -20,6 +20,7 @@ import { ProductFormScreen } from '../screens/ProductFormScreen';
 import { OrdersScreen } from '../screens/OrdersScreen';
 import { IntegrationCatalogScreen } from '../screens/IntegrationCatalogScreen';
 import { IntegrationsScreen } from '../screens/IntegrationsScreen';
+import { CourierConnectionDetailsScreen } from '../screens/CourierConnectionDetailsScreen';
 import { CreateOrderScreen } from '../screens/CreateOrderScreen';
 import type { CreateOrderRouteParams } from './CreateOrderRouteParams';
 import type { BillingInterval } from '../api/billing';
@@ -59,6 +60,7 @@ export type SettingsStackParamList = {
   CreateOrder: CreateOrderRouteParams;
   IntegrationCatalog: undefined;
   Integrations: undefined;
+  CourierConnectionDetails: { connectionId: string; startEditing?: boolean };
   ProductForm: { productId?: string } | undefined;
 };
 
@@ -88,6 +90,7 @@ export function SettingsStack() {
       <Stack.Screen name="CreateOrder" component={CreateOrderScreen} />
       <Stack.Screen name="IntegrationCatalog" component={IntegrationCatalogScreen} />
       <Stack.Screen name="Integrations" component={IntegrationsScreen} />
+      <Stack.Screen name="CourierConnectionDetails" component={CourierConnectionDetailsScreen} />
       <Stack.Screen name="ProductForm" component={ProductFormScreen} />
     </Stack.Navigator>
   );

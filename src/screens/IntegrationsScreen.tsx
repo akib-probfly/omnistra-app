@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Layers3, PackageOpen, Search, ShoppingBag, Store, Truck } from 'lucide-react-native';
+import { Check, ChevronRight, Layers3, PackageOpen, Search, Settings2, ShoppingBag, Store, Trash2, Truck } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
-import { listCourierConnections } from '../api/couriers';
+import { disableCourierConnection, listCourierConnections, type CourierConnection } from '../api/couriers';
 import { IntegrationLogo } from '../components/IntegrationLogo';
 import { updateWorkspaceSettings } from '../api/workspaces';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
@@ -19,8 +20,10 @@ export function IntegrationsScreen() {
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const { workspace, canManage } = useWorkspaceAccess();
+  const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
   const connectionsQuery = useQuery({ queryKey: ['courier-connections'], queryFn: listCourierConnections });
-  const connected = (connectionsQuery.data?.items ?? []).filter((item) => item.status === 'CONNECTED');
+  const courierConnections = (connectionsQuery.data?.items ?? []).filter((item) => item.status !== 'DISABLED');
+  const connectedCount = courierConnections.filter((item) => item.status === 'CONNECTED').length;
   const ecommerceMutation = useMutation({
     mutationFn: (enabled: boolean) => {
       if (!workspace?.id) throw new Error('Workspace is not ready. Please try again.');
@@ -32,6 +35,25 @@ export function IntegrationsScreen() {
     onError: (cause: Error) => Alert.alert('Could not update Ecommerce Setup', cause.message),
   });
   const browseCatalog = () => navigation.navigate('IntegrationCatalog');
+  const openDetails = (connection: CourierConnection, startEditing = false) => navigation.navigate('CourierConnectionDetails', { connectionId: connection.id, startEditing });
+  const confirmDisconnect = (connection: CourierConnection) => {
+    Alert.alert('Disconnect courier?', `Disconnect ${connection.displayName} from this workspace?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Disconnect', style: 'destructive', onPress: () => void disconnect(connection) },
+    ]);
+  };
+  const disconnect = async (connection: CourierConnection) => {
+    if (disconnectingId) return;
+    setDisconnectingId(connection.id);
+    try {
+      await disableCourierConnection(connection.id);
+      await queryClient.invalidateQueries({ queryKey: ['courier-connections'] });
+    } catch (cause) {
+      Alert.alert('Could not disconnect courier', cause instanceof Error ? cause.message : 'Please try again.');
+    } finally {
+      setDisconnectingId(null);
+    }
+  };
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -42,7 +64,7 @@ export function IntegrationsScreen() {
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.statsGrid}>
-          <StatCard label="Connected" value={String(connected.length)} icon={Layers3} color={colors.primary} soft={colors.primarySoft} />
+          <StatCard label="Connected" value={String(connectedCount)} icon={Layers3} color={colors.primary} soft={colors.primarySoft} />
           <StatCard label="Available" value={String(CATALOG_TOTAL)} icon={PackageOpen} color={colors.success} soft={colors.successSoft} />
           <StatCard label="Stores" value="2" icon={Store} color={colors.indigo} soft={colors.indigoSoft} />
           <StatCard label="Delivery partners" value="2" icon={Truck} color={colors.warning} soft={colors.warningSoft} />
@@ -66,16 +88,28 @@ export function IntegrationsScreen() {
           <AppText variant="section">Connected integrations</AppText>
           <Pressable onPress={browseCatalog} accessibilityRole="button"><AppText variant="small" tone="primary">Browse catalog</AppText></Pressable>
         </View>
-        {connected.length ? (
+        {courierConnections.length ? (
           <View style={styles.connectedList}>
-            {connected.map((connection) => (
-              <AppCard key={connection.id} style={styles.connectedCard}>
-                <IntegrationLogo integrationId={connection.provider} size={38} />
-                <View style={styles.ecommerceCopy}>
-                  <AppText variant="bodyStrong" numberOfLines={1}>{connection.displayName}</AppText>
-                  <AppText variant="small" tone="secondary">{connection.provider}</AppText>
+            {courierConnections.map((connection) => (
+              <AppCard key={connection.id} padding="sm" style={styles.connectedCard}>
+                <Pressable onPress={() => openDetails(connection)} style={styles.connectedMain} accessibilityRole="button">
+                  <IntegrationLogo integrationId={connection.provider} size={46} />
+                  <View style={styles.ecommerceCopy}>
+                    <View style={styles.connectionTitleRow}>
+                      <AppText variant="bodyStrong" numberOfLines={1} style={styles.connectionName}>{connection.displayName}</AppText>
+                        <View style={[styles.statusBadge, { backgroundColor: connection.status === 'CONNECTED' ? colors.successSoft : connection.status === 'ERROR' ? colors.dangerSoft : colors.warningSoft }]}>
+                        {connection.status === 'CONNECTED' ? <Check color={colors.success} size={12} /> : null}
+                        <Text style={[styles.statusText, { color: connection.status === 'CONNECTED' ? colors.success : connection.status === 'ERROR' ? colors.error : colors.warning }]}>{connection.status === 'CONNECTED' ? 'Connected' : connection.status}</Text>
+                      </View>
+                    </View>
+                    <AppText variant="small" tone="secondary" numberOfLines={2}>{integrationDescription(connection.provider)}</AppText>
+                  </View>
+                  <ChevronRight color={colors.textMuted} size={18} />
+                </Pressable>
+                <View style={[styles.connectedActions, { borderTopColor: colors.cardBorder }]}>
+                  <AppButton label="Disconnect" icon={Trash2} variant="destructive" loading={disconnectingId === connection.id} disabled={!canManage || (disconnectingId !== null && disconnectingId !== connection.id)} onPress={() => confirmDisconnect(connection)} style={styles.connectionAction} />
+                  <AppButton label="Configure" icon={Settings2} variant="ghost" disabled={!canManage} onPress={() => openDetails(connection, true)} style={styles.connectionAction} />
                 </View>
-                <AppText variant="small" tone="primary">Connected</AppText>
               </AppCard>
             ))}
           </View>
@@ -89,6 +123,12 @@ export function IntegrationsScreen() {
       </ScrollView>
     </View>
   );
+}
+
+function integrationDescription(provider: string) {
+  if (provider.toUpperCase() === 'PATHAO') return 'Book parcels and track delivery across Bangladesh.';
+  if (provider.toUpperCase() === 'STEADFAST') return 'Book parcels, print labels and track delivery.';
+  return `${provider} courier account`;
 }
 
 function StatCard({ label, value, icon: Icon, color, soft }: { label: string; value: string; icon: LucideIcon; color: string; soft: string }) {
@@ -116,7 +156,14 @@ const styles = StyleSheet.create({
   ecommerceCopy: { flex: 1, minWidth: 0 },
   sectionHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   connectedList: { gap: spacing.sm },
-  connectedCard: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
+  connectedCard: { gap: spacing.sm },
+  connectedMain: { alignItems: 'center', flexDirection: 'row', gap: spacing.md, minHeight: 56 },
+  connectionTitleRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  connectionName: { flexShrink: 1 },
+  statusBadge: { alignItems: 'center', borderRadius: radius.pill, flexDirection: 'row', gap: 3, paddingHorizontal: spacing.sm, paddingVertical: 2 },
+  statusText: { fontSize: fontSize.tiny, fontWeight: fontWeight.semibold },
+  connectedActions: { alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingTop: spacing.sm },
+  connectionAction: { height: 34 },
   emptyState: { alignItems: 'center', borderRadius: radius.xl, borderStyle: 'dashed', borderWidth: 1, gap: spacing.sm, justifyContent: 'center', minHeight: 210, padding: spacing.xl },
   emptyIcon: { alignItems: 'center', borderRadius: radius.pill, height: 44, justifyContent: 'center', width: 44 },
   emptyDescription: { lineHeight: 18, maxWidth: 300, textAlign: 'center' },

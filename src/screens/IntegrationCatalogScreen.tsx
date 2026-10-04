@@ -26,7 +26,7 @@ const INTEGRATIONS: Integration[] = [
   { id: 'shopify', name: 'Shopify', description: 'Order and delivery alerts over WhatsApp.', category: 'Store', soon: true },
   { id: 'woocommerce', name: 'WooCommerce', description: 'Order and shipping notifications from your WooCommerce store.', category: 'Store', soon: true },
   { id: 'pathao', name: 'Pathao Courier', description: 'Book parcels and track delivery across Bangladesh.', category: 'Delivery Partner', provider: 'PATHAO' },
-  { id: 'steadfast', name: 'Steadfast Courier', description: 'Book parcels, print labels and track delivery.', category: 'Delivery Partner', provider: 'STEADFAST' },
+  { id: 'steadfast', name: 'Steadfast Courier', description: '', category: 'Delivery Partner', provider: 'STEADFAST' },
 ];
 
 type CredentialValues = { displayName: string; providerAccountId: string; apiKey: string; apiSecret: string; username: string; password: string };
@@ -138,7 +138,7 @@ export function IntegrationCatalogScreen() {
                 <IntegrationLogo integrationId={item.id} />
                 <View style={styles.copy}>
                   <Text style={[styles.name, { color: colors.text }]}>{item.name}</Text>
-                  <Text style={[styles.description, { color: colors.textSecondary }]}>{item.description}</Text>
+                  {item.description ? <Text style={[styles.description, { color: colors.textSecondary }]}>{item.description}</Text> : null}
                   {connected ? <View style={styles.connected}><Check size={14} color={colors.success} /><Text style={[styles.connectedText, { color: colors.success }]}>Connected</Text></View> : null}
                 </View>
               </View>
