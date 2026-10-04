@@ -60,7 +60,8 @@ export type SettingsStackParamList = {
   CreateOrder: CreateOrderRouteParams;
   IntegrationCatalog: undefined;
   Integrations: undefined;
-  CourierConnectionDetails: { connectionId: string; startEditing?: boolean };
+  CourierConnectionDetails: { connectionId: string };
+  CourierConnectionConfigure: { connectionId: string };
   ProductForm: { productId?: string } | undefined;
 };
 
@@ -91,6 +92,7 @@ export function SettingsStack() {
       <Stack.Screen name="IntegrationCatalog" component={IntegrationCatalogScreen} />
       <Stack.Screen name="Integrations" component={IntegrationsScreen} />
       <Stack.Screen name="CourierConnectionDetails" component={CourierConnectionDetailsScreen} />
+      <Stack.Screen name="CourierConnectionConfigure" component={CourierConnectionDetailsScreen} />
       <Stack.Screen name="ProductForm" component={ProductFormScreen} />
     </Stack.Navigator>
   );

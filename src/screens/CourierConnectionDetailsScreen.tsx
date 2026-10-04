@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Activity, Check, Copy, Eye, EyeOff, KeyRound, Settings2, Trash2, Webhook } from 'lucide-react-native';
+import { Activity, Check, Copy, Eye, EyeOff, KeyRound, Settings2, ShieldCheck, Trash2, Webhook } from 'lucide-react-native';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
 import { disableCourierConnection, enableCourierConnection, getCourierDeliveryFees, getCourierWebhookConfig, listCourierConnections, updateCourierConnection, type CourierConnection } from '../api/couriers';
-import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 import { IntegrationLogo } from '../components/IntegrationLogo';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useWorkspaceAccess } from '../lib/workspace-access';
@@ -17,12 +16,12 @@ type DetailsTab = 'overview' | 'webhook' | 'diagnostics';
 
 export function CourierConnectionDetailsScreen() {
   const navigation = useNavigation<NavigationProp<SettingsStackParamList>>();
-  const route = useRoute<RouteProp<SettingsStackParamList, 'CourierConnectionDetails'>>();
+  const route = useRoute<RouteProp<SettingsStackParamList, 'CourierConnectionDetails' | 'CourierConnectionConfigure'>>();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const { canManage } = useWorkspaceAccess();
   const [activeTab, setActiveTab] = useState<DetailsTab>('overview');
-  const [editorOpen, setEditorOpen] = useState(Boolean(route.params.startEditing));
+  const isConfigurePage = route.name === 'CourierConnectionConfigure';
   const [saving, setSaving] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
   const [showVerificationKey, setShowVerificationKey] = useState(false);
@@ -51,7 +50,7 @@ export function CourierConnectionDetailsScreen() {
   const verificationKey = webhookQuery.data?.verificationKey ?? '';
 
   useEffect(() => {
-    if (!editorOpen || !connection) return;
+    if (!isConfigurePage || !connection) return;
     setDisplayName(connection.displayName);
     setProviderAccountId(connection.providerAccountId ?? '');
     setApiKey('');
@@ -65,7 +64,7 @@ export function CourierConnectionDetailsScreen() {
     setShowApiKey(false);
     setShowApiSecret(false);
     setShowPassword(false);
-  }, [connection, editorOpen]);
+  }, [connection, isConfigurePage]);
 
   const cacheConnection = (updated: CourierConnection) => {
     queryClient.setQueryData<{ items: CourierConnection[] }>(['courier-connections'], (current) => {
@@ -155,7 +154,7 @@ export function CourierConnectionDetailsScreen() {
         setEditError(updated.lastErrorMessage ?? 'The courier could not verify these settings. Review the credentials and try again.');
         return;
       }
-      setEditorOpen(false);
+      navigation.goBack();
     } catch (cause) {
       setEditError(cause instanceof Error ? cause.message : 'Could not save courier settings. Please try again.');
     } finally {
@@ -175,6 +174,64 @@ export function CourierConnectionDetailsScreen() {
     return <View style={[styles.screen, { backgroundColor: colors.background }]}><ScreenHeader title="Courier account" onBack={() => navigation.goBack()} /><View style={styles.notFound}><AppText variant="bodyStrong">Integration not found</AppText><AppText variant="small" tone="secondary">This courier account may have been disconnected or is no longer available.</AppText><AppButton label="Back to integrations" onPress={() => navigation.goBack()} /></View></View>;
   }
 
+  if (isConfigurePage) {
+    return (
+      <View style={[styles.screen, { backgroundColor: colors.background }]}>
+        <ScreenHeader
+          title={`Configure ${providerName(connection.provider)}`}
+          subtitle={connection.displayName}
+          onBack={() => navigation.goBack()}
+        />
+        <ScrollView contentContainerStyle={styles.editorForm} keyboardShouldPersistTaps="handled">
+          <View style={styles.editorHeader}>
+            <IntegrationLogo integrationId={connection.provider} size={42} />
+            <View style={styles.summaryCopy}>
+              <AppText variant="subheading">{isPathao ? 'Merchant credentials' : 'Account credentials'}</AppText>
+              <AppText variant="small" tone="secondary">
+                {isPathao
+                  ? 'Update your Pathao developer credentials and merchant login.'
+                  : 'Update your Steadfast merchant API credentials.'}
+              </AppText>
+            </View>
+          </View>
+          <View style={[styles.requiredBadge, { backgroundColor: colors.surfaceSecondary }]}>
+            <AppText variant="tiny" tone="secondary">UPDATE</AppText>
+          </View>
+          <AppText variant="small" tone="secondary">
+            Update the account label or replace credentials. Blank secret fields keep their current values.
+          </AppText>
+          <AppTextField label="Connection name" value={displayName} onChangeText={setDisplayName} placeholder="Courier account name" autoCapitalize="words" />
+          {isPathao ? <AppTextField label="Store ID (optional)" value={providerAccountId} onChangeText={setProviderAccountId} placeholder="Leave blank to keep current store" /> : null}
+          <AppTextField label={isPathao ? 'Client ID (optional)' : 'API key (optional)'} value={apiKey} onChangeText={setApiKey} placeholder="Leave blank to keep current value" autoCapitalize="none" secureTextEntry={!showApiKey} trailing={<Pressable onPress={() => setShowApiKey((visible) => !visible)} accessibilityLabel={showApiKey ? 'Hide API key' : 'Show API key'}>{showApiKey ? <EyeOff color={colors.textSecondary} size={17} /> : <Eye color={colors.textSecondary} size={17} />}</Pressable>} />
+          <AppTextField label={isPathao ? 'Client secret (optional)' : 'Secret key (optional)'} value={apiSecret} onChangeText={setApiSecret} placeholder="Leave blank to keep current value" autoCapitalize="none" secureTextEntry={!showApiSecret} trailing={<Pressable onPress={() => setShowApiSecret((visible) => !visible)} accessibilityLabel={showApiSecret ? 'Hide secret key' : 'Show secret key'}>{showApiSecret ? <EyeOff color={colors.textSecondary} size={17} /> : <Eye color={colors.textSecondary} size={17} />}</Pressable>} />
+          {isPathao ? <>
+            <AppTextField label="Merchant email (optional)" value={username} onChangeText={setUsername} placeholder="Leave blank to keep current email" keyboardType="email-address" autoCapitalize="none" />
+            <AppTextField label="Merchant password (optional)" value={password} onChangeText={setPassword} placeholder="Leave blank to keep current password" secureTextEntry={!showPassword} trailing={<Pressable onPress={() => setShowPassword((visible) => !visible)} accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff color={colors.textSecondary} size={17} /> : <Eye color={colors.textSecondary} size={17} />}</Pressable>} />
+          </> : null}
+          <View style={styles.formSectionHeading}>
+            <AppText variant="bodyStrong">Delivery fees</AppText>
+            <AppText variant="small" tone="secondary">Fees are added to the order total and selected by the recipient city.</AppText>
+          </View>
+          <View style={styles.feeRow}>
+            <AppTextField style={styles.feeField} label="Inside Dhaka (BDT)" value={insideDhakaFee} onChangeText={setInsideDhakaFee} keyboardType="decimal-pad" />
+            <AppTextField style={styles.feeField} label="Outside Dhaka (BDT)" value={outsideDhakaFee} onChangeText={setOutsideDhakaFee} keyboardType="decimal-pad" />
+          </View>
+          <View style={[styles.protectionCard, { backgroundColor: colors.primarySoft, borderColor: colors.cardBorder }]}>
+            <ShieldCheck color={colors.primary} size={20} />
+            <View style={styles.protectionCopy}>
+              <AppText variant="small" style={styles.protectionTitle}>Credentials stay protected</AppText>
+              <AppText variant="small" tone="secondary">
+                Credentials are encrypted on the backend. The webhook URL and verification key are available in integration details.
+              </AppText>
+            </View>
+          </View>
+          {editError ? <AppText variant="small" tone="error">{editError}</AppText> : null}
+          <AppButton label="Save changes" icon={Settings2} onPress={() => void saveConfiguration()} loading={saving} loadingLabel="Saving..." disabled={!canManage || !displayName.trim()} block />
+        </ScrollView>
+      </View>
+    );
+  }
+
   const connectedSince = new Date(connection.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
   const renderTab = (tab: DetailsTab, label: string, Icon: typeof Settings2) => (
     <Pressable key={tab} onPress={() => setActiveTab(tab)} style={[styles.tabButton, { backgroundColor: activeTab === tab ? colors.primary : colors.surfaceSecondary }]} accessibilityRole="tab" accessibilityState={{ selected: activeTab === tab }}>
@@ -192,7 +249,7 @@ export function CourierConnectionDetailsScreen() {
             <IntegrationLogo integrationId={connection.provider} size={54} />
             <View style={styles.summaryCopy}>
               <AppText variant="heading" numberOfLines={1}>{connection.displayName}</AppText>
-              <AppText variant="small" tone="secondary">{providerName(connection.provider)} · Courier account</AppText>
+              <AppText variant="small" tone="secondary">{providerName(connection.provider)} Â· Courier account</AppText>
             </View>
           </View>
           <View style={styles.summaryGrid}>
@@ -202,7 +259,7 @@ export function CourierConnectionDetailsScreen() {
             <SummaryItem label="Connected since" value={connectedSince} />
           </View>
           <View style={styles.summaryActions}>
-            <AppButton label="Configure" icon={Settings2} variant="secondary" disabled={!canManage} onPress={() => setEditorOpen(true)} />
+            <AppButton label="Configure" icon={Settings2} variant="secondary" disabled={!canManage} onPress={() => navigation.navigate('CourierConnectionConfigure', { connectionId: connection.id })} />
             <AppButton label={connection.status === 'DISABLED' ? 'Enable' : 'Disconnect'} icon={connection.status === 'DISABLED' ? Check : Trash2} variant={connection.status === 'DISABLED' ? 'primary' : 'destructive'} disabled={!canManage || actionBusy} loading={actionBusy} onPress={handleDisconnect} />
           </View>
         </AppCard>
@@ -235,7 +292,7 @@ export function CourierConnectionDetailsScreen() {
               </View>
               <View style={styles.sectionIconHeading}><KeyRound color={colors.warning} size={18} /><AppText variant="section">Verification key</AppText></View>
               <View style={styles.secretRow}>
-                <View style={[styles.codeBox, styles.secretValue, { backgroundColor: colors.surfaceSecondary }]}><AppText variant="small" selectable>{verificationKey ? showVerificationKey ? verificationKey : '••••••••••••••••••••••••••••••••' : (webhookQuery.isLoading ? 'Loading verification key...' : 'Verification key unavailable')}</AppText></View>
+                <View style={[styles.codeBox, styles.secretValue, { backgroundColor: colors.surfaceSecondary }]}><AppText variant="small" selectable>{verificationKey ? showVerificationKey ? verificationKey : 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢' : (webhookQuery.isLoading ? 'Loading verification key...' : 'Verification key unavailable')}</AppText></View>
                 <Pressable disabled={!verificationKey} onPress={() => setShowVerificationKey((visible) => !visible)} style={[styles.revealButton, { borderColor: colors.cardBorder }]} accessibilityLabel={showVerificationKey ? 'Hide verification key' : 'Show verification key'}>{showVerificationKey ? <EyeOff color={colors.textSecondary} size={18} /> : <Eye color={colors.textSecondary} size={18} />}</Pressable>
                 <Pressable disabled={!verificationKey} onPress={() => void copyToClipboard(verificationKey, 'Verification key')} style={[styles.revealButton, { borderColor: colors.cardBorder }]} accessibilityLabel="Copy verification key"><Copy color={colors.textSecondary} size={17} /></Pressable>
               </View>
@@ -264,31 +321,6 @@ export function CourierConnectionDetailsScreen() {
         ) : null}
       </ScrollView>
 
-      <BottomSheet visible={editorOpen} onClose={() => setEditorOpen(false)} sheetStyle={styles.editorSheet}>
-        <View style={[styles.editor, { backgroundColor: colors.background }]}>
-          <View style={[styles.editorHeader, { borderBottomColor: colors.cardBorder }]}>
-            <IntegrationLogo integrationId={connection.provider} size={42} />
-            <View style={styles.summaryCopy}><AppText variant="subheading">Configure {providerName(connection.provider)}</AppText><AppText variant="small" tone="secondary">Blank credential fields keep their current values.</AppText></View>
-          </View>
-          <SheetScrollView style={styles.editorScroll} contentContainerStyle={styles.editorForm} keyboardShouldPersistTaps="handled">
-            <AppTextField label="Connection name" value={displayName} onChangeText={setDisplayName} placeholder="Courier account name" autoCapitalize="words" />
-            {isPathao ? <AppTextField label="Store ID (optional)" value={providerAccountId} onChangeText={setProviderAccountId} placeholder="Leave blank to keep current store" /> : null}
-            <AppTextField label={isPathao ? 'Client ID (optional)' : 'API key (optional)'} value={apiKey} onChangeText={setApiKey} placeholder="Leave blank to keep current value" autoCapitalize="none" secureTextEntry={!showApiKey} trailing={<Pressable onPress={() => setShowApiKey((visible) => !visible)} accessibilityLabel={showApiKey ? 'Hide API key' : 'Show API key'}>{showApiKey ? <EyeOff color={colors.textSecondary} size={17} /> : <Eye color={colors.textSecondary} size={17} />}</Pressable>} />
-            <AppTextField label={isPathao ? 'Client secret (optional)' : 'Secret key (optional)'} value={apiSecret} onChangeText={setApiSecret} placeholder="Leave blank to keep current value" autoCapitalize="none" secureTextEntry={!showApiSecret} trailing={<Pressable onPress={() => setShowApiSecret((visible) => !visible)} accessibilityLabel={showApiSecret ? 'Hide secret key' : 'Show secret key'}>{showApiSecret ? <EyeOff color={colors.textSecondary} size={17} /> : <Eye color={colors.textSecondary} size={17} />}</Pressable>} />
-            {isPathao ? <>
-              <AppTextField label="Merchant email (optional)" value={username} onChangeText={setUsername} placeholder="Leave blank to keep current email" keyboardType="email-address" autoCapitalize="none" />
-              <AppTextField label="Merchant password (optional)" value={password} onChangeText={setPassword} placeholder="Leave blank to keep current password" secureTextEntry={!showPassword} trailing={<Pressable onPress={() => setShowPassword((visible) => !visible)} accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff color={colors.textSecondary} size={17} /> : <Eye color={colors.textSecondary} size={17} />}</Pressable>} />
-            </> : null}
-            <AppText variant="bodyStrong">Delivery fees (BDT)</AppText>
-            <View style={styles.feeRow}>
-              <AppTextField style={styles.feeField} label="Inside Dhaka" value={insideDhakaFee} onChangeText={setInsideDhakaFee} keyboardType="decimal-pad" />
-              <AppTextField style={styles.feeField} label="Outside Dhaka" value={outsideDhakaFee} onChangeText={setOutsideDhakaFee} keyboardType="decimal-pad" />
-            </View>
-            {editError ? <AppText variant="small" tone="error">{editError}</AppText> : null}
-            <AppButton label="Save changes" icon={Settings2} onPress={() => void saveConfiguration()} loading={saving} loadingLabel="Saving..." disabled={!canManage || !displayName.trim()} block />
-          </SheetScrollView>
-        </View>
-      </BottomSheet>
     </View>
   );
 }
@@ -343,11 +375,13 @@ const styles = StyleSheet.create({
   revealButton: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, height: 42, justifyContent: 'center', width: 42 },
   diagnosticItem: { borderRadius: radius.md, borderWidth: 1, flexBasis: '48%', flexGrow: 1, gap: spacing.xs, minWidth: 140, padding: spacing.md },
   diagnosticHeading: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
-  editorSheet: { height: '92%', paddingHorizontal: 0, paddingTop: 0 },
-  editor: { flex: 1, minHeight: 0 },
-  editorHeader: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', gap: spacing.md, padding: spacing.lg },
-  editorScroll: { flex: 1 },
+  editorHeader: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
   editorForm: { gap: spacing.lg, padding: spacing.lg, paddingBottom: spacing.xxxl },
+  requiredBadge: { alignSelf: 'flex-start', borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  formSectionHeading: { gap: spacing.xs },
+  protectionCard: { alignItems: 'flex-start', borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', gap: spacing.md, padding: spacing.md },
+  protectionCopy: { flex: 1, gap: spacing.xs },
+  protectionTitle: { fontWeight: fontWeight.semibold },
   feeRow: { flexDirection: 'row', gap: spacing.sm },
   feeField: { flex: 1, minWidth: 0 },
 });
