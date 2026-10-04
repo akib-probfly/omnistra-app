@@ -74,6 +74,7 @@ export function CreateOrderScreen() {
   const [recipientEmail, setRecipientEmail] = useState(initialRecipient?.email ?? '');
   const [address, setAddress] = useState(initialRecipient?.address ?? '');
   const [productSearch, setProductSearch] = useState('');
+  const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [locationSearch, setLocationSearch] = useState('');
   const [debouncedLocationSearch, setDebouncedLocationSearch] = useState('');
@@ -97,7 +98,7 @@ export function CreateOrderScreen() {
   const productsQuery = useQuery({
     queryKey: ['create-order-products', debouncedSearch],
     queryFn: () => listProducts({ search: debouncedSearch || undefined, status: 'ACTIVE', page: 1, limit: 20 }),
-    enabled: Boolean(debouncedSearch),
+    enabled: productPickerOpen && !selectedProduct && !customProductMode,
     staleTime: 30_000,
   });
   const couriersQuery = useQuery({ queryKey: ['courier-connections'], queryFn: listCourierConnections });
@@ -147,6 +148,7 @@ export function CreateOrderScreen() {
     setWeightKg(((product.weightGrams ?? 0) / 1000).toFixed(2));
     setProductSearch('');
     setDebouncedSearch('');
+    setProductPickerOpen(false);
   };
   const chooseVariant = (variant: ProductVariant) => {
     if (!selectedProduct) return;
@@ -162,6 +164,7 @@ export function CreateOrderScreen() {
     setCustomVariantLabel('');
     setProductSearch('');
     setDebouncedSearch('');
+    setProductPickerOpen(false);
     setQuantity('1');
     setUnitPrice('0.00');
     setWeightKg('0.00');
@@ -298,14 +301,34 @@ export function CreateOrderScreen() {
       <FormScrollView style={isSheetPresentation ? styles.createOrderSheetScroll : undefined} contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, spacing.xxxl) }]} keyboardShouldPersistTaps="handled">
         <AppCard style={styles.card}>
           <View style={styles.sectionHeading}><Package color={colors.primary} size={18} /><Text style={[styles.sectionTitle, { color: colors.text }]}>Products</Text></View>
-          <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><Search color={colors.textMuted} size={17} /><TextInput value={productSearch} onChangeText={setProductSearch} placeholder="Search active products" placeholderTextColor={colors.textMuted} style={[styles.searchInput, { color: colors.text }]} /></View>
-          {productSearch.trim() ? <View style={[styles.searchResults, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-            <Pressable onPress={startCustomProduct} style={[styles.productResult, { borderBottomColor: colors.cardBorder }]}><View style={[styles.productImage, styles.productImagePlaceholder, { backgroundColor: colors.primarySoft }]}><Plus color={colors.primary} size={18} /></View><Text style={[styles.productName, { color: colors.primary }]}>Add “{productSearch.trim()}” manually</Text></Pressable>
-            {productsQuery.isFetching ? <ActivityIndicator color={colors.primary} style={styles.searchState} /> : productsQuery.isError ? <Text style={[styles.searchStateText, { color: colors.error }]}>Could not load products. Try another search.</Text> : (productsQuery.data?.items ?? []).length ? (productsQuery.data?.items ?? []).map((product) => <Pressable key={product.id} onPress={() => chooseProduct(product)} style={[styles.productResult, { borderBottomColor: colors.cardBorder }]}>
-              {product.coverImageUrl || product.imageUrls[0] ? <Image source={{ uri: product.coverImageUrl ?? product.imageUrls[0] }} style={styles.productImage} contentFit="cover" /> : <View style={[styles.productImage, styles.productImagePlaceholder, { backgroundColor: colors.primarySoft }]}><Package color={colors.primary} size={18} /></View>}
-              <View style={styles.productCopy}><Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>{product.name}</Text><Text style={[styles.helper, { color: colors.textSecondary }]}>{product.inventory ?? 0} in stock</Text></View>
-              <Text style={[styles.productPrice, { color: colors.text }]}>{formatMoney(productPrice(product), selectedCurrency)}</Text>
-            </Pressable>) : <Text style={[styles.searchStateText, { color: colors.textSecondary }]}>No active products match this search.</Text>}
+          <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <Search color={colors.textMuted} size={17} />
+            <TextInput
+              value={productSearch}
+              onChangeText={(value) => {
+                setProductSearch(value);
+                setProductPickerOpen(true);
+                setCustomProductMode(false);
+                setSelectedProduct(null);
+                setSelectedVariant(null);
+              }}
+              onFocus={() => setProductPickerOpen(true)}
+              placeholder="Search or select a product"
+              placeholderTextColor={colors.textMuted}
+              style={[styles.searchInput, { color: colors.text }]}
+            />
+          </View>
+          {productPickerOpen && !selectedProduct && !customProductMode ? <View style={[styles.searchResults, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <Pressable onPress={startCustomProduct} style={[styles.productResult, { borderBottomColor: colors.cardBorder }]}><View style={[styles.productImage, styles.productImagePlaceholder, { backgroundColor: colors.primarySoft }]}><Plus color={colors.primary} size={18} /></View><Text style={[styles.productName, { color: colors.primary }]}>{productSearch.trim() ? `Add “${productSearch.trim()}” manually` : 'Add a new product manually'}</Text></Pressable>
+            {productsQuery.isFetching ? <ActivityIndicator color={colors.primary} style={styles.searchState} /> : productsQuery.isError ? <Text style={[styles.searchStateText, { color: colors.error }]}>Could not load products. Try another search.</Text> : (productsQuery.data?.items ?? []).length ? (
+              <ScrollView style={styles.searchResultList} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                {(productsQuery.data?.items ?? []).map((product) => <Pressable key={product.id} onPress={() => chooseProduct(product)} style={[styles.productResult, { borderBottomColor: colors.cardBorder }]}>
+                  {product.coverImageUrl || product.imageUrls[0] ? <Image source={{ uri: product.coverImageUrl ?? product.imageUrls[0] }} style={styles.productImage} contentFit="cover" /> : <View style={[styles.productImage, styles.productImagePlaceholder, { backgroundColor: colors.primarySoft }]}><Package color={colors.primary} size={18} /></View>}
+                  <View style={styles.productCopy}><Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>{product.name}</Text><Text style={[styles.helper, { color: colors.textSecondary }]}>{product.inventory ?? 0} in stock</Text></View>
+                  <Text style={[styles.productPrice, { color: colors.text }]}>{formatMoney(productPrice(product), selectedCurrency)}</Text>
+                </Pressable>)}
+              </ScrollView>
+            ) : <Text style={[styles.searchStateText, { color: colors.textSecondary }]}>{productsQuery.isLoading ? 'Loading products...' : 'No active products match this search.'}</Text>}
           </View> : null}
           {selectedProduct || customProductMode ? <View style={[styles.selectedProduct, { backgroundColor: colors.surfaceSecondary }]}>
             <View style={styles.selectedProductHeading}><Text style={[styles.productName, { color: colors.text, flex: 1 }]} numberOfLines={1}>{selectedProduct?.name ?? 'New manual product'}</Text><Pressable onPress={() => { setSelectedProduct(null); setSelectedVariant(null); setCustomProductMode(false); }} accessibilityLabel="Remove selected product"><Text style={[styles.helper, { color: colors.error }]}>Cancel</Text></Pressable></View>
@@ -399,7 +422,7 @@ function PickerButton({ label, value, onPress, disabled = false }: { label: stri
 
 const styles = StyleSheet.create({
   screen: { flex: 1 }, content: { gap: spacing.md, padding: spacing.lg }, card: { gap: spacing.md }, sectionHeading: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm }, sectionTitle: { fontSize: fontSize.subheading, fontWeight: fontWeight.bold },
-  search: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, minHeight: 46, paddingHorizontal: spacing.md }, searchInput: { flex: 1, fontSize: fontSize.body, height: 46 }, searchResults: { borderRadius: radius.md, borderWidth: 1, maxHeight: 250, overflow: 'hidden' }, searchState: { padding: spacing.lg }, searchStateText: { padding: spacing.md, textAlign: 'center' }, productResult: { alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: spacing.sm, padding: spacing.sm }, productImage: { borderRadius: radius.sm, height: 42, width: 42 }, productImagePlaceholder: { alignItems: 'center', justifyContent: 'center' }, productCopy: { flex: 1, minWidth: 0 }, productName: { fontSize: fontSize.body, fontWeight: fontWeight.semibold }, productPrice: { fontSize: fontSize.small, fontWeight: fontWeight.bold }, helper: { fontSize: fontSize.small }, selectedProduct: { borderRadius: radius.md, gap: spacing.sm, padding: spacing.md }, selectedProductHeading: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm }, editableFields: { flexDirection: 'row', gap: spacing.sm }, editableField: { flex: 1, minWidth: 0 }, cartHeader: { alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', justifyContent: 'space-between', paddingTop: spacing.md }, cartTitle: { fontSize: fontSize.body, fontWeight: fontWeight.semibold }, cartRow: { alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.sm }, quantityControl: { alignItems: 'center', borderRadius: radius.sm, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs }, quantityValue: { fontSize: fontSize.small, fontWeight: fontWeight.bold, minWidth: 18, textAlign: 'center' }, summary: { borderTopWidth: StyleSheet.hairlineWidth, gap: spacing.sm, paddingTop: spacing.md }, currencyLine: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }, currencyValue: { fontSize: fontSize.body, fontWeight: fontWeight.semibold, marginTop: 2 }, summaryLine: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }, summaryLabel: { fontSize: fontSize.caption }, summaryValue: { fontSize: fontSize.caption, fontVariant: ['tabular-nums'] }, summaryTotal: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: spacing.xs, paddingTop: spacing.sm }, summaryStrong: { fontSize: fontSize.body, fontWeight: fontWeight.bold }, deliveryFeeRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }, deliveryFeeInput: { borderRadius: radius.sm, borderWidth: 1, minWidth: 100, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, textAlign: 'right' },
+  search: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, minHeight: 46, paddingHorizontal: spacing.md }, searchInput: { flex: 1, fontSize: fontSize.body, height: 46 }, searchResults: { borderRadius: radius.md, borderWidth: 1, maxHeight: 250, overflow: 'hidden' }, searchResultList: { maxHeight: 202 }, searchState: { padding: spacing.lg }, searchStateText: { padding: spacing.md, textAlign: 'center' }, productResult: { alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: spacing.sm, padding: spacing.sm }, productImage: { borderRadius: radius.sm, height: 42, width: 42 }, productImagePlaceholder: { alignItems: 'center', justifyContent: 'center' }, productCopy: { flex: 1, minWidth: 0 }, productName: { fontSize: fontSize.body, fontWeight: fontWeight.semibold }, productPrice: { fontSize: fontSize.small, fontWeight: fontWeight.bold }, helper: { fontSize: fontSize.small }, selectedProduct: { borderRadius: radius.md, gap: spacing.sm, padding: spacing.md }, selectedProductHeading: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm }, editableFields: { flexDirection: 'row', gap: spacing.sm }, editableField: { flex: 1, minWidth: 0 }, cartHeader: { alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', justifyContent: 'space-between', paddingTop: spacing.md }, cartTitle: { fontSize: fontSize.body, fontWeight: fontWeight.semibold }, cartRow: { alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.sm }, quantityControl: { alignItems: 'center', borderRadius: radius.sm, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs }, quantityValue: { fontSize: fontSize.small, fontWeight: fontWeight.bold, minWidth: 18, textAlign: 'center' }, summary: { borderTopWidth: StyleSheet.hairlineWidth, gap: spacing.sm, paddingTop: spacing.md }, currencyLine: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }, currencyValue: { fontSize: fontSize.body, fontWeight: fontWeight.semibold, marginTop: 2 }, summaryLine: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }, summaryLabel: { fontSize: fontSize.caption }, summaryValue: { fontSize: fontSize.caption, fontVariant: ['tabular-nums'] }, summaryTotal: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: spacing.xs, paddingTop: spacing.sm }, summaryStrong: { fontSize: fontSize.body, fontWeight: fontWeight.bold }, deliveryFeeRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }, deliveryFeeInput: { borderRadius: radius.sm, borderWidth: 1, minWidth: 100, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, textAlign: 'right' },
   pickerField: { gap: spacing.xs }, fieldLabel: { fontSize: fontSize.small, fontWeight: fontWeight.semibold }, pickerButton: { borderRadius: radius.md, borderWidth: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: spacing.md }, dim: { opacity: 0.5 }, locationHeading: { gap: 2, marginTop: spacing.xs }, locationSearch: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md }, locationSearchInput: { flex: 1, fontSize: fontSize.body, height: 44 }, paymentOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }, paymentOption: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }, paymentText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold }, error: { fontSize: fontSize.caption }, pickerSheet: { height: '75%', paddingHorizontal: spacing.lg, paddingTop: 0 }, pickerContent: { flex: 1, gap: spacing.md, minHeight: 0 }, pickerOptionList: { flex: 1 }, pickerOptionContent: { paddingBottom: spacing.md }, pickerLoading: { padding: spacing.xl }, option: { borderBottomWidth: 1, paddingVertical: spacing.md }, optionLabel: { fontSize: fontSize.body, fontWeight: fontWeight.medium },
   transparentScreen: { backgroundColor: 'transparent' }, createOrderBody: { flex: 1, minHeight: 0 }, createOrderSheet: { height: '92%', paddingHorizontal: 0, paddingTop: 0 }, createOrderSheetHeader: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }, createOrderSheetTitle: { flex: 1 }, createOrderSheetTitleText: { fontSize: fontSize.heading, fontWeight: fontWeight.bold }, createOrderSheetScroll: { flex: 1 }, sourcePickerRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm }, sourcePickerField: { flex: 1 }, optionRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md }, optionMainText: { flex: 1 }, optionType: { fontSize: fontSize.caption, textTransform: 'capitalize' },
 });
