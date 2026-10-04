@@ -87,7 +87,17 @@ export function CreateOrderScreen() {
   const [quantity, setQuantity] = useState('1');
   const [unitPrice, setUnitPrice] = useState('0.00');
   const [weightKg, setWeightKg] = useState('0.00');
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(() => (route.params?.initialItems ?? []).map((item, index) => ({
+    id: `draft-${index}-${item.productId}`,
+    product: { id: item.productId } as ProductResponse,
+    productVariantId: null,
+    variantLabel: null,
+    name: item.name,
+    imageUrl: item.imageUrl ?? null,
+    quantity: item.quantity,
+    unitPrice: ((item.unitPriceMinor ?? 0) / 100).toFixed(2),
+    weightKg: ((item.weightGrams ?? 0) / 1000).toFixed(3),
+  })));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -138,6 +148,25 @@ export function CreateOrderScreen() {
   useEffect(() => {
     if (!sourceId && channels.length) setSourceId(channels[0].id);
   }, [channels, sourceId]);
+
+  useEffect(() => {
+    setSourceId(route.params?.initialSourceChannelId ?? '');
+    setRecipientName(route.params?.initialRecipient?.name ?? '');
+    setRecipientPhone(route.params?.initialRecipient?.phone ?? '');
+    setRecipientEmail(route.params?.initialRecipient?.email ?? '');
+    setAddress(route.params?.initialRecipient?.address ?? '');
+    setCart((route.params?.initialItems ?? []).map((item, index) => ({
+      id: `draft-${index}-${item.productId}`,
+      product: { id: item.productId } as ProductResponse,
+      productVariantId: null,
+      variantLabel: null,
+      name: item.name,
+      imageUrl: item.imageUrl ?? null,
+      quantity: item.quantity,
+      unitPrice: ((item.unitPriceMinor ?? 0) / 100).toFixed(2),
+      weightKg: ((item.weightGrams ?? 0) / 1000).toFixed(3),
+    })));
+  }, [route.params]);
 
   useEffect(() => {
     if (couriers.some((courier) => courier.id === courierId)) return;

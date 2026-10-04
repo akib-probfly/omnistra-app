@@ -1,8 +1,8 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import { Package, ReceiptText, ShoppingBag } from 'lucide-react-native';
+import { Package, PackagePlus, ReceiptText, ShoppingBag } from 'lucide-react-native';
 import { useEffect, useMemo } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { fetchWhatsappProductCatalog, type WhatsappCatalogProduct } from '../api/channels';
 import type { WhatsappOrder } from '../lib/inbox-utils';
 import { useTheme } from '../theme/ThemeContext';
@@ -23,7 +23,7 @@ function formatAvailability(value: string | null) {
   return value ? value.split(/[_-]+/).map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join(' ') : null;
 }
 
-export function WhatsappOrderCard({ order, channelId }: { order: WhatsappOrder; channelId?: string }) {
+export function WhatsappOrderCard({ order, channelId, onCreateOrder, creatingOrderDraft = false }: { order: WhatsappOrder; channelId?: string; onCreateOrder?: () => void; creatingOrderDraft?: boolean }) {
   const { colors } = useTheme();
   const queryKey = ['channels', 'product-catalog', channelId ?? 'disabled', order.catalogId ?? null] as const;
   const catalog = useInfiniteQuery({
@@ -48,6 +48,7 @@ export function WhatsappOrderCard({ order, channelId }: { order: WhatsappOrder; 
       <View style={[styles.header, { backgroundColor: colors.surfaceSecondary, borderBottomColor: colors.cardBorder }]}>
         <View style={styles.headerIcon}><ShoppingBag color="#059669" size={16} /></View>
         <View style={{ flex: 1, minWidth: 0 }}><Text style={[styles.headerTitle, { color: colors.text }]}>Catalog order</Text><Text style={[styles.headerSubtitle, { color: colors.textSecondary }]} numberOfLines={1}>{catalogName ?? productCount} · {itemCount}</Text></View>
+        {onCreateOrder ? <Pressable onPress={onCreateOrder} disabled={creatingOrderDraft} style={[styles.createOrderButton, { borderColor: colors.cardBorder, backgroundColor: colors.surface }]} accessibilityRole="button" accessibilityLabel="Create order from message">{creatingOrderDraft ? <ActivityIndicator color="#b45309" size="small" /> : <PackagePlus color="#b45309" size={15} />}</Pressable> : null}
         <View style={styles.countBadge}><Text style={styles.countText}>{order.items.length}</Text></View>
       </View>
       <View style={styles.body}>
@@ -86,6 +87,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 12, fontWeight: '700' },
   headerSubtitle: { marginTop: 2, fontSize: 10 },
   countBadge: { minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: '#ecfdf5' },
+  createOrderButton: { width: 29, height: 29, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   countText: { color: '#047857', fontSize: 10, fontWeight: '700' },
   body: { padding: 11, gap: 10 },
   orderText: { fontSize: 11, lineHeight: 16 },

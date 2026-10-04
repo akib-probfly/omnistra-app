@@ -1,4 +1,5 @@
 import { apiFetch } from './client';
+import type { ProductResponse } from './products';
 
 export type OrderStatus = 'PENDING' | 'APPROVED' | 'PROCESSING' | 'SHIPPED' | 'IN_TRANSIT' | 'DELIVERED' | 'CANCELLED' | 'RETURNED' | 'DAMAGED';
 export const ORDER_STATUS_TRANSITIONS: Readonly<Record<OrderStatus, readonly OrderStatus[]>> = {
@@ -17,6 +18,20 @@ export type OrderSummary = {
   courier: { connectionId?: string; partner: string; tracking: string; status: string } | null;
 };
 export type OrderLocationOption = { id: string; name: string };
+export type ConversationOrderDraft = {
+  sourceMessageId: string;
+  lookbackDays: number;
+  intent: { eligible: boolean; confidence: number; reason: string };
+  sourceChannelId: string;
+  recipient: { name: string | null; phone: string | null; email: string | null; address: string | null };
+  items: Array<{
+    product: ProductResponse;
+    quantity: number;
+    unitPriceMinor: number | null;
+    weightGrams: number | null;
+  }>;
+  unmatchedProductMentions: string[];
+};
 export type CreateOrderInput = {
   sourceChannelId: string; courierConnectionId: string | null; recipientName: string; recipientPhone: string;
   recipientEmail: string | null; address: string; cityId: string | null; zoneId: string | null; areaId: string | null; currency: string;
@@ -26,6 +41,10 @@ export type CreateOrderInput = {
     | { productId: null; productVariantId?: null; productName: string; variantLabel?: string | null; quantity: number; unitPriceMinor: number; weightGrams: number | null }
   >;
 };
+export function fetchConversationOrderDraft(conversationId: string, messageId: string, lookbackDays = 30) {
+  const query = new URLSearchParams({ messageId, lookbackDays: String(lookbackDays) });
+  return apiFetch<ConversationOrderDraft>(`/conversations/${conversationId}/order-draft?${query}`);
+}
 export async function listOrders(params: { search?: string; phone?: string; source?: string | string[]; status?: OrderStatus; page?: number; limit?: number } = {}) {
   const query = new URLSearchParams();
   if (params.search) query.set('search', params.search);

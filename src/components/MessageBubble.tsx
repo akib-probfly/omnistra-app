@@ -110,7 +110,7 @@ export function MessageBubble(props: any) {
   return <StandardMessageBubble {...props} />;
 }
 
-function StandardMessageBubble({ message, outgoing, attachments, replyPreview, reactions, onImage, onVideo, onLongPress, onReplyPress, channelName, channelType, channelId }: any) {
+function StandardMessageBubble({ message, outgoing, attachments, replyPreview, reactions, onImage, onVideo, onLongPress, onReplyPress, channelName, channelType, channelId, onCreateOrderFromMessage, creatingOrderDraft }: any) {
   const { colors } = useTheme();
   const mediaType = (message.type ?? '').toUpperCase();
   const isInstagramSharedPostTemplate =
@@ -416,7 +416,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
             ))}
           </View>
         ) : null}
-        {whatsappOrder ? <WhatsappOrderCard order={whatsappOrder} channelId={channelId} /> : null}
+        {whatsappOrder ? <WhatsappOrderCard order={whatsappOrder} channelId={channelId} onCreateOrder={onCreateOrderFromMessage ? () => onCreateOrderFromMessage(message) : undefined} creatingOrderDraft={creatingOrderDraft} /> : null}
         {whatsappLocation ? (
           <LocationMessageCard location={whatsappLocation} outgoing={outgoing} />
         ) : null}

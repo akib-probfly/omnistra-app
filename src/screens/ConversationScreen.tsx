@@ -34,6 +34,7 @@ import { MessageBubble } from '../components/MessageBubble';
 import { AssignmentHistoryItem } from '../components/AssignmentHistoryItem';
 import { ReactionPicker } from '../components/ReactionPicker';
 import { fetchConversationAssignmentEvents, fetchConversationCallSessions, fetchConversationMessages, fetchMessagesPage, markConversationRead, markConversationUnread, sendReaction, sendTemplateMessage, updateConversationAssignment, updateConversationStar, updateConversationStatus, type AssigneeFilterOption, type ConversationCallSession } from '../api/inbox';
+import { fetchConversationOrderDraft } from '../api/orders';
 import { fetchConversationAttachments } from '../api/conversationDetails';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { InboxStackParamList } from '../navigation/InboxStack';
@@ -53,6 +54,19 @@ type Attachment = { id: string; messageId?: string | null; mediaType: string; mi
 type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBOUND'; senderType?: string | null; sender?: { userName?: string | null; userEmail?: string | null } | null; type: string; text: string | null; deliveryStatus?: string; failureReason?: string | null; campaignId?: string | null; campaignName?: string | null; templateName?: string | null; templateComponentsJson?: unknown; replyToMessageId?: string | null; replyTo?: { id?: string; sender?: { userName?: string | null } | null; text?: string | null; type?: string; attachments?: Attachment[] } | null; sentAt?: string | null; createdAt?: string; metadata?: any; attachments?: Attachment[] };
 type MediaItem = { attachId: string; src: string; mediaType: string };
 type TimelineRow = { entry: ConversationTimelineEntry<Message>; showDivider: boolean };
+
+function readOrderRecipientFromMessage(text: string | null) {
+  const fields: { name?: string; phone?: string; address?: string } = {};
+  for (const line of (text ?? '').split(/\r?\n/)) {
+    const match = line.match(/^\s*(name|address|number|phone)\s*:\s*(.+?)\s*$/i);
+    if (!match) continue;
+    const key = match[1].toLowerCase();
+    if (key === 'name') fields.name = match[2];
+    else if (key === 'address') fields.address = match[2];
+    else fields.phone = match[2];
+  }
+  return fields;
+}
 
 type IdleCallbackHandle = number | ReturnType<typeof setTimeout>;
 type IdleCallbackWindow = typeof globalThis & {
@@ -93,6 +107,8 @@ const TimelineRowItem = memo(function TimelineRowItem({
   onImage,
   onVideo,
   onJumpToMessage,
+  onCreateOrderFromMessage,
+  creatingOrderDraftFor,
 }: {
   row: TimelineRow;
   highlighted: boolean;
@@ -108,6 +124,8 @@ const TimelineRowItem = memo(function TimelineRowItem({
   onImage: (attachId: string) => void;
   onVideo: (attachment: any) => void;
   onJumpToMessage: (messageId: string) => void;
+  onCreateOrderFromMessage?: (message: Message) => void;
+  creatingOrderDraftFor: string | null;
 }) {
   const { entry, showDivider } = row;
   return (
@@ -130,6 +148,8 @@ const TimelineRowItem = memo(function TimelineRowItem({
           replyTarget={replyTarget}
           reactions={reactions}
           onJumpToMessage={onJumpToMessage}
+          onCreateOrderFromMessage={onCreateOrderFromMessage}
+          creatingOrderDraftFor={creatingOrderDraftFor}
         />
       )}
     </View>
@@ -171,6 +191,7 @@ export function ConversationScreen() {
   const [atBottom, setAtBottom] = useState(true);
   const [assignmentOpen, setAssignmentOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [creatingOrderDraftFor, setCreatingOrderDraftFor] = useState<string | null>(null);
   const [header, setHeader] = useState({ isStarred: false, unreadCount: 0, status: 'OPEN' as string, conversation: null as any });
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [messengerMessagingMode, setMessengerMessagingMode] = useState<MessengerMessagingMode>('STANDARD');
@@ -791,6 +812,36 @@ export function ConversationScreen() {
   const ecommerceEnabled = conversationWorkspaceId
     ? Boolean(workspacesQuery.data?.items.find((workspace) => workspace.id === conversationWorkspaceId)?.ecommerceEnabled)
     : workspacesQuery.data?.items.length === 1 && Boolean(workspacesQuery.data.items[0]?.ecommerceEnabled);
+  const handleCreateOrderFromMessage = useCallback(async (message: Message) => {
+    if (!ecommerceEnabled || creatingOrderDraftFor) return;
+    setCreatingOrderDraftFor(message.id);
+    try {
+      const draft = await fetchConversationOrderDraft(route.params.conversationId, message.id, 30);
+      const messageRecipient = readOrderRecipientFromMessage(message.text);
+      navigation.navigate('CreateOrder', {
+        presentation: 'sheet',
+        initialRecipient: {
+          name: draft.recipient.name ?? messageRecipient.name ?? currentConversation?.contact?.displayName ?? route.params.contactName,
+          phone: draft.recipient.phone ?? messageRecipient.phone ?? currentConversation?.contact?.primaryPhone,
+          email: draft.recipient.email ?? currentConversation?.contact?.primaryEmail,
+          address: draft.recipient.address ?? messageRecipient.address,
+        },
+        initialSourceChannelId: draft.sourceChannelId || channelId,
+        initialItems: draft.items.map(({ product, ...item }) => ({
+          productId: product.id,
+          name: product.name,
+          imageUrl: product.coverImageUrl ?? product.imageUrls?.[0] ?? null,
+          quantity: item.quantity,
+          unitPriceMinor: item.unitPriceMinor ?? product.salePriceMinor ?? product.priceMinor ?? 0,
+          weightGrams: item.weightGrams ?? product.weightGrams ?? 0,
+        })),
+      });
+    } catch (cause) {
+      showNotice(cause instanceof Error ? cause.message : 'Could not prepare the order draft.');
+    } finally {
+      setCreatingOrderDraftFor(null);
+    }
+  }, [channelId, creatingOrderDraftFor, currentConversation?.contact?.displayName, currentConversation?.contact?.primaryEmail, currentConversation?.contact?.primaryPhone, ecommerceEnabled, navigation, route.params.contactName, route.params.conversationId]);
   const isWhatsAppConversation = (channelType ?? '').toUpperCase() === 'WHATSAPP';
   const isWebchatConversation = (channelType ?? '').toUpperCase() === 'WEBCHAT';
   const webchatSettingsQuery = useQuery({
@@ -976,9 +1027,11 @@ export function ConversationScreen() {
         onImage={openImage}
         onVideo={openVideo}
         onJumpToMessage={jumpToMessage}
+        onCreateOrderFromMessage={ecommerceEnabled ? handleCreateOrderFromMessage : undefined}
+        creatingOrderDraftFor={creatingOrderDraftFor}
       />
     );
-  }, [channelId, channelName, channelType, colors.surfaceSecondary, colors.textSecondary, highlightedMessageId, jumpToMessage, messageById, openImage, openVideo, reactionGroups]);
+  }, [channelId, channelName, channelType, colors.surfaceSecondary, colors.textSecondary, creatingOrderDraftFor, ecommerceEnabled, handleCreateOrderFromMessage, highlightedMessageId, jumpToMessage, messageById, openImage, openVideo, reactionGroups]);
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background, flex: 1 }]}>
@@ -1270,7 +1323,7 @@ async function sendTemplateMutation(conversationId: string, params: { templateNa
   }
 }
 
-const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, channelType, channelId, setReplyTo, setReactTarget, onImage, onVideo, replyTarget, reactions, onJumpToMessage }: { message: Message; channelName?: string | null; channelType?: string | null; channelId?: string | null; setReplyTo: (message: Message) => void; setReactTarget: (message: Message) => void; onImage: (attachId: string) => void; onVideo: (attachment: any) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }>; onJumpToMessage?: (messageId: string) => void }) {
+const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, channelType, channelId, setReplyTo, setReactTarget, onImage, onVideo, replyTarget, reactions, onJumpToMessage, onCreateOrderFromMessage, creatingOrderDraftFor }: { message: Message; channelName?: string | null; channelType?: string | null; channelId?: string | null; setReplyTo: (message: Message) => void; setReactTarget: (message: Message) => void; onImage: (attachId: string) => void; onVideo: (attachment: any) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }>; onJumpToMessage?: (messageId: string) => void; onCreateOrderFromMessage?: (message: Message) => void; creatingOrderDraftFor: string | null }) {
   const { colors } = useTheme();
   const outgoing = message.direction === 'OUTBOUND';
   const swipeRef = useRef<SwipeableMethods | null>(null);
@@ -1323,7 +1376,7 @@ const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, 
       onSwipeableWillOpen={handleWillOpen}
     >
       <View style={[styles.group, outgoing && styles.outgoingGroup]}>
-        <MessageBubble message={message} outgoing={outgoing} attachments={message.attachments ?? []} replyPreview={replyPreview} reactions={reactions} channelName={channelName} channelType={channelType} channelId={channelId} onImage={onImage} onVideo={onVideo} onLongPress={onReact} onReplyPress={onJumpToMessage && replyTargetId ? () => onJumpToMessage(replyTargetId) : undefined} />
+        <MessageBubble message={message} outgoing={outgoing} attachments={message.attachments ?? []} replyPreview={replyPreview} reactions={reactions} channelName={channelName} channelType={channelType} channelId={channelId} onImage={onImage} onVideo={onVideo} onLongPress={onReact} onReplyPress={onJumpToMessage && replyTargetId ? () => onJumpToMessage(replyTargetId) : undefined} onCreateOrderFromMessage={onCreateOrderFromMessage} creatingOrderDraft={creatingOrderDraftFor === message.id} />
       </View>
     </ReanimatedSwipeable>
   );
