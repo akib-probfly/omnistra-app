@@ -273,12 +273,45 @@ export function OrdersScreen() {
 function OrderCard({ order, selected, onToggle }: { order: OrderSummary; selected: boolean; onToggle: () => void }) {
   const { colors } = useTheme();
   const productImage = order.items.find((item) => item.imageUrl)?.imageUrl;
-  return <AppCard style={styles.card}><View style={styles.header}><View style={[styles.icon, { backgroundColor: colors.primarySoft }]}>{productImage ? <Image source={{ uri: productImage }} style={styles.productImage} contentFit="cover" cachePolicy="memory-disk" accessibilityLabel={order.items.find((item) => item.imageUrl)?.name ?? 'Order product'} /> : <ShoppingBag color={colors.primary} size={18} />}</View><View style={styles.copy}><Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>{order.orderNumber} · {order.recipient.name || order.recipient.phone}</Text><Text style={[styles.meta, { color: colors.textSecondary }]}>{order.source.name} · {new Date(order.date).toLocaleDateString()}</Text></View><AppBadge size="sm" tone={statusTone(order.status)} label={order.status} /><Pressable onPress={(event) => { event.stopPropagation(); onToggle(); }} hitSlop={8} style={[styles.selectButton, { backgroundColor: selected ? colors.primary : colors.surfaceSecondary }]} accessibilityLabel={selected ? 'Deselect order' : 'Select order'}>{selected ? <Check color={colors.primaryText} size={16} /> : null}</Pressable></View><View style={styles.summary}><Text style={[styles.total, { color: colors.text }]}>{formatTotal(order.total)}</Text><Text style={[styles.meta, { color: colors.textSecondary }]}>{order.items.length} item{order.items.length === 1 ? '' : 's'} · {order.recipient.payment || 'Payment pending'}</Text></View><Text style={[styles.address, { color: colors.textMuted }]} numberOfLines={2}>{order.recipient.address || order.recipient.phone}</Text><View style={styles.cardFooter}><Text style={[styles.meta, { color: colors.primary }]}>View order</Text><ChevronRight color={colors.primary} size={17} /></View></AppCard>;
+  return (
+    <AppCard style={styles.orderCard} padding="sm" radiusKey="lg">
+      <View style={styles.orderCardHeader}>
+        <View style={[styles.icon, styles.orderCardIcon, { backgroundColor: colors.primarySoft }]}>
+          {productImage ? (
+            <Image source={{ uri: productImage }} style={styles.productImage} contentFit="cover" cachePolicy="memory-disk" accessibilityLabel={order.items.find((item) => item.imageUrl)?.name ?? 'Order product'} />
+          ) : <ShoppingBag color={colors.primary} size={16} />}
+        </View>
+        <View style={styles.copy}>
+          <Text style={[styles.name, styles.orderCardTitle, { color: colors.text }]} numberOfLines={1}>{order.orderNumber} · {order.recipient.name || order.recipient.phone}</Text>
+          <Text style={[styles.orderCardMeta, { color: colors.textSecondary }]} numberOfLines={1}>{order.source.name} · {new Date(order.date).toLocaleDateString()}</Text>
+        </View>
+        <AppBadge size="sm" tone={statusTone(order.status)} label={orderStatusLabel(order.status)} />
+        <Pressable onPress={(event) => { event.stopPropagation(); onToggle(); }} hitSlop={8} style={[styles.selectButton, { backgroundColor: selected ? colors.primary : colors.surfaceSecondary }]} accessibilityLabel={selected ? 'Deselect order' : 'Select order'}>
+          {selected ? <Check color={colors.primaryText} size={16} /> : null}
+        </Pressable>
+      </View>
+      <View style={styles.summary}>
+        <Text style={[styles.total, styles.orderCardTotal, { color: colors.text }]}>{formatTotal(order.total)}</Text>
+        <Text style={[styles.orderCardMeta, { color: colors.textSecondary }]}>{order.items.length} item{order.items.length === 1 ? '' : 's'} · {order.recipient.payment || 'Payment pending'}</Text>
+      </View>
+      <Text style={[styles.orderCardMeta, { color: colors.textMuted }]} numberOfLines={2}>{order.recipient.address || order.recipient.phone}</Text>
+      <View style={styles.cardFooter}>
+        <Text style={[styles.orderCardMeta, { color: colors.primary }]}>View order</Text>
+        <ChevronRight color={colors.primary} size={15} />
+      </View>
+    </AppCard>
+  );
 }
 function IconDetail({ icon: Icon, value, strong = false }: { icon: LucideIcon; value: string; strong?: boolean }) { const { colors } = useTheme(); return <View style={styles.iconDetail}><Icon color={colors.textMuted} size={16} /><Text style={[styles.iconDetailText, { color: strong ? colors.text : colors.textSecondary }, strong && styles.iconDetailStrong]}>{value || '—'}</Text></View>; }
 function DetailLine({ label, value }: { label: string; value: string }) { const { colors } = useTheme(); return <View style={styles.detailLine}><Text style={[styles.meta, { color: colors.textSecondary }]}>{label}</Text><Text style={[styles.detailValue, { color: colors.text }]}>{value || '—'}</Text></View>; }
 
 const styles = StyleSheet.create({
+  orderCard: { gap: spacing.sm },
+  orderCardHeader: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
+  orderCardIcon: { height: 32, width: 32 },
+  orderCardTitle: { fontSize: fontSize.caption, fontWeight: fontWeight.semibold },
+  orderCardMeta: { fontSize: fontSize.tiny, marginTop: 0 },
+  orderCardTotal: { fontSize: fontSize.caption },
   metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   metricCard: { alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', flexShrink: 0, gap: spacing.xs, minHeight: 52, padding: spacing.xs + 2 },
   metricIcon: { alignItems: 'center', borderRadius: radius.pill, height: 24, justifyContent: 'center', width: 24 },
