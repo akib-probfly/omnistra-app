@@ -79,6 +79,8 @@ export type ProductInput = {
   imageUrls?: string[];
   imageAttachmentIds?: string[];
   attributes?: Array<{ name: string; values: string }>;
+  hasVariants?: boolean;
+  variants?: Array<{ sku?: string; basePrice?: string; salePrice?: string; stock?: number; weight?: string; isActive?: boolean; attributes: Array<{ name: string; value: string }> }>;
   whatsappCatalogs?: Array<{ channelId: string; catalogId: string }>;
 };
 
@@ -112,6 +114,18 @@ export function fetchProduct(productId: string) {
 
 export function createProduct(input: ProductInput) {
   return apiFetch<ProductResponse>('/products', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export function createProductDraft(input: Omit<ProductInput, 'isActive' | 'whatsappCatalogs'>) {
+  return apiFetch<ProductResponse>('/products/drafts', { method: 'POST', body: JSON.stringify(input) });
+}
+
+export function updateProductDraft(productId: string, input: Omit<ProductInput, 'isActive' | 'whatsappCatalogs'>) {
+  return apiFetch<ProductResponse>(`/products/${productId}/draft`, { method: 'PATCH', body: JSON.stringify(input) });
+}
+
+export function finalizeProductDraft(productId: string, input: { isActive: boolean; whatsappCatalogs: Array<{ channelId: string; catalogId: string }> }) {
+  return apiFetch<ProductResponse>(`/products/${productId}/finalize`, { method: 'POST', body: JSON.stringify(input) });
 }
 
 export function updateProduct(productId: string, input: ProductInput) {
