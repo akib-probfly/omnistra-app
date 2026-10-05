@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
-import { AlertTriangle, Archive, Check, CheckCircle2, Download, EllipsisVertical, Filter, Import, LayoutGrid, Package, Plus, Search } from 'lucide-react-native';
+import { AlertTriangle, Archive, Check, CheckCircle2, Download, EllipsisVertical, Filter, Import, LayoutGrid, Package, Pencil, Plus, Search, Trash2 } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
@@ -60,9 +60,9 @@ function ProductRow({ product, selected, onSelect, onToggle, onDelete, onEdit }:
         <Text style={[styles.inventory, styles.productCardInventory, { color: colors.textSecondary }]}>Stock: {product.inventory ?? 'Not set'}</Text>
       </View>
       <View style={styles.actions}>
-        <AppButton label="Edit" variant="secondary" onPress={onEdit} style={styles.productActionButton} />
-        <AppButton label={active ? 'Deactivate' : 'Activate'} variant="secondary" onPress={onToggle} style={styles.productActionButton} />
-        <AppButton label="Delete" variant="destructive" onPress={onDelete} style={styles.productActionButton} />
+        <Pressable onPress={onEdit} style={[styles.productActionButton, styles.productActionSecondary, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} accessibilityRole="button"><Pencil color={colors.primary} size={14} /><Text style={[styles.productActionLabel, { color: colors.text }]}>Edit</Text></Pressable>
+        <Pressable onPress={onToggle} style={[styles.productActionButton, styles.productActionSecondary, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} accessibilityRole="button"><CheckCircle2 color={active ? colors.warning : colors.success} size={14} /><Text style={[styles.productActionLabel, { color: colors.text }]}>{active ? 'Deactivate' : 'Activate'}</Text></Pressable>
+        <Pressable onPress={onDelete} style={[styles.productActionButton, styles.productActionDestructive, { backgroundColor: colors.dangerSoft, borderColor: colors.dangerSoft }]} accessibilityRole="button"><Trash2 color={colors.error} size={14} /><Text style={[styles.productActionLabel, { color: colors.error }]}>Delete</Text></Pressable>
       </View>
     </AppCard>
   );
@@ -282,16 +282,19 @@ const styles = StyleSheet.create({
   productImage: { height: '100%', width: '100%' },
   productCopy: { flex: 1, minWidth: 0 },
   productName: { fontSize: fontSize.subheading, fontWeight: fontWeight.bold },
-  productCardName: { fontSize: fontSize.body },
+  productCardName: { fontSize: fontSize.body, fontWeight: fontWeight.semibold },
   productMeta: { fontSize: fontSize.small, marginTop: 2 },
   productCardMeta: { fontSize: fontSize.tiny, marginTop: 0 },
   productDetails: { flexDirection: 'row', justifyContent: 'space-between' },
   price: { fontSize: fontSize.body, fontWeight: fontWeight.bold },
-  productCardPrice: { fontSize: fontSize.caption },
+  productCardPrice: { fontSize: fontSize.caption, fontWeight: fontWeight.semibold },
   inventory: { fontSize: fontSize.small },
   productCardInventory: { fontSize: fontSize.tiny },
-  actions: { flexDirection: 'row', gap: spacing.xs },
-  productActionButton: { flex: 1, height: 34, paddingHorizontal: spacing.xs },
+  actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
+  productActionButton: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.xs, height: 38, justifyContent: 'center', paddingHorizontal: spacing.xs },
+  productActionSecondary: { flex: 1 },
+  productActionDestructive: { minWidth: 78, paddingHorizontal: spacing.sm },
+  productActionLabel: { fontSize: fontSize.tiny, fontWeight: fontWeight.semibold },
   productActions: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   headerActions: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
   createHeaderButton: { alignItems: 'center', borderRadius: radius.pill, height: 38, justifyContent: 'center', width: 38 },
