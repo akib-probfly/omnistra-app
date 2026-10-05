@@ -35,7 +35,7 @@ export type ConversationOrderDraft = {
 export type CreateOrderInput = {
   sourceChannelId: string; courierConnectionId: string | null; recipientName: string; recipientPhone: string;
   recipientEmail: string | null; address: string; cityId: string | null; zoneId: string | null; areaId: string | null; currency: string;
-  paymentMethod: 'COD' | 'PAID' | 'PARTIAL'; amountPaidMinor: number; deliveryFeeMinor: number;
+  paymentMethod: 'COD' | 'PAID' | 'PARTIAL'; amountPaidMinor: number; amountToCollectMinor: number; deliveryFeeMinor: number;
   items: Array<
     | { productId: string; productVariantId?: string | null; quantity: number; unitPriceMinor: number; weightGrams: number | null }
     | { productId: null; productVariantId?: null; productName: string; variantLabel?: string | null; quantity: number; unitPriceMinor: number; weightGrams: number | null }

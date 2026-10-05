@@ -70,6 +70,8 @@ export function CreateOrderScreen() {
   const [courierId, setCourierId] = useState('');
   const [payment, setPayment] = useState<PaymentMethod>('COD');
   const [partialAmount, setPartialAmount] = useState('0.00');
+  const [amountToCollect, setAmountToCollect] = useState('');
+  const [amountToCollectEdited, setAmountToCollectEdited] = useState(false);
   const [recipientName, setRecipientName] = useState(initialRecipient?.name ?? '');
   const [recipientPhone, setRecipientPhone] = useState(initialRecipient?.phone ?? '');
   const [recipientEmail, setRecipientEmail] = useState(initialRecipient?.email ?? '');
@@ -144,6 +146,10 @@ export function CreateOrderScreen() {
   const totalMinor = subtotalMinor + deliveryFeeMinor;
   const paidMinor = payment === 'PAID' ? totalMinor : payment === 'PARTIAL' ? Math.min(Math.max(Math.round((Number.parseFloat(partialAmount) || 0) * 100), 0), totalMinor) : 0;
   const dueMinor = Math.max(totalMinor - paidMinor, 0);
+  const defaultAmountToCollectMinor = payment === 'PAID' ? 0 : dueMinor;
+  const amountToCollectInputValue = amountToCollectEdited ? amountToCollect : (defaultAmountToCollectMinor / 100).toFixed(2);
+  const parsedAmountToCollect = Number.parseFloat(amountToCollectInputValue);
+  const amountToCollectMinor = payment === 'PAID' ? 0 : Math.max(Number.isFinite(parsedAmountToCollect) ? Math.round(parsedAmountToCollect * 100) : defaultAmountToCollectMinor, 0);
 
   useEffect(() => {
     if (!sourceId && channels.length) setSourceId(channels[0].id);
@@ -284,6 +290,7 @@ export function CreateOrderScreen() {
     if (!sourceId) { setError('Select a connected sales channel as the order source.'); return; }
     const numericValues = [...cart.map((item) => item.unitPrice), ...cart.map((item) => item.weightKg)];
     if (payment === 'PARTIAL') numericValues.push(partialAmount);
+    if (payment !== 'PAID' && amountToCollectEdited) numericValues.push(amountToCollect);
     if (numericValues.some((value) => !Number.isFinite(Number(value)) || Number(value) < 0)) {
       setError('Prices, weight, and payment amounts must be valid non-negative numbers.'); return;
     }
@@ -302,6 +309,7 @@ export function CreateOrderScreen() {
         currency: selectedCurrency,
         paymentMethod: payment,
         amountPaidMinor: payment === 'PAID' ? totalMinor : paidMinor,
+        amountToCollectMinor,
         deliveryFeeMinor,
         items: cart.map((item) => item.product
           ? {
@@ -387,7 +395,7 @@ export function CreateOrderScreen() {
             <SummaryLine label="Subtotal" value={formatMoney(subtotalMinor, selectedCurrency)} colors={colors} />
             <SummaryLine label={selectedCourier ? `Delivery fee · ${deliveryZone === 'OUTSIDE_DHAKA' ? 'Outside Dhaka' : 'Inside Dhaka'}` : 'Delivery fee'} value={formatMoney(deliveryFeeMinor, selectedCurrency)} colors={colors} />
             <SummaryLine label="Total" value={formatMoney(totalMinor, selectedCurrency)} strong colors={colors} />
-            <SummaryLine label="Due on delivery" value={formatMoney(dueMinor, selectedCurrency)} colors={colors} />
+            <SummaryLine label="Due on delivery" value={formatMoney(amountToCollectMinor, selectedCurrency)} colors={colors} />
           </View>
         </AppCard>
 
@@ -410,7 +418,16 @@ export function CreateOrderScreen() {
             return <Pressable key={value} onPress={() => setPayment(value)} style={[styles.paymentOption, { borderColor: selected ? colors.primary : colors.cardBorder, backgroundColor: selected ? colors.primarySoft : colors.surface }]} accessibilityRole="radio" accessibilityState={{ selected }}><Text style={[styles.paymentText, { color: selected ? colors.primary : colors.textSecondary }]}>{label}</Text>{selected ? <Check color={colors.primary} size={14} /> : null}</Pressable>;
           })}</View>
           {payment === 'PARTIAL' ? <AppTextField label="Amount paid now" value={partialAmount} onChangeText={setPartialAmount} keyboardType="decimal-pad" placeholder="0.00" /> : null}
-          {payment === 'PARTIAL' ? <Text style={[styles.helper, { color: colors.textSecondary }]}>Due on delivery: {formatMoney(dueMinor, selectedCurrency)}</Text> : null}
+          {payment !== 'PAID' ? <View style={[styles.amountToCollectCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+            <AppTextField
+              label="Amount to collect"
+              value={amountToCollectInputValue}
+              onChangeText={(value) => { setAmountToCollectEdited(true); setAmountToCollect(value); }}
+              keyboardType="decimal-pad"
+              placeholder="0.00"
+            />
+            <Text style={[styles.helper, { color: colors.textSecondary }]}>Courier will collect: <Text style={[styles.amountToCollectValue, { color: colors.text }]}>{formatMoney(amountToCollectMinor, selectedCurrency)}</Text>{amountToCollectMinor < totalMinor ? ` (original total ${formatMoney(totalMinor, selectedCurrency)})` : ''}</Text>
+          </View> : null}
         </AppCard>
 
         <AppCard style={styles.card}>
@@ -480,6 +497,6 @@ function PickerButton({ label, value, onPress, disabled = false }: { label: stri
 const styles = StyleSheet.create({
   screen: { flex: 1 }, content: { gap: spacing.md, padding: spacing.lg }, card: { gap: spacing.md }, sectionHeading: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm }, sectionTitle: { fontSize: fontSize.subheading, fontWeight: fontWeight.bold },
   search: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, minHeight: 46, paddingHorizontal: spacing.md }, searchInput: { flex: 1, fontSize: fontSize.body, height: 46 }, searchResults: { borderRadius: radius.md, borderWidth: 1, maxHeight: 250, overflow: 'hidden' }, searchResultList: { maxHeight: 202 }, searchState: { padding: spacing.lg }, searchStateText: { padding: spacing.md, textAlign: 'center' }, productResult: { alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: spacing.sm, padding: spacing.sm }, productImage: { borderRadius: radius.sm, height: 42, width: 42 }, productImagePlaceholder: { alignItems: 'center', justifyContent: 'center' }, productCopy: { flex: 1, minWidth: 0 }, productName: { fontSize: fontSize.body, fontWeight: fontWeight.semibold }, productPrice: { fontSize: fontSize.small, fontWeight: fontWeight.bold }, helper: { fontSize: fontSize.small }, selectedProduct: { borderRadius: radius.md, gap: spacing.sm, padding: spacing.md }, selectedProductHeading: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm }, editableFields: { flexDirection: 'row', gap: spacing.sm }, editableField: { flex: 1, minWidth: 0 }, cartHeader: { alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', justifyContent: 'space-between', paddingTop: spacing.md }, cartTitle: { fontSize: fontSize.body, fontWeight: fontWeight.semibold }, cartRow: { alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.sm }, quantityControl: { alignItems: 'center', borderRadius: radius.sm, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs }, quantityValue: { fontSize: fontSize.small, fontWeight: fontWeight.bold, minWidth: 18, textAlign: 'center' }, summary: { borderTopWidth: StyleSheet.hairlineWidth, gap: spacing.sm, paddingTop: spacing.md }, currencyLine: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }, currencyValue: { fontSize: fontSize.body, fontWeight: fontWeight.semibold, marginTop: 2 }, summaryLine: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }, summaryLabel: { fontSize: fontSize.caption }, summaryValue: { fontSize: fontSize.caption, fontVariant: ['tabular-nums'] }, summaryTotal: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: spacing.xs, paddingTop: spacing.sm }, summaryStrong: { fontSize: fontSize.body, fontWeight: fontWeight.bold }, deliveryFeeRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }, deliveryFeeInput: { borderRadius: radius.sm, borderWidth: 1, minWidth: 100, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, textAlign: 'right' },
-  pickerField: { gap: spacing.xs }, fieldLabel: { fontSize: fontSize.small, fontWeight: fontWeight.semibold }, pickerButton: { borderRadius: radius.md, borderWidth: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: spacing.md }, dim: { opacity: 0.5 }, locationHeading: { gap: 2, marginTop: spacing.xs }, locationSearch: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md }, locationSearchInput: { flex: 1, fontSize: fontSize.body, height: 44 }, paymentOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }, paymentOption: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }, paymentText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold }, error: { fontSize: fontSize.caption }, pickerSheet: { height: '75%', paddingHorizontal: spacing.lg, paddingTop: 0 }, pickerContent: { flex: 1, gap: spacing.md, minHeight: 0 }, pickerOptionList: { flex: 1 }, pickerOptionContent: { paddingBottom: spacing.md }, pickerLoading: { padding: spacing.xl }, option: { borderBottomWidth: 1, paddingVertical: spacing.md }, optionLabel: { fontSize: fontSize.body, fontWeight: fontWeight.medium },
+  amountToCollectCard: { borderRadius: radius.lg, borderWidth: 1, gap: spacing.xs, marginTop: spacing.xs, padding: spacing.md }, amountToCollectValue: { fontWeight: fontWeight.bold }, pickerField: { gap: spacing.xs }, fieldLabel: { fontSize: fontSize.small, fontWeight: fontWeight.semibold }, pickerButton: { borderRadius: radius.md, borderWidth: 1, justifyContent: 'center', minHeight: 46, paddingHorizontal: spacing.md }, dim: { opacity: 0.5 }, locationHeading: { gap: 2, marginTop: spacing.xs }, locationSearch: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md }, locationSearchInput: { flex: 1, fontSize: fontSize.body, height: 44 }, paymentOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }, paymentOption: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }, paymentText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold }, error: { fontSize: fontSize.caption }, pickerSheet: { height: '75%', paddingHorizontal: spacing.lg, paddingTop: 0 }, pickerContent: { flex: 1, gap: spacing.md, minHeight: 0 }, pickerOptionList: { flex: 1 }, pickerOptionContent: { paddingBottom: spacing.md }, pickerLoading: { padding: spacing.xl }, option: { borderBottomWidth: 1, paddingVertical: spacing.md }, optionLabel: { fontSize: fontSize.body, fontWeight: fontWeight.medium },
   transparentScreen: { backgroundColor: 'transparent' }, createOrderBody: { flex: 1, minHeight: 0 }, createOrderSheet: { height: '92%', paddingHorizontal: 0, paddingTop: 0 }, createOrderSheetHeader: { alignItems: 'center', borderBottomWidth: 1, flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }, createOrderSheetTitle: { flex: 1 }, createOrderSheetTitleText: { fontSize: fontSize.heading, fontWeight: fontWeight.bold }, createOrderSheetScroll: { flex: 1 }, sourcePickerRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm }, sourcePickerButton: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flex: 1, flexDirection: 'row', gap: spacing.sm, justifyContent: 'space-between', minHeight: 46, paddingHorizontal: spacing.md }, sourcePickerName: { flex: 1, fontSize: fontSize.body }, deliveryPartnerPlaceholder: { alignItems: 'center', borderRadius: radius.md, height: 38, justifyContent: 'center', width: 38 }, optionRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md }, optionMainText: { flex: 1 }, optionType: { fontSize: fontSize.caption, textTransform: 'capitalize' },
 });
