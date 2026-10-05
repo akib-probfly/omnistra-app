@@ -53,7 +53,7 @@ function ProductRow({ product, selected, onSelect, onToggle, onDelete, onEdit }:
           <Text style={[styles.productMeta, styles.productCardMeta, { color: colors.textSecondary }]} numberOfLines={1}>{product.sku || product.category || 'No SKU or category'}</Text>
         </View>
         <AppBadge size="sm" tone={active ? 'success' : product.status === 'ARCHIVED' ? 'neutral' : 'warning'} label={product.status} />
-        <Pressable onPress={onSelect} style={[styles.selectButton, { backgroundColor: selected ? colors.primary : colors.surfaceSecondary }]} accessibilityLabel={selected ? 'Deselect product' : 'Select product'}>{selected ? <Check color={colors.primaryText} size={15} /> : null}</Pressable>
+        <Pressable onPress={onSelect} hitSlop={6} style={[styles.selectButton, { backgroundColor: selected ? colors.primary : colors.surface, borderColor: selected ? colors.primary : colors.cardBorder }]} accessibilityRole="checkbox" accessibilityState={{ checked: selected }} accessibilityLabel={selected ? `Deselect ${product.name}` : `Select ${product.name}`}>{selected ? <Check color={colors.primaryText} size={14} strokeWidth={2.5} /> : null}</Pressable>
       </View>
       <View style={styles.productDetails}>
         <Text style={[styles.price, styles.productCardPrice, { color: colors.text }]}>{formatPrice(product)}</Text>
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
   channelFilter: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, maxWidth: '100%', paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   channelFilterLabel: { flexShrink: 1, fontSize: fontSize.small, fontWeight: fontWeight.semibold },
   localOnlyRow: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.md, padding: spacing.md },
-  checkbox: { alignItems: 'center', borderRadius: radius.sm, borderWidth: 1, height: 22, justifyContent: 'center', width: 22 },
+  checkbox: { alignItems: 'center', borderRadius: 5, borderWidth: 1, height: 18, justifyContent: 'center', width: 18 },
   filterReset: { alignItems: 'center', marginTop: 14, paddingVertical: 6 },
   filterResetDisabled: { opacity: 0.45 },
   filterResetText: { fontSize: fontSize.body, fontWeight: fontWeight.semibold },
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   menuDivider: { height: StyleSheet.hairlineWidth, marginHorizontal: spacing.md },
   actionsMenuDivider: { marginVertical: spacing.xs },
   bulkCard: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
-  selectButton: { alignItems: 'center', borderRadius: radius.sm, height: 24, justifyContent: 'center', width: 24 },
+  selectButton: { alignItems: 'center', borderRadius: 5, borderWidth: 1, height: 20, justifyContent: 'center', width: 20 },
   jobStatus: { fontSize: fontSize.small },
   pagination: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   empty: { fontSize: fontSize.body, textAlign: 'center' },
