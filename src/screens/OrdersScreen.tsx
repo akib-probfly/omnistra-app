@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as Clipboard from 'expo-clipboard';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Image } from 'expo-image';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { CalendarDays, Check, ChevronRight, CreditCard, ExternalLink, Filter, MapPin, Package, Phone, Plus, QrCode, RefreshCw, Search, Share2, ShoppingBag, Truck, UserRound, X } from 'lucide-react-native';
+import { CalendarDays, Check, ChevronRight, Copy, CreditCard, ExternalLink, Filter, Hash, MapPin, Package, Phone, Plus, QrCode, RefreshCw, Search, Share2, ShoppingBag, Truck, UserRound, X } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
 import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
@@ -28,8 +29,10 @@ const ORDER_FILTER_LAYERS = [
   { id: 'source', label: 'Source' },
 ] as const;
 type OrderFilterLayer = (typeof ORDER_FILTER_LAYERS)[number]['id'];
-function formatTotal(value: number, currency = 'BDT') { return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(value / 100); }
+function formatTotal(value: number, currency = 'BDT') { return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(value); }
+function formatOrderDate(value: string) { const date = new Date(value); return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date); }
 function statusTone(status: OrderStatus) { return status === 'DELIVERED' ? 'success' as const : status === 'CANCELLED' || status === 'DAMAGED' ? 'danger' as const : status === 'RETURNED' ? 'neutral' as const : 'warning' as const; }
+function orderStatusLabel(status: OrderStatus) { return status === 'PROCESSING' ? 'Approved' : status.toLowerCase().split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' '); }
 function shipmentTone(status: string) { const normalized = status.toUpperCase(); return normalized === 'DELIVERED' ? 'success' as const : ['CANCELLED', 'RETURNED', 'FAILED', 'EXCEPTION'].includes(normalized) ? 'danger' as const : ['IN_TRANSIT', 'BOOKED', 'PARTIALLY_DELIVERED'].includes(normalized) ? 'info' as const : 'warning' as const; }
 
 export function OrdersScreen() {
@@ -182,28 +185,29 @@ export function OrdersScreen() {
           <View style={[styles.modalHeader, { borderBottomColor: colors.cardBorder }]}>
             <View style={[styles.orderHeaderIcon, { backgroundColor: colors.primarySoft }]}><Package color={colors.primary} size={20} /></View>
             <View style={styles.copy}>
-              <View style={styles.orderTitleRow}><Text numberOfLines={1} style={[styles.modalTitle, { color: colors.text }]}>{selectedOrder.orderNumber}</Text><AppBadge size="sm" tone={statusTone(selectedOrder.status)} label={selectedOrder.status === 'PROCESSING' ? 'Approved' : selectedOrder.status.replace('_', ' ')} /></View>
-              <Text style={[styles.meta, { color: colors.textSecondary }]}>{new Date(selectedOrder.date).toLocaleString()} · {selectedOrder.items.reduce((sum, item) => sum + item.qty, 0)} item{selectedOrder.items.reduce((sum, item) => sum + item.qty, 0) === 1 ? '' : 's'}</Text>
+              <View style={styles.orderTitleRow}><Text numberOfLines={1} style={[styles.modalTitle, { color: colors.text }]}>{selectedOrder.orderNumber}</Text><AppBadge size="sm" tone={statusTone(selectedOrder.status)} label={orderStatusLabel(selectedOrder.status)} /></View>
+              <Text style={[styles.meta, { color: colors.textSecondary }]}>{formatOrderDate(selectedOrder.date)} · {selectedOrder.items.reduce((sum, item) => sum + item.qty, 0)} item{selectedOrder.items.reduce((sum, item) => sum + item.qty, 0) === 1 ? '' : 's'}</Text>
             </View>
+            <Pressable onPress={() => setSelectedOrder(null)} hitSlop={8} style={[styles.orderDetailsClose, { backgroundColor: colors.surfaceSecondary }]} accessibilityRole="button" accessibilityLabel="Close order details"><X color={colors.textSecondary} size={20} /></Pressable>
           </View>
           <SheetScrollView style={styles.orderDetailsScroll} contentContainerStyle={styles.modalContent}>
             <AppCard>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Customer information</Text>
+              <Text style={[styles.detailSectionTitle, { color: colors.textSecondary }]}>Customer information</Text>
               <IconDetail icon={UserRound} value={selectedOrder.recipient.name} strong />
               <IconDetail icon={Phone} value={selectedOrder.recipient.phone} />
               <IconDetail icon={MapPin} value={selectedOrder.recipient.address} />
             </AppCard>
             <AppCard>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Source</Text>
+              <Text style={[styles.detailSectionTitle, { color: colors.textSecondary }]}>Source</Text>
               <View style={styles.sourceRow}><ChannelLogo type={selectedOrder.source.type} box={40} glyph={20} radius={20} /><View style={styles.copy}><Text style={[styles.name, { color: colors.text }]}>{selectedOrder.source.name}</Text><Text style={[styles.meta, { color: colors.textSecondary }]}>{selectedOrder.source.type.toLowerCase().split('_').map((part) => part.charAt(0) + part.slice(1).toLowerCase()).join(' ')}{selectedOrder.source.displayPhoneNumber ? ` · ${selectedOrder.source.displayPhoneNumber}` : ''}</Text></View></View>
             </AppCard>
             <AppCard>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Delivery and payment</Text>
+              <Text style={[styles.detailSectionTitle, { color: colors.textSecondary }]}>Delivery and payment</Text>
               <IconDetail icon={Truck} value={selectedOrder.courier ? `${selectedOrder.courier.partner} · ${selectedOrder.courier.tracking || 'Booking pending'} · ${selectedOrder.courier.status}` : 'Courier not assigned'} />
               <IconDetail icon={CreditCard} value={selectedOrder.recipient.payment || 'Payment pending'} />
             </AppCard>
             <AppCard>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Order summary</Text>
+              <Text style={[styles.detailSectionTitle, { color: colors.textSecondary }]}>Order summary</Text>
               <View style={styles.itemRow}><Text style={[styles.meta, { color: colors.textSecondary }]}>Items total</Text><Text style={[styles.meta, { color: colors.text }]}>{formatTotal(selectedOrder.items.reduce((sum, item) => sum + item.qty * item.price, 0))}</Text></View>
               <View style={[styles.itemRow, styles.totalRow, { borderTopColor: colors.cardBorder }]}><Text style={[styles.name, { color: colors.text }]}>Total</Text><Text style={[styles.name, { color: colors.text }]}>{formatTotal(selectedOrder.total)}</Text></View>
             </AppCard>
@@ -224,8 +228,15 @@ export function OrdersScreen() {
               {selectedOrder.items.map((item, index) => <View key={`${item.name}-${index}`} style={styles.itemRow}><View style={styles.copy}><Text style={[styles.itemName, { color: colors.text }]} numberOfLines={2}>{item.name}</Text><Text style={[styles.meta, { color: colors.textSecondary }]}>{item.qty} × {formatTotal(item.price)}</Text></View><Text style={[styles.name, { color: colors.text }]}>{formatTotal(item.qty * item.price)}</Text></View>)}
             </AppCard>
             <AppCard><Text style={[styles.sectionTitle, { color: colors.text }]}>Update status</Text><View style={styles.statusOptions}>{getAllowedOrderStatusTransitions(selectedOrder.status).map((next) => <AppButton key={next} label={next.replace('_', ' ')} variant="secondary" loading={statusMutation.isPending} onPress={() => statusMutation.mutate({ orderId: selectedOrder.id, next })} />)}</View>{getAllowedOrderStatusTransitions(selectedOrder.status).length === 0 ? <Text style={[styles.meta, { color: colors.textSecondary }]}>This order is in a final status.</Text> : null}</AppCard>
-            <View style={styles.createdMeta}><CalendarDays color={colors.textMuted} size={15} /><Text style={[styles.meta, { color: colors.textMuted }]}>Created {new Date(selectedOrder.date).toLocaleString()}</Text></View>
             <AppButton label="View invoice details" variant="secondary" onPress={() => setInvoiceOpen(true)} />
+            <View style={[styles.orderMetaFooter, { borderTopColor: colors.cardBorder }]}>
+              <View style={styles.createdMeta}><CalendarDays color={colors.textMuted} size={15} /><Text style={[styles.meta, { color: colors.textMuted }]}>Created {formatOrderDate(selectedOrder.date)}</Text></View>
+              <Pressable onPress={() => void Clipboard.setStringAsync(selectedOrder.id).then(() => Alert.alert('Copied', 'Order UUID copied.')).catch(() => Alert.alert('Could not copy order UUID', 'Please try again.'))} style={styles.orderIdMeta} accessibilityRole="button" accessibilityLabel="Copy order UUID">
+                <Hash color={colors.textMuted} size={15} />
+                <Text numberOfLines={1} style={[styles.meta, styles.orderIdText, { color: colors.textMuted }]}>UUID: {selectedOrder.id}</Text>
+                <Copy color={colors.textMuted} size={14} />
+              </Pressable>
+            </View>
           </SheetScrollView>
         </View> : null}
       </BottomSheet>
@@ -254,6 +265,11 @@ function IconDetail({ icon: Icon, value, strong = false }: { icon: LucideIcon; v
 function DetailLine({ label, value }: { label: string; value: string }) { const { colors } = useTheme(); return <View style={styles.detailLine}><Text style={[styles.meta, { color: colors.textSecondary }]}>{label}</Text><Text style={[styles.detailValue, { color: colors.text }]}>{value || '—'}</Text></View>; }
 
 const styles = StyleSheet.create({
+  orderDetailsClose: { alignItems: 'center', borderRadius: radius.pill, height: 36, justifyContent: 'center', width: 36 },
+  detailSectionTitle: { fontSize: fontSize.small, fontWeight: fontWeight.semibold, letterSpacing: 1.1, marginBottom: spacing.sm, textTransform: 'uppercase' },
+  orderMetaFooter: { borderTopWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingTop: spacing.md },
+  orderIdMeta: { alignItems: 'center', flexDirection: 'row', flexShrink: 1, gap: spacing.xs },
+  orderIdText: { flexShrink: 1 },
   screen: { flex: 1 }, content: { gap: spacing.md, padding: spacing.lg }, headerActions: { flexDirection: 'row', gap: spacing.sm }, iconButton: { alignItems: 'center', borderRadius: radius.pill, height: 38, justifyContent: 'center', width: 38 },
   searchTools: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm }, search: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flex: 1, flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md }, input: { flex: 1, fontSize: fontSize.body, height: inputHeight }, filterIconButton: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, height: inputHeight, justifyContent: 'center', position: 'relative', width: inputHeight }, filterActiveDot: { borderRadius: radius.pill, height: spacing.sm, position: 'absolute', right: 5, top: 5, width: spacing.sm },
   filterSheet: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 }, sheetHeader: { alignItems: 'center', flexDirection: 'row', marginBottom: spacing.md }, filterLayerTabs: { borderRadius: radius.lg, flexGrow: 0, marginBottom: spacing.md, padding: spacing.xs }, filterLayerTabsContent: { alignItems: 'center', flexDirection: 'row', gap: 4 }, filterLayerTab: { alignItems: 'center', borderRadius: 10, flexDirection: 'row', gap: 4, justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 8 }, filterLayerTabActive: { elevation: 1, shadowOpacity: 0.06, shadowRadius: 4 }, filterLayerTabText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold }, filterLayerCount: { borderRadius: 8, fontSize: 10, fontWeight: '700', marginLeft: 3, overflow: 'hidden', paddingHorizontal: 4, paddingVertical: 1 }, filterLayerBody: { maxHeight: 400 }, filterLayerContent: { paddingBottom: spacing.sm }, filterChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }, phoneFilterSection: { gap: spacing.sm }, phoneSearch: { borderRadius: radius.md, borderWidth: 1, fontSize: fontSize.body, minHeight: 46, paddingHorizontal: spacing.md }, channelFilter: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, maxWidth: '100%', paddingHorizontal: spacing.sm, paddingVertical: spacing.xs }, channelFilterLabel: { flexShrink: 1, fontSize: fontSize.small, fontWeight: fontWeight.semibold }, filterReset: { alignItems: 'center', marginTop: 14, paddingVertical: 6 }, filterResetDisabled: { opacity: 0.45 }, filterResetText: { fontSize: fontSize.body, fontWeight: fontWeight.semibold }, filterApply: { alignItems: 'center', borderRadius: radius.md, marginTop: spacing.sm, paddingVertical: spacing.md + 2 }, filterApplyText: { fontSize: fontSize.body, fontWeight: fontWeight.bold },
