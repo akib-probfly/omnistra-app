@@ -356,6 +356,7 @@ export function CreateOrderScreen() {
                 setSelectedVariant(null);
               }}
               onFocus={() => setProductPickerOpen(true)}
+              onBlur={() => setTimeout(() => setProductPickerOpen(false), 120)}
               placeholder="Search or select a product"
               placeholderTextColor={colors.textMuted}
               style={[styles.searchInput, { color: colors.text }]}
@@ -391,7 +392,6 @@ export function CreateOrderScreen() {
             <View style={[styles.quantityControl, { borderColor: colors.cardBorder }]}><Pressable onPress={() => changeCartQuantity(item.id, -1)} accessibilityLabel={`Decrease ${item.name} quantity`}><Minus color={colors.textSecondary} size={15} /></Pressable><Text style={[styles.quantityValue, { color: colors.text }]}>{item.quantity}</Text><Pressable onPress={() => changeCartQuantity(item.id, 1)} accessibilityLabel={`Increase ${item.name} quantity`}><Plus color={colors.textSecondary} size={15} /></Pressable></View>
           </View>)}
           <View style={[styles.summary, { borderTopColor: colors.cardBorder }]}>
-            <View style={styles.currencyLine}><View><Text style={[styles.helper, { color: colors.textSecondary }]}>Currency</Text><Text style={[styles.currencyValue, { color: colors.text }]}>{selectedCurrency} · workspace default</Text></View><Text style={[styles.helper, { color: colors.textMuted }]}>Used for this order</Text></View>
             <SummaryLine label="Subtotal" value={formatMoney(subtotalMinor, selectedCurrency)} colors={colors} />
             <SummaryLine label={selectedCourier ? `Delivery fee · ${deliveryZone === 'OUTSIDE_DHAKA' ? 'Outside Dhaka' : 'Inside Dhaka'}` : 'Delivery fee'} value={formatMoney(deliveryFeeMinor, selectedCurrency)} colors={colors} />
             <SummaryLine label="Total" value={formatMoney(totalMinor, selectedCurrency)} strong colors={colors} />
