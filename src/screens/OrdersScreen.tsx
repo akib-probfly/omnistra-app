@@ -221,7 +221,7 @@ export function OrdersScreen() {
                 <View style={styles.statusOptions}>{shipment.trackingUrl ? <AppButton label="Open tracking" icon={ExternalLink} variant="secondary" onPress={() => Linking.openURL(shipment.trackingUrl!).catch(() => Alert.alert('Could not open tracking', 'Please try again.'))} /> : null}<AppButton label={syncShipmentMutation.isPending && syncShipmentMutation.variables === shipment.id ? 'Syncing...' : 'Sync status'} icon={RefreshCw} variant="secondary" loading={syncShipmentMutation.isPending && syncShipmentMutation.variables === shipment.id} disabled={!shipment.providerShipmentId || syncShipmentMutation.isPending} onPress={() => syncShipmentMutation.mutate(shipment.id)} /></View>
                 {shipment.bookingErrorMessage ? <Text style={[styles.shipmentError, { color: colors.error, backgroundColor: `${colors.error}12` }]}>{shipment.bookingErrorMessage}</Text> : null}
               </View>)}
-              <AppButton label="Book courier" icon={Truck} variant="secondary" onPress={() => setCourierPickerOpen(true)} />
+              {selectedOrder.status === 'APPROVED' || selectedOrder.status === 'PROCESSING' ? <AppButton label="Book courier" icon={Truck} variant="secondary" onPress={() => setCourierPickerOpen(true)} /> : null}
             </AppCard>
             <AppCard>
               <View style={styles.sectionHeader}><Text style={[styles.name, { color: colors.text }]}>Items</Text><Text style={[styles.meta, { color: colors.textSecondary }]}>{selectedOrder.items.reduce((sum, item) => sum + item.qty, 0)} total</Text></View>
