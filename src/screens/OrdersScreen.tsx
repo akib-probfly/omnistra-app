@@ -4,9 +4,9 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Image } from 'expo-image';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { CalendarDays, Check, ChevronRight, Copy, CreditCard, ExternalLink, Filter, Hash, MapPin, Package, Phone, Plus, QrCode, RefreshCw, Search, Share2, ShoppingBag, Truck, UserRound, X } from 'lucide-react-native';
+import { CalendarDays, Check, ChevronRight, Copy, CreditCard, ExternalLink, Filter, Hash, List, MapPin, Package, Phone, Plus, QrCode, RefreshCw, Search, Share2, ShoppingBag, Truck, UserRound, X, XCircle } from 'lucide-react-native';
 import { useMemo, useRef, useState } from 'react';
-import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { LucideIcon } from 'lucide-react-native';
@@ -38,6 +38,7 @@ function shipmentTone(status: string) { const normalized = status.toUpperCase();
 
 export function OrdersScreen() {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const navigation = useNavigation<NavigationProp<SettingsStackParamList>>();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
@@ -71,6 +72,15 @@ export function OrdersScreen() {
   const invoiceQuery = useQuery({ queryKey: ['order-invoice', selectedOrder?.id], queryFn: () => listOrderInvoices([selectedOrder!.id]), enabled: invoiceOpen && Boolean(selectedOrder?.id) });
   const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data]);
   const total = ordersQuery.data?.total ?? 0;
+  const statusCounts = ordersQuery.data?.statusCounts ?? {};
+  const metricCardWidth = (windowWidth - spacing.lg * 2 - spacing.xs * 2) / 3;
+  const orderMetrics = [
+    { label: 'All orders', value: Object.values(statusCounts).reduce((sum, count) => sum + count, 0), Icon: List, background: colors.surfaceSecondary, foreground: colors.textSecondary },
+    { label: 'Pending', value: statusCounts.PENDING ?? 0, Icon: Package, background: colors.warningSoft, foreground: colors.amber },
+    { label: 'Processing', value: statusCounts.PROCESSING ?? 0, Icon: Truck, background: colors.primarySoft, foreground: colors.primary },
+    { label: 'Delivered', value: statusCounts.DELIVERED ?? 0, Icon: CreditCard, background: colors.successSoft, foreground: colors.success },
+    { label: 'Cancelled', value: statusCounts.CANCELLED ?? 0, Icon: XCircle, background: colors.dangerSoft, foreground: colors.error },
+  ];
   const statusMutation = useMutation({
     mutationFn: ({ orderId, next }: { orderId: string; next: OrderStatus }) => updateOrderStatus(orderId, next),
     onSuccess: async (result) => { setSelectedOrder((current) => current?.id === result.id ? { ...current, status: result.status } : current); await queryClient.invalidateQueries({ queryKey: ['orders'] }); },
@@ -152,6 +162,9 @@ export function OrdersScreen() {
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <ScreenHeader title="Orders" subtitle="Manage customer orders and fulfillment" onBack={() => navigation.goBack()} right={<View style={styles.headerActions}><Pressable onPress={() => { if (!scanInFlight.current) scanMutation.reset(); setScanCode(''); setScanMessage(''); setCameraScanArmed(true); setScanOpen(true); }} style={[styles.iconButton, { backgroundColor: colors.surfaceSecondary }]} accessibilityLabel="Scan order"><QrCode color={colors.primary} size={19} /></Pressable><Pressable onPress={() => navigation.navigate('CreateOrder')} style={[styles.iconButton, { backgroundColor: colors.primary }]} accessibilityLabel="Create order"><Plus color={colors.primaryText} size={20} /></Pressable></View>} />
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, spacing.xxl) }]} keyboardShouldPersistTaps="handled">
+        <View style={styles.metricsGrid}>
+          {orderMetrics.map(({ label, value, Icon, background, foreground }) => <View key={label} style={[styles.metricCard, { width: metricCardWidth, backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><View style={[styles.metricIcon, { backgroundColor: background }]}><Icon color={foreground} size={16} /></View><View style={styles.metricCopy}><Text numberOfLines={1} style={[styles.metricLabel, { color: colors.textSecondary }]}>{label}</Text><Text style={[styles.metricValue, { color: colors.text }]}>{value}</Text></View></View>)}
+        </View>
         <View style={styles.searchTools}>
           <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><Search color={colors.textMuted} size={17} /><TextInput value={search} onChangeText={(value) => { setSearch(value); setPage(1); setSelectedIds([]); }} placeholder="Search order or customer" placeholderTextColor={colors.textMuted} style={[styles.input, { color: colors.text }]} /></View>
           <Pressable onPress={openFilters} style={[styles.filterIconButton, { backgroundColor: colors.surface, borderColor: activeFilterCount ? colors.primary : colors.cardBorder }]} accessibilityRole="button" accessibilityLabel={activeFilterCount ? `Filters, ${activeFilterCount} active` : 'Filters'}>
@@ -266,6 +279,12 @@ function IconDetail({ icon: Icon, value, strong = false }: { icon: LucideIcon; v
 function DetailLine({ label, value }: { label: string; value: string }) { const { colors } = useTheme(); return <View style={styles.detailLine}><Text style={[styles.meta, { color: colors.textSecondary }]}>{label}</Text><Text style={[styles.detailValue, { color: colors.text }]}>{value || '—'}</Text></View>; }
 
 const styles = StyleSheet.create({
+  metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  metricCard: { alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', flexShrink: 0, gap: spacing.xs, minHeight: 52, padding: spacing.xs + 2 },
+  metricIcon: { alignItems: 'center', borderRadius: radius.pill, height: 24, justifyContent: 'center', width: 24 },
+  metricCopy: { flex: 1, minWidth: 0 },
+  metricLabel: { fontSize: fontSize.tiny },
+  metricValue: { fontSize: fontSize.body, fontWeight: fontWeight.bold },
   orderDetailsClose: { alignItems: 'center', borderRadius: radius.pill, height: 36, justifyContent: 'center', width: 36 },
   detailSectionTitle: { fontSize: fontSize.small, fontWeight: fontWeight.semibold, letterSpacing: 1.1, marginBottom: spacing.sm, textTransform: 'uppercase' },
   orderMetaFooter: { borderTopWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, paddingTop: spacing.md },
