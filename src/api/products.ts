@@ -145,8 +145,10 @@ export function importProducts(input: { csvText: string; fileName: string; colum
 export function fetchProductImports() {
   return apiFetch<{ items: ProductImportJob[] }>('/products/imports', { method: 'GET' });
 }
-export function exportProducts() {
-  return apiFetch<ProductExportJob>('/products/exports/products', { method: 'POST', body: JSON.stringify({ mode: 'all' }) });
+export type ProductExportMode = 'all' | 'filtered' | 'selected';
+export type ProductExportFilters = { search?: string; category?: string[]; status?: Array<'DRAFT' | 'ACTIVE' | 'INACTIVE' | 'ARCHIVED'>; availability?: Array<'LOW_STOCK' | 'OUT_OF_STOCK'>; salesChannelIds?: string[]; localOnly?: boolean };
+export function exportProducts(input: { mode: ProductExportMode; productIds?: string[]; filters?: ProductExportFilters }) {
+  return apiFetch<ProductExportJob>('/products/exports/products', { method: 'POST', body: JSON.stringify(input) });
 }
 export function fetchProductExports() {
   return apiFetch<{ items: ProductExportJob[] }>('/products/exports', { method: 'GET' });

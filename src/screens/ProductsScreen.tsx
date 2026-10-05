@@ -2,12 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
-import { Check, Download, Filter, Import, Package, Plus, Search } from 'lucide-react-native';
+import { AlertTriangle, Archive, Check, CheckCircle2, Download, EllipsisVertical, Filter, Import, LayoutGrid, Package, Plus, Search } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { deleteProduct, deleteProducts, exportProducts, fetchProductExports, fetchProductImports, importProducts, listProducts, updateProductStatus, type ProductImportField, type ProductResponse } from '../api/products';
+import { deleteProduct, deleteProducts, exportProducts, fetchProductExports, fetchProductImports, importProducts, listProducts, updateProductStatus, type ProductExportMode, type ProductImportField, type ProductResponse } from '../api/products';
 import { fetchChannels } from '../api/channels';
 import { fetchProductCategories } from '../api/productCategories';
 import { ErrorState } from '../components/ErrorState';
@@ -45,24 +45,24 @@ function ProductRow({ product, selected, onSelect, onToggle, onDelete, onEdit }:
   const active = product.status === 'ACTIVE';
   const imageUrl = product.coverImageUrl || product.imageUrls.find(Boolean) || null;
   return (
-    <AppCard style={styles.productCard}>
+    <AppCard style={styles.productCard} padding="sm" radiusKey="lg">
       <View style={styles.productHeader}>
-        <View style={[styles.icon, { backgroundColor: colors.primarySoft }]}>{imageUrl ? <Image source={{ uri: imageUrl }} style={styles.productImage} contentFit="cover" cachePolicy="memory-disk" accessibilityLabel={`${product.name} image`} /> : <Package color={colors.primary} size={20} />}</View>
+        <View style={[styles.icon, styles.productCardIcon, { backgroundColor: colors.primarySoft }]}>{imageUrl ? <Image source={{ uri: imageUrl }} style={styles.productImage} contentFit="cover" cachePolicy="memory-disk" accessibilityLabel={`${product.name} image`} /> : <Package color={colors.primary} size={17} />}</View>
         <View style={styles.productCopy}>
-          <Text style={[styles.productName, { color: colors.text }]} numberOfLines={1}>{product.name}</Text>
-          <Text style={[styles.productMeta, { color: colors.textSecondary }]} numberOfLines={1}>{product.sku || product.category || 'No SKU or category'}</Text>
+          <Text style={[styles.productName, styles.productCardName, { color: colors.text }]} numberOfLines={1}>{product.name}</Text>
+          <Text style={[styles.productMeta, styles.productCardMeta, { color: colors.textSecondary }]} numberOfLines={1}>{product.sku || product.category || 'No SKU or category'}</Text>
         </View>
         <AppBadge size="sm" tone={active ? 'success' : product.status === 'ARCHIVED' ? 'neutral' : 'warning'} label={product.status} />
         <Pressable onPress={onSelect} style={[styles.selectButton, { backgroundColor: selected ? colors.primary : colors.surfaceSecondary }]} accessibilityLabel={selected ? 'Deselect product' : 'Select product'}>{selected ? <Check color={colors.primaryText} size={15} /> : null}</Pressable>
       </View>
       <View style={styles.productDetails}>
-        <Text style={[styles.price, { color: colors.text }]}>{formatPrice(product)}</Text>
-        <Text style={[styles.inventory, { color: colors.textSecondary }]}>Stock: {product.inventory ?? 'Not set'}</Text>
+        <Text style={[styles.price, styles.productCardPrice, { color: colors.text }]}>{formatPrice(product)}</Text>
+        <Text style={[styles.inventory, styles.productCardInventory, { color: colors.textSecondary }]}>Stock: {product.inventory ?? 'Not set'}</Text>
       </View>
       <View style={styles.actions}>
-        <AppButton label="Edit" variant="secondary" onPress={onEdit} />
-        <AppButton label={active ? 'Deactivate' : 'Activate'} variant="secondary" onPress={onToggle} />
-        <AppButton label="Delete" variant="destructive" onPress={onDelete} />
+        <AppButton label="Edit" variant="secondary" onPress={onEdit} style={styles.productActionButton} />
+        <AppButton label={active ? 'Deactivate' : 'Activate'} variant="secondary" onPress={onToggle} style={styles.productActionButton} />
+        <AppButton label="Delete" variant="destructive" onPress={onDelete} style={styles.productActionButton} />
       </View>
     </AppCard>
   );
@@ -70,6 +70,7 @@ function ProductRow({ product, selected, onSelect, onToggle, onDelete, onEdit }:
 
 export function ProductsScreen() {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const navigation = useNavigation<NavigationProp<SettingsStackParamList>>();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
@@ -82,6 +83,7 @@ export function ProductsScreen() {
   const [salesChannelIds, setSalesChannelIds] = useState<string[]>([]);
   const [filtersVisible, setFiltersVisible] = useState(false);
   const [createSheetVisible, setCreateSheetVisible] = useState(false);
+  const [productMenuVisible, setProductMenuVisible] = useState(false);
   const [filterLayer, setFilterLayer] = useState<ProductFilterLayer>('status');
   const [draftStatus, setDraftStatus] = useState<(typeof STATUS_FILTERS)[number]>('ALL');
   const [draftAvailability, setDraftAvailability] = useState<typeof availability>('ALL');
@@ -107,6 +109,13 @@ export function ProductsScreen() {
   const exportMutation = useMutation({ mutationFn: exportProducts, onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ['products', 'exports'] }); Alert.alert('Export started', 'The product CSV will be prepared and delivered through notifications when ready.'); }, onError: (error: Error) => Alert.alert('Export failed', error.message) });
   const importMutation = useMutation({ mutationFn: importProducts, onSuccess: async (job) => { await queryClient.invalidateQueries({ queryKey: ['products', 'imports'] }); Alert.alert('Import started', `${job.fileName} is being processed. You can continue using the app.`); }, onError: (error: Error) => Alert.alert('Import failed', error.message) });
   const products = useMemo(() => productsQuery.data?.items ?? [], [productsQuery.data]);
+  const productMetricWidth = (windowWidth - spacing.lg * 2 - spacing.xs * 2) / 3;
+  const productMetrics = [
+    { label: 'Total Products', value: productsQuery.data?.total ?? 0, Icon: LayoutGrid, background: colors.primarySoft, foreground: colors.primary },
+    { label: 'Active Products', value: products.filter((product) => product.status === 'ACTIVE').length, Icon: CheckCircle2, background: colors.successSoft, foreground: colors.success },
+    { label: 'Draft Products', value: products.filter((product) => product.status === 'DRAFT').length, Icon: AlertTriangle, background: colors.warningSoft, foreground: colors.amber },
+    { label: 'Inactive / Archived', value: products.filter((product) => product.status === 'INACTIVE' || product.status === 'ARCHIVED').length, Icon: Archive, background: colors.dangerSoft, foreground: colors.error },
+  ];
   const activeFilterCount = Number(status !== 'ALL') + Number(availability !== 'ALL') + Number(category !== 'ALL') + Number(localOnly) + salesChannelIds.length;
   const draftHasFilters = draftStatus !== 'ALL' || draftAvailability !== 'ALL' || draftCategory !== 'ALL' || draftLocalOnly || draftSalesChannelIds.length > 0;
   const openFilters = () => {
@@ -134,6 +143,19 @@ export function ProductsScreen() {
     setPage(1);
     setFiltersVisible(false);
   };
+  const exportProductsMode = (mode: ProductExportMode) => {
+    if (mode === 'selected' && selectedIds.length === 0) return;
+    const filters = {
+      ...(search.trim() ? { search: search.trim() } : {}),
+      ...(category !== 'ALL' ? { category: [category] } : {}),
+      ...(status !== 'ALL' ? { status: [status] } : {}),
+      ...(availability !== 'ALL' ? { availability: [availability] } : {}),
+      ...(salesChannelIds.length ? { salesChannelIds } : {}),
+      ...(localOnly ? { localOnly: true } : {}),
+    };
+    setProductMenuVisible(false);
+    exportMutation.mutate({ mode, ...(mode === 'selected' ? { productIds: selectedIds } : {}), ...(mode === 'filtered' ? { filters } : {}) });
+  };
 
   const importCsv = async () => {
     try {
@@ -156,18 +178,18 @@ export function ProductsScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <ScreenHeader title="Products" subtitle="Manage your product catalog" onBack={() => navigation.goBack()} />
+      <ScreenHeader title="Products" subtitle="Manage your product catalog" onBack={() => navigation.goBack()} right={<View style={styles.headerActions}><Pressable onPress={() => setCreateSheetVisible(true)} style={[styles.createHeaderButton, { backgroundColor: colors.primary }]} accessibilityRole="button" accessibilityLabel="Create product"><Plus color={colors.primaryText} size={20} /></Pressable><Pressable onPress={() => setProductMenuVisible((visible) => !visible)} style={[styles.menuButton, { backgroundColor: colors.surfaceSecondary }]} accessibilityRole="button" accessibilityLabel="More product actions"><EllipsisVertical color={colors.text} size={21} /></Pressable></View>} />
+      <BottomSheet visible={productMenuVisible} onClose={() => setProductMenuVisible(false)} sheetStyle={styles.productActionsSheet}>
+        <Text style={[styles.productActionsTitle, { color: colors.text }]}>Product actions</Text>
+          <Pressable onPress={() => exportProductsMode('all')} disabled={exportMutation.isPending} style={styles.menuAction} accessibilityRole="button" accessibilityLabel="Export all products">{exportMutation.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <Download color={colors.textSecondary} size={17} />}<Text style={[styles.menuActionLabel, { color: exportMutation.isPending ? colors.textMuted : colors.text }]}>Export all</Text></Pressable>
+          <Pressable onPress={() => exportProductsMode('filtered')} disabled={exportMutation.isPending} style={styles.menuAction} accessibilityRole="button" accessibilityLabel="Export filtered products">{exportMutation.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <Download color={colors.textSecondary} size={17} />}<Text style={[styles.menuActionLabel, { color: exportMutation.isPending ? colors.textMuted : colors.text }]}>Export filtered</Text></Pressable>
+          <Pressable onPress={() => exportProductsMode('selected')} disabled={exportMutation.isPending || selectedIds.length === 0} style={[styles.menuAction, (exportMutation.isPending || selectedIds.length === 0) && styles.menuActionDisabled]} accessibilityRole="button" accessibilityState={{ disabled: exportMutation.isPending || selectedIds.length === 0 }}>{exportMutation.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <Check color={colors.textSecondary} size={17} />}<Text style={[styles.menuActionLabel, { color: exportMutation.isPending || selectedIds.length === 0 ? colors.textMuted : colors.text }]}>Export selected</Text></Pressable>
+          <View style={[styles.menuDivider, styles.actionsMenuDivider, { backgroundColor: colors.cardBorder }]} />
+          <Pressable onPress={() => { setProductMenuVisible(false); void importCsv(); }} disabled={importMutation.isPending} style={styles.menuAction} accessibilityRole="button" accessibilityLabel="Import products from CSV">{importMutation.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <Import color={colors.text} size={17} />}<Text style={[styles.menuActionLabel, { color: importMutation.isPending ? colors.textMuted : colors.text }]}>Import Products</Text></Pressable>
+      </BottomSheet>
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]} keyboardShouldPersistTaps="handled">
-        <View style={styles.productActions}>
-          <AppButton icon={Plus} label="Create" onPress={() => setCreateSheetVisible(true)} style={styles.createProductButton} />
-          <Pressable onPress={() => void importCsv()} disabled={importMutation.isPending} style={[styles.dataAction, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} accessibilityRole="button" accessibilityLabel="Import products from CSV">
-            {importMutation.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <Import color={colors.primary} size={17} />}
-            <Text style={[styles.dataActionLabel, { color: colors.text }]}>Import</Text>
-          </Pressable>
-          <Pressable onPress={() => exportMutation.mutate()} disabled={exportMutation.isPending} style={[styles.dataAction, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} accessibilityRole="button" accessibilityLabel="Export products to CSV">
-            {exportMutation.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <Download color={colors.primary} size={17} />}
-            <Text style={[styles.dataActionLabel, { color: colors.text }]}>Export</Text>
-          </Pressable>
+        <View style={styles.productMetricsGrid}>
+          {productMetrics.map(({ label, value, Icon, background, foreground }) => <View key={label} style={[styles.productMetricCard, { width: productMetricWidth, backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><View style={[styles.productMetricIcon, { backgroundColor: background }]}><Icon color={foreground} size={17} /></View><View style={styles.productMetricCopy}><Text numberOfLines={2} style={[styles.productMetricLabel, { color: colors.textSecondary }]}>{label}</Text><Text style={[styles.productMetricValue, { color: colors.text }]}>{value}</Text></View></View>)}
         </View>
         {importsQuery.data?.items[0] ? <Text style={[styles.jobStatus, { color: importsQuery.data.items[0].status === 'FAILED' ? colors.error : colors.textSecondary }]}>{importsQuery.data.items[0].status === 'COMPLETED' ? `Last import: ${importsQuery.data.items[0].importedRows} products added` : `Product import: ${importsQuery.data.items[0].status.toLowerCase()}`}</Text> : null}
         {exportsQuery.data?.items[0] ? <Text style={[styles.jobStatus, { color: exportsQuery.data.items[0].status === 'FAILED' ? colors.error : colors.textSecondary }]}>{`Latest product export: ${exportsQuery.data.items[0].status.toLowerCase()}`}</Text> : null}
@@ -215,6 +237,12 @@ export function ProductsScreen() {
 }
 
 const styles = StyleSheet.create({
+  productMetricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  productMetricCard: { alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', flexShrink: 0, gap: spacing.xs, minHeight: 52, padding: spacing.xs + 2 },
+  productMetricIcon: { alignItems: 'center', borderRadius: radius.pill, height: 26, justifyContent: 'center', width: 26 },
+  productMetricCopy: { flex: 1, minWidth: 0 },
+  productMetricLabel: { fontSize: 9, lineHeight: 11 },
+  productMetricValue: { fontSize: fontSize.caption, fontWeight: fontWeight.bold },
   screen: { flex: 1 },
   content: { gap: spacing.md, padding: spacing.lg },
   searchTools: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
@@ -247,21 +275,34 @@ const styles = StyleSheet.create({
   filterApplyText: { fontSize: fontSize.body, fontWeight: fontWeight.bold },
   filter: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   filterText: { fontSize: fontSize.small, fontWeight: fontWeight.bold },
-  productCard: { gap: spacing.md },
-  productHeader: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  productCard: { gap: spacing.sm },
+  productHeader: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
+  productCardIcon: { height: 32, width: 32 },
   icon: { alignItems: 'center', borderRadius: radius.md, height: 40, justifyContent: 'center', overflow: 'hidden', width: 40 },
   productImage: { height: '100%', width: '100%' },
   productCopy: { flex: 1, minWidth: 0 },
   productName: { fontSize: fontSize.subheading, fontWeight: fontWeight.bold },
+  productCardName: { fontSize: fontSize.body },
   productMeta: { fontSize: fontSize.small, marginTop: 2 },
+  productCardMeta: { fontSize: fontSize.tiny, marginTop: 0 },
   productDetails: { flexDirection: 'row', justifyContent: 'space-between' },
   price: { fontSize: fontSize.body, fontWeight: fontWeight.bold },
+  productCardPrice: { fontSize: fontSize.caption },
   inventory: { fontSize: fontSize.small },
-  actions: { flexDirection: 'row', gap: spacing.sm },
+  productCardInventory: { fontSize: fontSize.tiny },
+  actions: { flexDirection: 'row', gap: spacing.xs },
+  productActionButton: { flex: 1, height: 34, paddingHorizontal: spacing.xs },
   productActions: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
-  createProductButton: { flex: 1 },
-  dataAction: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.xs, height: 38, justifyContent: 'center', paddingHorizontal: spacing.sm },
-  dataActionLabel: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
+  headerActions: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
+  createHeaderButton: { alignItems: 'center', borderRadius: radius.pill, height: 38, justifyContent: 'center', width: 38 },
+  menuButton: { alignItems: 'center', borderRadius: radius.pill, height: 38, justifyContent: 'center', width: 38 },
+  productActionsSheet: { gap: spacing.xs, paddingBottom: spacing.xl, paddingHorizontal: spacing.lg, paddingTop: spacing.xs },
+  productActionsTitle: { fontSize: fontSize.subheading, fontWeight: fontWeight.bold, marginBottom: spacing.xs },
+  menuAction: { alignItems: 'center', borderRadius: radius.sm, flexDirection: 'row', gap: spacing.sm, minHeight: 48, paddingHorizontal: spacing.sm },
+  menuActionDisabled: { opacity: 0.55 },
+  menuActionLabel: { fontSize: fontSize.body, fontWeight: fontWeight.medium },
+  menuDivider: { height: StyleSheet.hairlineWidth, marginHorizontal: spacing.md },
+  actionsMenuDivider: { marginVertical: spacing.xs },
   bulkCard: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   selectButton: { alignItems: 'center', borderRadius: radius.sm, height: 24, justifyContent: 'center', width: 24 },
   jobStatus: { fontSize: fontSize.small },
