@@ -3,7 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import { Check, ImagePlus, Layers3, Plus, RefreshCw, Save, Store, X } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createProduct, createProductDraft, fetchProduct, finalizeProductDraft, updateProduct, updateProductDraft, type ProductInput, type ProductResponse } from '../api/products';
@@ -110,6 +110,8 @@ export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: bo
   const [form, setForm] = useState<FormState>(() => ({ ...EMPTY_FORM, sku: generateProductSku(), currency: workspace?.defaultCurrency ?? EMPTY_FORM.currency }));
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
   const [error, setError] = useState<string | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [categoryCreating, setCategoryCreating] = useState(false);
   const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const draftIdRef = useRef<string | null>(null);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -236,14 +238,26 @@ export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: bo
   });
 
   const addCategory = async () => {
-    if (!newCategory.trim()) return;
+    const name = newCategory.trim();
+    if (!name || categoryCreating) return;
+    const existing = categoriesQuery.data?.items.find((item) => item.name.trim().toLowerCase() === name.toLowerCase());
+    if (existing) {
+      setForm((current) => ({ ...current, category: existing.name, categoryId: existing.id }));
+      setFieldErrors((current) => ({ ...current, categoryId: undefined }));
+      setNewCategory('');
+      setCategoryError(null);
+      return;
+    }
+    setCategoryCreating(true);
+    setCategoryError(null);
     try {
-      const category = await createProductCategory(newCategory.trim(), workspace?.id);
+      const category = await createProductCategory(name, workspace?.id);
       await queryClient.invalidateQueries({ queryKey: ['product-categories'] });
       setForm((current) => ({ ...current, category: category.name, categoryId: category.id }));
       setFieldErrors((current) => ({ ...current, categoryId: undefined }));
       setNewCategory('');
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not add category.'); }
+    } catch (cause) { setCategoryError(cause instanceof Error ? cause.message : 'Could not add category.'); }
+    finally { setCategoryCreating(false); }
   };
   const mutation = useMutation({
     mutationFn: async () => {
@@ -310,7 +324,8 @@ export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: bo
             <View style={styles.skuRow}><AppTextField label="Base SKU *" value={form.sku} onChangeText={updateField('sku')} placeholder="e.g. SHIRT-001" error={fieldErrors.sku} style={styles.skuInput} /><Pressable onPress={() => { setForm((current) => ({ ...current, sku: generateProductSku() })); setFieldErrors((current) => ({ ...current, sku: undefined })); }} style={[styles.skuGenerateButton, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} accessibilityRole="button" accessibilityLabel="Generate a new SKU"><RefreshCw color={colors.primary} size={18} /></Pressable></View>
             <AppTextField label="Category *" value={form.category} onChangeText={(value) => { setForm((current) => ({ ...current, category: value, categoryId: categoriesQuery.data?.items.find((item) => item.name.toLowerCase() === value.trim().toLowerCase())?.id ?? '' })); setFieldErrors((current) => ({ ...current, categoryId: undefined })); }} placeholder="Select or create a category" error={fieldErrors.categoryId} />
             {(categoriesQuery.data?.items ?? []).length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryList}>{categoriesQuery.data?.items.map((category) => <Pressable key={category.id} onPress={() => { setForm((current) => ({ ...current, category: category.name, categoryId: category.id })); setFieldErrors((current) => ({ ...current, categoryId: undefined })); }} style={[styles.categoryChip, { borderColor: form.categoryId === category.id ? colors.primary : colors.cardBorder, backgroundColor: form.categoryId === category.id ? colors.primarySoft : colors.surface }]}><Text style={{ color: colors.text }}>{category.name}</Text></Pressable>)}</ScrollView> : null}
-            <View style={styles.categoryAdd}><AppTextField label="Add a category" value={newCategory} onChangeText={setNewCategory} placeholder="Category name" style={styles.categoryField} /><AppButton icon={Plus} label="Add" variant="secondary" disabled={!newCategory.trim()} onPress={() => void addCategory()} /></View>
+            <View style={styles.categoryAdd}><AppTextField label="Add a category" value={newCategory} onChangeText={(value) => { setNewCategory(value); setCategoryError(null); }} placeholder="Category name" style={styles.categoryField} returnKeyType="done" onSubmitEditing={() => void addCategory()} /><Pressable onPress={() => void addCategory()} disabled={!newCategory.trim() || categoryCreating} style={[styles.categoryAddButton, { backgroundColor: colors.primary, opacity: !newCategory.trim() || categoryCreating ? 0.55 : 1 }]} accessibilityRole="button" accessibilityLabel="Add product category" accessibilityState={{ disabled: !newCategory.trim() || categoryCreating }}>{categoryCreating ? <ActivityIndicator color={colors.primaryText} size="small" /> : <><Plus color={colors.primaryText} size={17} /><Text style={[styles.categoryAddButtonText, { color: colors.primaryText }]}>{categoryCreating ? 'Adding' : 'Add'}</Text></>}</Pressable></View>
+            {categoryError ? <Text style={[styles.categoryError, { color: colors.error }]}>{categoryError}</Text> : null}
           </View>
         </AppCard>
         <AppCard padding="md">
@@ -415,6 +430,9 @@ const styles = StyleSheet.create({
   categoryList: { gap: spacing.sm },
   categoryChip: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
   categoryAdd: { alignItems: 'flex-end', flexDirection: 'row', gap: spacing.sm },
+  categoryAddButton: { alignItems: 'center', borderRadius: radius.md, flexDirection: 'row', gap: spacing.xs, height: 48, justifyContent: 'center', marginBottom: 3, minWidth: 78, paddingHorizontal: spacing.md },
+  categoryAddButtonText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
+  categoryError: { fontSize: fontSize.small, lineHeight: 17 },
   skuRow: { alignItems: 'flex-end', flexDirection: 'row', gap: spacing.sm },
   skuInput: { flex: 1 },
   skuGenerateButton: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, height: 48, justifyContent: 'center', marginBottom: 3, width: 48 },
