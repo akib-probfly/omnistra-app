@@ -50,7 +50,7 @@ import { getCountryCodeFromPhone, getCountryFlag } from '../lib/countryFromPhone
 import { useTheme } from '../theme/ThemeContext';
 import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 
-type Attachment = { id: string; messageId?: string | null; mediaType: string; mimeType: string; originalName: string | null; downloadUrl: string; previewUrl: string | null; thumbnailUrl: string | null; durationMs: number | null };
+type Attachment = { id: string; messageId?: string | null; mediaType: string; mimeType: string; originalName: string | null; downloadUrl: string; previewUrl: string | null; thumbnailUrl: string | null; durationMs: number | null; localPreviewUri?: string | null };
 type Message = { id: string; workspaceId?: string; direction: 'INBOUND' | 'OUTBOUND'; senderType?: string | null; sender?: { userName?: string | null; userEmail?: string | null } | null; type: string; text: string | null; deliveryStatus?: string; failureReason?: string | null; campaignId?: string | null; campaignName?: string | null; templateName?: string | null; templateComponentsJson?: unknown; replyToMessageId?: string | null; replyTo?: { id?: string; sender?: { userName?: string | null } | null; text?: string | null; type?: string; attachments?: Attachment[] } | null; sentAt?: string | null; createdAt?: string; metadata?: any; orderConfirmation?: { eligible: boolean; confidence?: number; reason?: string } | null; attachments?: Attachment[] };
 type MediaItem = { attachId: string; src: string; mediaType: string };
 type TimelineRow = { entry: ConversationTimelineEntry<Message>; showDivider: boolean };
@@ -210,6 +210,7 @@ export function ConversationScreen() {
   const pinToLatestRef = useRef(true);
 
   const pendingOptimisticRef = useRef<Map<string, Message>>(new Map());
+  const localImagePreviewsRef = useRef<Map<string, Array<string | null>>>(new Map());
   const awaitingDeliveryRef = useRef(false);
   const deliveryPollUntilRef = useRef(0);
 
@@ -242,7 +243,11 @@ export function ConversationScreen() {
       const items: Message[] = page.items.map((message) => {
         const messageAttachments = message.attachments ?? [];
         const mediaOnly = messageAttachments.length > 0 && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(message.type);
-        return { ...message, text: mediaOnly ? null : message.text, attachments: messageAttachments };
+        const localImagePreviews = localImagePreviewsRef.current.get(message.id);
+        const attachmentsWithLocalPreview = localImagePreviews
+          ? messageAttachments.map((attachment, index) => ({ ...attachment, localPreviewUri: localImagePreviews[index] ?? null }))
+          : messageAttachments;
+        return { ...message, text: mediaOnly ? null : message.text, attachments: attachmentsWithLocalPreview };
       });
 
       // Keep in-flight optimistic bubbles across polling/refetch overwrites.
@@ -477,8 +482,25 @@ export function ConversationScreen() {
       awaitingDeliveryRef.current = true;
       deliveryPollUntilRef.current = Date.now() + 45_000;
       const clientKey = context?.clientKey ?? context?.tempId;
+      const optimisticAttachments = context?.tempId ? pendingOptimisticRef.current.get(context.tempId)?.attachments ?? [] : [];
+      const previewUris = (created.attachments ?? []).map((attachment, index) => {
+        const optimisticAttachment = optimisticAttachments[index];
+        return (attachment.mediaType ?? '').toUpperCase() === 'IMAGE'
+          ? optimisticAttachment?.previewUrl ?? optimisticAttachment?.thumbnailUrl ?? null
+          : null;
+      });
+      if (context?.tempId && (created.attachments?.length ?? 0) > 0) {
+        localImagePreviewsRef.current.set(created.id, previewUris);
+      }
+      const confirmedAttachments = (created.attachments ?? []).map((attachment, index) => ({
+        ...attachment,
+        localPreviewUri: previewUris[index] ?? null,
+      }));
+      const mediaOnly = confirmedAttachments.length > 0 && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(created.type);
       const confirmed: Message = {
         ...created,
+        text: mediaOnly ? null : created.text,
+        attachments: confirmedAttachments,
         deliveryStatus: created.deliveryStatus && created.deliveryStatus !== 'SENDING' ? created.deliveryStatus : 'SENT',
         metadata: {
           ...(typeof created.metadata === 'object' && created.metadata ? created.metadata : {}),

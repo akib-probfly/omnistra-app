@@ -767,6 +767,7 @@ function isVideoAttachment(attachment: any): boolean {
 }
 
 function previewUrl(attachment: any): string {
+  if (typeof attachment.localPreviewUri === 'string' && attachment.localPreviewUri) return attachment.localPreviewUri;
   const base = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.zurvis.io/api/v1';
   // Keep the image preview URL stable across optimistic-to-server message
   // reconciliation. The full download endpoint can be slower and may reload
