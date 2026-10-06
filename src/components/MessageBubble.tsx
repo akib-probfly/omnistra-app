@@ -118,6 +118,10 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
     isInstagramSharedPostTemplateMessage(message);
   const templateDisplay = isTemplateLikeMessage(message) && !isInstagramSharedPostTemplate ? getTemplateMessageDisplay(message) : null;
   const templateHeaderUrl = templateDisplay?.headerMediaUrl ?? null;
+  const messageText = typeof message.text === 'string' ? message.text : '';
+  const hasStructuredOrderDetails = /(?:^|\n)\s*name\s*:\s*\S+/im.test(messageText) &&
+    /(?:^|\n)\s*address\s*:\s*\S+/im.test(messageText) &&
+    /(?:^|\n)\s*(?:number|phone)\s*:\s*\S+/im.test(messageText);
   const isTemplateHeaderAttachment = (attachment: any) => {
     if (!templateDisplay) return false;
     const attachmentMediaType = (attachment.mediaType ?? '').toUpperCase();
@@ -145,7 +149,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
   const whatsappOrder = useMemo(() => getWhatsappOrder(message), [message]);
   const canCreateOrderFromMessage = Boolean(
     onCreateOrderFromMessage &&
-    (message.orderConfirmation?.eligible || message.metadata?.orderConfirmation?.eligible || whatsappOrder),
+    (message.orderConfirmation?.eligible || message.metadata?.orderConfirmation?.eligible || whatsappOrder || hasStructuredOrderDetails),
   );
   const body = (message.text ?? '').trim();
   const isLocationFallbackText = isLocationFallbackBody(body, whatsappLocation);
@@ -249,11 +253,11 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
   const reactionItems: Array<{ emoji: string; count: number }> = hasReactions ? reactions : [];
 
   return (
-    <View style={[styles.wrap, outgoing && styles.wrapOutgoing, hasReactions && styles.wrapWithReactions]}>
-      {canCreateOrderFromMessage ? <Pressable onPress={() => onCreateOrderFromMessage(message)} disabled={creatingOrderDraft} style={[styles.createOrderFromMessage, { backgroundColor: colors.surface, borderColor: colors.cardBorder, opacity: creatingOrderDraft ? 0.65 : 1 }]} accessibilityRole="button" accessibilityLabel="Create order from message" accessibilityState={{ disabled: creatingOrderDraft }}>
+    <View style={[styles.wrap, outgoing && styles.wrapOutgoing, canCreateOrderFromMessage && styles.wrapWithCreateOrder, hasReactions && styles.wrapWithReactions]}>
+      {canCreateOrderFromMessage && outgoing ? <Pressable onPress={() => onCreateOrderFromMessage(message)} disabled={creatingOrderDraft} style={[styles.createOrderFromMessage, { backgroundColor: colors.surface, borderColor: colors.cardBorder, opacity: creatingOrderDraft ? 0.65 : 1 }]} accessibilityRole="button" accessibilityLabel="Create order from message" accessibilityState={{ disabled: creatingOrderDraft }}>
         {creatingOrderDraft ? <ActivityIndicator color={colors.primary} size="small" /> : <PackagePlus color={colors.primary} size={17} />}
       </Pressable> : null}
-      <Pressable onLongPress={onLongPress} delayLongPress={350}>
+      <Pressable onLongPress={onLongPress} delayLongPress={350} style={canCreateOrderFromMessage ? styles.bubblePressableWithAction : undefined}>
         <View style={[
           styles.bubble,
           outgoing ? styles.bubbleOutgoing : styles.bubbleIncoming,
@@ -504,6 +508,9 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
         ) : null}
         </View>
       </Pressable>
+      {canCreateOrderFromMessage && !outgoing ? <Pressable onPress={() => onCreateOrderFromMessage(message)} disabled={creatingOrderDraft} style={[styles.createOrderFromMessage, { backgroundColor: colors.surface, borderColor: colors.cardBorder, opacity: creatingOrderDraft ? 0.65 : 1 }]} accessibilityRole="button" accessibilityLabel="Create order from message" accessibilityState={{ disabled: creatingOrderDraft }}>
+        {creatingOrderDraft ? <ActivityIndicator color={colors.primary} size="small" /> : <PackagePlus color={colors.primary} size={17} />}
+      </Pressable> : null}
       {hasReactions ? (
         <View style={[styles.reactionRow, outgoing && styles.reactionRowOutgoing]}>
           {reactionItems.map((reaction) => (
@@ -814,8 +821,10 @@ const styles = StyleSheet.create({
   systemText: { color: '#475569', fontSize: 12, fontWeight: '500' },
   systemTextMissed: { color: '#d97706' },
   systemTime: { color: '#94a3b8', fontSize: 11 },
-  wrap: { alignSelf: 'flex-start', maxWidth: '82%', minWidth: 0, position: 'relative' },
-  createOrderFromMessage: { alignItems: 'center', borderRadius: 18, borderWidth: 1, height: 36, justifyContent: 'center', left: -42, position: 'absolute', top: '50%', transform: [{ translateY: -18 }], width: 36, zIndex: 5, shadowColor: '#2563eb', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 6, elevation: 3 },
+  wrap: { alignSelf: 'flex-start', maxWidth: '82%', minWidth: 0 },
+  wrapWithCreateOrder: { alignItems: 'center', flexDirection: 'row', gap: 6, maxWidth: '90%' },
+  bubblePressableWithAction: { flexShrink: 1, minWidth: 0 },
+  createOrderFromMessage: { alignItems: 'center', borderRadius: 16, borderWidth: 1, height: 32, justifyContent: 'center', width: 32, shadowColor: '#2563eb', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 6, elevation: 3 },
   wrapOutgoing: { alignSelf: 'flex-end' },
   wrapWithReactions: { marginBottom: 8 },
   bubble: {

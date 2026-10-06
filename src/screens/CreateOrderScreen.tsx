@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { Check, ChevronDown, Minus, Package, Plus, Search, Truck, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
@@ -92,6 +92,19 @@ function findCityInAddress(address: string, cities: OrderLocationOption[]) {
     .sort((left, right) => Number(segments.includes(right.normalizedName)) - Number(segments.includes(left.normalizedName)) || left.position - right.position || right.normalizedName.length - left.normalizedName.length)[0]?.city ?? null;
 }
 
+function getAddressSearchTerms(address: string) {
+  const terms = new Set<string>();
+  for (const segment of address.split(/[\n,]+/)) {
+    const trimmed = segment.trim();
+    if (trimmed.length < 2) continue;
+    terms.add(trimmed);
+    const normalized = normalizeLocation(trimmed);
+    if (normalized.length >= 2) terms.add(normalized);
+    for (const token of normalized.split(' ')) if (token.length >= 2 && !/^\d+$/.test(token)) terms.add(token);
+  }
+  return [...terms].slice(0, 12);
+}
+
 function formatMoney(valueMinor: number, currency: string) {
   try {
     return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(valueMinor / 100);
@@ -165,7 +178,20 @@ export function CreateOrderScreen() {
   const selectedCourier = couriers.find((item) => item.id === courierId) ?? null;
   const citiesQuery = useQuery({ queryKey: ['order-locations', 'cities', debouncedLocationSearch], queryFn: () => listOrderCities(debouncedLocationSearch || undefined), enabled: picker === 'city', staleTime: 10 * 60_000 });
   const addressCitiesQuery = useQuery({ queryKey: ['order-locations', 'cities', 'all'], queryFn: () => listOrderCities(), enabled: Boolean(address.trim()), staleTime: 10 * 60_000 });
-  const detectedCity = useMemo(() => findCityInAddress(address, addressCitiesQuery.data?.items ?? []), [address, addressCitiesQuery.data?.items]);
+  const addressSearchTerms = useMemo(() => getAddressSearchTerms(address), [address]);
+  const addressZoneQueries = useQueries({ queries: addressSearchTerms.map((term) => ({ queryKey: ['order-locations', 'zones', 'address', term], queryFn: () => listOrderZones(undefined, term), enabled: Boolean(address.trim()), staleTime: 10 * 60_000 })) });
+  const addressZoneOptions = useMemo(() => [...new Map(addressZoneQueries.flatMap((query) => query.data?.items ?? []).map((item) => [item.id, item])).values()], [addressZoneQueries]);
+  const detectedAddressZone = useMemo(() => {
+    const normalizedAddress = normalizeLocation(address);
+    return addressZoneOptions
+      .map((zone) => ({ zone, name: normalizeLocation(zone.name), position: normalizedAddress.indexOf(normalizeLocation(zone.name)) }))
+      .filter(({ name }) => name.length >= 2 && normalizedAddress.includes(name))
+      .sort((left, right) => left.position - right.position || right.name.length - left.name.length)[0]?.zone ?? null;
+  }, [address, addressZoneOptions]);
+  const detectedCity = useMemo(() => {
+    if (detectedAddressZone?.cityId && detectedAddressZone.cityName) return { id: detectedAddressZone.cityId, name: detectedAddressZone.cityName };
+    return findCityInAddress(address, addressCitiesQuery.data?.items ?? []);
+  }, [address, addressCitiesQuery.data?.items, detectedAddressZone]);
   const zonesQuery = useQuery({ queryKey: ['order-locations', 'zones', city?.id, debouncedLocationSearch], queryFn: () => listOrderZones(city!.id, debouncedLocationSearch || undefined), enabled: picker === 'zone' && Boolean(city), staleTime: 10 * 60_000 });
   const areasQuery = useQuery({ queryKey: ['order-locations', 'areas', zone?.id, debouncedLocationSearch], queryFn: () => listOrderAreas(zone!.id, debouncedLocationSearch || undefined), enabled: picker === 'area' && Boolean(zone), staleTime: 10 * 60_000 });
 
@@ -178,11 +204,17 @@ export function CreateOrderScreen() {
     return () => clearTimeout(timer);
   }, [locationSearch]);
   useEffect(() => {
-    if (!detectedCity || city?.id === detectedCity.id) return;
-    setCity(detectedCity);
-    setZone(null);
-    setArea(null);
-  }, [city?.id, detectedCity]);
+    if (!detectedCity) return;
+    if (city?.id !== detectedCity.id) {
+      setCity(detectedCity);
+      setArea(null);
+    }
+    const addressZone = detectedAddressZone?.cityId === detectedCity.id ? detectedAddressZone : null;
+    if ((addressZone?.id ?? null) !== (zone?.id ?? null)) {
+      setZone(addressZone);
+      setArea(null);
+    }
+  }, [city?.id, detectedAddressZone, detectedCity, zone?.id]);
   const selectedCurrency = currency.toUpperCase();
   const subtotalMinor = useMemo(() => cart.reduce((sum, item) => sum + item.quantity * (Math.round((Number.parseFloat(item.unitPrice) || 0) * 100)), 0), [cart]);
   const deliveryZone = getCourierDeliveryZone(city?.name || detectedCity?.name || address);

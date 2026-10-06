@@ -17,7 +17,7 @@ export type OrderSummary = {
   items: Array<{ name: string; qty: number; price: number; imageUrl: string | null }>;
   courier: { connectionId?: string; partner: string; tracking: string; status: string } | null;
 };
-export type OrderLocationOption = { id: string; name: string };
+export type OrderLocationOption = { id: string; name: string; cityId?: string; cityName?: string; zoneId?: string; zoneName?: string };
 export type ConversationOrderDraft = {
   sourceMessageId: string;
   lookbackDays: number;
@@ -73,8 +73,8 @@ export function listOrderInvoices(orderIds: string[]) {
 export function listOrderCities(search?: string) {
   return apiFetch<{ items: OrderLocationOption[] }>(`/orders/locations/cities${search ? `?search=${encodeURIComponent(search)}` : ''}`);
 }
-export function listOrderZones(cityId: string, search?: string) {
-  const query = new URLSearchParams({ cityId }); if (search) query.set('search', search);
+export function listOrderZones(cityId?: string, search?: string) {
+  const query = new URLSearchParams(); if (cityId) query.set('cityId', cityId); if (search) query.set('search', search);
   return apiFetch<{ items: OrderLocationOption[] }>(`/orders/locations/zones?${query}`);
 }
 export function listOrderAreas(zoneId: string, search?: string) {
