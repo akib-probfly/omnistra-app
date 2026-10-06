@@ -104,7 +104,7 @@ export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: bo
   const navigation = useNavigation();
   const route = useRoute<RouteProp<SettingsStackParamList, 'ProductForm'>>();
   const queryClient = useQueryClient();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { workspace } = useWorkspaceAccess();
   const productId = embedded ? undefined : route.params?.productId;
   const editing = Boolean(productId);
@@ -416,10 +416,10 @@ export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: bo
               <View style={styles.sectionIntro}><AppText variant="section">Sell on Multiple Channels</AppText><AppText variant="small" tone="secondary">List this product on each connected sales channel and store.</AppText></View>
               {channelsQuery.isLoading || catalogQueries.some((query) => query.isLoading) ? <Text style={{ color: colors.textSecondary }}>Checking connected catalogs…</Text> : catalogOptions.length ? catalogOptions.map((catalog) => {
                 const enabled = selectedCatalogs.some((item) => item.channelId === catalog.channelId && item.catalogId === catalog.catalogId);
-                return <Pressable key={catalog.channelId} accessibilityRole="switch" accessibilityState={{ checked: enabled }} onPress={() => setSelectedCatalogs((current) => enabled ? current.filter((item) => item.channelId !== catalog.channelId) : [...current, { channelId: catalog.channelId, catalogId: catalog.catalogId }])} style={[styles.catalogRow, { borderColor: enabled ? '#25D366' : colors.cardBorder, backgroundColor: enabled ? '#F0FFF6' : colors.surface }]}>
-                  <View style={styles.whatsappIcon}><ChannelLogo type="WHATSAPP" box={30} glyph={15} radius={15} /></View>
+                return <Pressable key={catalog.channelId} accessibilityRole="switch" accessibilityState={{ checked: enabled }} onPress={() => setSelectedCatalogs((current) => enabled ? current.filter((item) => item.channelId !== catalog.channelId) : [...current, { channelId: catalog.channelId, catalogId: catalog.catalogId }])} style={[styles.catalogRow, { borderColor: enabled ? isDark ? '#25D366' : '#69E99A' : colors.cardBorder, backgroundColor: enabled ? isDark ? '#123B2B' : '#F0FFF6' : colors.surface }]}>
+                  <View style={[styles.whatsappIcon, { backgroundColor: isDark ? '#164A35' : '#DDF9E8' }]}><ChannelLogo type="WHATSAPP" box={30} glyph={15} radius={15} /></View>
                   <View style={styles.catalogCopy}>
-                    <View style={styles.catalogTitleRow}><Text style={{ color: colors.text, fontWeight: '600' }}>{catalog.catalogName}</Text><Text style={styles.whatsappBadge}>WhatsApp</Text></View>
+                    <View style={styles.catalogTitleRow}><Text style={{ color: colors.text, fontWeight: '600' }}>{catalog.catalogName}</Text><Text style={[styles.whatsappBadge, { backgroundColor: isDark ? '#14532D' : '#D1FAE5', color: isDark ? '#86EFAC' : '#047857' }]}>WhatsApp</Text></View>
                     <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Channel: <Text style={{ color: colors.text, fontWeight: '500' }}>{catalog.channelName}</Text></Text>
                   </View>
                   <View style={[styles.catalogSwitch, { backgroundColor: enabled ? '#25D366' : colors.textMuted }]}><View style={[styles.catalogSwitchThumb, enabled ? styles.catalogSwitchThumbOn : styles.catalogSwitchThumbOff]} /></View>
@@ -473,8 +473,8 @@ const styles = StyleSheet.create({
   catalogRow: { alignItems: 'center', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, padding: spacing.md },
   catalogCopy: { flex: 1 },
   catalogTitleRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: 2 },
-  whatsappIcon: { alignItems: 'center', backgroundColor: '#DDF9E8', borderRadius: radius.pill, height: 30, justifyContent: 'center', overflow: 'hidden', width: 30 },
-  whatsappBadge: { backgroundColor: '#D1FAE5', borderRadius: radius.pill, color: '#047857', fontSize: 10, fontWeight: '700', overflow: 'hidden', paddingHorizontal: 6, paddingVertical: 2 },
+  whatsappIcon: { alignItems: 'center', borderRadius: radius.pill, height: 30, justifyContent: 'center', overflow: 'hidden', width: 30 },
+  whatsappBadge: { borderRadius: radius.pill, fontSize: 10, fontWeight: '700', overflow: 'hidden', paddingHorizontal: 6, paddingVertical: 2 },
   catalogSwitch: { borderRadius: radius.pill, height: 20, justifyContent: 'center', width: 34 },
   catalogSwitchThumb: { backgroundColor: '#fff', borderRadius: radius.pill, height: 16, position: 'absolute', width: 16 },
   catalogSwitchThumbOn: { right: 2 },
