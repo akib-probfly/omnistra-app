@@ -1,8 +1,8 @@
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { Check, ChevronDown, Minus, Package, Plus, Search, Trash2, Truck, X } from 'lucide-react-native';
-import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchChannels } from '../api/channels';
@@ -136,6 +136,7 @@ export function CreateOrderScreen() {
   const [recipientEmail, setRecipientEmail] = useState(initialRecipient?.email ?? '');
   const [address, setAddress] = useState(initialRecipient?.address ?? '');
   const [productSearch, setProductSearch] = useState('');
+  const productSearchRef = useRef<TextInput>(null);
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [locationSearch, setLocationSearch] = useState('');
@@ -260,6 +261,8 @@ export function CreateOrderScreen() {
   const changeCartQuantity = (itemId: string, delta: number) => setCart((current) => current.map((item) => item.id === itemId ? { ...item, quantity: item.quantity + delta } : item).filter((item) => item.quantity > 0));
   const removeCartItem = (itemId: string) => setCart((current) => current.filter((item) => item.id !== itemId));
   const chooseProduct = (product: ProductResponse) => {
+    productSearchRef.current?.blur();
+    Keyboard.dismiss();
     setSelectedProduct(product);
     setSelectedVariant(null);
     setCustomProductMode(false);
@@ -277,6 +280,8 @@ export function CreateOrderScreen() {
     setWeightKg(((variant.weightGrams ?? selectedProduct.weightGrams ?? 0) / 1000).toFixed(2));
   };
   const startCustomProduct = () => {
+    productSearchRef.current?.blur();
+    Keyboard.dismiss();
     setSelectedProduct(null);
     setSelectedVariant(null);
     setCustomProductMode(true);
@@ -295,6 +300,8 @@ export function CreateOrderScreen() {
       return;
     }
     if (!customProductMode && !selectedProduct) return;
+    productSearchRef.current?.blur();
+    Keyboard.dismiss();
     const activeVariants = selectedProduct?.variants?.filter((item) => item.isActive) ?? [];
     if (!customProductMode && selectedProduct?.hasVariants && activeVariants.length === 0) {
       setError('This product has no active variations available.');
@@ -426,6 +433,7 @@ export function CreateOrderScreen() {
           <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
             <Search color={colors.textMuted} size={17} />
             <TextInput
+              ref={productSearchRef}
               value={productSearch}
               onChangeText={(value) => {
                 setProductSearch(value);
