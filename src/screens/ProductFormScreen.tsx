@@ -1,7 +1,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
-import { Check, ImagePlus, Layers3, Plus, RefreshCw, Save, Store, X } from 'lucide-react-native';
+import { Check, ImagePlus, Info, Layers3, Plus, RefreshCw, Save, Store, X } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -11,6 +11,7 @@ import { fetchChannels, fetchWhatsappProductCatalog } from '../api/channels';
 import { createProductCategory, fetchProductCategories } from '../api/productCategories';
 import { uploadFile } from '../api/client';
 import { ErrorState } from '../components/ErrorState';
+import { ChannelLogo } from '../components/ChannelLogo';
 import { SheetScrollView } from '../components/BottomSheet';
 import { FormSkeleton } from '../components/Skeleton';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
@@ -354,7 +355,6 @@ export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: bo
             <AppTextField label="Description" value={form.description} onChangeText={updateField('description')} placeholder="Describe this product" multiline numberOfLines={5} />
             <View style={styles.variantSection}>
               <View style={styles.variantHeading}><View style={styles.variantHeadingCopy}><Layers3 color={colors.primary} size={18} /><Text style={[styles.variantTitle, { color: colors.text }]}>Variants</Text></View><View style={[styles.variantMode, { backgroundColor: colors.surfaceSecondary }]}><Pressable onPress={() => setForm((current) => ({ ...current, hasVariants: false }))} style={[styles.variantModeButton, !form.hasVariants && { backgroundColor: colors.surface }]}><Text style={[styles.variantModeLabel, { color: !form.hasVariants ? colors.text : colors.textSecondary }]}>Simple</Text></Pressable><Pressable onPress={() => setForm((current) => ({ ...current, hasVariants: true }))} style={[styles.variantModeButton, form.hasVariants && { backgroundColor: colors.primarySoft }]}><Text style={[styles.variantModeLabel, { color: form.hasVariants ? colors.primary : colors.textSecondary }]}>Variants</Text></Pressable></View></View>
-              <AppText variant="small" tone="secondary">Generate options like sizes or colors. Each combination gets its own SKU, price, and stock.</AppText>
               {form.hasVariants ? <>
               {form.attributes.map((attribute, index) => (
                 <View key={`${index}-${attribute.name}`} style={styles.attributeRow}>
@@ -388,23 +388,40 @@ export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: bo
               </> : null}
               </> : <Text style={[styles.simpleProductHint, { color: colors.textSecondary }]}>This product will use one SKU and the stock and price above.</Text>}
             </View>
-            <Pressable style={styles.statusRow} onPress={() => setForm((current) => ({ ...current, isActive: !current.isActive }))}>
-              {form.isActive ? <Check color={colors.success} size={18} /> : <X color={colors.textMuted} size={18} />}
-              <Text style={{ color: colors.text }}>{form.isActive ? 'Active product' : 'Inactive product'}</Text>
-            </Pressable>
+            <View style={styles.productStatus}>
+              <Text style={[styles.statusLabel, { color: colors.text }]}>Status</Text>
+              <View style={[styles.statusControl, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]} accessibilityRole="radiogroup" accessibilityLabel="Product status">
+                <Pressable accessibilityRole="radio" accessibilityState={{ selected: form.isActive }} onPress={() => setForm((current) => ({ ...current, isActive: true }))} style={[styles.statusOption, form.isActive && { backgroundColor: colors.success }]}>
+                  <View style={[styles.statusDot, { backgroundColor: form.isActive ? '#fff' : colors.textMuted }]} />
+                  <Text style={[styles.statusOptionText, { color: form.isActive ? '#fff' : colors.textSecondary }]}>Active</Text>
+                </Pressable>
+                <Pressable accessibilityRole="radio" accessibilityState={{ selected: !form.isActive }} onPress={() => setForm((current) => ({ ...current, isActive: false }))} style={[styles.statusOption, !form.isActive && { backgroundColor: colors.error }]}>
+                  <View style={[styles.statusDot, { backgroundColor: !form.isActive ? '#fff' : colors.textMuted }]} />
+                  <Text style={[styles.statusOptionText, { color: !form.isActive ? '#fff' : colors.textSecondary }]}>Inactive</Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
         </AppCard>
         <AppCard padding="md">
           <View style={styles.variantSection}>
-              <View style={styles.sectionIntro}><AppText variant="section">Sales channels</AppText><AppText variant="small" tone="secondary">Choose WhatsApp catalogs where this product can be published.</AppText></View>
+              <View style={styles.sectionIntro}><AppText variant="section">Sell on Multiple Channels</AppText><AppText variant="small" tone="secondary">List this product on each connected sales channel and store.</AppText></View>
               {channelsQuery.isLoading || catalogQueries.some((query) => query.isLoading) ? <Text style={{ color: colors.textSecondary }}>Checking connected catalogs…</Text> : catalogOptions.length ? catalogOptions.map((catalog) => {
                 const enabled = selectedCatalogs.some((item) => item.channelId === catalog.channelId && item.catalogId === catalog.catalogId);
-                return <Pressable key={catalog.channelId} onPress={() => setSelectedCatalogs((current) => enabled ? current.filter((item) => item.channelId !== catalog.channelId) : [...current, { channelId: catalog.channelId, catalogId: catalog.catalogId }])} style={[styles.catalogRow, { borderColor: enabled ? colors.success : colors.cardBorder, backgroundColor: enabled ? colors.successSoft : colors.surface }]}><Store color={enabled ? colors.success : colors.textMuted} size={18} /><View style={styles.catalogCopy}><Text style={{ color: colors.text, fontWeight: '600' }}>{catalog.catalogName}</Text><Text style={{ color: colors.textSecondary, fontSize: 12 }}>{catalog.channelName}</Text></View>{enabled ? <Check color={colors.success} size={18} /> : null}</Pressable>;
+                return <Pressable key={catalog.channelId} accessibilityRole="switch" accessibilityState={{ checked: enabled }} onPress={() => setSelectedCatalogs((current) => enabled ? current.filter((item) => item.channelId !== catalog.channelId) : [...current, { channelId: catalog.channelId, catalogId: catalog.catalogId }])} style={[styles.catalogRow, { borderColor: enabled ? '#25D366' : colors.cardBorder, backgroundColor: enabled ? '#F0FFF6' : colors.surface }]}>
+                  <View style={styles.whatsappIcon}><ChannelLogo type="WHATSAPP" box={30} glyph={15} radius={15} /></View>
+                  <View style={styles.catalogCopy}>
+                    <View style={styles.catalogTitleRow}><Text style={{ color: colors.text, fontWeight: '600' }}>{catalog.catalogName}</Text><Text style={styles.whatsappBadge}>WhatsApp</Text></View>
+                    <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Channel: <Text style={{ color: colors.text, fontWeight: '500' }}>{catalog.channelName}</Text></Text>
+                  </View>
+                  <View style={[styles.catalogSwitch, { backgroundColor: enabled ? '#25D366' : colors.textMuted }]}><View style={[styles.catalogSwitchThumb, enabled ? styles.catalogSwitchThumbOn : styles.catalogSwitchThumbOff]} /></View>
+                </Pressable>;
               }) : <Text style={{ color: colors.textSecondary }}>No connected WhatsApp catalogs found.</Text>}
+              {!channelsQuery.isLoading && !catalogQueries.some((query) => query.isLoading) && catalogOptions.length ? <View style={styles.catalogNote}><Info color={colors.textSecondary} size={14} /><Text style={[styles.catalogNoteText, { color: colors.textSecondary }]}>Connected channels and stores are switched on by default and stay synced with this product.</Text></View> : null}
           </View>
         </AppCard>
         {error ? <ErrorState message={error} /> : null}
-        <AppButton block icon={Save} label={mutation.isPending ? 'Saving...' : editing ? 'Save product' : 'Create product'} loading={mutation.isPending} disabled={mutation.isPending || !catalogsReady} onPress={saveProduct} style={styles.save} />
+        <AppButton block icon={Save} label={mutation.isPending ? 'Saving...' : editing ? 'Update Product' : 'Create Product'} loading={mutation.isPending} disabled={mutation.isPending || !catalogsReady} onPress={saveProduct} style={styles.save} />
       </FormScrollView>
     </View>
   );
@@ -439,6 +456,15 @@ const styles = StyleSheet.create({
   categoryField: { flex: 1 },
   catalogRow: { alignItems: 'center', borderRadius: 12, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, padding: spacing.md },
   catalogCopy: { flex: 1 },
+  catalogTitleRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: 2 },
+  whatsappIcon: { alignItems: 'center', backgroundColor: '#DDF9E8', borderRadius: radius.pill, height: 30, justifyContent: 'center', overflow: 'hidden', width: 30 },
+  whatsappBadge: { backgroundColor: '#D1FAE5', borderRadius: radius.pill, color: '#047857', fontSize: 10, fontWeight: '700', overflow: 'hidden', paddingHorizontal: 6, paddingVertical: 2 },
+  catalogSwitch: { borderRadius: radius.pill, height: 20, justifyContent: 'center', width: 34 },
+  catalogSwitchThumb: { backgroundColor: '#fff', borderRadius: radius.pill, height: 16, position: 'absolute', width: 16 },
+  catalogSwitchThumbOn: { right: 2 },
+  catalogSwitchThumbOff: { left: 2 },
+  catalogNote: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, marginTop: spacing.xs },
+  catalogNoteText: { flex: 1, fontSize: fontSize.tiny },
   variantTitle: { fontSize: 15, fontWeight: '700' },
   variantHeading: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   variantHeadingCopy: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
@@ -459,7 +485,12 @@ const styles = StyleSheet.create({
   simpleProductHint: { fontSize: fontSize.small },
   attributeRow: { alignItems: 'flex-end', flexDirection: 'row', gap: spacing.sm },
   attributeField: { flex: 1 },
-  statusRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm, paddingVertical: spacing.sm },
+  productStatus: { gap: spacing.xs },
+  statusLabel: { fontSize: fontSize.small, fontWeight: fontWeight.bold },
+  statusControl: { alignSelf: 'flex-start', borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', gap: 4, padding: 4 },
+  statusOption: { alignItems: 'center', borderRadius: radius.md, flexDirection: 'row', gap: spacing.xs, justifyContent: 'center', minWidth: 88, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  statusDot: { borderRadius: radius.pill, height: 8, width: 8 },
+  statusOptionText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
   galleryHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
   gallery: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.md },
   galleryItem: { height: 82, position: 'relative', width: 82 },
