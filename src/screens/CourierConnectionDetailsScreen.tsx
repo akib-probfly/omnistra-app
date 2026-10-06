@@ -7,6 +7,7 @@ import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@r
 import { disableCourierConnection, enableCourierConnection, getCourierDeliveryFees, getCourierWebhookConfig, listCourierConnections, updateCourierConnection, type CourierConnection } from '../api/couriers';
 import { IntegrationLogo } from '../components/IntegrationLogo';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
+import { sanitizeMoneyInput } from '../lib/numeric-input';
 import { useWorkspaceAccess } from '../lib/workspace-access';
 import { useTheme } from '../theme/ThemeContext';
 import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
@@ -213,7 +214,7 @@ export function CourierConnectionDetailsScreen() {
               <View style={[styles.configureSectionIcon, { backgroundColor: colors.successSoft }]}><HandCoins color={colors.success} size={17} /></View>
               <View style={styles.summaryCopy}><AppText variant="small" style={styles.configureEyebrow}>SET DELIVERY FEES</AppText><AppText variant="tiny" tone="secondary">What customers pay for delivery, by zone.</AppText></View>
             </View>
-            <View style={styles.feeRow}><AppTextField style={styles.feeField} label="Inside city (BDT)" value={insideDhakaFee} onChangeText={setInsideDhakaFee} keyboardType="decimal-pad" /><AppTextField style={styles.feeField} label="Outside city (BDT)" value={outsideDhakaFee} onChangeText={setOutsideDhakaFee} keyboardType="decimal-pad" /></View>
+            <View style={styles.feeRow}><AppTextField style={styles.feeField} label="Inside city (BDT)" value={insideDhakaFee} onChangeText={(value) => setInsideDhakaFee(sanitizeMoneyInput(value))} keyboardType="decimal-pad" inputMode="decimal" /><AppTextField style={styles.feeField} label="Outside city (BDT)" value={outsideDhakaFee} onChangeText={(value) => setOutsideDhakaFee(sanitizeMoneyInput(value))} keyboardType="decimal-pad" inputMode="decimal" /></View>
           </AppCard>
           <AppCard style={styles.configureSection}>
             <View style={styles.configureSectionHeading}>

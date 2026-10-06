@@ -11,6 +11,7 @@ type Props = Pick<
   | 'autoFocus'
   | 'placeholder'
   | 'keyboardType'
+  | 'inputMode'
   | 'autoCapitalize'
   | 'autoComplete'
   | 'secureTextEntry'

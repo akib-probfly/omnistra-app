@@ -17,6 +17,7 @@ import { FormSkeleton } from '../components/Skeleton';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
 import { useWorkspaceAccess } from '../lib/workspace-access';
+import { sanitizeMoneyInput } from '../lib/numeric-input';
 import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 import { AppButton, AppCard, AppText, AppTextField, ScreenHeader } from '../ui';
 
@@ -340,9 +341,9 @@ export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: bo
             <View style={styles.sectionIntro}><AppText variant="section">Pricing and shipping</AppText><AppText variant="small" tone="secondary">Set your prices and product measurements</AppText></View>
             <View style={styles.priceRow}>
               <AppTextField label="Currency" required value={form.currency} onChangeText={updateField('currency')} placeholder="BDT" autoCapitalize="characters" error={fieldErrors.currency} style={styles.currencyField} />
-              <AppTextField label="Base price" required value={form.price} onChangeText={updateField('price')} placeholder="0.00" keyboardType="decimal-pad" error={fieldErrors.price} style={styles.priceField} />
+              <AppTextField label="Base price" required value={form.price} onChangeText={(value) => updateField('price')(sanitizeMoneyInput(value))} placeholder="0.00" keyboardType="decimal-pad" inputMode="decimal" error={fieldErrors.price} style={styles.priceField} />
             </View>
-            <AppTextField label="Sale price" value={form.salePrice} onChangeText={updateField('salePrice')} placeholder="Optional sale price" keyboardType="decimal-pad" error={fieldErrors.salePrice} />
+            <AppTextField label="Sale price" value={form.salePrice} onChangeText={(value) => updateField('salePrice')(sanitizeMoneyInput(value))} placeholder="Optional sale price" keyboardType="decimal-pad" inputMode="decimal" error={fieldErrors.salePrice} />
             <AppTextField label="Weight (kg)" required value={form.weight} onChangeText={updateField('weight')} placeholder="0.05" keyboardType="decimal-pad" error={fieldErrors.weight} />
             <View style={styles.dimensionRow}>
               <AppTextField label="Length (cm)" value={form.dimensionL} onChangeText={updateField('dimensionL')} placeholder="L" keyboardType="decimal-pad" style={styles.dimensionField} />
@@ -383,8 +384,8 @@ export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: bo
                     <Text style={[styles.variantItemName, { color: colors.text }]}>{variant.attributes.map(({ name, value }) => `${name}: ${value}`).join(' · ')}</Text>
                     <TextInput value={current.sku} onChangeText={(value) => updateVariant('sku', value)} placeholder="Variant SKU" placeholderTextColor={colors.textMuted} style={[styles.variantInput, { borderColor: colors.cardBorder, color: colors.text }]} autoCapitalize="characters" accessibilityLabel="Variant SKU" />
                     <View style={styles.variantValuesRow}>
-                      <TextInput value={current.price} onChangeText={(value) => updateVariant('price', value)} placeholder="Base price" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad" style={[styles.variantInput, styles.variantValueInput, { borderColor: colors.cardBorder, color: colors.text }]} accessibilityLabel="Variant base price" />
-                      <TextInput value={current.salePrice} onChangeText={(value) => updateVariant('salePrice', value)} placeholder="Sale price" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad" style={[styles.variantInput, styles.variantValueInput, { borderColor: colors.cardBorder, color: colors.text }]} accessibilityLabel="Variant sale price" />
+                      <TextInput value={current.price} onChangeText={(value) => updateVariant('price', sanitizeMoneyInput(value))} placeholder="Base price" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad" inputMode="decimal" style={[styles.variantInput, styles.variantValueInput, { borderColor: colors.cardBorder, color: colors.text }]} accessibilityLabel="Variant base price" />
+                      <TextInput value={current.salePrice} onChangeText={(value) => updateVariant('salePrice', sanitizeMoneyInput(value))} placeholder="Sale price" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad" inputMode="decimal" style={[styles.variantInput, styles.variantValueInput, { borderColor: colors.cardBorder, color: colors.text }]} accessibilityLabel="Variant sale price" />
                     </View>
                     <Pressable onPress={() => setForm((state) => ({ ...state, variantOverrides: { ...state.variantOverrides, [key]: { ...(state.variantOverrides[key] ?? current), isActive: !current.isActive } } }))} style={styles.variantStatusRow}><View style={[styles.variantStatusDot, { backgroundColor: current.isActive ? colors.success : colors.textMuted }]} /><Text style={[styles.variantStatusText, { color: current.isActive ? colors.success : colors.textSecondary }]}>{current.isActive ? 'Variant active' : 'Variant inactive'}</Text></Pressable>
                     <View style={styles.variantValuesRow}>

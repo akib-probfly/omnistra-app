@@ -13,6 +13,7 @@ import { listProducts, type ProductResponse, type ProductVariant } from '../api/
 import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 import { ChannelLogo } from '../components/ChannelLogo';
 import { IntegrationLogo } from '../components/IntegrationLogo';
+import { sanitizeMoneyInput } from '../lib/numeric-input';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
 import type { ThemeColors } from '../theme/colors';
@@ -467,7 +468,7 @@ export function CreateOrderScreen() {
             {selectedProduct?.hasVariants || (selectedProduct?.variants ?? []).some((item) => item.isActive) ? <PickerButton label="Variation *" value={selectedVariant ? productVariantLabel(selectedVariant) : 'Select a variation'} onPress={() => setPicker('variant')} disabled={!((selectedProduct?.variants ?? []).some((item) => item.isActive))} /> : null}
             {selectedProduct?.hasVariants && !(selectedProduct.variants ?? []).some((item) => item.isActive) ? <Text style={[styles.helper, { color: colors.error }]}>This product has no active variations available.</Text> : null}
             {customProductMode ? <AppTextField label="Variant details (optional)" value={customVariantLabel} onChangeText={setCustomVariantLabel} placeholder="e.g. Size: Large" /> : null}
-            <View style={styles.editableFields}><AppTextField style={styles.editableField} label={`Unit price (${selectedCurrency})`} value={unitPrice} onChangeText={setUnitPrice} keyboardType="decimal-pad" /><AppTextField style={styles.editableField} label="Weight (kg)" value={weightKg} onChangeText={setWeightKg} keyboardType="decimal-pad" /></View>
+            <View style={styles.editableFields}><AppTextField style={styles.editableField} label={`Unit price (${selectedCurrency})`} value={unitPrice} onChangeText={(value) => setUnitPrice(sanitizeMoneyInput(value))} keyboardType="decimal-pad" inputMode="decimal" /><AppTextField style={styles.editableField} label="Weight (kg)" value={weightKg} onChangeText={setWeightKg} keyboardType="decimal-pad" /></View>
             <AppTextField label="Quantity" value={quantity} onChangeText={setQuantity} keyboardType="number-pad" />
             <AppButton block label="Add to cart" icon={Plus} onPress={addProduct} />
             <Text style={[styles.helper, { color: colors.textSecondary }]}>Weight is used for shipping calculations.</Text>
@@ -506,13 +507,14 @@ export function CreateOrderScreen() {
             const selected = payment === value;
             return <Pressable key={value} onPress={() => setPayment(value)} style={[styles.paymentOption, { borderColor: selected ? colors.primary : colors.cardBorder, backgroundColor: selected ? colors.primarySoft : colors.surface }]} accessibilityRole="radio" accessibilityState={{ selected }}><Text style={[styles.paymentText, { color: selected ? colors.primary : colors.textSecondary }]}>{label}</Text>{selected ? <Check color={colors.primary} size={14} /> : null}</Pressable>;
           })}</View>
-          {payment === 'PARTIAL' ? <AppTextField label="Amount paid now" value={partialAmount} onChangeText={setPartialAmount} keyboardType="decimal-pad" placeholder="0.00" /> : null}
+          {payment === 'PARTIAL' ? <AppTextField label="Amount paid now" value={partialAmount} onChangeText={(value) => setPartialAmount(sanitizeMoneyInput(value))} keyboardType="decimal-pad" inputMode="decimal" placeholder="0.00" /> : null}
           {payment !== 'PAID' ? <View style={[styles.amountToCollectCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
             <AppTextField
               label="Amount to collect"
               value={amountToCollectInputValue}
-              onChangeText={(value) => { setAmountToCollectEdited(true); setAmountToCollect(value); }}
+              onChangeText={(value) => { setAmountToCollectEdited(true); setAmountToCollect(sanitizeMoneyInput(value)); }}
               keyboardType="decimal-pad"
+              inputMode="decimal"
               placeholder="0.00"
             />
             <Text style={[styles.helper, { color: colors.textSecondary }]}>Courier will collect: <Text style={[styles.amountToCollectValue, { color: colors.text }]}>{formatMoney(amountToCollectMinor, selectedCurrency)}</Text>{amountToCollectMinor < totalMinor ? ` (original total ${formatMoney(totalMinor, selectedCurrency)})` : ''}</Text>
