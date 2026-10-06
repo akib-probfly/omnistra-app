@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Activity, Check, Copy, Eye, EyeOff, KeyRound, Settings2, ShieldCheck, Trash2, Webhook } from 'lucide-react-native';
+import { Activity, Building2, Cable, Check, Copy, Eye, EyeOff, HandCoins, KeyRound, Settings2, Trash2, Webhook } from 'lucide-react-native';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
 import { disableCourierConnection, enableCourierConnection, getCourierDeliveryFees, getCourierWebhookConfig, listCourierConnections, updateCourierConnection, type CourierConnection } from '../api/couriers';
@@ -183,50 +183,57 @@ export function CourierConnectionDetailsScreen() {
           onBack={() => navigation.goBack()}
         />
         <ScrollView contentContainerStyle={styles.editorForm} keyboardShouldPersistTaps="handled">
-          <View style={styles.editorHeader}>
-            <IntegrationLogo integrationId={connection.provider} size={42} />
-            <View style={styles.summaryCopy}>
-              <AppText variant="subheading">{isPathao ? 'Merchant credentials' : 'Account credentials'}</AppText>
-              <AppText variant="small" tone="secondary">
-                {isPathao
-                  ? 'Update your Pathao developer credentials and merchant login.'
-                  : 'Update your Steadfast merchant API credentials.'}
-              </AppText>
+          <AppCard style={styles.editorIntroCard}>
+            <View style={styles.editorHeader}>
+              <IntegrationLogo integrationId={connection.provider} size={46} />
+              <View style={styles.summaryCopy}>
+                <AppText variant="subheading">Configure {providerName(connection.provider)} Courier</AppText>
+                <AppText variant="small" tone="secondary">Account, delivery fees and webhook for this courier.</AppText>
+              </View>
             </View>
-          </View>
-          <View style={[styles.requiredBadge, { backgroundColor: colors.surfaceSecondary }]}>
-            <AppText variant="tiny" tone="secondary">UPDATE</AppText>
-          </View>
-          <AppText variant="small" tone="secondary">
-            Update the account label or replace credentials. Blank secret fields keep their current values.
-          </AppText>
-          <AppTextField label="Connection name" value={displayName} onChangeText={setDisplayName} placeholder="Courier account name" autoCapitalize="words" />
-          {isPathao ? <AppTextField label="Store ID (optional)" value={providerAccountId} onChangeText={setProviderAccountId} placeholder="Leave blank to keep current store" /> : null}
-          <AppTextField label={isPathao ? 'Client ID (optional)' : 'API key (optional)'} value={apiKey} onChangeText={setApiKey} placeholder="Leave blank to keep current value" autoCapitalize="none" secureTextEntry={!showApiKey} trailing={<Pressable onPress={() => setShowApiKey((visible) => !visible)} accessibilityLabel={showApiKey ? 'Hide API key' : 'Show API key'}>{showApiKey ? <EyeOff color={colors.textSecondary} size={17} /> : <Eye color={colors.textSecondary} size={17} />}</Pressable>} />
-          <AppTextField label={isPathao ? 'Client secret (optional)' : 'Secret key (optional)'} value={apiSecret} onChangeText={setApiSecret} placeholder="Leave blank to keep current value" autoCapitalize="none" secureTextEntry={!showApiSecret} trailing={<Pressable onPress={() => setShowApiSecret((visible) => !visible)} accessibilityLabel={showApiSecret ? 'Hide secret key' : 'Show secret key'}>{showApiSecret ? <EyeOff color={colors.textSecondary} size={17} /> : <Eye color={colors.textSecondary} size={17} />}</Pressable>} />
-          {isPathao ? <>
-            <AppTextField label="Merchant email (optional)" value={username} onChangeText={setUsername} placeholder="Leave blank to keep current email" keyboardType="email-address" autoCapitalize="none" />
-            <AppTextField label="Merchant password (optional)" value={password} onChangeText={setPassword} placeholder="Leave blank to keep current password" secureTextEntry={!showPassword} trailing={<Pressable onPress={() => setShowPassword((visible) => !visible)} accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff color={colors.textSecondary} size={17} /> : <Eye color={colors.textSecondary} size={17} />}</Pressable>} />
-          </> : null}
-          <View style={styles.formSectionHeading}>
-            <AppText variant="bodyStrong">Delivery fees</AppText>
-            <AppText variant="small" tone="secondary">Fees are added to the order total and selected by the recipient city.</AppText>
-          </View>
-          <View style={styles.feeRow}>
-            <AppTextField style={styles.feeField} label="Inside Dhaka (BDT)" value={insideDhakaFee} onChangeText={setInsideDhakaFee} keyboardType="decimal-pad" />
-            <AppTextField style={styles.feeField} label="Outside Dhaka (BDT)" value={outsideDhakaFee} onChangeText={setOutsideDhakaFee} keyboardType="decimal-pad" />
-          </View>
-          <View style={[styles.protectionCard, { backgroundColor: colors.primarySoft, borderColor: colors.cardBorder }]}>
-            <ShieldCheck color={colors.primary} size={20} />
-            <View style={styles.protectionCopy}>
-              <AppText variant="small" style={styles.protectionTitle}>Credentials stay protected</AppText>
-              <AppText variant="small" tone="secondary">
-                Credentials are encrypted on the backend. The webhook URL and verification key are available in integration details.
-              </AppText>
+          </AppCard>
+          <AppCard style={styles.configureSection}>
+            <View style={styles.configureSectionHeading}>
+              <View style={[styles.configureSectionIcon, { backgroundColor: colors.primarySoft }]}><Building2 color={colors.primary} size={17} /></View>
+              <View style={styles.summaryCopy}><AppText variant="small" style={styles.configureEyebrow}>ACCOUNT</AppText><AppText variant="tiny" tone="secondary">From your merchant dashboard.</AppText></View>
+              <View style={[styles.requiredBadge, { backgroundColor: colors.surfaceSecondary }]}><AppText variant="tiny" tone="secondary">UPDATE</AppText></View>
             </View>
-          </View>
+            <AppTextField label="Connection name" value={displayName} onChangeText={setDisplayName} placeholder={isPathao ? 'Primary Pathao account' : 'Primary Steadfast account'} autoCapitalize="words" helpText="Shown only to your team" />
+            {isPathao ? <AppTextField label="Store ID" value={providerAccountId} onChangeText={setProviderAccountId} placeholder="Optional — first active store is used when blank" /> : null}
+            <AppTextField label={isPathao ? 'Client ID' : 'API key'} value={apiKey} onChangeText={setApiKey} placeholder={`Leave blank to keep current ${isPathao ? 'Client ID' : 'API key'}`} autoCapitalize="none" secureTextEntry={!showApiKey} trailing={<Pressable onPress={() => setShowApiKey((visible) => !visible)} accessibilityLabel={showApiKey ? 'Hide API key' : 'Show API key'}>{showApiKey ? <EyeOff color={colors.textSecondary} size={17} /> : <Eye color={colors.textSecondary} size={17} />}</Pressable>} />
+            <AppTextField label={isPathao ? 'Client secret' : 'Secret key'} value={apiSecret} onChangeText={setApiSecret} placeholder={`Leave blank to keep current ${isPathao ? 'Client secret' : 'secret key'}`} autoCapitalize="none" secureTextEntry={!showApiSecret} trailing={<Pressable onPress={() => setShowApiSecret((visible) => !visible)} accessibilityLabel={showApiSecret ? 'Hide secret key' : 'Show secret key'}>{showApiSecret ? <EyeOff color={colors.textSecondary} size={17} /> : <Eye color={colors.textSecondary} size={17} />}</Pressable>} />
+            {isPathao ? <>
+              <AppTextField label="Merchant email" value={username} onChangeText={setUsername} placeholder="Leave blank to keep current email" keyboardType="email-address" autoCapitalize="none" />
+              <AppTextField label="Merchant password" value={password} onChangeText={setPassword} placeholder="Leave blank to keep current password" secureTextEntry={!showPassword} trailing={<Pressable onPress={() => setShowPassword((visible) => !visible)} accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff color={colors.textSecondary} size={17} /> : <Eye color={colors.textSecondary} size={17} />}</Pressable>} />
+            </> : null}
+            <AppText variant="tiny" tone="secondary">Blank credential fields keep their current values.</AppText>
+          </AppCard>
+          <AppCard style={styles.configureSection}>
+            <View style={styles.configureSectionHeading}>
+              <View style={[styles.configureSectionIcon, { backgroundColor: colors.successSoft }]}><HandCoins color={colors.success} size={17} /></View>
+              <View style={styles.summaryCopy}><AppText variant="small" style={styles.configureEyebrow}>SET DELIVERY FEES</AppText><AppText variant="tiny" tone="secondary">What customers pay for delivery, by zone.</AppText></View>
+            </View>
+            <View style={styles.feeRow}><AppTextField style={styles.feeField} label="Inside city (BDT)" value={insideDhakaFee} onChangeText={setInsideDhakaFee} keyboardType="decimal-pad" /><AppTextField style={styles.feeField} label="Outside city (BDT)" value={outsideDhakaFee} onChangeText={setOutsideDhakaFee} keyboardType="decimal-pad" /></View>
+          </AppCard>
+          <AppCard style={styles.configureSection}>
+            <View style={styles.configureSectionHeading}>
+              <View style={[styles.configureSectionIcon, { backgroundColor: colors.indigoSoft }]}><Cable color={colors.indigo} size={17} /></View>
+              <View style={styles.summaryCopy}><AppText variant="small" style={styles.configureEyebrow}>WEBHOOK</AppText><AppText variant="tiny" tone="secondary">Configure the callback URL and verification key.</AppText></View>
+              <View style={[styles.requiredBadge, { backgroundColor: colors.surfaceSecondary }]}><AppText variant="tiny" tone="secondary">DETAILS</AppText></View>
+            </View>
+            <View style={styles.webhookValueGroup}>
+              <AppText variant="tiny" tone="secondary">Webhook URL</AppText>
+              <View style={styles.secretRow}><View style={[styles.codeBox, styles.secretValue, { backgroundColor: colors.surfaceSecondary }]}><AppText variant="small" selectable>{webhookUrl || (webhookQuery.isLoading ? 'Loading webhook URL...' : 'Unavailable')}</AppText></View><Pressable disabled={!webhookUrl} onPress={() => void copyToClipboard(webhookUrl, 'Webhook URL')} style={[styles.revealButton, { borderColor: colors.cardBorder }]} accessibilityLabel="Copy webhook URL"><Copy color={colors.textSecondary} size={17} /></Pressable></View>
+            </View>
+            <View style={styles.webhookValueGroup}>
+              <AppText variant="tiny" tone="secondary">Webhook secret</AppText>
+              <View style={styles.secretRow}><View style={[styles.codeBox, styles.secretValue, { backgroundColor: colors.surfaceSecondary }]}><AppText variant="small" selectable>{verificationKey ? showVerificationKey ? verificationKey : '•'.repeat(28) : (webhookQuery.isLoading ? 'Loading webhook secret...' : 'Unavailable')}</AppText></View><Pressable disabled={!verificationKey} onPress={() => setShowVerificationKey((visible) => !visible)} style={[styles.revealButton, { borderColor: colors.cardBorder }]} accessibilityLabel={showVerificationKey ? 'Hide webhook secret' : 'Show webhook secret'}>{showVerificationKey ? <EyeOff color={colors.textSecondary} size={17} /> : <Eye color={colors.textSecondary} size={17} />}</Pressable><Pressable disabled={!verificationKey} onPress={() => void copyToClipboard(verificationKey, 'Webhook secret')} style={[styles.revealButton, { borderColor: colors.cardBorder }]} accessibilityLabel="Copy webhook secret"><Copy color={colors.textSecondary} size={17} /></Pressable></View>
+            </View>
+            <AppText variant="tiny" tone="secondary">Use the secret as the {isPathao ? 'X-PATHAO-Signature header value' : 'Bearer token'}.</AppText>
+            <View style={styles.webhookMetaRow}><SummaryItem label="Connection status" value={connection.status.replaceAll('_', ' ')} /><SummaryItem label="Webhook authentication" value={connection.credentials.hasWebhookAuthToken ? 'Configured' : 'Needs attention'} /><SummaryItem label="Last verified" value={connection.lastTestedAt ? new Date(connection.lastTestedAt).toLocaleString() : 'Not verified yet'} /></View>
+          </AppCard>
           {editError ? <AppText variant="small" tone="error">{editError}</AppText> : null}
-          <AppButton label="Save changes" icon={Settings2} onPress={() => void saveConfiguration()} loading={saving} loadingLabel="Saving..." disabled={!canManage || !displayName.trim()} block />
+          <View style={styles.configureFooter}><AppButton label="Cancel" variant="secondary" onPress={() => navigation.goBack()} style={styles.cancelButton} /><AppButton label="Save configuration" icon={Settings2} onPress={() => void saveConfiguration()} loading={saving} loadingLabel="Saving..." disabled={!canManage || !displayName.trim()} style={styles.saveConfigureButton} /></View>
         </ScrollView>
       </View>
     );
@@ -376,12 +383,18 @@ const styles = StyleSheet.create({
   diagnosticItem: { borderRadius: radius.md, borderWidth: 1, flexBasis: '48%', flexGrow: 1, gap: spacing.xs, minWidth: 140, padding: spacing.md },
   diagnosticHeading: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
   editorHeader: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
+  editorIntroCard: { gap: spacing.sm },
   editorForm: { gap: spacing.lg, padding: spacing.lg, paddingBottom: spacing.xxxl },
+  configureSection: { gap: spacing.md },
+  configureSectionHeading: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
+  configureSectionIcon: { alignItems: 'center', borderRadius: radius.md, height: 36, justifyContent: 'center', width: 36 },
+  configureEyebrow: { fontWeight: fontWeight.bold, letterSpacing: 0.5 },
+  webhookValueGroup: { gap: spacing.xs },
+  webhookMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  configureFooter: { flexDirection: 'row', gap: spacing.sm },
+  cancelButton: { flex: 1 },
+  saveConfigureButton: { flex: 1 },
   requiredBadge: { alignSelf: 'flex-start', borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
-  formSectionHeading: { gap: spacing.xs },
-  protectionCard: { alignItems: 'flex-start', borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', gap: spacing.md, padding: spacing.md },
-  protectionCopy: { flex: 1, gap: spacing.xs },
-  protectionTitle: { fontWeight: fontWeight.semibold },
   feeRow: { flexDirection: 'row', gap: spacing.sm },
   feeField: { flex: 1, minWidth: 0 },
 });

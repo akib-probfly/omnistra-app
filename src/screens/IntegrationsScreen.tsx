@@ -36,6 +36,7 @@ export function IntegrationsScreen() {
   });
   const browseCatalog = () => navigation.navigate('IntegrationCatalog');
   const openDetails = (connection: CourierConnection) => navigation.navigate('CourierConnectionDetails', { connectionId: connection.id });
+  const openConfigure = (connection: CourierConnection) => navigation.navigate('CourierConnectionConfigure', { connectionId: connection.id });
   const confirmDisconnect = (connection: CourierConnection) => {
     Alert.alert('Disconnect courier?', `Disconnect ${connection.displayName} from this workspace?`, [
       { text: 'Cancel', style: 'cancel' },
@@ -108,7 +109,7 @@ export function IntegrationsScreen() {
                 </Pressable>
                 <View style={[styles.connectedActions, { borderTopColor: colors.cardBorder }]}>
                   <AppButton label="Disconnect" icon={Trash2} variant="destructive" loading={disconnectingId === connection.id} disabled={!canManage || (disconnectingId !== null && disconnectingId !== connection.id)} onPress={() => confirmDisconnect(connection)} style={styles.connectionAction} />
-                  <AppButton label="Configure" icon={Settings2} variant="ghost" disabled={!canManage} onPress={() => openDetails(connection)} style={styles.connectionAction} />
+                  <AppButton label="Configure" icon={Settings2} variant="ghost" disabled={!canManage} onPress={() => openConfigure(connection)} style={styles.connectionAction} />
                 </View>
               </AppCard>
             ))}
