@@ -145,8 +145,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
   const whatsappOrder = useMemo(() => getWhatsappOrder(message), [message]);
   const canCreateOrderFromMessage = Boolean(
     onCreateOrderFromMessage &&
-    (message.orderConfirmation?.eligible || message.metadata?.orderConfirmation?.eligible) &&
-    !whatsappOrder,
+    (message.orderConfirmation?.eligible || message.metadata?.orderConfirmation?.eligible || whatsappOrder),
   );
   const body = (message.text ?? '').trim();
   const isLocationFallbackText = isLocationFallbackBody(body, whatsappLocation);

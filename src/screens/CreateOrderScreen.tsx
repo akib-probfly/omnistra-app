@@ -37,13 +37,59 @@ function productVariantLabel(variant: ProductVariant) {
   return variant.attributes.map((attribute) => `${attribute.attributeName}: ${attribute.value}`).join(' · ');
 }
 
+const BENGALI_LOCATION_ALIASES: ReadonlyArray<readonly [string, string]> = [
+  ['\u09B2\u0995\u09CD\u09B7\u09CD\u09AE\u09C0\u09AA\u09C1\u09B0', 'lakshmipur'],
+  ['\u099A\u099F\u09CD\u099F\u0997\u09CD\u09B0\u09BE\u09AE', 'chattogram'],
+  ['\u099A\u09BF\u099F\u09BE\u0997\u09BE\u0982', 'chittagong'],
+  ['\u09A2\u09BE\u0995\u09BE \u09B6\u09B9\u09B0', 'dhaka city'],
+  ['\u09A2\u09BE\u0995\u09BE', 'dhaka'],
+  ['\u09A8\u09BE\u09B0\u09BE\u09AF\u09BC\u09A3\u0997\u099E\u09CD\u099C', 'narayanganj'],
+  ['\u0997\u09BE\u099C\u09C0\u09AA\u09C1\u09B0', 'gazipur'],
+  ['\u0995\u09C1\u09AE\u09BF\u09B2\u09CD\u09B2\u09BE', 'cumilla'],
+  ['\u09B8\u09BF\u09B2\u09C7\u099F', 'sylhet'],
+  ['\u0996\u09C1\u09B2\u09A8\u09BE', 'khulna'],
+  ['\u09B0\u09BE\u099C\u09B6\u09BE\u09B9\u09C0', 'rajshahi'],
+  ['\u09AC\u09B0\u09BF\u09B6\u09BE\u09B2', 'barishal'],
+  ['\u09AE\u09AF\u09BC\u09AE\u09A8\u09B8\u09BF\u0982\u09B9', 'mymensingh'],
+  ['\u09B0\u0982\u09AA\u09C1\u09B0', 'rangpur'],
+  ['\u09AC\u0997\u09C1\u09DC\u09BE', 'bogura'],
+  ['\u0995\u09C1\u09B7\u09CD\u099F\u09BF\u09AF\u09BC\u09BE', 'kushtia'],
+  ['\u09AF\u09B6\u09CB\u09B0', 'jashore'],
+  ['\u09AB\u09C7\u09A8\u09C0', 'feni'],
+];
+
+const BENGALI_LETTERS: Record<number, string> = {
+  0x0985: 'a', 0x0986: 'a', 0x0987: 'i', 0x0988: 'i', 0x0989: 'u', 0x098A: 'u', 0x098B: 'ri', 0x098F: 'e', 0x0990: 'oi', 0x0993: 'o', 0x0994: 'ou',
+  0x0995: 'k', 0x0996: 'kh', 0x0997: 'g', 0x0998: 'gh', 0x0999: 'ng', 0x099A: 'ch', 0x099B: 'chh', 0x099C: 'j', 0x099D: 'jh', 0x099E: 'n', 0x099F: 't', 0x09A0: 'th', 0x09A1: 'd', 0x09A2: 'dh', 0x09A3: 'n', 0x09A4: 't', 0x09A5: 'th', 0x09A6: 'd', 0x09A7: 'dh', 0x09A8: 'n', 0x09AA: 'p', 0x09AB: 'f', 0x09AC: 'b', 0x09AD: 'bh', 0x09AE: 'm', 0x09AF: 'y', 0x09B0: 'r', 0x09B2: 'l', 0x09B6: 'sh', 0x09B7: 'sh', 0x09B8: 's', 0x09B9: 'h',
+  0x09BE: 'a', 0x09BF: 'i', 0x09C0: 'i', 0x09C1: 'u', 0x09C2: 'u', 0x09C3: 'ri', 0x09C7: 'e', 0x09C8: 'oi', 0x09CB: 'o', 0x09CC: 'ou', 0x09CE: 't', 0x09DC: 'r', 0x09DD: 'rh', 0x09DF: 'y', 0x09E0: 'ri', 0x09E1: 'ri', 0x09E6: '0', 0x09E7: '1', 0x09E8: '2', 0x09E9: '3', 0x09EA: '4', 0x09EB: '5', 0x09EC: '6', 0x09ED: '7', 0x09EE: '8', 0x09EF: '9',
+};
+
+function normalizeLocation(value: string) {
+  let normalized = value;
+  for (const [source, alias] of BENGALI_LOCATION_ALIASES) normalized = normalized.split(source).join(alias);
+  const characters = Array.from(normalized);
+  let transliterated = '';
+  characters.forEach((character, index) => {
+    const code = character.codePointAt(0)!;
+    if (code === 0x09CD || code === 0x200C || code === 0x200D) return;
+    const letter = BENGALI_LETTERS[code];
+    if (!letter) { transliterated += character; return; }
+    transliterated += letter;
+    const isConsonant = code >= 0x0995 && code <= 0x09B9 && code !== 0x09B1 && code !== 0x09B3 && code !== 0x09B5;
+    const next = characters[index + 1]?.codePointAt(0);
+    const hasVowelSign = next !== undefined && next >= 0x09BE && next <= 0x09CC;
+    if (isConsonant && !hasVowelSign && next !== 0x09CD) transliterated += 'a';
+  });
+  return transliterated.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 function findCityInAddress(address: string, cities: OrderLocationOption[]) {
-  const normalizedAddress = address.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
-  const segments = address.split(/[\n,]+/).map((segment) => segment.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim());
+  const normalizedAddress = normalizeLocation(address);
+  const segments = address.split(/[\n,]+/).map(normalizeLocation);
   return cities
-    .map((city) => ({ city, normalizedName: city.name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim() }))
+    .map((city) => ({ city, normalizedName: normalizeLocation(city.name), position: normalizedAddress.indexOf(normalizeLocation(city.name)) }))
     .filter(({ normalizedName }) => normalizedName.length >= 2 && normalizedAddress.includes(normalizedName))
-    .sort((left, right) => Number(segments.includes(right.normalizedName)) - Number(segments.includes(left.normalizedName)) || right.normalizedName.length - left.normalizedName.length)[0]?.city ?? null;
+    .sort((left, right) => Number(segments.includes(right.normalizedName)) - Number(segments.includes(left.normalizedName)) || left.position - right.position || right.normalizedName.length - left.normalizedName.length)[0]?.city ?? null;
 }
 
 function formatMoney(valueMinor: number, currency: string) {
