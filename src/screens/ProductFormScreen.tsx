@@ -321,10 +321,16 @@ export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: bo
           <View style={styles.fields}>
             <View style={styles.sectionIntro}><AppText variant="section">Product information</AppText><AppText variant="small" tone="secondary">Name, SKU and category</AppText></View>
             {!editing && form.name.trim() ? <Text style={[styles.draftStatus, { color: draftStatus === 'error' ? colors.error : draftStatus === 'saved' ? colors.success : colors.textSecondary }]}>{draftStatus === 'saving' ? 'Saving draft…' : draftStatus === 'saved' ? 'Draft saved · Nothing is published until you create the product.' : draftStatus === 'error' ? 'Draft could not be saved · Your current changes are still here.' : 'Draft mode · Your progress saves automatically.'}</Text> : null}
-            <AppTextField label="Product name *" value={form.name} onChangeText={updateField('name')} placeholder="e.g. Blue T-shirt" error={fieldErrors.name} />
-            <View style={styles.skuRow}><AppTextField label="Base SKU *" value={form.sku} onChangeText={updateField('sku')} placeholder="e.g. SHIRT-001" error={fieldErrors.sku} style={styles.skuInput} /><Pressable onPress={() => { setForm((current) => ({ ...current, sku: generateProductSku() })); setFieldErrors((current) => ({ ...current, sku: undefined })); }} style={[styles.skuGenerateButton, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} accessibilityRole="button" accessibilityLabel="Generate a new SKU"><RefreshCw color={colors.primary} size={18} /></Pressable></View>
-            <AppTextField label="Category *" value={form.category} onChangeText={(value) => { setForm((current) => ({ ...current, category: value, categoryId: categoriesQuery.data?.items.find((item) => item.name.toLowerCase() === value.trim().toLowerCase())?.id ?? '' })); setFieldErrors((current) => ({ ...current, categoryId: undefined })); }} placeholder="Select or create a category" error={fieldErrors.categoryId} />
-            {(categoriesQuery.data?.items ?? []).length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryList}>{categoriesQuery.data?.items.map((category) => <Pressable key={category.id} onPress={() => { setForm((current) => ({ ...current, category: category.name, categoryId: category.id })); setFieldErrors((current) => ({ ...current, categoryId: undefined })); }} style={[styles.categoryChip, { borderColor: form.categoryId === category.id ? colors.primary : colors.cardBorder, backgroundColor: form.categoryId === category.id ? colors.primarySoft : colors.surface }]}><Text style={{ color: colors.text }}>{category.name}</Text></Pressable>)}</ScrollView> : null}
+            <AppTextField label="Product name" required value={form.name} onChangeText={updateField('name')} placeholder="e.g. Blue T-shirt" error={fieldErrors.name} />
+            <View style={styles.skuRow}><AppTextField label="Base SKU" required value={form.sku} onChangeText={updateField('sku')} placeholder="e.g. SHIRT-001" error={fieldErrors.sku} style={styles.skuInput} /><Pressable onPress={() => { setForm((current) => ({ ...current, sku: generateProductSku() })); setFieldErrors((current) => ({ ...current, sku: undefined })); }} style={[styles.skuGenerateButton, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]} accessibilityRole="button" accessibilityLabel="Generate a new SKU"><RefreshCw color={colors.primary} size={18} /></Pressable></View>
+            <View style={styles.categoryPicker}>
+              <Text style={[styles.categoryLabel, { color: colors.textSecondary }]}>Category <Text style={{ color: colors.error }}>*</Text></Text>
+              {form.categoryId ? <View style={[styles.selectedCategory, { borderColor: colors.inputBorder, backgroundColor: colors.surface }]}>
+                <View style={styles.selectedCategoryCopy}><View style={[styles.categoryDot, { backgroundColor: colors.textMuted }]} /><Text numberOfLines={1} style={[styles.selectedCategoryName, { color: colors.text }]}>{form.category}</Text></View>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${form.category} category`} onPress={() => { setForm((current) => ({ ...current, category: '', categoryId: '' })); setFieldErrors((current) => ({ ...current, categoryId: undefined })); }} style={styles.clearCategory}><X color={colors.textMuted} size={17} /></Pressable>
+              </View> : <AppTextField value={form.category} onChangeText={(value) => { setForm((current) => ({ ...current, category: value, categoryId: categoriesQuery.data?.items.find((item) => item.name.toLowerCase() === value.trim().toLowerCase())?.id ?? '' })); setFieldErrors((current) => ({ ...current, categoryId: undefined })); }} placeholder="Select or create a category" error={fieldErrors.categoryId} />}
+            </View>
+            {(categoriesQuery.data?.items ?? []).length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryList}>{categoriesQuery.data?.items.map((category) => <Pressable key={category.id} onPress={() => { setForm((current) => ({ ...current, category: category.name, categoryId: category.id })); setFieldErrors((current) => ({ ...current, categoryId: undefined })); }} style={[styles.categoryChip, { borderColor: form.categoryId === category.id ? colors.primary : colors.cardBorder, backgroundColor: form.categoryId === category.id ? colors.primarySoft : colors.surface }]}><View style={[styles.categoryDot, { backgroundColor: form.categoryId === category.id ? colors.primary : colors.textMuted }]} /><Text style={[styles.categoryChipText, { color: form.categoryId === category.id ? colors.primary : colors.text }]}>{category.name}</Text></Pressable>)}</ScrollView> : null}
             <View style={styles.categoryAdd}><AppTextField label="Add a category" value={newCategory} onChangeText={(value) => { setNewCategory(value); setCategoryError(null); }} placeholder="Category name" style={styles.categoryField} returnKeyType="done" onSubmitEditing={() => void addCategory()} /><Pressable onPress={() => void addCategory()} disabled={!newCategory.trim() || categoryCreating} style={[styles.categoryAddButton, { backgroundColor: colors.primary, opacity: !newCategory.trim() || categoryCreating ? 0.55 : 1 }]} accessibilityRole="button" accessibilityLabel="Add product category" accessibilityState={{ disabled: !newCategory.trim() || categoryCreating }}>{categoryCreating ? <ActivityIndicator color={colors.primaryText} size="small" /> : <><Plus color={colors.primaryText} size={17} /><Text style={[styles.categoryAddButtonText, { color: colors.primaryText }]}>{categoryCreating ? 'Adding' : 'Add'}</Text></>}</Pressable></View>
             {categoryError ? <Text style={[styles.categoryError, { color: colors.error }]}>{categoryError}</Text> : null}
           </View>
@@ -333,11 +339,11 @@ export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: bo
           <View style={styles.fields}>
             <View style={styles.sectionIntro}><AppText variant="section">Pricing and shipping</AppText><AppText variant="small" tone="secondary">Set your prices and product measurements</AppText></View>
             <View style={styles.priceRow}>
-              <AppTextField label="Currency *" value={form.currency} onChangeText={updateField('currency')} placeholder="BDT" autoCapitalize="characters" error={fieldErrors.currency} style={styles.currencyField} />
-              <AppTextField label="Base price *" value={form.price} onChangeText={updateField('price')} placeholder="0.00" keyboardType="decimal-pad" error={fieldErrors.price} style={styles.priceField} />
+              <AppTextField label="Currency" required value={form.currency} onChangeText={updateField('currency')} placeholder="BDT" autoCapitalize="characters" error={fieldErrors.currency} style={styles.currencyField} />
+              <AppTextField label="Base price" required value={form.price} onChangeText={updateField('price')} placeholder="0.00" keyboardType="decimal-pad" error={fieldErrors.price} style={styles.priceField} />
             </View>
             <AppTextField label="Sale price" value={form.salePrice} onChangeText={updateField('salePrice')} placeholder="Optional sale price" keyboardType="decimal-pad" error={fieldErrors.salePrice} />
-            <AppTextField label="Weight (kg) *" value={form.weight} onChangeText={updateField('weight')} placeholder="0.05" keyboardType="decimal-pad" error={fieldErrors.weight} />
+            <AppTextField label="Weight (kg)" required value={form.weight} onChangeText={updateField('weight')} placeholder="0.05" keyboardType="decimal-pad" error={fieldErrors.weight} />
             <View style={styles.dimensionRow}>
               <AppTextField label="Length (cm)" value={form.dimensionL} onChangeText={updateField('dimensionL')} placeholder="L" keyboardType="decimal-pad" style={styles.dimensionField} />
               <AppTextField label="Width (cm)" value={form.dimensionW} onChangeText={updateField('dimensionW')} placeholder="W" keyboardType="decimal-pad" style={styles.dimensionField} />
@@ -349,7 +355,7 @@ export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: bo
           <View style={styles.fields}>
             <View style={styles.sectionIntro}><AppText variant="section">Inventory and details</AppText><AppText variant="small" tone="secondary">Manage stock and add more product information</AppText></View>
             <View style={styles.stockRow}>
-              <AppTextField label="Initial stock *" value={form.inventory} onChangeText={updateField('inventory')} placeholder="1" keyboardType="numeric" error={fieldErrors.inventory} style={styles.stockField} />
+              <AppTextField label="Initial stock" required value={form.inventory} onChangeText={updateField('inventory')} placeholder="1" keyboardType="numeric" error={fieldErrors.inventory} style={styles.stockField} />
               <AppTextField label="Stock alert" value={form.stockAlert} onChangeText={updateField('stockAlert')} placeholder="10" keyboardType="numeric" error={fieldErrors.stockAlert} style={styles.stockField} />
             </View>
             <AppTextField label="Description" value={form.description} onChangeText={updateField('description')} placeholder="Describe this product" multiline numberOfLines={5} />
@@ -357,13 +363,15 @@ export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: bo
               <View style={styles.variantHeading}><View style={styles.variantHeadingCopy}><Layers3 color={colors.primary} size={18} /><Text style={[styles.variantTitle, { color: colors.text }]}>Variants</Text></View><View style={[styles.variantMode, { backgroundColor: colors.surfaceSecondary }]}><Pressable onPress={() => setForm((current) => ({ ...current, hasVariants: false }))} style={[styles.variantModeButton, !form.hasVariants && { backgroundColor: colors.surface }]}><Text style={[styles.variantModeLabel, { color: !form.hasVariants ? colors.text : colors.textSecondary }]}>Simple</Text></Pressable><Pressable onPress={() => setForm((current) => ({ ...current, hasVariants: true }))} style={[styles.variantModeButton, form.hasVariants && { backgroundColor: colors.primarySoft }]}><Text style={[styles.variantModeLabel, { color: form.hasVariants ? colors.primary : colors.textSecondary }]}>Variants</Text></Pressable></View></View>
               {form.hasVariants ? <>
               {form.attributes.map((attribute, index) => (
-                <View key={`${index}-${attribute.name}`} style={styles.attributeRow}>
-                  <AppTextField label="Attribute" value={attribute.name} onChangeText={(value) => setForm((current) => ({ ...current, attributes: current.attributes.map((item, itemIndex) => itemIndex === index ? { ...item, name: value } : item) }))} placeholder="Size" style={styles.attributeField} />
-                  <AppTextField label="Values" value={attribute.values} onChangeText={(value) => setForm((current) => ({ ...current, attributes: current.attributes.map((item, itemIndex) => itemIndex === index ? { ...item, values: value } : item) }))} placeholder="S, M, L" style={styles.attributeField} />
-                  <Pressable onPress={() => setForm((current) => ({ ...current, attributes: current.attributes.filter((_, itemIndex) => itemIndex !== index) }))} hitSlop={8}><X color={colors.error} size={18} /></Pressable>
+                <View key={`${index}-${attribute.name}`} style={[styles.attributeCard, { borderColor: colors.primary + '55', backgroundColor: colors.surfaceSecondary }]}>
+                  <View style={styles.attributeRow}>
+                    <AppTextField label="Attribute" value={attribute.name} onChangeText={(value) => setForm((current) => ({ ...current, attributes: current.attributes.map((item, itemIndex) => itemIndex === index ? { ...item, name: value } : item) }))} placeholder="Size" style={styles.attributeField} />
+                    <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${attribute.name || 'attribute'}`} onPress={() => setForm((current) => ({ ...current, attributes: current.attributes.filter((_, itemIndex) => itemIndex !== index) }))} style={[styles.removeAttributeButton, { borderColor: colors.error + '55', backgroundColor: colors.surface }]} hitSlop={6}><X color={colors.error} size={18} /></Pressable>
+                  </View>
+                  <AppTextField label="Values" value={attribute.values} onChangeText={(value) => setForm((current) => ({ ...current, attributes: current.attributes.map((item, itemIndex) => itemIndex === index ? { ...item, values: value } : item) }))} placeholder="S, M, L" />
                 </View>
               ))}
-              <AppButton variant="secondary" icon={Plus} label="Add attribute" onPress={() => setForm((current) => ({ ...current, attributes: [...current.attributes, { name: '', values: '' }] }))} />
+              <Pressable accessibilityRole="button" onPress={() => setForm((current) => ({ ...current, attributes: [...current.attributes, { name: '', values: '' }] }))} style={[styles.addAttributeButton, { borderColor: colors.primary + '88', backgroundColor: colors.surface }]}><Plus color={colors.primary} size={17} /><Text style={[styles.addAttributeText, { color: colors.primary }]}>Add attribute</Text></Pressable>
               {fieldErrors.attributes ? <Text style={[styles.variantError, { color: colors.error }]}>{fieldErrors.attributes}</Text> : null}
               {generatedVariants.length ? <>
                 <View style={[styles.variantPreview, { backgroundColor: colors.surfaceSecondary }]}><Text style={[styles.variantPreviewTitle, { color: colors.text }]}>{generatedVariants.length} variant{generatedVariants.length === 1 ? '' : 's'} generated · edit SKU, price, stock, and weight below</Text></View>
@@ -444,8 +452,16 @@ const styles = StyleSheet.create({
   dimensionRow: { flexDirection: 'row', gap: spacing.sm },
   dimensionField: { flex: 1 },
   variantSection: { gap: spacing.sm },
-  categoryList: { gap: spacing.sm },
-  categoryChip: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
+  categoryPicker: { gap: spacing.xs },
+  categoryLabel: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
+  selectedCategory: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', height: 44, justifyContent: 'space-between', paddingLeft: spacing.md, paddingRight: spacing.xs },
+  selectedCategoryCopy: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: spacing.sm, minWidth: 0 },
+  selectedCategoryName: { flex: 1, fontSize: fontSize.small, fontWeight: fontWeight.medium },
+  categoryDot: { borderRadius: radius.pill, height: 8, width: 8 },
+  clearCategory: { alignItems: 'center', borderRadius: radius.sm, height: 32, justifyContent: 'center', width: 32 },
+  categoryList: { gap: spacing.sm, paddingVertical: 2 },
+  categoryChip: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.xs, paddingHorizontal: 12, paddingVertical: 8 },
+  categoryChipText: { fontSize: fontSize.tiny, fontWeight: fontWeight.medium },
   categoryAdd: { alignItems: 'flex-end', flexDirection: 'row', gap: spacing.sm },
   categoryAddButton: { alignItems: 'center', borderRadius: radius.md, flexDirection: 'row', gap: spacing.xs, height: 48, justifyContent: 'center', marginBottom: 3, minWidth: 78, paddingHorizontal: spacing.md },
   categoryAddButtonText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
@@ -483,8 +499,12 @@ const styles = StyleSheet.create({
   variantStatusText: { fontSize: fontSize.tiny, fontWeight: fontWeight.medium },
   variantError: { fontSize: fontSize.small },
   simpleProductHint: { fontSize: fontSize.small },
+  attributeCard: { borderRadius: radius.md, borderWidth: 1, gap: spacing.sm, padding: spacing.md },
   attributeRow: { alignItems: 'flex-end', flexDirection: 'row', gap: spacing.sm },
   attributeField: { flex: 1 },
+  removeAttributeButton: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, height: 44, justifyContent: 'center', marginBottom: spacing.xs, width: 44 },
+  addAttributeButton: { alignItems: 'center', alignSelf: 'flex-start', borderRadius: radius.md, borderStyle: 'dashed', borderWidth: 1, flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  addAttributeText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
   productStatus: { gap: spacing.xs },
   statusLabel: { fontSize: fontSize.small, fontWeight: fontWeight.bold },
   statusControl: { alignSelf: 'flex-start', borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', gap: 4, padding: 4 },

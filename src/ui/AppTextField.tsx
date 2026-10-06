@@ -21,6 +21,7 @@ type Props = Pick<
   | 'returnKeyType'
 > & {
   label?: string;
+  required?: boolean;
   icon?: LucideIcon;
   /** Trailing affordance rendered inside the box, e.g. a password eye-toggle. */
   trailing?: ReactNode;
@@ -38,6 +39,7 @@ type Props = Pick<
  */
 export function AppTextField({
   label,
+  required = false,
   icon: Icon,
   trailing,
   error,
@@ -49,7 +51,7 @@ export function AppTextField({
 
   return (
     <View style={style}>
-      {label ? <Text style={[styles.label, { color: colors.textSecondary }]}>{label}</Text> : null}
+      {label ? <Text style={[styles.label, { color: colors.textSecondary }]}>{label}{required ? <Text style={{ color: colors.error }}> *</Text> : null}</Text> : null}
       <View
         style={[
           styles.box,
