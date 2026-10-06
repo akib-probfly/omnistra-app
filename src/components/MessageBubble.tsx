@@ -1,5 +1,5 @@
 import * as Clipboard from 'expo-clipboard';
-import { Check, CheckCheck, FileText, ExternalLink, ChevronDown, ChevronUp, Megaphone, Sparkles, Image as ImageIcon, Video, Mic, MapPin, ContactRound, Copy, Phone, Mail, Building2 } from 'lucide-react-native';
+import { Check, CheckCheck, FileText, ExternalLink, ChevronDown, ChevronUp, Megaphone, Sparkles, Image as ImageIcon, Video, Mic, MapPin, ContactRound, Copy, Phone, Mail, Building2, PackagePlus } from 'lucide-react-native';
 import { useEffect, useState, useMemo } from 'react';
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
@@ -143,6 +143,11 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
   const whatsappLocation = useMemo(() => getWhatsappLocation(message), [message]);
   const whatsappContacts = useMemo(() => getWhatsappContacts(message), [message]);
   const whatsappOrder = useMemo(() => getWhatsappOrder(message), [message]);
+  const canCreateOrderFromMessage = Boolean(
+    onCreateOrderFromMessage &&
+    (message.orderConfirmation?.eligible || message.metadata?.orderConfirmation?.eligible) &&
+    !whatsappOrder,
+  );
   const body = (message.text ?? '').trim();
   const isLocationFallbackText = isLocationFallbackBody(body, whatsappLocation);
   const isTikTokUnsupportedInboundVoice =
@@ -246,6 +251,9 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
 
   return (
     <View style={[styles.wrap, outgoing && styles.wrapOutgoing, hasReactions && styles.wrapWithReactions]}>
+      {canCreateOrderFromMessage ? <Pressable onPress={() => onCreateOrderFromMessage(message)} disabled={creatingOrderDraft} style={[styles.createOrderFromMessage, { backgroundColor: colors.surface, borderColor: colors.cardBorder, opacity: creatingOrderDraft ? 0.65 : 1 }]} accessibilityRole="button" accessibilityLabel="Create order from message" accessibilityState={{ disabled: creatingOrderDraft }}>
+        {creatingOrderDraft ? <ActivityIndicator color={colors.primary} size="small" /> : <PackagePlus color={colors.primary} size={17} />}
+      </Pressable> : null}
       <Pressable onLongPress={onLongPress} delayLongPress={350}>
         <View style={[
           styles.bubble,
@@ -807,7 +815,8 @@ const styles = StyleSheet.create({
   systemText: { color: '#475569', fontSize: 12, fontWeight: '500' },
   systemTextMissed: { color: '#d97706' },
   systemTime: { color: '#94a3b8', fontSize: 11 },
-  wrap: { alignSelf: 'flex-start', maxWidth: '82%', minWidth: 0 },
+  wrap: { alignSelf: 'flex-start', maxWidth: '82%', minWidth: 0, position: 'relative' },
+  createOrderFromMessage: { alignItems: 'center', borderRadius: 18, borderWidth: 1, height: 36, justifyContent: 'center', left: -42, position: 'absolute', top: '50%', transform: [{ translateY: -18 }], width: 36, zIndex: 5, shadowColor: '#2563eb', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 6, elevation: 3 },
   wrapOutgoing: { alignSelf: 'flex-end' },
   wrapWithReactions: { marginBottom: 8 },
   bubble: {
