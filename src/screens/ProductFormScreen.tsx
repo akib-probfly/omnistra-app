@@ -18,7 +18,7 @@ import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
 import { useWorkspaceAccess } from '../lib/workspace-access';
 import { sanitizeMoneyInput } from '../lib/numeric-input';
-import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
+import { fontSize, fontWeight, inputHeightDense, radius, spacing } from '../theme/tokens';
 import { AppButton, AppCard, AppText, AppTextField, ScreenHeader } from '../ui';
 
 type FormState = {
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
   categoryChip: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.xs, paddingHorizontal: 12, paddingVertical: 8 },
   categoryChipText: { fontSize: fontSize.tiny, fontWeight: fontWeight.medium },
   categoryAdd: { alignItems: 'flex-end', flexDirection: 'row', gap: spacing.sm },
-  categoryAddButton: { alignItems: 'center', borderRadius: radius.md, flexDirection: 'row', gap: spacing.xs, height: 48, justifyContent: 'center', marginBottom: 3, minWidth: 78, paddingHorizontal: spacing.md },
+  categoryAddButton: { alignItems: 'center', borderRadius: radius.md, flexDirection: 'row', gap: spacing.xs, height: inputHeightDense, justifyContent: 'center', minWidth: 78, paddingHorizontal: spacing.md },
   categoryAddButtonText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
   categoryError: { fontSize: fontSize.small, lineHeight: 17 },
   skuRow: { alignItems: 'flex-end', flexDirection: 'row', gap: spacing.sm },
