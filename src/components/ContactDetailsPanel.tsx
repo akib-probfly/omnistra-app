@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import { Ban, Check, ChevronDown, ChevronUp, Copy, File, FileText, Film, Music, Pencil, Plus, RotateCcw, Sparkles } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { apiUrl, isApiErrorWithStatus } from '../api/client';
 import { attachConversationTag, banCrmContact, createConversationNote, createConversationTag, deleteConversationNote, detachConversationTag, fetchConversationAttachments, fetchConversationNotes, fetchConversationTags, fetchWorkspaceTags, unbanCrmContact, updateConversationNote, updateCrmContact, type ConversationAttachment, type ConversationTag } from '../api/conversationDetails';
 import { AuthenticatedImage } from './AuthenticatedImage';
@@ -420,14 +420,14 @@ export function ContactDetailsPanel({ visible, onClose, conversation, isUpdating
                       ))}
                     </View>
                   </View>
-                  <View style={styles.suggestedTags}>
-                    {workspaceTags.filter((tag) => !conversationTagIds.has(tag.id)).slice(0, 12).map((tag) => (
+                  <ScrollView style={styles.suggestedTagsScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator contentContainerStyle={styles.suggestedTags}>
+                    {workspaceTags.filter((tag) => !conversationTagIds.has(tag.id)).map((tag) => (
                       <Pressable key={tag.id} onPress={() => handleAttach(tag)} style={[styles.suggestChip, { borderColor: tag.color ?? colors.cardBorder }]}>
                         <Plus color={tag.color ?? colors.textSecondary} size={12} />
                         <Text style={[styles.suggestChipText, { color: colors.textSecondary }]}>{tag.text}</Text>
                       </Pressable>
                     ))}
-                  </View>
+                  </ScrollView>
                   {tagInput.trim().length > 0 && !workspaceTags.some((tag) => tag.text.toLowerCase() === tagInput.trim().toLowerCase()) ? (
                     <Pressable onPress={() => createTagMutation.mutate()} style={[styles.createTagBtn, { backgroundColor: colors.primary }]}>
                       {createTagMutation.isPending ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.createTagText}>Create tag "{tagInput.trim()}"</Text>}
@@ -615,7 +615,8 @@ const styles = StyleSheet.create({
   colorRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
   colorDot: { borderRadius: 10, height: 22, width: 22 },
   colorDotActive: { borderColor: '#0f172a', borderWidth: 2 },
-  suggestedTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  suggestedTagsScroll: { maxHeight: 220, marginTop: 12 },
+  suggestedTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   suggestChip: { alignItems: 'center', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 5, paddingHorizontal: 10, paddingVertical: 6 },
   suggestChipText: { color: '#334155', fontSize: 12, fontWeight: '600' },
   createTagBtn: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 12, height: 40, justifyContent: 'center', marginTop: 12 },
