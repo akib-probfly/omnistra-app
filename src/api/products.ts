@@ -24,6 +24,12 @@ export type ProductVariant = {
   }>;
 };
 
+export type ProductVariationAttribute = {
+  id: string;
+  name: string;
+  values: Array<{ id: string; value: string }>;
+};
+
 export type ProductResponse = {
   id: string;
   workspaceId: string;
@@ -110,6 +116,10 @@ export async function listProducts(params?: {
 
 export function fetchProduct(productId: string) {
   return apiFetch<ProductResponse>(`/products/${productId}`);
+}
+
+export function fetchProductVariationAttributes() {
+  return apiFetch<ProductVariationAttribute[]>('/products/attributes');
 }
 
 export function createProduct(input: ProductInput) {

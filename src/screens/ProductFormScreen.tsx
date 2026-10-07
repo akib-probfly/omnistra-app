@@ -1,12 +1,12 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
-import { Check, ImagePlus, Info, Layers3, Plus, RefreshCw, Save, Store, X } from 'lucide-react-native';
+import { Check, ImagePlus, Info, Layers3, Plus, RefreshCw, Save, Sparkles, Store, Trash2, X } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { createProduct, createProductDraft, fetchProduct, finalizeProductDraft, updateProduct, updateProductDraft, type ProductInput, type ProductResponse } from '../api/products';
+import { createProduct, createProductDraft, fetchProduct, fetchProductVariationAttributes, finalizeProductDraft, updateProduct, updateProductDraft, type ProductInput, type ProductResponse } from '../api/products';
 import { fetchChannels, fetchWhatsappProductCatalog } from '../api/channels';
 import { createProductCategory, fetchProductCategories } from '../api/productCategories';
 import { uploadFile } from '../api/client';
@@ -48,6 +48,9 @@ const EMPTY_FORM: FormState = {
   name: '', sku: '', category: '', categoryId: '', price: '', salePrice: '', inventory: '1', stockAlert: '10', description: '', currency: 'BDT', weight: '0.05', dimensionL: '', dimensionW: '', dimensionH: '', isActive: true, hasVariants: false, attributes: [], variantOverrides: {},
 };
 
+const QUICK_VARIATION_ATTRIBUTES = ['SCENT', 'COLOR', 'CONCENTRATION'];
+const MAX_PRODUCT_VARIANTS = 500;
+
 function variantKey(attributes: Array<{ name: string; value: string }>) {
   return attributes.map(({ name, value }) => `${name.trim().toLowerCase()}=${value.trim()}`).join('|');
 }
@@ -62,7 +65,7 @@ function buildProductVariants(form: FormState) {
   const attributes = form.attributes.map(({ name, values }) => ({ name: name.trim(), values: [...new Set(values.split(',').map((value) => value.trim()).filter(Boolean))] })).filter(({ name, values }) => name && values.length);
   if (!attributes.length) return [];
   const combinations = attributes.reduce<Array<Array<{ name: string; value: string }>>>((rows, attribute) => rows.length ? rows.flatMap((row) => attribute.values.map((value) => [...row, { name: attribute.name, value }])) : attribute.values.map((value) => [{ name: attribute.name, value }]), []);
-  return combinations.slice(0, 500).map((combination) => {
+  return combinations.slice(0, MAX_PRODUCT_VARIANTS).map((combination) => {
     const suffix = combination.map(({ value }) => value.trim().replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toUpperCase()).filter(Boolean).join('-');
     const override = form.variantOverrides[variantKey(combination)];
     return { sku: override?.sku || [form.sku.trim(), suffix].filter(Boolean).join('-'), basePrice: override?.price || form.price.trim() || undefined, salePrice: override?.salePrice || form.salePrice.trim() || undefined, stock: override?.stock !== undefined && override.stock !== '' ? Number(override.stock) : Number(form.inventory) || 0, weight: override?.weight || form.weight.trim() || undefined, isActive: override?.isActive ?? true, attributes: combination };
@@ -123,8 +126,11 @@ export function ProductFormScreen() {
   const [images, setImages] = useState<Array<{ uri: string; imageUrl?: string; attachmentId?: string }>>([]);
   const [newCategory, setNewCategory] = useState('');
   const [selectedCatalogs, setSelectedCatalogs] = useState<Array<{ channelId: string; catalogId: string }>>([]);
+  const [bulkVariantValues, setBulkVariantValues] = useState({ price: '', salePrice: '', stock: '', weight: '' });
+  const [variantValueDrafts, setVariantValueDrafts] = useState<Record<string, string>>({});
   const channelsQuery = useQuery({ queryKey: ['channels'], queryFn: fetchChannels });
   const categoriesQuery = useQuery({ queryKey: ['product-categories'], queryFn: () => fetchProductCategories(workspace?.id), enabled: Boolean(workspace?.id) });
+  const variationAttributesQuery = useQuery({ queryKey: ['products', 'variation-attributes'], queryFn: fetchProductVariationAttributes, staleTime: 5 * 60 * 1000 });
   const productQuery = useQuery({
     queryKey: ['product', productId],
     queryFn: () => fetchProduct(productId as string),
@@ -297,6 +303,39 @@ export function ProductFormScreen() {
   };
 
   const generatedVariants = buildProductVariants(form);
+  const generatedCombinationCount = form.hasVariants ? form.attributes.reduce((count, attribute) => {
+    const valueCount = [...new Set(attribute.values.split(',').map((value) => value.trim()).filter(Boolean))].length;
+    return count * (attribute.name.trim() && valueCount ? valueCount : 1);
+  }, form.attributes.some((attribute) => attribute.name.trim() && attribute.values.trim()) ? 1 : 0) : 0;
+  const addVariantAttribute = (name = '') => setForm((current) => current.attributes.some((attribute) => name && attribute.name.trim().toLowerCase() === name.toLowerCase()) ? current : { ...current, attributes: [...current.attributes, { name, values: '' }] });
+  const addAttributeValues = (index: number, input: string) => {
+    const incoming = input.split(',').map((value) => value.trim()).filter(Boolean);
+    setForm((current) => ({ ...current, attributes: current.attributes.map((attribute, itemIndex) => {
+      if (itemIndex !== index) return attribute;
+      const existing = attribute.values.split(',').map((value) => value.trim()).filter(Boolean);
+      const values = [...existing];
+      incoming.forEach((value) => { if (!values.some((item) => item.toLowerCase() === value.toLowerCase())) values.push(value); });
+      return { ...attribute, values: values.join(', ') };
+    }) }));
+  };
+  const applyBulkVariantValues = () => {
+    if (!Object.values(bulkVariantValues).some((value) => value.trim())) return;
+    setForm((current) => {
+      const overrides = { ...current.variantOverrides };
+      for (const variant of buildProductVariants(current)) {
+        const key = variantKey(variant.attributes);
+        const existing = overrides[key] ?? { sku: variant.sku ?? '', price: variant.basePrice ?? '', salePrice: variant.salePrice ?? '', stock: String(variant.stock ?? ''), weight: variant.weight ?? '', isActive: variant.isActive ?? true };
+        overrides[key] = {
+          ...existing,
+          ...(bulkVariantValues.price.trim() ? { price: sanitizeMoneyInput(bulkVariantValues.price) } : {}),
+          ...(bulkVariantValues.salePrice.trim() ? { salePrice: sanitizeMoneyInput(bulkVariantValues.salePrice) } : {}),
+          ...(bulkVariantValues.stock.trim() ? { stock: bulkVariantValues.stock.replace(/\D/g, '') } : {}),
+          ...(bulkVariantValues.weight.trim() ? { weight: sanitizeMoneyInput(bulkVariantValues.weight) } : {}),
+        };
+      }
+      return { ...current, variantOverrides: overrides };
+    });
+  };
   if (editing && productQuery.isLoading) return <FormSkeleton fields={7} />;
   if (editing && (productQuery.isError || !productQuery.data)) return <ErrorState message="Could not load product." onRetry={() => productQuery.refetch()} />;
   return (
@@ -363,31 +402,48 @@ export function ProductFormScreen() {
             <View style={styles.variantSection}>
               <View style={styles.variantHeading}><View style={styles.variantHeadingCopy}><Layers3 color={colors.primary} size={18} /><Text style={[styles.variantTitle, { color: colors.text }]}>Variants</Text></View><View style={[styles.variantMode, { backgroundColor: colors.surfaceSecondary }]}><Pressable onPress={() => setForm((current) => ({ ...current, hasVariants: false }))} style={[styles.variantModeButton, !form.hasVariants && { backgroundColor: colors.surface }]}><Text style={[styles.variantModeLabel, { color: !form.hasVariants ? colors.text : colors.textSecondary }]}>Simple</Text></Pressable><Pressable onPress={() => setForm((current) => ({ ...current, hasVariants: true }))} style={[styles.variantModeButton, form.hasVariants && { backgroundColor: colors.primarySoft }]}><Text style={[styles.variantModeLabel, { color: form.hasVariants ? colors.primary : colors.textSecondary }]}>Variants</Text></Pressable></View></View>
               {form.hasVariants ? <>
-              {form.attributes.map((attribute, index) => (
-                <View key={`${index}-${attribute.name}`} style={[styles.attributeCard, { borderColor: colors.primary + '55', backgroundColor: colors.surfaceSecondary }]}>
-                  <View style={styles.attributeRow}>
-                    <AppTextField label="Attribute" value={attribute.name} onChangeText={(value) => setForm((current) => ({ ...current, attributes: current.attributes.map((item, itemIndex) => itemIndex === index ? { ...item, name: value } : item) }))} placeholder="Size" style={styles.attributeField} />
-                    <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${attribute.name || 'attribute'}`} onPress={() => setForm((current) => ({ ...current, attributes: current.attributes.filter((_, itemIndex) => itemIndex !== index) }))} style={[styles.removeAttributeButton, { borderColor: colors.error + '55', backgroundColor: colors.surface }]} hitSlop={6}><X color={colors.error} size={18} /></Pressable>
+              {form.attributes.map((attribute, index) => {
+                const values = attribute.values.split(',').map((value) => value.trim()).filter(Boolean);
+                const attributeDraftKey = `${index}-${attribute.name}`;
+                const suggestedAttribute = variationAttributesQuery.data?.find((item) => item.name.trim().toLowerCase() === attribute.name.trim().toLowerCase());
+                return <View key={index} style={[styles.attributeCard, { borderColor: colors.primary + '55', backgroundColor: colors.surfaceSecondary }]}>
+                  <View style={styles.attributeHeaderRow}>
+                    <AppTextField label="Attribute" value={attribute.name} onChangeText={(value) => setForm((current) => ({ ...current, attributes: current.attributes.map((item, itemIndex) => itemIndex === index ? { ...item, name: value } : item) }))} placeholder="Size" autoCapitalize="words" style={styles.attributeField} />
+                    <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${attribute.name || 'attribute'}`} onPress={() => setForm((current) => ({ ...current, attributes: current.attributes.filter((_, itemIndex) => itemIndex !== index) }))} style={[styles.removeAttributeButton, { borderColor: colors.error + '55', backgroundColor: colors.surface }]} hitSlop={6}><Trash2 color={colors.error} size={17} /></Pressable>
                   </View>
-                  <AppTextField label="Values" value={attribute.values} onChangeText={(value) => setForm((current) => ({ ...current, attributes: current.attributes.map((item, itemIndex) => itemIndex === index ? { ...item, values: value } : item) }))} placeholder="S, M, L" />
-                </View>
-              ))}
-              <Pressable accessibilityRole="button" onPress={() => setForm((current) => ({ ...current, attributes: [...current.attributes, { name: '', values: '' }] }))} style={[styles.addAttributeButton, { borderColor: colors.primary + '88', backgroundColor: colors.surface }]}><Plus color={colors.primary} size={17} /><Text style={[styles.addAttributeText, { color: colors.primary }]}>Add attribute</Text></Pressable>
+                  {attribute.name.trim() ? <ScrollView horizontal keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionRow}>{(variationAttributesQuery.data ?? []).filter((item) => item.name.toLowerCase().includes(attribute.name.trim().toLowerCase())).slice(0, 6).map((item) => <Pressable key={item.id} onPress={() => setForm((current) => ({ ...current, attributes: current.attributes.map((value, itemIndex) => itemIndex === index ? { ...value, name: item.name.toUpperCase() } : value) }))} style={[styles.suggestionChip, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><Text style={[styles.suggestionText, { color: colors.textSecondary }]}>{item.name}</Text></Pressable>)}</ScrollView> : null}
+                  <View style={[styles.valueEntry, { borderColor: colors.cardBorder, backgroundColor: colors.surface }]}>
+                    {values.map((value) => <View key={value} style={[styles.valueChip, { backgroundColor: colors.primarySoft }]}><Text style={[styles.valueChipText, { color: colors.primary }]}>{value}</Text><Pressable onPress={() => setForm((current) => ({ ...current, attributes: current.attributes.map((item, itemIndex) => itemIndex === index ? { ...item, values: values.filter((entry) => entry !== value).join(', ') } : item) }))} accessibilityRole="button" accessibilityLabel={`Remove ${value}`} hitSlop={4}><X color={colors.primary} size={12} /></Pressable></View>)}
+                    <TextInput value={variantValueDrafts[attributeDraftKey] ?? ''} onChangeText={(value) => {
+                      if (value.includes(',')) {
+                        const [committed, ...remaining] = value.split(',');
+                        addAttributeValues(index, committed);
+                        setVariantValueDrafts((current) => ({ ...current, [attributeDraftKey]: remaining.join(',') }));
+                        return;
+                      }
+                      setVariantValueDrafts((current) => ({ ...current, [attributeDraftKey]: value }));
+                    }} onSubmitEditing={() => { addAttributeValues(index, variantValueDrafts[attributeDraftKey] ?? ''); setVariantValueDrafts((current) => ({ ...current, [attributeDraftKey]: '' })); }} placeholder="Type a value and press Enter or comma" placeholderTextColor={colors.textMuted} style={[styles.valueEntryInput, { color: colors.text }]} returnKeyType="done" blurOnSubmit={false} accessibilityLabel={`Values for ${attribute.name || 'attribute'}`} />
+                  </View>
+                  {suggestedAttribute?.values.length ? <ScrollView horizontal keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestionRow}>{suggestedAttribute.values.filter((item) => !values.some((value) => value.toLowerCase() === item.value.toLowerCase())).slice(0, 10).map((item) => <Pressable key={item.id} onPress={() => addAttributeValues(index, item.value)} style={[styles.suggestionChip, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><Text style={[styles.suggestionText, { color: colors.textSecondary }]}>+ {item.value}</Text></Pressable>)}</ScrollView> : null}
+                </View>;
+              })}
+              <View style={styles.quickAttributeRow}><Pressable accessibilityRole="button" onPress={() => addVariantAttribute()} style={[styles.addAttributeButton, { borderColor: colors.primary + '88', backgroundColor: colors.surface }]}><Plus color={colors.primary} size={17} /><Text style={[styles.addAttributeText, { color: colors.primary }]}>Add attribute</Text></Pressable>{QUICK_VARIATION_ATTRIBUTES.map((name) => <Pressable key={name} onPress={() => addVariantAttribute(name)} style={[styles.quickAttributeButton, { borderColor: colors.cardBorder, backgroundColor: colors.surface }]}><Text style={[styles.quickAttributeText, { color: colors.textSecondary }]}>+ {name}</Text></Pressable>)}</View>
               {fieldErrors.attributes ? <Text style={[styles.variantError, { color: colors.error }]}>{fieldErrors.attributes}</Text> : null}
+              {generatedCombinationCount > MAX_PRODUCT_VARIANTS ? <Text style={[styles.variantLimitNotice, { color: colors.warning, backgroundColor: colors.warningSoft }]}>There are {generatedCombinationCount.toLocaleString()} combinations. The first {MAX_PRODUCT_VARIANTS} are shown; reduce values before saving.</Text> : null}
               {generatedVariants.length ? <>
-                <View style={[styles.variantPreview, { backgroundColor: colors.surfaceSecondary }]}><Text style={[styles.variantPreviewTitle, { color: colors.text }]}>{generatedVariants.length} variant{generatedVariants.length === 1 ? '' : 's'} generated · edit SKU, price, stock, and weight below</Text></View>
+                <View style={[styles.variantPreview, { backgroundColor: colors.surfaceSecondary }]}><Text style={[styles.variantPreviewTitle, { color: colors.text }]}>{generatedVariants.length} variant{generatedVariants.length === 1 ? '' : 's'} · Total stock {generatedVariants.reduce((total, variant) => total + (variant.stock ?? 0), 0).toLocaleString()}</Text></View>
+                <View style={[styles.bulkVariantCard, { borderColor: colors.primary + '55', backgroundColor: colors.primarySoft }]}><View style={styles.bulkVariantHeading}><Sparkles color={colors.primary} size={16} /><Text style={[styles.bulkVariantTitle, { color: colors.text }]}>Edit all variants</Text></View><View style={styles.variantValuesRow}>{([['price', 'Apply price'], ['salePrice', 'Apply sale price'], ['stock', 'Apply stock'], ['weight', 'Apply weight']] as const).map(([key, placeholder]) => <TextInput key={key} value={bulkVariantValues[key]} onChangeText={(value) => setBulkVariantValues((current) => ({ ...current, [key]: key === 'stock' ? value.replace(/\D/g, '') : sanitizeMoneyInput(value) }))} placeholder={placeholder} placeholderTextColor={colors.textMuted} keyboardType={key === 'stock' ? 'numeric' : 'decimal-pad'} style={[styles.variantInput, styles.variantValueInput, { borderColor: colors.cardBorder, color: colors.text, backgroundColor: colors.surface }]} accessibilityLabel={placeholder} />)}</View><AppButton label="Apply to all" onPress={applyBulkVariantValues} /></View>
                 {generatedVariants.map((variant) => {
                   const key = variantKey(variant.attributes);
                   const current = form.variantOverrides[key] ?? { sku: variant.sku ?? '', price: variant.basePrice ?? '', salePrice: variant.salePrice ?? '', stock: String(variant.stock ?? ''), weight: variant.weight ?? '', isActive: variant.isActive ?? true };
                   const updateVariant = (field: keyof typeof current, value: string) => setForm((state) => ({ ...state, variantOverrides: { ...state.variantOverrides, [key]: { ...(state.variantOverrides[key] ?? current), [field]: value } } }));
                   return <View key={key} style={[styles.variantItem, { borderColor: colors.cardBorder, backgroundColor: colors.surface }]}>
-                    <Text style={[styles.variantItemName, { color: colors.text }]}>{variant.attributes.map(({ name, value }) => `${name}: ${value}`).join(' · ')}</Text>
+                    <View style={styles.variantItemHeading}><Text style={[styles.variantItemName, { color: colors.text, flex: 1 }]}>{variant.attributes.map(({ name, value }) => `${name}: ${value}`).join(' · ')}</Text><Pressable accessibilityRole="switch" accessibilityState={{ checked: current.isActive }} accessibilityLabel={`Set ${variant.attributes.map(({ value }) => value).join(' ')} ${current.isActive ? 'inactive' : 'active'}`} onPress={() => setForm((state) => ({ ...state, variantOverrides: { ...state.variantOverrides, [key]: { ...(state.variantOverrides[key] ?? current), isActive: !current.isActive } } }))} style={[styles.variantSwitch, { backgroundColor: current.isActive ? colors.primary : colors.textMuted }]}><View style={[styles.variantSwitchThumb, current.isActive ? styles.variantSwitchThumbOn : styles.variantSwitchThumbOff]} /></Pressable></View>
                     <TextInput value={current.sku} onChangeText={(value) => updateVariant('sku', value)} placeholder="Variant SKU" placeholderTextColor={colors.textMuted} style={[styles.variantInput, { borderColor: colors.cardBorder, color: colors.text }]} autoCapitalize="characters" accessibilityLabel="Variant SKU" />
                     <View style={styles.variantValuesRow}>
                       <TextInput value={current.price} onChangeText={(value) => updateVariant('price', sanitizeMoneyInput(value))} placeholder="Base price" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad" inputMode="decimal" style={[styles.variantInput, styles.variantValueInput, { borderColor: colors.cardBorder, color: colors.text }]} accessibilityLabel="Variant base price" />
                       <TextInput value={current.salePrice} onChangeText={(value) => updateVariant('salePrice', sanitizeMoneyInput(value))} placeholder="Sale price" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad" inputMode="decimal" style={[styles.variantInput, styles.variantValueInput, { borderColor: colors.cardBorder, color: colors.text }]} accessibilityLabel="Variant sale price" />
                     </View>
-                    <Pressable onPress={() => setForm((state) => ({ ...state, variantOverrides: { ...state.variantOverrides, [key]: { ...(state.variantOverrides[key] ?? current), isActive: !current.isActive } } }))} style={styles.variantStatusRow}><View style={[styles.variantStatusDot, { backgroundColor: current.isActive ? colors.success : colors.textMuted }]} /><Text style={[styles.variantStatusText, { color: current.isActive ? colors.success : colors.textSecondary }]}>{current.isActive ? 'Variant active' : 'Variant inactive'}</Text></Pressable>
                     <View style={styles.variantValuesRow}>
                       <TextInput value={current.stock} onChangeText={(value) => updateVariant('stock', value)} placeholder="Stock" placeholderTextColor={colors.textMuted} keyboardType="numeric" style={[styles.variantInput, styles.variantValueInput, { borderColor: colors.cardBorder, color: colors.text }]} accessibilityLabel="Variant stock" />
                       <TextInput value={current.weight} onChangeText={(value) => updateVariant('weight', value)} placeholder="Weight (kg)" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad" style={[styles.variantInput, styles.variantValueInput, { borderColor: colors.cardBorder, color: colors.text }]} accessibilityLabel="Variant weight" />
@@ -488,20 +544,36 @@ const styles = StyleSheet.create({
   variantModeLabel: { fontSize: fontSize.tiny, fontWeight: fontWeight.semibold },
   variantPreview: { borderRadius: radius.md, gap: spacing.xs, padding: spacing.md },
   variantPreviewTitle: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
+  bulkVariantCard: { borderRadius: radius.md, borderWidth: 1, gap: spacing.sm, padding: spacing.md },
+  bulkVariantHeading: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs },
+  bulkVariantTitle: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
   variantItem: { borderRadius: radius.md, borderWidth: 1, gap: spacing.sm, padding: spacing.md },
+  variantItemHeading: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   variantItemName: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
   variantValuesRow: { flexDirection: 'row', gap: spacing.sm },
   variantInput: { borderRadius: radius.sm, borderWidth: 1, fontSize: fontSize.small, height: 40, paddingHorizontal: spacing.sm },
   variantValueInput: { flex: 1, minWidth: 0 },
-  variantStatusRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, paddingVertical: spacing.xs },
-  variantStatusDot: { borderRadius: radius.pill, height: 7, width: 7 },
-  variantStatusText: { fontSize: fontSize.tiny, fontWeight: fontWeight.medium },
+  variantSwitch: { borderRadius: radius.pill, height: 24, justifyContent: 'center', width: 42 },
+  variantSwitchThumb: { backgroundColor: '#fff', borderRadius: radius.pill, height: 18, position: 'absolute', width: 18 },
+  variantSwitchThumbOn: { right: 3 },
+  variantSwitchThumbOff: { left: 3 },
   variantError: { fontSize: fontSize.small },
+  variantLimitNotice: { borderRadius: radius.md, fontSize: fontSize.tiny, padding: spacing.sm },
   simpleProductHint: { fontSize: fontSize.small },
   attributeCard: { borderRadius: radius.md, borderWidth: 1, gap: spacing.sm, padding: spacing.md },
-  attributeRow: { alignItems: 'flex-end', flexDirection: 'row', gap: spacing.sm },
+  attributeHeaderRow: { alignItems: 'flex-end', flexDirection: 'row', gap: spacing.sm },
   attributeField: { flex: 1 },
   removeAttributeButton: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, height: 44, justifyContent: 'center', marginBottom: spacing.xs, width: 44 },
+  suggestionRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, paddingTop: spacing.xs },
+  suggestionChip: { borderRadius: radius.pill, borderWidth: 1, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  suggestionText: { fontSize: fontSize.tiny, fontWeight: fontWeight.medium },
+  valueEntry: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, minHeight: 46, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  valueChip: { alignItems: 'center', borderRadius: radius.pill, flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  valueChipText: { fontSize: fontSize.tiny, fontWeight: fontWeight.semibold },
+  valueEntryInput: { flexGrow: 1, minWidth: 150, paddingHorizontal: spacing.xs, paddingVertical: spacing.xs },
+  quickAttributeRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  quickAttributeButton: { borderRadius: radius.pill, borderWidth: 1, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  quickAttributeText: { fontSize: fontSize.tiny, fontWeight: fontWeight.medium },
   addAttributeButton: { alignItems: 'center', alignSelf: 'flex-start', borderRadius: radius.md, borderStyle: 'dashed', borderWidth: 1, flexDirection: 'row', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   addAttributeText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
   productStatus: { gap: spacing.xs },
