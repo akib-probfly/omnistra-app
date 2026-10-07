@@ -21,6 +21,12 @@ import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 import { AppBadge, AppButton, AppCard, AppChip, AppText, ScreenHeader } from '../ui';
 
 const STATUS_FILTERS = ['ALL', 'DRAFT', 'ACTIVE', 'INACTIVE', 'ARCHIVED'] as const;
+function productStatusFilterColor(status: (typeof STATUS_FILTERS)[number], colors: ReturnType<typeof useTheme>['colors']) {
+  if (status === 'ACTIVE') return colors.success;
+  if (status === 'DRAFT') return colors.warning;
+  if (status === 'INACTIVE' || status === 'ARCHIVED') return colors.error;
+  return colors.textSecondary;
+}
 const PRODUCT_FILTER_LAYERS = [
   { id: 'status', label: 'Status' },
   { id: 'stock', label: 'Stock' },
@@ -213,7 +219,7 @@ export function ProductsScreen() {
             })}
           </ScrollView>
           <SheetScrollView style={styles.filterLayerBody} contentContainerStyle={styles.filterLayerContent} keyboardShouldPersistTaps="handled">
-            {filterLayer === 'status' ? <View style={styles.filterChoices}>{STATUS_FILTERS.map((item) => <AppChip key={item} label={item === 'ALL' ? 'All' : item[0] + item.slice(1).toLowerCase()} selected={draftStatus === item} onPress={() => setDraftStatus(item)} />)}</View> : null}
+            {filterLayer === 'status' ? <View style={styles.filterChoices}>{STATUS_FILTERS.map((item) => <AppChip key={item} label={item === 'ALL' ? 'All' : item[0] + item.slice(1).toLowerCase()} selected={draftStatus === item} labelColor={productStatusFilterColor(item, colors)} onPress={() => setDraftStatus(item)} />)}</View> : null}
             {filterLayer === 'stock' ? <View style={styles.filterChoices}>{(['ALL', 'LOW_STOCK', 'OUT_OF_STOCK'] as const).map((item) => <AppChip key={item} label={item === 'ALL' ? 'Any stock' : item === 'LOW_STOCK' ? 'Low stock' : 'Out of stock'} selected={draftAvailability === item} onPress={() => setDraftAvailability(item)} />)}</View> : null}
             {filterLayer === 'category' ? <View style={styles.filterChoices}>{[{ id: 'ALL', name: 'All categories' }, ...(categoriesQuery.data?.items ?? [])].map((item) => { const selected = item.id === 'ALL' ? draftCategory === 'ALL' : draftCategory === item.name; return <AppChip key={item.id} label={item.name} selected={selected} onPress={() => setDraftCategory(item.id === 'ALL' ? 'ALL' : item.name)} />; })}</View> : null}
             {filterLayer === 'channels' ? (channelsQuery.data?.items ?? []).filter((channel) => channel.status === 'CONNECTED').length ? <View style={styles.filterChoices}>{(channelsQuery.data?.items ?? []).filter((channel) => channel.status === 'CONNECTED').map((channel) => { const selected = draftSalesChannelIds.includes(channel.id); return <Pressable key={channel.id} onPress={() => setDraftSalesChannelIds((current) => selected ? current.filter((id) => id !== channel.id) : [...current, channel.id])} style={[styles.channelFilter, { backgroundColor: colors.surface, borderColor: selected ? colors.primary : colors.cardBorder }]} accessibilityRole="checkbox" accessibilityState={{ checked: selected }}><ChannelLogo type={channel.type} box={22} glyph={12} radius={8} /><Text numberOfLines={1} style={[styles.channelFilterLabel, { color: selected ? colors.primary : colors.textSecondary }]}>{channel.name}</Text>{selected ? <Check color={colors.primary} size={14} /> : null}</Pressable>; })}</View> : <AppText variant="small" tone="muted">No connected sales channels.</AppText> : null}
