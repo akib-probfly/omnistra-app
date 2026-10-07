@@ -14,6 +14,7 @@ import { ErrorState } from '../components/ErrorState';
 import { ChannelLogo } from '../components/ChannelLogo';
 import { SheetScrollView } from '../components/BottomSheet';
 import { FormSkeleton } from '../components/Skeleton';
+import { MarkdownDescriptionEditor } from '../components/MarkdownDescriptionEditor';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
 import { useWorkspaceAccess } from '../lib/workspace-access';
@@ -359,7 +360,10 @@ export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: bo
               <AppTextField label="Initial stock" required value={form.inventory} onChangeText={updateField('inventory')} placeholder="1" keyboardType="numeric" error={fieldErrors.inventory} style={styles.stockField} />
               <AppTextField label="Stock alert" value={form.stockAlert} onChangeText={updateField('stockAlert')} placeholder="10" keyboardType="numeric" error={fieldErrors.stockAlert} style={styles.stockField} />
             </View>
-            <AppTextField label="Description" value={form.description} onChangeText={updateField('description')} placeholder="Describe this product" multiline numberOfLines={5} />
+            <View style={styles.descriptionField}>
+              <AppText variant="small" tone="secondary">Description</AppText>
+              <MarkdownDescriptionEditor value={form.description} onChange={updateField('description')} />
+            </View>
             <View style={styles.variantSection}>
               <View style={styles.variantHeading}><View style={styles.variantHeadingCopy}><Layers3 color={colors.primary} size={18} /><Text style={[styles.variantTitle, { color: colors.text }]}>Variants</Text></View><View style={[styles.variantMode, { backgroundColor: colors.surfaceSecondary }]}><Pressable onPress={() => setForm((current) => ({ ...current, hasVariants: false }))} style={[styles.variantModeButton, !form.hasVariants && { backgroundColor: colors.surface }]}><Text style={[styles.variantModeLabel, { color: !form.hasVariants ? colors.text : colors.textSecondary }]}>Simple</Text></Pressable><Pressable onPress={() => setForm((current) => ({ ...current, hasVariants: true }))} style={[styles.variantModeButton, form.hasVariants && { backgroundColor: colors.primarySoft }]}><Text style={[styles.variantModeLabel, { color: form.hasVariants ? colors.primary : colors.textSecondary }]}>Variants</Text></Pressable></View></View>
               {form.hasVariants ? <>
@@ -443,6 +447,7 @@ const styles = StyleSheet.create({
   embeddedTitle: { fontSize: 18, fontWeight: '800' },
   content: { gap: spacing.md, padding: spacing.lg },
   fields: { gap: spacing.md },
+  descriptionField: { gap: spacing.sm },
   draftStatus: { fontSize: fontSize.tiny, lineHeight: 16 },
   sectionIntro: { gap: spacing.xs, paddingBottom: spacing.xs },
   priceRow: { flexDirection: 'row', gap: spacing.sm },
