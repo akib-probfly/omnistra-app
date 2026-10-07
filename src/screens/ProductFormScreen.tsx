@@ -12,7 +12,6 @@ import { createProductCategory, fetchProductCategories } from '../api/productCat
 import { uploadFile } from '../api/client';
 import { ErrorState } from '../components/ErrorState';
 import { ChannelLogo } from '../components/ChannelLogo';
-import { SheetScrollView } from '../components/BottomSheet';
 import { FormSkeleton } from '../components/Skeleton';
 import { MarkdownDescriptionEditor } from '../components/MarkdownDescriptionEditor';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
@@ -101,14 +100,14 @@ function productToForm(product: ProductResponse): FormState {
   };
 }
 
-export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: boolean; onSaved?: () => void }) {
+export function ProductFormScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<SettingsStackParamList, 'ProductForm'>>();
   const queryClient = useQueryClient();
   const { colors, isDark } = useTheme();
   const { workspace } = useWorkspaceAccess();
-  const productId = embedded ? undefined : route.params?.productId;
+  const productId = route.params?.productId;
   const editing = Boolean(productId);
   const [form, setForm] = useState<FormState>(() => ({ ...EMPTY_FORM, sku: generateProductSku(), currency: workspace?.defaultCurrency ?? EMPTY_FORM.currency }));
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
@@ -277,8 +276,7 @@ export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: bo
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['products'] });
       if (editing) await queryClient.invalidateQueries({ queryKey: ['product', productId] });
-      if (embedded) onSaved?.();
-      else navigation.goBack();
+      navigation.goBack();
     },
     onError: (value: Error) => setError(value.message),
   });
@@ -301,12 +299,10 @@ export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: bo
   const generatedVariants = buildProductVariants(form);
   if (editing && productQuery.isLoading) return <FormSkeleton fields={7} />;
   if (editing && (productQuery.isError || !productQuery.data)) return <ErrorState message="Could not load product." onRetry={() => productQuery.refetch()} />;
-  const FormScrollView = embedded ? SheetScrollView : ScrollView;
-
   return (
-    <View style={[embedded ? styles.embeddedScreen : styles.screen, { backgroundColor: colors.background }]}>
-      {embedded ? <View style={[styles.embeddedHeader, { borderBottomColor: colors.cardBorder }]}><Text style={[styles.embeddedTitle, { color: colors.text }]}>Create product</Text></View> : <ScreenHeader title={editing ? 'Edit product' : 'Create product'} onBack={() => navigation.goBack()} />}
-      <FormScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]} keyboardShouldPersistTaps="handled">
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <ScreenHeader title={editing ? 'Edit product' : 'Create product'} onBack={() => navigation.goBack()} />
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 24) }]} keyboardShouldPersistTaps="handled">
         <AppCard padding="md">
           <View style={styles.galleryHeader}><View><AppText variant="section">Product photos</AppText><AppText variant="small" tone="secondary">Optional · Up to 8 images</AppText></View>{images.length ? <AppText variant="small" tone="secondary">{images.length}/8</AppText> : null}</View>
           {images.length ? <View style={styles.gallery}>
@@ -435,16 +431,13 @@ export function ProductFormScreen({ embedded = false, onSaved }: { embedded?: bo
         </AppCard>
         {error ? <ErrorState message={error} /> : null}
         <AppButton block icon={Save} label={mutation.isPending ? 'Saving...' : editing ? 'Update Product' : 'Create Product'} loading={mutation.isPending} disabled={mutation.isPending || !catalogsReady} onPress={saveProduct} style={styles.save} />
-      </FormScrollView>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  embeddedScreen: { flex: 1, minHeight: 0 },
-  embeddedHeader: { alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: spacing.sm, justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
-  embeddedTitle: { fontSize: 18, fontWeight: '800' },
   content: { gap: spacing.md, padding: spacing.lg },
   fields: { gap: spacing.md },
   descriptionField: { gap: spacing.sm },

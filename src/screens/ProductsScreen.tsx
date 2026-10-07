@@ -14,7 +14,6 @@ import { ErrorState } from '../components/ErrorState';
 import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 import { ChannelLogo } from '../components/ChannelLogo';
 import { FormSkeleton } from '../components/Skeleton';
-import { ProductFormScreen } from './ProductFormScreen';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
 import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
@@ -88,7 +87,6 @@ export function ProductsScreen() {
   const [page, setPage] = useState(1);
   const [salesChannelIds, setSalesChannelIds] = useState<string[]>([]);
   const [filtersVisible, setFiltersVisible] = useState(false);
-  const [createSheetVisible, setCreateSheetVisible] = useState(false);
   const [productMenuVisible, setProductMenuVisible] = useState(false);
   const [filterLayer, setFilterLayer] = useState<ProductFilterLayer>('status');
   const [draftStatus, setDraftStatus] = useState<(typeof STATUS_FILTERS)[number]>('ALL');
@@ -184,7 +182,7 @@ export function ProductsScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <ScreenHeader title="Products" onBack={() => navigation.goBack()} right={<View style={styles.headerActions}><Pressable onPress={() => setCreateSheetVisible(true)} style={[styles.createHeaderButton, { backgroundColor: colors.primary }]} accessibilityRole="button" accessibilityLabel="Create product"><Plus color={colors.primaryText} size={20} /></Pressable><Pressable onPress={() => setProductMenuVisible((visible) => !visible)} style={[styles.menuButton, { backgroundColor: colors.surfaceSecondary }]} accessibilityRole="button" accessibilityLabel="More product actions"><EllipsisVertical color={colors.text} size={21} /></Pressable></View>} />
+      <ScreenHeader title="Products" onBack={() => navigation.goBack()} right={<View style={styles.headerActions}><Pressable onPress={() => navigation.navigate('ProductForm')} style={[styles.createHeaderButton, { backgroundColor: colors.primary }]} accessibilityRole="button" accessibilityLabel="Create product"><Plus color={colors.primaryText} size={20} /></Pressable><Pressable onPress={() => setProductMenuVisible((visible) => !visible)} style={[styles.menuButton, { backgroundColor: colors.surfaceSecondary }]} accessibilityRole="button" accessibilityLabel="More product actions"><EllipsisVertical color={colors.text} size={21} /></Pressable></View>} />
       <BottomSheet visible={productMenuVisible} onClose={() => setProductMenuVisible(false)} sheetStyle={styles.productActionsSheet}>
         <Text style={[styles.productActionsTitle, { color: colors.text }]}>Product actions</Text>
           <Pressable onPress={() => exportProductsMode('all')} disabled={exportMutation.isPending} style={styles.menuAction} accessibilityRole="button" accessibilityLabel="Export all products">{exportMutation.isPending ? <ActivityIndicator color={colors.primary} size="small" /> : <Download color={colors.textSecondary} size={17} />}<Text style={[styles.menuActionLabel, { color: exportMutation.isPending ? colors.textMuted : colors.text }]}>Export all</Text></Pressable>
@@ -228,9 +226,6 @@ export function ProductsScreen() {
           <Pressable style={[styles.filterReset, !draftHasFilters && styles.filterResetDisabled]} onPress={resetDraftFilters} disabled={!draftHasFilters}><Text style={[styles.filterResetText, { color: draftHasFilters ? colors.error : colors.textMuted }]}>Clear all</Text></Pressable>
           <Pressable style={[styles.filterApply, { backgroundColor: colors.primary }]} onPress={applyFilters}><Text style={[styles.filterApplyText, { color: colors.primaryText }]}>Apply filters</Text></Pressable>
         </BottomSheet>
-        <BottomSheet visible={createSheetVisible} onClose={() => setCreateSheetVisible(false)} sheetStyle={styles.createSheet}>
-          {createSheetVisible ? <ProductFormScreen embedded onSaved={() => setCreateSheetVisible(false)} /> : null}
-        </BottomSheet>
         {selectedIds.length ? <AppCard style={styles.bulkCard}><Text style={{ color: colors.text }}>{selectedIds.length} selected</Text><AppButton label="Delete selected" variant="destructive" loading={bulkDeleteMutation.isPending} onPress={() => Alert.alert('Remove selected products?', 'Products published to connected catalogs may be archived instead of deleted.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Remove', style: 'destructive', onPress: () => bulkDeleteMutation.mutate(selectedIds) }])} /></AppCard> : null}
         {productsQuery.isLoading ? <FormSkeleton fields={5} /> : productsQuery.isError ? <ErrorState message="Could not load products." onRetry={() => productsQuery.refetch()} /> : products.length ? products.map((product) => (
           <ProductRow key={product.id} product={product} selected={selectedIds.includes(product.id)} onSelect={() => setSelectedIds((current) => current.includes(product.id) ? current.filter((id) => id !== product.id) : [...current, product.id])} onEdit={() => navigation.navigate('ProductForm', { productId: product.id })} onToggle={() => statusMutation.mutate({ product, next: product.status !== 'ACTIVE' })} onDelete={() => Alert.alert('Delete product?', `Delete ${product.name}?`, [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => deleteMutation.mutate(product.id) }])} />
@@ -258,7 +253,6 @@ const styles = StyleSheet.create({
   filterIconButton: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, height: 48, justifyContent: 'center', position: 'relative', width: 48 },
   filterActiveDot: { borderRadius: radius.pill, height: spacing.sm, position: 'absolute', right: 5, top: 5, width: spacing.sm },
   filterSheet: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 },
-  createSheet: { height: '92%' },
   sheetHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.md },
   sheetTitleGroup: { flex: 1, gap: 3 },
   filterLayerTabs: { borderRadius: radius.lg, flexGrow: 0, marginBottom: spacing.md, padding: spacing.xs },
