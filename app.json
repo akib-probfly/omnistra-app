@@ -1,8 +1,8 @@
-{
+﻿{
     "expo":  {
                  "name":  "Zurvis",
                  "slug":  "osaas-mobile",
-                 "version":  "1.0.19",
+                 "version":  "1.0.20",
                  "scheme":  "osaas",
                  "icon":  "./assets/icon.png",
                  "userInterfaceStyle":  "light",
@@ -10,7 +10,7 @@
                  "ios":  {
                              "supportsTablet":  true,
                              "bundleIdentifier":  "com.zurvis.mobile",
-                             "buildNumber":  "23",
+                             "buildNumber":  "24",
                              "infoPlist":  {
                                                "CFBundleDisplayName":  "Zurvis",
                                                "CFBundleName":  "Zurvis",
@@ -101,7 +101,7 @@
                                          "resizeMode":  "contain"
                                      }
                                  ],
-                                     "expo-secure-store",
+                                 "expo-secure-store",
                                  "expo-media-library",
                                  "@react-native-community/datetimepicker",
                                  "expo-audio",
