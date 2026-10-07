@@ -20,6 +20,7 @@ import { IntegrationLogo } from '../components/IntegrationLogo';
 import { FormSkeleton } from '../components/Skeleton';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
+import { useWorkspaceAccess } from '../lib/workspace-access';
 import type { ThemeColors } from '../theme/colors';
 import { fontSize, fontWeight, inputHeight, radius, spacing } from '../theme/tokens';
 import { AppBadge, AppButton, AppCard, AppChip, AppText, ScreenHeader } from '../ui';
@@ -52,6 +53,7 @@ export function OrdersScreen() {
   const navigation = useNavigation<NavigationProp<SettingsStackParamList>>();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
+  const { workspace } = useWorkspaceAccess();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [search, setSearch] = useState('');
   const [phone, setPhone] = useState('');
@@ -78,7 +80,7 @@ export function OrdersScreen() {
     queryFn: () => listOrders({ search: search.trim() || undefined, phone: phone.trim() || undefined, source: sourceIds.length ? sourceIds : undefined, status: status === 'ALL' ? undefined : status, page, limit: 25 }),
   });
   const channelsQuery = useQuery({ queryKey: ['channels'], queryFn: fetchChannels });
-  const courierQuery = useQuery({ queryKey: ['courier-connections'], queryFn: listCourierConnections, enabled: courierPickerOpen });
+  const courierQuery = useQuery({ queryKey: ['courier-connections'], queryFn: listCourierConnections, enabled: courierPickerOpen && Boolean(workspace?.ecommerceEnabled) });
   const shipmentQuery = useQuery({ queryKey: ['order-shipments', selectedOrder?.id], queryFn: () => listOrderShipments(selectedOrder!.id), enabled: Boolean(selectedOrder?.id) });
   const invoiceQuery = useQuery({ queryKey: ['order-invoice', selectedOrder?.id], queryFn: () => listOrderInvoices([selectedOrder!.id]), enabled: invoiceOpen && Boolean(selectedOrder?.id) });
   const orders = useMemo(() => ordersQuery.data?.items ?? [], [ordersQuery.data]);

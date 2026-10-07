@@ -175,7 +175,7 @@ export function CreateOrderScreen() {
     enabled: productPickerOpen && !selectedProduct && !customProductMode,
     staleTime: 30_000,
   });
-  const couriersQuery = useQuery({ queryKey: ['courier-connections'], queryFn: listCourierConnections });
+  const couriersQuery = useQuery({ queryKey: ['courier-connections'], queryFn: listCourierConnections, enabled: Boolean(workspaceQuery.data?.items?.[0]?.ecommerceEnabled) });
   const couriers = (couriersQuery.data?.items ?? []).filter((item) => item.status === 'CONNECTED');
   const selectedCourier = couriers.find((item) => item.id === courierId) ?? null;
   const citiesQuery = useQuery({ queryKey: ['order-locations', 'cities', debouncedLocationSearch], queryFn: () => listOrderCities(debouncedLocationSearch || undefined), enabled: picker === 'city', staleTime: 10 * 60_000 });

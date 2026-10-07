@@ -7,6 +7,7 @@ import { createCourierConnection, DEFAULT_COURIER_DELIVERY_FEES, listCourierConn
 import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { IntegrationLogo } from '../components/IntegrationLogo';
+import { useWorkspaceAccess } from '../lib/workspace-access';
 import { useTheme } from '../theme/ThemeContext';
 import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 import { AppButton, AppCard, AppSearchField, AppText, AppTextField, ScreenHeader } from '../ui';
@@ -36,6 +37,7 @@ export function IntegrationCatalogScreen() {
   const navigation = useNavigation<NavigationProp<SettingsStackParamList>>();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
+  const { workspace } = useWorkspaceAccess();
   const [category, setCategory] = useState<Category>('All');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Integration | null>(null);
@@ -47,6 +49,7 @@ export function IntegrationCatalogScreen() {
   const connectionsQuery = useQuery({
     queryKey: ['courier-connections'],
     queryFn: listCourierConnections,
+    enabled: Boolean(workspace?.ecommerceEnabled),
   });
   const visibleItems = useMemo(() => {
     const query = search.trim().toLowerCase();

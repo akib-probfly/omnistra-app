@@ -21,7 +21,7 @@ export function IntegrationsScreen() {
   const { colors } = useTheme();
   const { workspace, canManage } = useWorkspaceAccess();
   const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
-  const connectionsQuery = useQuery({ queryKey: ['courier-connections'], queryFn: listCourierConnections });
+  const connectionsQuery = useQuery({ queryKey: ['courier-connections'], queryFn: listCourierConnections, enabled: Boolean(workspace?.ecommerceEnabled) });
   const courierConnections = (connectionsQuery.data?.items ?? []).filter((item) => item.status !== 'DISABLED');
   const connectedCount = courierConnections.filter((item) => item.status === 'CONNECTED').length;
   const ecommerceMutation = useMutation({

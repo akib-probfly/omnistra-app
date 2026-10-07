@@ -20,7 +20,7 @@ export function CourierConnectionDetailsScreen() {
   const route = useRoute<RouteProp<SettingsStackParamList, 'CourierConnectionDetails' | 'CourierConnectionConfigure'>>();
   const queryClient = useQueryClient();
   const { colors } = useTheme();
-  const { canManage } = useWorkspaceAccess();
+  const { canManage, workspace } = useWorkspaceAccess();
   const [activeTab, setActiveTab] = useState<DetailsTab>('overview');
   const isConfigurePage = route.name === 'CourierConnectionConfigure';
   const [saving, setSaving] = useState(false);
@@ -39,7 +39,7 @@ export function CourierConnectionDetailsScreen() {
   const [outsideDhakaFee, setOutsideDhakaFee] = useState('100');
   const [editError, setEditError] = useState('');
 
-  const connectionsQuery = useQuery({ queryKey: ['courier-connections'], queryFn: listCourierConnections });
+  const connectionsQuery = useQuery({ queryKey: ['courier-connections'], queryFn: listCourierConnections, enabled: Boolean(workspace?.ecommerceEnabled) });
   const connection = connectionsQuery.data?.items.find((item) => item.id === route.params.connectionId) ?? null;
   const webhookQuery = useQuery({
     queryKey: ['courier-webhook-config', route.params.connectionId],
