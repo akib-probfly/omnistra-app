@@ -11,6 +11,7 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -300,8 +301,8 @@ export function ContactsScreen() {
     const query = addTagSearch.trim().toLowerCase();
     const selected = new Set(addTags.map((tag) => tag.text.toLowerCase()));
     const available = existingAddTags.filter((tag) => !selected.has(tag.text.toLowerCase()));
-    if (!query) return available.slice(0, 5);
-    return available.filter((tag) => tag.text.toLowerCase().includes(query)).slice(0, 5);
+    if (!query) return available;
+    return available.filter((tag) => tag.text.toLowerCase().includes(query));
   }, [existingAddTags, addTags, addTagSearch]);
 
   const canCreateAddTag = useMemo(() => {
@@ -929,12 +930,13 @@ export function ContactsScreen() {
                   style={[styles.inlineSearchInput, { color: colors.text }]}
                 />
               </View>
+              <ScrollView style={styles.addTagOptionsScroll} contentContainerStyle={styles.addTagOptionsContent} nestedScrollEnabled keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>
               {visibleAddTags.map((tag) => {
                 const color = tag.color?.trim() || '#64748b';
                 return (
                   <Pressable
                     key={tag.id}
-                    style={styles.optionRow}
+                    style={[styles.addTagOptionChip, { borderColor: color, backgroundColor: 'transparent' }]}
                     onPress={() => {
                       setAddTags((current) => (
                         current.some((item) => item.text.toLowerCase() === tag.text.toLowerCase())
@@ -944,12 +946,12 @@ export function ContactsScreen() {
                       setAddTagSearch('');
                     }}
                   >
-                    <View style={[styles.tagDot, { backgroundColor: color }]} />
-                    <Text style={[styles.optionText, { color: colors.textSecondary }]} numberOfLines={1}>{tag.text}</Text>
-                    <Plus color={colors.primary} size={14} />
+                    <Plus color={color} size={12} />
+                    <Text style={[styles.addTagOptionText, { color: colors.textSecondary }]} numberOfLines={1}>{tag.text}</Text>
                   </Pressable>
                 );
               })}
+              </ScrollView>
               {canCreateAddTag ? (
                 <Pressable
                   style={[styles.createTagRow, { backgroundColor: colors.surfaceSecondary }]}
@@ -1298,6 +1300,10 @@ const styles = StyleSheet.create({
   fieldLabel: { color: '#334155', fontSize: 13, fontWeight: '600', marginBottom: 6, marginTop: 10 },
   fieldInput: { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 12, borderWidth: 1, color: '#0f172a', paddingHorizontal: 12, paddingVertical: 12 },
   addFormScroll: { maxHeight: 420 },
+  addTagOptionsScroll: { maxHeight: 200 },
+  addTagOptionsContent: { alignItems: 'flex-start', flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  addTagOptionChip: { alignSelf: 'flex-start', alignItems: 'center', borderRadius: 999, borderWidth: 1, flexDirection: 'row', flexGrow: 0, flexShrink: 0, gap: 5, paddingHorizontal: 10, paddingVertical: 6 },
+  addTagOptionText: { fontSize: 12, fontWeight: '600' },
   addFormContent: { paddingBottom: 24 },
   optionSubtext: { color: '#94a3b8', fontSize: 12, marginTop: 2 },
   addSelectedTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },

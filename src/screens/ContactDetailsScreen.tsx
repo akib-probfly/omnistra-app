@@ -118,10 +118,8 @@ export function ContactDetailsScreen() {
   const searchableTags = useMemo(() => {
     const query = tagSearch.trim().toLowerCase();
     const available = workspaceTags.filter((tag) => !selectedTagIds.includes(tag.id));
-    if (!query) return available.slice(0, 5);
-    return available
-      .filter((tag) => tag.text.toLowerCase().includes(query))
-      .slice(0, 5);
+    if (!query) return available;
+    return available.filter((tag) => tag.text.toLowerCase().includes(query));
   }, [workspaceTags, selectedTagIds, tagSearch]);
 
   const canCreateTag = useMemo(() => {
@@ -478,21 +476,20 @@ export function ContactDetailsScreen() {
               ) : null}
             </View>
 
-            <View style={styles.tagPickerList}>
+            <ScrollView style={styles.tagPickerScroll} contentContainerStyle={styles.tagPickerList} nestedScrollEnabled keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>
               {searchableTags.map((tag) => {
                 const color = tag.color?.trim() || colors.textMuted;
                 return (
                   <Pressable
                     key={tag.id}
-                    style={styles.tagOption}
+                    style={[styles.tagOption, { borderColor: color, backgroundColor: 'transparent' }]}
                     onPress={() => {
                       setSelectedTagIds((current) => (current.includes(tag.id) ? current : [...current, tag.id]));
                       setTagSearch('');
                     }}
                   >
-                    <View style={[styles.tagDot, { backgroundColor: color }]} />
+                    <Plus color={color} size={12} />
                     <Text style={[styles.tagOptionText, { color: colors.textSecondary }]} numberOfLines={1}>{tag.text}</Text>
-                    <Plus color={colors.primary} size={14} />
                   </Pressable>
                 );
               })}
@@ -501,7 +498,7 @@ export function ContactDetailsScreen() {
                   {tagSearch.trim() ? 'No workspace tags match your search.' : 'No more tags to add.'}
                 </Text>
               ) : null}
-            </View>
+            </ScrollView>
 
             {canCreateTag ? (
               <View style={[styles.createTagBox, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
@@ -748,10 +745,11 @@ function useContactDetailsStyles(colors: ThemeColors) {
   tagChipText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
   tagSearch: { alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', marginTop: spacing.xs, paddingHorizontal: spacing.sm + 2 },
   tagSearchInput: { flex: 1, height: 42, marginLeft: spacing.sm },
-  tagPickerList: { gap: spacing.xs, marginTop: spacing.sm + 2 },
-  tagOption: { alignItems: 'center', borderRadius: radius.md, flexDirection: 'row', gap: spacing.sm + 2, paddingHorizontal: spacing.sm + 2, paddingVertical: spacing.sm + 2 },
+  tagPickerScroll: { maxHeight: 220, marginTop: spacing.sm + 2 },
+  tagPickerList: { alignItems: 'flex-start', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  tagOption: { alignSelf: 'flex-start', alignItems: 'center', borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', flexGrow: 0, flexShrink: 0, gap: spacing.xs, paddingHorizontal: spacing.sm + 2, paddingVertical: spacing.xs + 2 },
   tagOptionActive: { backgroundColor: colors.primarySoft },
-  tagOptionText: { flex: 1, fontSize: fontSize.body - 1, fontWeight: fontWeight.medium },
+  tagOptionText: { fontSize: fontSize.tiny, fontWeight: fontWeight.medium },
   tagOptionTextActive: { color: colors.primary, fontWeight: fontWeight.bold },
   tagDot: { borderRadius: 5, height: 10, width: 10 },
   createTagBox: { borderRadius: radius.lg, borderWidth: 1, marginTop: spacing.sm + 2, padding: spacing.md },
