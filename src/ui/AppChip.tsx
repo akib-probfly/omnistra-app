@@ -6,9 +6,10 @@ type Props = {
   selected?: boolean;
   onPress: () => void;
   tone?: 'default' | 'danger';
+  labelColor?: string;
 };
 
-export function AppChip({ label, selected = false, onPress, tone = 'default' }: Props) {
+export function AppChip({ label, selected = false, onPress, tone = 'default', labelColor }: Props) {
   const { colors } = useTheme();
   const selectedBg = tone === 'danger' ? colors.error : colors.primary;
   const idleColor = tone === 'danger' ? colors.error : colors.textSecondary;
@@ -20,14 +21,14 @@ export function AppChip({ label, selected = false, onPress, tone = 'default' }: 
         styles.chip,
         {
           backgroundColor: selected ? selectedBg : colors.background,
-          borderColor: selected ? selectedBg : colors.cardBorder,
+          borderColor: selected ? selectedBg : labelColor ?? colors.cardBorder,
         },
         tone === 'danger' && !selected && styles.plain,
       ]}
     >
       <Text
         numberOfLines={1}
-        style={[styles.label, { color: selected ? colors.primaryText : idleColor }]}
+        style={[styles.label, { color: selected ? colors.primaryText : labelColor ?? idleColor }]}
       >
         {label}
       </Text>

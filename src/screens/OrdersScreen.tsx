@@ -20,6 +20,7 @@ import { IntegrationLogo } from '../components/IntegrationLogo';
 import { FormSkeleton } from '../components/Skeleton';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
+import type { ThemeColors } from '../theme/colors';
 import { fontSize, fontWeight, inputHeight, radius, spacing } from '../theme/tokens';
 import { AppBadge, AppButton, AppCard, AppChip, AppText, ScreenHeader } from '../ui';
 
@@ -33,6 +34,15 @@ type OrderFilterLayer = (typeof ORDER_FILTER_LAYERS)[number]['id'];
 function formatTotal(value: number, currency = 'BDT') { return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(value); }
 function formatOrderDate(value: string) { const date = new Date(value); return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date); }
 function statusTone(status: OrderStatus) { return status === 'DELIVERED' ? 'success' as const : status === 'CANCELLED' || status === 'DAMAGED' ? 'danger' as const : status === 'RETURNED' ? 'neutral' as const : 'warning' as const; }
+function statusFilterColor(status: OrderStatus | 'ALL', colors: ThemeColors) {
+  if (status === 'ALL') return colors.textSecondary;
+  if (status === 'DELIVERED') return colors.success;
+  if (status === 'CANCELLED' || status === 'DAMAGED') return colors.error;
+  if (status === 'RETURNED') return colors.textSecondary;
+  if (status === 'SHIPPED' || status === 'IN_TRANSIT') return colors.primary;
+  if (status === 'APPROVED' || status === 'PROCESSING') return colors.indigo;
+  return colors.warning;
+}
 function orderStatusLabel(status: OrderStatus) { return status === 'PROCESSING' ? 'Approved' : status.toLowerCase().split('_').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' '); }
 function shipmentTone(status: string) { const normalized = status.toUpperCase(); return normalized === 'DELIVERED' ? 'success' as const : ['CANCELLED', 'RETURNED', 'FAILED', 'EXCEPTION'].includes(normalized) ? 'danger' as const : ['IN_TRANSIT', 'BOOKED', 'PARTIALLY_DELIVERED'].includes(normalized) ? 'info' as const : 'warning' as const; }
 
@@ -203,7 +213,7 @@ export function OrdersScreen() {
             })}
           </ScrollView>
           <SheetScrollView style={styles.filterLayerBody} contentContainerStyle={styles.filterLayerContent} keyboardShouldPersistTaps="handled">
-            {filterLayer === 'status' ? <View style={styles.filterChoices}>{STATUSES.map((item) => <AppChip key={item} label={item === 'ALL' ? 'All orders' : item.replace('_', ' ')} selected={draftStatus === item} onPress={() => setDraftStatus(item)} />)}</View> : null}
+            {filterLayer === 'status' ? <View style={styles.filterChoices}>{STATUSES.map((item) => <AppChip key={item} label={item === 'ALL' ? 'All orders' : item.replace('_', ' ')} selected={draftStatus === item} labelColor={statusFilterColor(item, colors)} onPress={() => setDraftStatus(item)} />)}</View> : null}
             {filterLayer === 'phone' ? <View style={styles.phoneFilterSection}><AppText variant="small" tone="secondary">Filter orders by customer phone number.</AppText><TextInput value={draftPhone} onChangeText={setDraftPhone} placeholder="Phone number" placeholderTextColor={colors.textMuted} keyboardType="phone-pad" style={[styles.phoneSearch, { backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }]} /></View> : null}
             {filterLayer === 'source' ? (channelsQuery.data?.items ?? []).filter((channel) => channel.status === 'CONNECTED').length ? <View style={styles.filterChoices}>{(channelsQuery.data?.items ?? []).filter((channel) => channel.status === 'CONNECTED').map((channel) => { const selected = draftSourceIds.includes(channel.id); return <Pressable key={channel.id} onPress={() => setDraftSourceIds((current) => selected ? current.filter((id) => id !== channel.id) : [...current, channel.id])} style={[styles.channelFilter, { backgroundColor: colors.surface, borderColor: selected ? colors.primary : colors.cardBorder }]} accessibilityRole="checkbox" accessibilityState={{ checked: selected }}><ChannelLogo type={channel.type} box={22} glyph={12} radius={8} /><Text numberOfLines={1} style={[styles.channelFilterLabel, { color: selected ? colors.primary : colors.textSecondary }]}>{channel.name}</Text>{selected ? <Check color={colors.primary} size={14} /> : null}</Pressable>; })}</View> : <AppText variant="small" tone="muted">No connected order sources.</AppText> : null}
           </SheetScrollView>
