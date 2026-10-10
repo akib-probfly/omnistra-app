@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import { ArrowLeft, Camera, Check, ChevronDown, Copy, ExternalLink, Link2, MessageSquare, Phone, RefreshCw, RotateCcw, Save, Unlink2, UserRound } from 'lucide-react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -760,7 +760,7 @@ function FieldEdit({ label, value, onChange, placeholder, multiline = false, key
 }
 
 function useChannelDetailsStyles(colors: ThemeColors) {
-  return StyleSheet.create({
+  return useMemo(() => StyleSheet.create({
   screen: { backgroundColor: colors.background, flex: 1 },
   header: { alignItems: 'center', backgroundColor: colors.surface, borderBottomColor: colors.separator, borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', paddingBottom: spacing.md, paddingHorizontal: spacing.lg },
   headerTitle: { color: colors.text, fontSize: fontSize.subheading, fontWeight: fontWeight.bold },
@@ -833,5 +833,5 @@ function useChannelDetailsStyles(colors: ThemeColors) {
   modalRowActive: { color: colors.primary, fontSize: fontSize.caption, fontWeight: fontWeight.bold },
   msgTitle: { color: colors.text, fontSize: fontSize.heading, fontWeight: fontWeight.bold },
   msgText: { color: colors.textSecondary, fontSize: fontSize.caption, lineHeight: 19, marginTop: 6, textAlign: 'center' },
-  });
+  }), [colors]);
 }
