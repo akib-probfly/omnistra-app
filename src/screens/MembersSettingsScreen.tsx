@@ -1,7 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, ChevronDown, ChevronRight, Copy, Globe2, Layers, Mail, Pencil, RefreshCw, ShieldCheck, Trash2, UserCheck, UserPlus2, UsersRound, UserX, X, type LucideIcon } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -338,7 +338,7 @@ function SheetActionRow({
   );
 }
 
-function MemberCard({ member, onSelect }: { member: WorkspaceRosterMember; onSelect: (member: WorkspaceRosterMember) => void }) {
+const MemberCard = memo(function MemberCard({ member, onSelect }: { member: WorkspaceRosterMember; onSelect: (member: WorkspaceRosterMember) => void }) {
   const { colors } = useTheme();
   const name = displayName(member);
   const tone = memberStatusTone(member.status);
@@ -379,7 +379,7 @@ function MemberCard({ member, onSelect }: { member: WorkspaceRosterMember; onSel
       </View>
     </Pressable>
   );
-}
+});
 
 export function MembersSettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -433,6 +433,10 @@ export function MembersSettingsScreen() {
   });
 
   const members = rosterQuery.data?.items ?? EMPTY_MEMBERS;
+  const renderMember = useCallback(
+    ({ item }: { item: WorkspaceRosterMember }) => <MemberCard member={item} onSelect={setActionMember} />,
+    [],
+  );
   const summary = useMemo(() => ({
     total: members.length,
     active: members.filter((member) => member.status === 'ACTIVE').length,
@@ -833,7 +837,7 @@ export function MembersSettingsScreen() {
               <Text style={[styles.emptyBody, { color: colors.textSecondary }]}>Try another search or invite a teammate.</Text>
             </View>
           )}
-          renderItem={({ item }) => <MemberCard member={item} onSelect={setActionMember} />}
+          renderItem={renderMember}
         />
       )}
 
