@@ -48,7 +48,7 @@ const EMPTY_FORM: FormState = {
   name: '', sku: '', category: '', categoryId: '', price: '', salePrice: '', inventory: '1', stockAlert: '10', description: '', currency: 'BDT', weight: '0.05', dimensionL: '', dimensionW: '', dimensionH: '', isActive: true, hasVariants: false, attributes: [], variantOverrides: {},
 };
 
-const QUICK_VARIATION_ATTRIBUTES = ['SCENT', 'COLOR', 'CONCENTRATION'];
+const QUICK_VARIATION_ATTRIBUTES = ['SCENT', 'COLOR', 'SIZE',];
 const MAX_PRODUCT_VARIANTS = 500;
 
 function variantKey(attributes: Array<{ name: string; value: string }>) {
