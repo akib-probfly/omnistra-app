@@ -11,6 +11,7 @@ import {
   XCircle,
 } from 'lucide-react-native';
 import { useDeferredValue, useMemo, useState } from 'react';
+import { FlashList } from '@shopify/flash-list';
 import {
   Pressable,
   ScrollView,
@@ -219,7 +220,14 @@ export function BroadcastCampaignScreen() {
           onRetry={() => campaignQuery.refetch()}
         />
       ) : (
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 28) }]}>
+        <FlashList
+          data={audience}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => <AudienceRow item={item} />}
+          style={styles.list}
+          contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 28) }]}
+          ListHeaderComponent={(
+            <View style={styles.headerContent}>
           <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
             <View style={styles.titleRow}>
               <Text style={[styles.cardTitle, { color: colors.text }]}>{campaign.name}</Text>
@@ -309,24 +317,24 @@ export function BroadcastCampaignScreen() {
                 />
               ))}
             </ScrollView>
-            {audienceQuery.isLoading ? (
-              <ListSkeleton rows={4} avatar={false} />
-            ) : audience.length === 0 ? (
-              <EmptyState title="No recipients" message="Audience members will appear here after the campaign is prepared." />
-            ) : (
-              audience.map((item) => <AudienceRow key={item.id} item={item} />)
-            )}
-            {audienceQuery.hasNextPage ? (
-              <AppButton
-                variant="secondary"
-                label={audienceQuery.isFetchingNextPage ? 'Loading…' : 'Load more'}
-                loading={audienceQuery.isFetchingNextPage}
-                onPress={() => void audienceQuery.fetchNextPage()}
-                style={{ marginTop: spacing.md }}
-              />
-            ) : null}
           </View>
-        </ScrollView>
+            </View>
+          )}
+          ListEmptyComponent={audienceQuery.isLoading ? (
+            <ListSkeleton rows={4} avatar={false} />
+          ) : (
+            <EmptyState title="No recipients" message="Audience members will appear here after the campaign is prepared." />
+          )}
+          ListFooterComponent={audienceQuery.hasNextPage ? (
+            <AppButton
+              variant="secondary"
+              label={audienceQuery.isFetchingNextPage ? 'Loading…' : 'Load more'}
+              loading={audienceQuery.isFetchingNextPage}
+              onPress={() => void audienceQuery.fetchNextPage()}
+              style={{ marginTop: spacing.md }}
+            />
+          ) : null}
+        />
       )}
 
       <ConfirmDialog
@@ -345,7 +353,9 @@ export function BroadcastCampaignScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  list: { flex: 1 },
   content: { gap: spacing.md, padding: spacing.lg },
+  headerContent: { gap: spacing.md },
   card: { borderRadius: radius.xl, borderWidth: 1, padding: spacing.lg },
   titleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },
   cardTitle: { flex: 1, fontSize: fontSize.heading, fontWeight: fontWeight.extrabold },
