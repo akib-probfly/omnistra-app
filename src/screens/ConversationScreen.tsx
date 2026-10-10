@@ -996,9 +996,11 @@ export function ConversationScreen() {
   }, [allMessages, callSessions, assignmentEvents]);
   timelineRef.current = timeline;
   const displayEntries = useMemo<TimelineRow[]>(() => {
-    const chronological = timeline.map((entry, index) => {
-      const previous = timeline[index - 1];
-      const showDivider = !previous || new Date(previous.timestamp).toDateString() !== new Date(entry.timestamp).toDateString();
+    let previousDay: string | null = null;
+    const chronological = timeline.map((entry) => {
+      const currentDay = new Date(entry.timestamp).toDateString();
+      const showDivider = previousDay !== currentDay;
+      previousDay = currentDay;
       return { entry, showDivider };
     });
     chronological.reverse();
