@@ -238,6 +238,11 @@ export function CreateOrderScreen() {
   const amountToCollectInputValue = amountToCollectEdited ? amountToCollect : (defaultAmountToCollectMinor / 100).toFixed(2);
   const parsedAmountToCollect = Number.parseFloat(amountToCollectInputValue);
   const amountToCollectMinor = payment === 'PAID' ? 0 : Math.max(Number.isFinite(parsedAmountToCollect) ? Math.round(parsedAmountToCollect * 100) : defaultAmountToCollectMinor, 0);
+  const canSubmitOrder = cart.length > 0
+    && Boolean(recipientName.trim())
+    && Boolean(recipientPhone.trim())
+    && Boolean(address.trim())
+    && Boolean(sourceId);
 
   useEffect(() => {
     if (!sourceId && channels.length) setSourceId(channels[0].id);
@@ -610,7 +615,7 @@ export function CreateOrderScreen() {
           ) : <Text style={[styles.helper, { color: colors.textSecondary }]}>No delivery partners connected. Connect one from Integrations to book shipments.</Text>}
         </AppCard>
         {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
-        <AppButton block label={editOrderId ? 'Save order' : 'Create order'} loading={saving} disabled={saving} onPress={() => void save()} />
+        <AppButton block label={editOrderId ? 'Save order' : 'Create order'} loading={saving} disabled={saving || editLoading || !canSubmitOrder} onPress={() => void save()} />
       </FormScrollView> : editLoadFailed ? <View style={[styles.createOrderBody, { justifyContent: 'center', padding: spacing.lg, gap: spacing.md }]}><Text style={[styles.error, { color: colors.error }]}>{error || 'Could not load this order.'}</Text><AppButton label="Close" variant="secondary" onPress={() => navigation.goBack()} /></View> : null}
       <BottomSheet visible={Boolean(picker)} onClose={closePicker} sheetStyle={styles.pickerSheet}>
         <View style={styles.pickerContent}>
