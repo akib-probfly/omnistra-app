@@ -319,15 +319,6 @@ export function InboxScreen() {
     : Math.max(0, Number((unreadCount.data as { count?: number } | undefined)?.count ?? 0) || 0);
   // Badge can lag behind optimistic row unread; never show less than what's visible in the list.
   const chatsUnreadCount = Math.max(apiUnreadConversationCount, unreadConversationCountFromList);
-  const listExtraData = useMemo(
-    () => items.map((item) => {
-      const at = item.lastInteraction?.at ?? item.lastMessageAt ?? '';
-      const previewId = item.lastInteraction?.kind === 'MESSAGE' ? item.lastInteraction.message.id : '';
-      return `${item.id}:${item.unreadCount}:${at}:${previewId}`;
-    }).join('|'),
-    [items],
-  );
-
   const keyExtractor = useCallback((item: ConversationListItem) => item.id, []);
   const renderConversationRow = useCallback(
     ({ item }: { item: ConversationListItem }) => (
@@ -420,7 +411,6 @@ export function InboxScreen() {
               data={items}
               keyExtractor={keyExtractor}
               renderItem={renderConversationRow}
-              extraData={listExtraData}
               ListEmptyComponent={(
                 <View style={styles.empty}>
                   <Inbox color={colors.textMuted} size={44} />
