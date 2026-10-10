@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchChannels } from '../api/channels';
 import { fetchMyWorkspaces } from '../api/workspaces';
 import { getCourierDeliveryFees, getCourierDeliveryZone, listCourierConnections } from '../api/couriers';
-import { createOrder, listOrderAreas, listOrderCities, listOrderZones, type OrderLocationOption } from '../api/orders';
+import { createOrder, fetchOrderForEdit, listOrderAreas, listOrderCities, listOrderZones, updateOrder, type OrderLocationOption } from '../api/orders';
 import { listProducts, type ProductResponse, type ProductVariant } from '../api/products';
 import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 import { ChannelLogo } from '../components/ChannelLogo';
@@ -124,6 +124,7 @@ export function CreateOrderScreen() {
   const route = useRoute<RouteProp<SettingsStackParamList, 'CreateOrder'>>();
   const isSheetPresentation = route.params?.presentation === 'sheet';
   const initialRecipient = route.params?.initialRecipient;
+  const editOrderId = route.params?.editOrderId;
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const [picker, setPicker] = useState<Picker>(null);
@@ -168,6 +169,8 @@ export function CreateOrderScreen() {
   })));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [editLoading, setEditLoading] = useState(Boolean(editOrderId));
+  const [editLoadFailed, setEditLoadFailed] = useState(false);
 
   const workspaceQuery = useQuery({ queryKey: ['workspaces', 'mine'], queryFn: fetchMyWorkspaces, staleTime: 30_000 });
   const currency = workspaceQuery.data?.items?.[0]?.defaultCurrency || 'BDT';
@@ -258,6 +261,46 @@ export function CreateOrderScreen() {
       weightKg: ((item.weightGrams ?? 0) / 1000).toFixed(3),
     })));
   }, [route.params]);
+
+  useEffect(() => {
+    if (!editOrderId) return;
+    let active = true;
+    setEditLoading(true);
+    setEditLoadFailed(false);
+    fetchOrderForEdit(editOrderId).then((order) => {
+      if (!active) return;
+      setSourceId(order.sourceChannelId);
+      setCourierId(order.courierConnectionId ?? '');
+      setPayment(order.paymentMethod);
+      setPartialAmount((order.amountPaidMinor / 100).toFixed(2));
+      setAmountToCollect((order.amountToCollectMinor / 100).toFixed(2));
+      setAmountToCollectEdited(true);
+      setRecipientName(order.recipient.name);
+      setRecipientPhone(order.recipient.phone);
+      setRecipientEmail(order.recipient.email ?? '');
+      setAddress(order.recipient.address);
+      setCity(order.recipient.city);
+      setZone(order.recipient.zone);
+      setArea(order.recipient.area);
+      setCart(order.items.map((item, index) => ({
+        id: `edit-${index}-${item.productId ?? 'manual'}`,
+        product: item.productId ? { id: item.productId } as ProductResponse : null,
+        productVariantId: item.productVariantId,
+        variantLabel: item.variantLabel,
+        name: item.name,
+        imageUrl: item.imageUrl,
+        quantity: item.quantity,
+        unitPrice: (item.unitPriceMinor / 100).toFixed(2),
+        weightKg: ((item.weightGrams ?? 0) / 1000).toFixed(3),
+      })));
+    }).catch((cause: unknown) => {
+      if (active) {
+        setEditLoadFailed(true);
+        setError(cause instanceof Error ? cause.message : 'Could not load this order.');
+      }
+    }).finally(() => { if (active) setEditLoading(false); });
+    return () => { active = false; };
+  }, [editOrderId]);
 
   useEffect(() => {
     if (couriers.some((courier) => courier.id === courierId)) return;
@@ -394,7 +437,7 @@ export function CreateOrderScreen() {
     }
     setSaving(true); setError('');
     try {
-      await createOrder({
+      const payload = {
         sourceChannelId: sourceId,
         courierConnectionId: courierId || null,
         recipientName: recipientName.trim(),
@@ -425,7 +468,9 @@ export function CreateOrderScreen() {
               unitPriceMinor: Math.round(Number.parseFloat(item.unitPrice) * 100),
               weightGrams: Math.round(Number.parseFloat(item.weightKg) * 1000),
             }),
-      });
+      };
+      if (editOrderId) await updateOrder(editOrderId, payload);
+      else await createOrder(payload);
       await queryClient.invalidateQueries({ queryKey: ['orders'] });
       navigation.goBack();
     } catch (cause) {
@@ -438,8 +483,9 @@ export function CreateOrderScreen() {
   const FormScrollView = isSheetPresentation ? SheetScrollView : ScrollView;
   const screenBody = (
     <View style={styles.createOrderBody}>
-      {isSheetPresentation ? <View style={[styles.createOrderSheetHeader, { borderBottomColor: colors.cardBorder }]}><View style={styles.createOrderSheetTitle}><Text style={[styles.createOrderSheetTitleText, { color: colors.text }]}>Create order</Text><Text style={[styles.helper, { color: colors.textSecondary }]}>Add products and delivery details</Text></View><Pressable onPress={() => navigation.goBack()} hitSlop={8} accessibilityLabel="Close create order"><X color={colors.textSecondary} size={22} /></Pressable></View> : <ScreenHeader title="Create order" subtitle="Add products and delivery details" onBack={() => navigation.goBack()} />}
-      <FormScrollView style={isSheetPresentation ? styles.createOrderSheetScroll : undefined} contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, spacing.xxxl) }]} keyboardShouldPersistTaps="handled">
+      {isSheetPresentation ? <View style={[styles.createOrderSheetHeader, { borderBottomColor: colors.cardBorder }]}><View style={styles.createOrderSheetTitle}><Text style={[styles.createOrderSheetTitleText, { color: colors.text }]}>{editOrderId ? 'Edit order' : 'Create order'}</Text><Text style={[styles.helper, { color: colors.textSecondary }]}>Add products and delivery details</Text></View><Pressable onPress={() => navigation.goBack()} hitSlop={8} accessibilityLabel="Close create order"><X color={colors.textSecondary} size={22} /></Pressable></View> : <ScreenHeader title={editOrderId ? 'Edit order' : 'Create order'} subtitle="Add products and delivery details" onBack={() => navigation.goBack()} />}
+      {editLoading ? <View style={[styles.createOrderBody, { justifyContent: 'center', padding: spacing.lg }]}><ActivityIndicator color={colors.primary} /><Text style={[styles.helper, { color: colors.textSecondary, textAlign: 'center' }]}>Loading order details…</Text></View> : null}
+      {!editLoading && !editLoadFailed ? <FormScrollView style={isSheetPresentation ? styles.createOrderSheetScroll : undefined} contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, spacing.xxxl) }]} keyboardShouldPersistTaps="handled">
         <AppCard style={styles.card}>
           <View style={styles.sectionHeading}><Package color={colors.primary} size={18} /><Text style={[styles.sectionTitle, { color: colors.text }]}>Products</Text></View>
           <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
@@ -564,8 +610,8 @@ export function CreateOrderScreen() {
           ) : <Text style={[styles.helper, { color: colors.textSecondary }]}>No delivery partners connected. Connect one from Integrations to book shipments.</Text>}
         </AppCard>
         {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
-        <AppButton block label="Create order" loading={saving} disabled={saving} onPress={() => void save()} />
-      </FormScrollView>
+        <AppButton block label={editOrderId ? 'Save order' : 'Create order'} loading={saving} disabled={saving} onPress={() => void save()} />
+      </FormScrollView> : editLoadFailed ? <View style={[styles.createOrderBody, { justifyContent: 'center', padding: spacing.lg, gap: spacing.md }]}><Text style={[styles.error, { color: colors.error }]}>{error || 'Could not load this order.'}</Text><AppButton label="Close" variant="secondary" onPress={() => navigation.goBack()} /></View> : null}
       <BottomSheet visible={Boolean(picker)} onClose={closePicker} sheetStyle={styles.pickerSheet}>
         <View style={styles.pickerContent}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>{pickerTitle}</Text>

@@ -1,4 +1,5 @@
 export type CreateOrderRouteParams = {
+  editOrderId?: string;
   initialItems?: Array<{
     productId: string;
     name: string;

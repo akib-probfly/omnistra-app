@@ -41,6 +41,37 @@ export type CreateOrderInput = {
     | { productId: null; productVariantId?: null; productName: string; variantLabel?: string | null; quantity: number; unitPriceMinor: number; weightGrams: number | null }
   >;
 };
+export type OrderEditResponse = {
+  id: string;
+  orderNumber: string;
+  status: OrderStatus;
+  sourceChannelId: string;
+  courierConnectionId: string | null;
+  currency: string;
+  paymentMethod: 'COD' | 'PAID' | 'PARTIAL';
+  amountPaidMinor: number;
+  amountToCollectMinor: number;
+  deliveryFeeMinor: number;
+  recipient: {
+    name: string;
+    phone: string;
+    email: string | null;
+    address: string;
+    city: { id: string; name: string } | null;
+    zone: { id: string; name: string } | null;
+    area: { id: string; name: string } | null;
+  };
+  items: Array<{
+    productId: string | null;
+    productVariantId: string | null;
+    name: string;
+    imageUrl: string | null;
+    variantLabel: string | null;
+    quantity: number;
+    unitPriceMinor: number;
+    weightGrams: number | null;
+  }>;
+};
 export function fetchConversationOrderDraft(conversationId: string, messageId: string, lookbackDays = 30) {
   const query = new URLSearchParams({ messageId, lookbackDays: String(lookbackDays) });
   return apiFetch<ConversationOrderDraft>(`/conversations/${conversationId}/order-draft?${query}`);
@@ -57,6 +88,12 @@ export async function listOrders(params: { search?: string; phone?: string; sour
 }
 export function createOrder(input: CreateOrderInput) {
   return apiFetch<{ id: string; orderNumber: string; status: OrderStatus }>('/orders', { method: 'POST', body: JSON.stringify(input) });
+}
+export function fetchOrderForEdit(orderId: string) {
+  return apiFetch<OrderEditResponse>(`/orders/${orderId}`);
+}
+export function updateOrder(orderId: string, input: CreateOrderInput) {
+  return apiFetch<{ id: string; orderNumber: string; status: OrderStatus }>(`/orders/${orderId}`, { method: 'PATCH', body: JSON.stringify(input) });
 }
 export function updateOrderStatus(orderId: string, status: OrderStatus) {
   return apiFetch<{ id: string; orderNumber: string; status: OrderStatus }>(`/orders/${orderId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
