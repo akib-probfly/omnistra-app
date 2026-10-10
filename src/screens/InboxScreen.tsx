@@ -306,10 +306,16 @@ export function InboxScreen() {
     }
   }, [queryClient]);
 
-  const items = useMemo(
-    () => (conversations.data?.pages ?? []).flatMap((page) => page.items).filter((item) => !filters.unreadOnly || item.unreadCount > 0),
-    [conversations.data, filters.unreadOnly],
-  );
+  const items = useMemo(() => {
+    const visibleItems: ConversationListItem[] = [];
+    for (const page of conversations.data?.pages ?? []) {
+      for (const item of page.items) {
+        if (filters.unreadOnly && item.unreadCount <= 0) continue;
+        visibleItems.push(item);
+      }
+    }
+    return visibleItems;
+  }, [conversations.data, filters.unreadOnly]);
   const unreadConversationCountFromList = useMemo(
     () => items.reduce((count, item) => count + (item.unreadCount > 0 ? 1 : 0), 0),
     [items],
