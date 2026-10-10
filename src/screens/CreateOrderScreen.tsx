@@ -38,6 +38,10 @@ function productVariantLabel(variant: ProductVariant) {
   return variant.attributes.map((attribute) => `${attribute.attributeName}: ${attribute.value}`).join(' · ');
 }
 
+function productHasVariants(product: ProductResponse) {
+  return product.hasVariants || product.variants.some((variant) => variant.isActive);
+}
+
 const BENGALI_LOCATION_ALIASES: ReadonlyArray<readonly [string, string]> = [
   ['\u09B2\u0995\u09CD\u09B7\u09CD\u09AE\u09C0\u09AA\u09C1\u09B0', 'lakshmipur'],
   ['\u099A\u099F\u09CD\u099F\u0997\u09CD\u09B0\u09BE\u09AE', 'chattogram'],
@@ -147,6 +151,7 @@ export function CreateOrderScreen() {
   const [customProductMode, setCustomProductMode] = useState(false);
   const [customProductName, setCustomProductName] = useState('');
   const [customVariantLabel, setCustomVariantLabel] = useState('');
+  const [variationError, setVariationError] = useState(false);
   const [quantity, setQuantity] = useState('1');
   const [unitPrice, setUnitPrice] = useState('0.00');
   const [weightKg, setWeightKg] = useState('0.00');
@@ -266,6 +271,7 @@ export function CreateOrderScreen() {
     Keyboard.dismiss();
     setSelectedProduct(product);
     setSelectedVariant(null);
+    setVariationError(false);
     setCustomProductMode(false);
     setQuantity('1');
     setUnitPrice((productPrice(product) / 100).toFixed(2));
@@ -277,6 +283,7 @@ export function CreateOrderScreen() {
   const chooseVariant = (variant: ProductVariant) => {
     if (!selectedProduct) return;
     setSelectedVariant(variant);
+    setVariationError(false);
     setUnitPrice((productVariantPrice(selectedProduct, variant) / 100).toFixed(2));
     setWeightKg(((variant.weightGrams ?? selectedProduct.weightGrams ?? 0) / 1000).toFixed(2));
   };
@@ -285,6 +292,7 @@ export function CreateOrderScreen() {
     Keyboard.dismiss();
     setSelectedProduct(null);
     setSelectedVariant(null);
+    setVariationError(false);
     setCustomProductMode(true);
     setCustomProductName(productSearch.trim());
     setCustomVariantLabel('');
@@ -304,12 +312,14 @@ export function CreateOrderScreen() {
     productSearchRef.current?.blur();
     Keyboard.dismiss();
     const activeVariants = selectedProduct?.variants?.filter((item) => item.isActive) ?? [];
-    if (!customProductMode && selectedProduct?.hasVariants && activeVariants.length === 0) {
+    if (!customProductMode && selectedProduct && productHasVariants(selectedProduct) && activeVariants.length === 0) {
+      setVariationError(false);
       setError('This product has no active variations available.');
       return;
     }
-    if (!customProductMode && (selectedProduct?.hasVariants || activeVariants.length > 0) && !selectedVariant) {
-      setError('Select a product variation before adding it to the cart.');
+    if (!customProductMode && selectedProduct && productHasVariants(selectedProduct) && !selectedVariant) {
+      setVariationError(true);
+      setError('');
       return;
     }
     const nextQuantity = Math.max(1, Number.parseInt(quantity, 10) || 1);
@@ -326,6 +336,7 @@ export function CreateOrderScreen() {
     });
     setSelectedProduct(null);
     setSelectedVariant(null);
+    setVariationError(false);
     setCustomProductMode(false);
     setCustomProductName('');
     setCustomVariantLabel('');
@@ -465,7 +476,7 @@ export function CreateOrderScreen() {
           {selectedProduct || customProductMode ? <View style={[styles.selectedProduct, { backgroundColor: colors.surfaceSecondary }]}>
             <View style={styles.selectedProductHeading}><Text style={[styles.productName, { color: colors.text, flex: 1 }]} numberOfLines={1}>{selectedProduct?.name ?? 'New manual product'}</Text><Pressable onPress={() => { setSelectedProduct(null); setSelectedVariant(null); setCustomProductMode(false); }} accessibilityLabel="Remove selected product"><Text style={[styles.helper, { color: colors.error }]}>Cancel</Text></Pressable></View>
             {customProductMode ? <AppTextField label="Product name *" value={customProductName} onChangeText={setCustomProductName} placeholder="Product name" /> : null}
-            {selectedProduct?.hasVariants || (selectedProduct?.variants ?? []).some((item) => item.isActive) ? <PickerButton label="Variation *" value={selectedVariant ? productVariantLabel(selectedVariant) : 'Select a variation'} onPress={() => setPicker('variant')} disabled={!((selectedProduct?.variants ?? []).some((item) => item.isActive))} /> : null}
+            {selectedProduct?.hasVariants || (selectedProduct?.variants ?? []).some((item) => item.isActive) ? <><PickerButton label="Variation *" value={selectedVariant ? productVariantLabel(selectedVariant) : 'Select a variation'} onPress={() => setPicker('variant')} disabled={!((selectedProduct?.variants ?? []).some((item) => item.isActive))} />{variationError && !selectedVariant ? <Text style={[styles.helper, { color: colors.error }]}>Select a product variation before adding it to the cart.</Text> : null}</> : null}
             {selectedProduct?.hasVariants && !(selectedProduct.variants ?? []).some((item) => item.isActive) ? <Text style={[styles.helper, { color: colors.error }]}>This product has no active variations available.</Text> : null}
             {customProductMode ? <AppTextField label="Variant details (optional)" value={customVariantLabel} onChangeText={setCustomVariantLabel} placeholder="e.g. Size: Large" /> : null}
             <View style={styles.editableFields}><AppTextField style={styles.editableField} label={`Unit price (${selectedCurrency})`} value={unitPrice} onChangeText={(value) => setUnitPrice(sanitizeMoneyInput(value))} keyboardType="decimal-pad" inputMode="decimal" /><AppTextField style={styles.editableField} label="Weight (kg)" value={weightKg} onChangeText={setWeightKg} keyboardType="decimal-pad" /></View>
