@@ -1,7 +1,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
-import { Check, ImagePlus, Info, Layers3, Plus, RefreshCw, Save, Sparkles, Store, Trash2, X } from 'lucide-react-native';
+import { ImagePlus, Info, Layers3, Plus, RefreshCw, Save, Sparkles, Trash2, X } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
@@ -64,8 +64,19 @@ function buildProductVariants(form: FormState) {
   if (!form.hasVariants) return [];
   const attributes = form.attributes.map(({ name, values }) => ({ name: name.trim(), values: [...new Set(values.split(',').map((value) => value.trim()).filter(Boolean))] })).filter(({ name, values }) => name && values.length);
   if (!attributes.length) return [];
-  const combinations = attributes.reduce<Array<Array<{ name: string; value: string }>>>((rows, attribute) => rows.length ? rows.flatMap((row) => attribute.values.map((value) => [...row, { name: attribute.name, value }])) : attribute.values.map((value) => [{ name: attribute.name, value }]), []);
-  return combinations.slice(0, MAX_PRODUCT_VARIANTS).map((combination) => {
+  let combinations: Array<Array<{ name: string; value: string }>> = [[]];
+  for (const attribute of attributes) {
+    const next: Array<Array<{ name: string; value: string }>> = [];
+    for (const row of combinations) {
+      for (const value of attribute.values) {
+        next.push([...row, { name: attribute.name, value }]);
+        if (next.length === MAX_PRODUCT_VARIANTS) break;
+      }
+      if (next.length === MAX_PRODUCT_VARIANTS) break;
+    }
+    combinations = next;
+  }
+  return combinations.map((combination) => {
     const suffix = combination.map(({ value }) => value.trim().replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').toUpperCase()).filter(Boolean).join('-');
     const override = form.variantOverrides[variantKey(combination)];
     return { sku: override?.sku || [form.sku.trim(), suffix].filter(Boolean).join('-'), basePrice: override?.price || form.price.trim() || undefined, salePrice: override?.salePrice || form.salePrice.trim() || undefined, stock: override?.stock !== undefined && override.stock !== '' ? Number(override.stock) : Number(form.inventory) || 0, weight: override?.weight || form.weight.trim() || undefined, isActive: override?.isActive ?? true, attributes: combination };
@@ -302,7 +313,11 @@ export function ProductFormScreen() {
     }
   };
 
-  const generatedVariants = buildProductVariants(form);
+  const generatedVariants = useMemo(() => buildProductVariants(form), [form]);
+  const generatedVariantStock = useMemo(
+    () => generatedVariants.reduce((total, variant) => total + (variant.stock ?? 0), 0),
+    [generatedVariants],
+  );
   const generatedCombinationCount = form.hasVariants ? form.attributes.reduce((count, attribute) => {
     const valueCount = [...new Set(attribute.values.split(',').map((value) => value.trim()).filter(Boolean))].length;
     return count * (attribute.name.trim() && valueCount ? valueCount : 1);
@@ -431,7 +446,7 @@ export function ProductFormScreen() {
               {fieldErrors.attributes ? <Text style={[styles.variantError, { color: colors.error }]}>{fieldErrors.attributes}</Text> : null}
               {generatedCombinationCount > MAX_PRODUCT_VARIANTS ? <Text style={[styles.variantLimitNotice, { color: colors.warning, backgroundColor: colors.warningSoft }]}>There are {generatedCombinationCount.toLocaleString()} combinations. The first {MAX_PRODUCT_VARIANTS} are shown; reduce values before saving.</Text> : null}
               {generatedVariants.length ? <>
-                <View style={[styles.variantPreview, { backgroundColor: colors.surfaceSecondary }]}><Text style={[styles.variantPreviewTitle, { color: colors.text }]}>{generatedVariants.length} variant{generatedVariants.length === 1 ? '' : 's'} · Total stock {generatedVariants.reduce((total, variant) => total + (variant.stock ?? 0), 0).toLocaleString()}</Text></View>
+                <View style={[styles.variantPreview, { backgroundColor: colors.surfaceSecondary }]}><Text style={[styles.variantPreviewTitle, { color: colors.text }]}>{generatedVariants.length} variant{generatedVariants.length === 1 ? '' : 's'} · Total stock {generatedVariantStock.toLocaleString()}</Text></View>
                 <View style={[styles.bulkVariantCard, { borderColor: colors.primary + '55', backgroundColor: colors.primarySoft }]}><View style={styles.bulkVariantHeading}><Sparkles color={colors.primary} size={16} /><Text style={[styles.bulkVariantTitle, { color: colors.text }]}>Edit all variants</Text></View><View style={styles.bulkVariantGrid}>{([['price', 'Apply price'], ['salePrice', 'Apply sale price'], ['stock', 'Apply stock'], ['weight', 'Apply weight']] as const).map(([key, placeholder]) => <TextInput key={key} value={bulkVariantValues[key]} onChangeText={(value) => setBulkVariantValues((current) => ({ ...current, [key]: key === 'stock' ? value.replace(/\D/g, '') : sanitizeMoneyInput(value) }))} placeholder={placeholder} placeholderTextColor={colors.textMuted} keyboardType={key === 'stock' ? 'numeric' : 'decimal-pad'} style={[styles.variantInput, styles.bulkVariantInput, { borderColor: colors.cardBorder, color: colors.text, backgroundColor: colors.surface }]} accessibilityLabel={placeholder} />)}</View><AppButton label="Apply to all" onPress={applyBulkVariantValues} /></View>
                 {generatedVariants.map((variant) => {
                   const key = variantKey(variant.attributes);
