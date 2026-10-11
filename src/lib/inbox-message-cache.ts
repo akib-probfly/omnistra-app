@@ -39,7 +39,7 @@ function normalizeMessageAttachments(messages: Message[]) {
   });
 }
 
-export function preserveMessageTextDuringAttachmentHydration(serverItems: Message[], currentItems: Message[] | undefined) {
+export function preserveMessageTextDuringAttachmentHydration<TMessage extends Message>(serverItems: TMessage[], currentItems: TMessage[] | undefined): TMessage[] {
   if (!currentItems?.length) return serverItems;
   const currentById = new Map(currentItems.map((message) => [message.id, message]));
   return serverItems.map((message) => {
