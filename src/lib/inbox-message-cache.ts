@@ -32,22 +32,34 @@ type MessagesQueryData = {
 function normalizeMessageAttachments(messages: Message[]) {
   return messages.map((message) => {
     const messageAttachments = message.attachments ?? [];
-    const mediaOnly =
-      messageAttachments.length > 0
-      && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(message.type);
     return {
       ...message,
-      text: mediaOnly ? null : message.text,
       attachments: messageAttachments,
     };
+  });
+}
+
+export function preserveMessageTextDuringAttachmentHydration(serverItems: Message[], currentItems: Message[] | undefined) {
+  if (!currentItems?.length) return serverItems;
+  const currentById = new Map(currentItems.map((message) => [message.id, message]));
+  return serverItems.map((message) => {
+    const current = currentById.get(message.id);
+    if (
+      message.text?.trim()
+      || !current?.text?.trim()
+      || (current.attachments?.length ?? 0) > 0
+      || (message.attachments?.length ?? 0) === 0
+    ) return message;
+    return { ...message, text: current.text };
   });
 }
 
 function preserveOptimisticMessages(serverItems: Message[], currentItems: Message[] | undefined) {
   if (!currentItems?.length) return serverItems;
 
+  const normalizedServerItems = preserveMessageTextDuringAttachmentHydration(serverItems, currentItems);
   const serverIds = new Set(serverItems.map((item) => item.id));
-  const merged = [...serverItems];
+  const merged = [...normalizedServerItems];
 
   currentItems.forEach((message) => {
     const serverId = typeof message.metadata?.serverId === 'string' ? message.metadata.serverId : null;

@@ -393,6 +393,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
             ) : null}
           </View>
         ) : null}
+        {showBody && imageAttachments.length > 0 ? renderBody() : null}
         {imageAttachments.length > 1 ? (
           <View style={styles.imageGrid}>
             {imageAttachments.map((attachment: any) => (
@@ -482,7 +483,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
         {!showBody && !isTikTokUnsupportedInboundVoice && !templateDisplay && !whatsappLocation && !whatsappContacts?.length && !imageAttachments.length && !videoAttachments.length && !voiceAttachments.length && !documentAttachments.length && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(mediaType) ? (
           <Text style={[styles.missingMedia, outgoing && styles.outgoingMuted, !outgoing && { color: colors.textMuted }]}>Attachment</Text>
         ) : null}
-        {showBody ? renderBody() : null}
+        {!imageAttachments.length && showBody ? renderBody() : null}
         {showLinkPreview ? <LinkPreviewCard url={firstUrl} outgoing={outgoing} /> : null}
         <View style={[styles.metaRow, (isLocationOnlyMessage || isContactOnlyMessage) && styles.embeddedCardMetaRow]}>
           {outgoing && statusMeta ? (

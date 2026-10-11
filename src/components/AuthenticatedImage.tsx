@@ -230,7 +230,6 @@ export function AuthenticatedImage({
     let active = true;
     setFailed(false);
     setLoaded(false);
-    setNaturalSize(null);
 
     if (!url) {
       setImageHeaders(undefined);

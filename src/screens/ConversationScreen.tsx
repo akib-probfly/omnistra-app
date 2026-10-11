@@ -16,6 +16,7 @@ import { apiFetch, isApiErrorWithStatus, uploadFile } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { getRealtimeConnectionStatus, setActiveConversationId, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { markRecentLocalMessageSend } from '../lib/inbox-realtime-suppression';
+import { preserveMessageTextDuringAttachmentHydration } from '../lib/inbox-message-cache';
 import { pollingWhileUnlocked } from '../lib/billing-lock';
 import { unmuteConversationNotifications } from '../lib/muted-conversations';
 import { setUnreadOverride } from '../lib/unread-count-override';
@@ -240,14 +241,15 @@ export function ConversationScreen() {
       // The messages endpoint includes each message's attachments. Avoid the broad
       // conversation attachment request here; it was duplicating every page load.
       const page = await fetchConversationMessages<Message>(route.params.conversationId);
-      const items: Message[] = page.items.map((message) => {
+      const cachedItems = queryClient.getQueryData<{ items?: Message[] }>(['messages', route.params.conversationId])?.items;
+      const hydratedItems = preserveMessageTextDuringAttachmentHydration(page.items, cachedItems);
+      const items: Message[] = hydratedItems.map((message) => {
         const messageAttachments = message.attachments ?? [];
-        const mediaOnly = messageAttachments.length > 0 && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(message.type);
         const localImagePreviews = localImagePreviewsRef.current.get(message.id);
         const attachmentsWithLocalPreview = localImagePreviews
           ? messageAttachments.map((attachment, index) => ({ ...attachment, localPreviewUri: localImagePreviews[index] ?? null }))
           : messageAttachments;
-        return { ...message, text: mediaOnly ? null : message.text, attachments: attachmentsWithLocalPreview };
+        return { ...message, attachments: attachmentsWithLocalPreview };
       });
 
       // Keep in-flight optimistic bubbles across polling/refetch overwrites.
@@ -414,11 +416,15 @@ export function ConversationScreen() {
         }),
       });
       // API returns { message, messages, conversation } — not a bare message.
-      const created: Message | null = response?.message
-        ?? (Array.isArray(response?.messages) ? response.messages[0] : null)
-        ?? (response?.id && response?.direction ? response : null);
+      const createdMessages: Message[] = Array.isArray(response?.messages)
+        ? response.messages.filter((message: unknown): message is Message => Boolean(message && typeof message === 'object' && 'id' in message))
+        : response?.message?.id
+          ? [response.message as Message]
+          : [];
+      const created: Message | null = createdMessages[createdMessages.length - 1]
+        ?? (response?.id && response?.direction ? response as Message : null);
       if (!created?.id) throw new Error('Message was sent but the server response was incomplete.');
-      return created;
+      return { ...created, __createdMessages: createdMessages } as Message;
     },
     onMutate: async (payload) => {
       const selectedAttachments = payload?.attachments ?? attachments;
@@ -483,31 +489,32 @@ export function ConversationScreen() {
       deliveryPollUntilRef.current = Date.now() + 45_000;
       const clientKey = context?.clientKey ?? context?.tempId;
       const optimisticAttachments = context?.tempId ? pendingOptimisticRef.current.get(context.tempId)?.attachments ?? [] : [];
-      const previewUris = (created.attachments ?? []).map((attachment, index) => {
-        const optimisticAttachment = optimisticAttachments[index];
-        return (attachment.mediaType ?? '').toUpperCase() === 'IMAGE'
-          ? optimisticAttachment?.previewUrl ?? optimisticAttachment?.thumbnailUrl ?? null
-          : null;
+      const createdMessages = (created as Message & { __createdMessages?: Message[] }).__createdMessages ?? [created];
+      const confirmedMessages = createdMessages.map((createdMessage, messageIndex) => {
+        const messageAttachments = (createdMessage.attachments ?? []).map((attachment, index) => {
+          const optimisticAttachment = optimisticAttachments[index];
+          const localPreviewUri = messageIndex === createdMessages.length - 1
+            && (attachment.mediaType ?? '').toUpperCase() === 'IMAGE'
+            ? optimisticAttachment?.previewUrl ?? optimisticAttachment?.thumbnailUrl ?? null
+            : null;
+          return { ...attachment, localPreviewUri };
+        });
+        return {
+          ...createdMessage,
+          attachments: messageAttachments,
+          deliveryStatus: createdMessage.deliveryStatus && createdMessage.deliveryStatus !== 'SENDING' ? createdMessage.deliveryStatus : 'SENT',
+          metadata: {
+            ...(typeof createdMessage.metadata === 'object' && createdMessage.metadata ? createdMessage.metadata : {}),
+            clientKey: messageIndex === createdMessages.length - 1 ? clientKey : `${clientKey}:${messageIndex}`,
+            optimistic: false,
+          },
+        } as Message;
       });
-      if (context?.tempId && (created.attachments?.length ?? 0) > 0) {
-        localImagePreviewsRef.current.set(created.id, previewUris);
+      const confirmed = confirmedMessages[confirmedMessages.length - 1] ?? created;
+      const imageMessage = confirmedMessages.find((message) => (message.attachments ?? []).some((attachment) => (attachment.mediaType ?? '').toUpperCase() === 'IMAGE'));
+      if (imageMessage && context?.tempId) {
+        localImagePreviewsRef.current.set(imageMessage.id, (imageMessage.attachments ?? []).map((attachment) => attachment.localPreviewUri ?? null));
       }
-      const confirmedAttachments = (created.attachments ?? []).map((attachment, index) => ({
-        ...attachment,
-        localPreviewUri: previewUris[index] ?? null,
-      }));
-      const mediaOnly = confirmedAttachments.length > 0 && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(created.type);
-      const confirmed: Message = {
-        ...created,
-        text: mediaOnly ? null : created.text,
-        attachments: confirmedAttachments,
-        deliveryStatus: created.deliveryStatus && created.deliveryStatus !== 'SENDING' ? created.deliveryStatus : 'SENT',
-        metadata: {
-          ...(typeof created.metadata === 'object' && created.metadata ? created.metadata : {}),
-          clientKey,
-          optimistic: false,
-        },
-      };
       // Keep until a later refetch sees the server id — preserves clientKey / avoids blink.
       if (context?.tempId) {
         pendingOptimisticRef.current.set(context.tempId, {
@@ -518,14 +525,14 @@ export function ConversationScreen() {
       queryClient.setQueryData<any>(['messages', route.params.conversationId], (current: any) => {
         if (!current || !Array.isArray(current.items)) return current;
         let replaced = false;
-        const items = current.items.map((item: any) => {
+        const items = current.items.flatMap((item: any) => {
           if (item.id === context?.tempId || item.metadata?.clientKey === clientKey || item.id === confirmed.id) {
             replaced = true;
-            return confirmed;
+            return confirmedMessages;
           }
-          return item;
+          return [item];
         });
-        if (!replaced) items.push(confirmed);
+        if (!replaced) items.push(...confirmedMessages);
         // Drop any duplicate server copy that arrived from a racey refetch.
         const deduped: Message[] = [];
         const seen = new Set<string>();
@@ -535,6 +542,10 @@ export function ConversationScreen() {
           seen.add(key);
           seen.add(item.id);
           deduped.push(item);
+        });
+        const knownIds = new Set(deduped.map((item) => item.id));
+        confirmedMessages.forEach((message) => {
+          if (!knownIds.has(message.id)) deduped.push(message);
         });
         return { ...current, items: deduped };
       });
@@ -719,8 +730,7 @@ export function ConversationScreen() {
       const latestIds = latestMessageIdsRef.current;
       const items = page.items.map((message: any) => {
         const messageAttachments = message.attachments ?? [];
-        const mediaOnly = messageAttachments.length > 0 && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(message.type);
-        return { ...message, text: mediaOnly ? null : message.text, attachments: messageAttachments };
+        return { ...message, attachments: messageAttachments };
       });
       setOlderMessages((current) => {
         const existing = new Set(current.map((message) => message.id));

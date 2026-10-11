@@ -773,7 +773,7 @@ export function ConversationComposer({
           {isWhatsAppChannel && channelId ? <Pressable onPress={() => { setEmojiOpen(false); setTemplateOpen(true); }}><PanelsTopLeft color="#16a34a" size={20} /></Pressable> : null}
           <View style={styles.spacer} />
           <Pressable
-            onPress={() => onSend()}
+            onPress={() => onSend({ text: value })}
             disabled={sending || !canComposeFreeform || (!value.trim() && !attachments.length)}
             style={[styles.send, canComposeFreeform && Boolean(value.trim() || attachments.length) && styles.sendActive, (sending || !canComposeFreeform) && styles.sendDisabled]}
           >

@@ -903,8 +903,7 @@ const ConversationRow = memo(function ConversationRow({ conversation, navigation
         ...page,
         items: page.items.map((message) => {
           const attachments = message.attachments ?? [];
-          const mediaOnly = attachments.length > 0 && ['IMAGE', 'VIDEO', 'AUDIO', 'VOICE', 'DOCUMENT', 'FILE', 'STICKER'].includes(message.type);
-          return { ...message, text: mediaOnly ? null : message.text, attachments };
+          return { ...message, attachments };
         }),
       })),
       staleTime: 60_000,
