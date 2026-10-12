@@ -1,5 +1,9 @@
 import { apiFetch } from './client';
 import type { BillingPlan } from './billing';
+export type AdminPackageUpdate = Partial<Pick<BillingPlan, 'name' | 'description' | 'currency' | 'buttonLabel' | 'highlighted' | 'badge' | 'sortOrder' | 'isActive' | 'intervals'>>;
+export function updateAdminPackage(key: string, input: AdminPackageUpdate) {
+  return apiFetch<BillingPlan>(`/admin/billing/plans/${encodeURIComponent(key)}`, { method: 'PUT', body: JSON.stringify(input) });
+}
 
 export type AdminWorkspace = {
   id: string; name: string; status: string; ownerName: string | null;

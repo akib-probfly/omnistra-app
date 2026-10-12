@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { adminQueryKeys, fetchAdminPlans, fetchAdminWorkspace, fetchAdminWorkspaces, runAdminWorkspaceAction, type AdminWorkspace, type AdminWorkspaceAction } from '../api/admin';
+import { adminQueryKeys, fetchAdminPlans, fetchAdminWorkspace, fetchAdminWorkspaces, runAdminWorkspaceAction, updateAdminPackage, type AdminWorkspace, type AdminWorkspaceAction } from '../api/admin';
+import type { BillingPlan } from '../api/billing';
 import { useSuperAdminAccess } from '../hooks/useSuperAdminAccess';
 import { useTheme } from '../theme/ThemeContext';
 import { radius, spacing } from '../theme/tokens';
@@ -12,9 +13,10 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useAuth } from '../auth/AuthContext';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { SuperAdminDashboard } from '../components/SuperAdminDashboard';
-import { Building2, CalendarDays, Check, ChevronRight, Filter, LayoutDashboard, Package, RefreshCw, UsersRound } from 'lucide-react-native';
+import { Building2, CalendarDays, Check, ChevronRight, Filter, LayoutDashboard, Package, Pencil, RefreshCw, UsersRound } from 'lucide-react-native';
 import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 import { AdminWorkspaceEditor } from '../components/AdminWorkspaceEditor';
+import { AdminPackageEditor } from '../components/AdminPackageEditor';
 
 const actionLabels: Record<AdminWorkspaceAction, string> = { suspend: 'Suspend workspace', reactivate: 'Reactivate workspace', 'reset-usage': 'Reset usage' };
 const adminTabs = [
@@ -49,6 +51,13 @@ export function SuperAdminScreen() {
   const [selected, setSelected] = useState<AdminWorkspace | null>(null);
   const [action, setAction] = useState<AdminWorkspaceAction | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [editingPackage, setEditingPackage] = useState<BillingPlan | null>(null);
+  const togglePackage = useMutation({
+    mutationFn: (plan: BillingPlan) => updateAdminPackage(plan.key, { isActive: plan.isActive === false }),
+    onSuccess: async () => {
+      await Promise.all([queryClient.invalidateQueries({ queryKey: adminQueryKeys.all }), queryClient.invalidateQueries({ queryKey: ['billing-plans'] })]);
+    },
+  });
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search.trim()), 350);
     return () => clearTimeout(timer);
@@ -192,6 +201,7 @@ export function SuperAdminScreen() {
             <AppIconButton icon={RefreshCw} accessibilityLabel="Refresh packages" loading={plans.isFetching} onPress={() => { void plans.refetch(); }} />
           </View>
           {!plans.data?.items.length ? <AppText tone="secondary">No packages found.</AppText> : null}
+          {togglePackage.error ? <AppText tone="error">{togglePackage.error.message}</AppText> : null}
           {plans.data?.items.map((plan) => <AppCard key={plan.key} style={[styles.packageCard, plan.highlighted ? { borderColor: colors.primary } : undefined]}>
             <View style={styles.workspaceHeader}>
               <View style={[styles.workspaceAvatar, { backgroundColor: colors.primarySoft }]}><Package size={22} color={colors.primary} /></View>
@@ -217,6 +227,10 @@ export function SuperAdminScreen() {
                 <View style={styles.workspaceCopy}><AppText variant="caption">{feature.label}</AppText>{feature.info ? <AppText variant="small" tone="secondary">{feature.info}</AppText> : null}</View>
               </View>)}
             </View> : null}
+            <View style={[styles.packageActions, { borderTopColor: colors.cardBorder }]}>
+              <View style={styles.row}><Switch accessibilityLabel={`Activate ${plan.name}`} value={plan.isActive !== false} disabled={togglePackage.isPending} onValueChange={() => { togglePackage.reset(); togglePackage.mutate(plan); }} trackColor={{ true: colors.primary }} /><AppText variant="caption">{plan.isActive === false ? 'Inactive' : 'Active'}</AppText></View>
+              <AppButton label="Edit" icon={Pencil} variant="secondary" disabled={togglePackage.isPending} onPress={() => setEditingPackage(plan)} />
+            </View>
           </AppCard>)}
         </ScrollView>}
         </View>
@@ -253,6 +267,7 @@ export function SuperAdminScreen() {
         </View>
       </BottomSheet>
       {editOpen && selected && workspace && access.isSuperAdmin ? <AdminWorkspaceEditor key={workspace.id} workspace={workspace} onClose={() => setEditOpen(false)} /> : null}
+      {editingPackage && access.isSuperAdmin ? <AdminPackageEditor key={editingPackage.key} plan={editingPackage} onClose={() => setEditingPackage(null)} /> : null}
       <ConfirmDialog visible={Boolean(action && selected)} title={action ? actionLabels[action] : ''}
         body={`${action === 'reset-usage' ? 'Reset conversation usage for the current billing period for' : action === 'suspend' ? 'Suspend access to' : 'Restore access to'} ${selected?.name ?? 'this workspace'}?${mutation.error ? `\n\n${mutation.error.message}` : ''}`}
         confirmLabel={action ? actionLabels[action] : 'Confirm'} destructive={action !== 'reactivate'} loading={mutation.isPending}
@@ -286,6 +301,7 @@ const styles = StyleSheet.create({
   packagePriceTile: { flex: 1, minWidth: 120, padding: spacing.md, borderRadius: radius.md, gap: spacing.sm },
   packageFeature: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingVertical: spacing.xs },
   featureIcon: { width: 20, height: 20, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
+  packageActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, paddingTop: spacing.md },
   bottomNav: { flexDirection: 'row', borderTopWidth: 1, paddingTop: spacing.sm, paddingHorizontal: spacing.sm, gap: spacing.sm },
   navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: spacing.sm, borderRadius: spacing.md },
 });
