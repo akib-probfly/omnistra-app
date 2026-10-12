@@ -93,6 +93,8 @@ function TimelineSeparator() {
   return <View style={styles.rowGap} />;
 }
 
+const timelineVisibleContentPosition = { minIndexForVisible: 0, autoscrollToTopThreshold: 140 };
+
 const TimelineRowItem = memo(function TimelineRowItem({
   row,
   highlighted,
@@ -1200,6 +1202,20 @@ export function ConversationScreen() {
     );
   }, [channelId, channelName, channelType, colors.surfaceSecondary, colors.textSecondary, creatingOrderDraftFor, ecommerceEnabled, handleCreateOrderFromMessage, highlightedMessageId, jumpToMessage, messageById, openImage, openVideo, reactionGroups]);
 
+  const handleContentSizeChange = useCallback(() => {
+    if (!pinToLatestRef.current) return;
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, []);
+  const handleEndReached = useCallback(() => {
+    if (!listReadyRef.current || loadingOlderRef.current || olderLoadLockOffsetRef.current != null || !hasMoreOlder || !olderCursor) return;
+    void loadOlder();
+  }, [hasMoreOlder, olderCursor, loadOlder]);
+  const timelineFooter = useMemo(() => (
+    <View style={styles.olderSpacer}>
+      {loadingOlder ? <Text style={[styles.olderPill, { color: colors.textSecondary }]}>Loading older messages...</Text> : null}
+    </View>
+  ), [loadingOlder, colors.textSecondary]);
+
   return (
     <View style={[styles.screen, { backgroundColor: colors.background, flex: 1 }]}>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
@@ -1334,23 +1350,13 @@ export function ConversationScreen() {
                 updateCellsBatchingPeriod={50}
                 windowSize={13}
                 removeClippedSubviews={false}
-                maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 140 }}
-                onContentSizeChange={() => {
-                  if (!pinToLatestRef.current) return;
-                  listRef.current?.scrollToOffset({ offset: 0, animated: false });
-                }}
+                maintainVisibleContentPosition={timelineVisibleContentPosition}
+                onContentSizeChange={handleContentSizeChange}
                 onScroll={onScroll}
                 scrollEventThrottle={16}
-                onEndReached={() => {
-                  if (!listReadyRef.current || loadingOlderRef.current || olderLoadLockOffsetRef.current != null || !hasMoreOlder || !olderCursor) return;
-                  void loadOlder();
-                }}
+                onEndReached={handleEndReached}
                 onEndReachedThreshold={0.08}
-                ListFooterComponent={(
-                  <View style={styles.olderSpacer}>
-                    {loadingOlder ? <Text style={[styles.olderPill, { color: colors.textSecondary }]}>Loading older messages...</Text> : null}
-                  </View>
-                )}
+                ListFooterComponent={timelineFooter}
                 renderItem={renderTimelineItem}
             />
           ) : (
