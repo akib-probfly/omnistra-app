@@ -387,7 +387,12 @@ export function ConversationScreen() {
     });
     return merged;
   }, [olderMessages, messages.data?.items]);
-  latestMessageIdsRef.current = new Set((messages.data?.items ?? []).map((message) => message.id));
+  const latestMessageIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const message of messages.data?.items ?? []) ids.add(message.id);
+    return ids;
+  }, [messages.data?.items]);
+  latestMessageIdsRef.current = latestMessageIds;
   hasMoreRef.current = messages.data?.hasMore ?? false;
   const reactionGroups = useMemo(() => buildReactionGroups(allMessages, reactionChannelType), [allMessages, reactionChannelType]);
 
