@@ -118,6 +118,10 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
     isInstagramSharedPostTemplateMessage(message);
   const templateDisplay = isTemplateLikeMessage(message) && !isInstagramSharedPostTemplate ? getTemplateMessageDisplay(message) : null;
   const templateHeaderUrl = templateDisplay?.headerMediaUrl ?? null;
+  const templateBodyParts = useMemo(
+    () => templateDisplay?.bodyText ? parseMessageTextParts(templateDisplay.bodyText) : [],
+    [templateDisplay?.bodyText],
+  );
   const messageText = typeof message.text === 'string' ? message.text : '';
   const hasStructuredOrderDetails = /(?:^|\n)\s*name\s*:\s*\S+/im.test(messageText) &&
     /(?:^|\n)\s*address\s*:\s*\S+/im.test(messageText) &&
@@ -152,6 +156,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
     (message.orderConfirmation?.eligible || message.metadata?.orderConfirmation?.eligible || whatsappOrder || hasStructuredOrderDetails),
   );
   const body = (message.text ?? '').trim();
+  const bodyParts = useMemo(() => parseMessageTextParts(body), [body]);
   const isLocationFallbackText = isLocationFallbackBody(body, whatsappLocation);
   const isTikTokUnsupportedInboundVoice =
     !outgoing &&
@@ -183,7 +188,6 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
     if (isEmojiOnlyMessage(body)) {
       return <Text style={[styles.emojiOnly, outgoing && styles.outgoingText, !outgoing && { color: colors.text }]}>{body}</Text>;
     }
-    const parts = parseMessageTextParts(body);
     const clamp = canExpand && !expanded;
     return (
       <View>
@@ -194,7 +198,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
             if (!canExpand && e.nativeEvent.lines.length > COLLAPSED_LINE_COUNT) setCanExpand(true);
           }}
         >
-          {parts.map((part, index) => part.type === 'url' ? (
+          {bodyParts.map((part, index) => part.type === 'url' ? (
             <Text key={index} style={[styles.link, outgoing && styles.outgoingLink, !outgoing && { color: colors.primary }]} onPress={() => openLink(part.href)}>{part.value}</Text>
           ) : (
             <Text key={index}>{part.value}</Text>
@@ -366,7 +370,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
             {templateDisplay.bodyText ? (
               <View style={styles.templateBodyWrap}>
                 <Text selectable style={[styles.templateBodyText, { color: colors.text }]}>
-                  {parseMessageTextParts(templateDisplay.bodyText).map((part, index) => part.type === 'url' ? (
+                  {templateBodyParts.map((part, index) => part.type === 'url' ? (
                     <Text key={index} style={[styles.link, { color: colors.primary }]} onPress={() => openLink(part.href)}>{part.value}</Text>
                   ) : (
                     <Text key={index}>{part.value}</Text>
