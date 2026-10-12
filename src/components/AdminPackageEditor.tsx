@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { StyleSheet, Switch, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { AppToggle } from './AppToggle';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { adminQueryKeys, updateAdminPackage, type AdminPackageUpdate } from '../api/admin';
@@ -67,18 +68,21 @@ export function AdminPackageEditor({ plan, onClose }: { plan: BillingPlan; onClo
       <AppText variant="small" tone="secondary">Package key · {plan.key}</AppText>
       <AppTextField label="Name" value={name} onChangeText={setName} editable={!mutation.isPending} />
       <AppTextField label="Description" value={description} onChangeText={setDescription} multiline editable={!mutation.isPending} />
-      <View style={styles.header}><AppText>Active</AppText><Switch accessibilityLabel="Package active" value={active} onValueChange={setActive} disabled={mutation.isPending} trackColor={{ true: colors.primary }} /></View>
-      <View style={styles.header}><AppText>Mark as popular</AppText><Switch accessibilityLabel="Package popular" value={popular} onValueChange={setPopular} disabled={mutation.isPending} trackColor={{ true: colors.primary }} /></View>
+      <View style={styles.header}><AppText>Active</AppText><AppToggle accessibilityLabel="Package active" value={active} onValueChange={setActive} disabled={mutation.isPending} /></View>
+      <View style={styles.header}><AppText>Mark as popular</AppText><AppToggle accessibilityLabel="Package popular" value={popular} onValueChange={setPopular} disabled={mutation.isPending} /></View>
       <View style={styles.row}>{(['monthly', 'yearly'] as const).filter((key) => intervals[key]).map((key) => <AppChip key={key} label={key === 'monthly' ? 'Monthly' : 'Yearly'} selected={tab === key} onPress={() => setTab(key)} />)}</View>
       {current ? <>
         <AppTextField label={`Price (${plan.currency})`} value={current.price} keyboardType="decimal-pad" onChangeText={(price) => update({ price })} editable={!mutation.isPending} />
         {limitFields.map((field) => <AppTextField key={field.key} label={field.label} value={current[field.key]} keyboardType="number-pad" placeholder="Unlimited" helpText="Leave blank for unlimited." onChangeText={(text) => update({ [field.key]: text })} editable={!mutation.isPending} />)}
-        <AppText variant="bodyStrong">Features</AppText>
-        {current.features.map((feature, index) => <View key={`${tab}:${index}`} style={styles.feature}>
-          <AppTextField label={`Feature ${index + 1}`} value={feature.label} onChangeText={(label) => update({ features: current.features.map((item, i) => i === index ? { ...item, label } : item) })} editable={!mutation.isPending} />
-          <AppTextField label="Information" value={feature.info ?? ''} onChangeText={(info) => update({ features: current.features.map((item, i) => i === index ? { ...item, info: info || null } : item) })} editable={!mutation.isPending} />
-          <View style={styles.header}><AppText variant="caption">Coming soon</AppText><Switch value={feature.status === 'coming-soon'} onValueChange={(comingSoon) => update({ features: current.features.map((item, i) => i === index ? { ...item, status: comingSoon ? 'coming-soon' : 'default' } : item) })} disabled={mutation.isPending} trackColor={{ true: colors.primary }} /></View>
+        <AppText variant="bodyStrong">Custom features</AppText>
+        <AppText variant="small" tone="secondary">Member, conversation, and channel features are generated from the limits above.</AppText>
+        {current.features.map((feature, index) => feature.kind && feature.kind !== 'feature_flag' ? null : <View key={`${tab}:${index}`} style={styles.feature}>
+          <AppTextField label="Feature label" value={feature.label} onChangeText={(label) => update({ features: current.features.map((item, i) => i === index ? { ...item, label, [tab === 'monthly' ? 'monthlyLabel' : 'yearlyLabel']: label } : item) })} editable={!mutation.isPending} />
+          <AppTextField label="Information" value={feature.info ?? ''} onChangeText={(info) => update({ features: current.features.map((item, i) => i === index ? { ...item, info: info || null, [tab === 'monthly' ? 'monthlyInfo' : 'yearlyInfo']: info || null } : item) })} editable={!mutation.isPending} />
+          <View style={styles.header}><AppText variant="caption">Coming soon</AppText><AppToggle accessibilityLabel="Feature coming soon" value={feature.status === 'coming-soon'} onValueChange={(comingSoon) => update({ features: current.features.map((item, i) => i === index ? { ...item, status: comingSoon ? 'coming-soon' : 'default' } : item) })} disabled={mutation.isPending} /></View>
+          <AppButton label="Remove feature" variant="ghost" disabled={mutation.isPending} onPress={() => update({ features: current.features.filter((_, i) => i !== index) })} />
         </View>)}
+        <AppButton label="Add feature" variant="secondary" disabled={mutation.isPending} onPress={() => update({ features: [...current.features, { key: `custom-${Date.now()}-${current.features.length}`, kind: 'feature_flag', label: '', status: 'default', info: null }] })} />
       </> : null}
       {error || mutation.error ? <AppText tone="error">{error || mutation.error?.message}</AppText> : null}
     </SheetScrollView>

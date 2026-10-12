@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { AppToggle } from '../components/AppToggle';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -228,7 +229,7 @@ export function SuperAdminScreen() {
               </View>)}
             </View> : null}
             <View style={[styles.packageActions, { borderTopColor: colors.cardBorder }]}>
-              <View style={styles.row}><Switch accessibilityLabel={`Activate ${plan.name}`} value={plan.isActive !== false} disabled={togglePackage.isPending} onValueChange={() => { togglePackage.reset(); togglePackage.mutate(plan); }} trackColor={{ true: colors.primary }} /><AppText variant="caption">{plan.isActive === false ? 'Inactive' : 'Active'}</AppText></View>
+              <View style={styles.row}><AppToggle accessibilityLabel={`Activate ${plan.name}`} value={plan.isActive !== false} disabled={togglePackage.isPending} onValueChange={() => { togglePackage.reset(); togglePackage.mutate(plan); }} /><AppText variant="caption">{plan.isActive === false ? 'Inactive' : 'Active'}</AppText></View>
               <AppButton label="Edit" icon={Pencil} variant="secondary" disabled={togglePackage.isPending} onPress={() => setEditingPackage(plan)} />
             </View>
           </AppCard>)}
