@@ -1514,10 +1514,13 @@ const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, 
       replyLockRef.current = false;
     });
   }, [onReply]);
-  if (isInlineReactionMessage(message)) return null;
   const replyTargetId = message.replyToMessageId ?? replyTarget?.id ?? message.replyTo?.id ?? null;
-  const quotedSource = replyTarget ?? message.replyTo;
-  const replyPreview = quotedSource ? {
+  const replyPreview = useMemo(() => {
+    const quotedSource = replyTarget ?? message.replyTo;
+    const replyImage = replyTarget?.attachments?.find((attachment) =>
+      (attachment.mediaType ?? '').toUpperCase() === 'IMAGE'
+      || (attachment.mimeType ?? '').toLowerCase().startsWith('image/'));
+    return quotedSource ? {
     name: (message.replyTo?.sender?.userName ?? replyTarget?.sender?.userName) || (replyTarget?.direction === 'OUTBOUND' ? 'You' : 'Message'),
     text: getReplyPreviewBody({
       id: quotedSource.id ?? message.id,
@@ -1529,8 +1532,10 @@ const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, 
       campaignName: replyTarget?.campaignName,
     }),
     mediaType: replyTarget?.attachments?.[0]?.mediaType ?? replyTarget?.type ?? quotedSource.type,
-    imageUrl: replyTarget ? apiUrl(replyTarget.attachments?.find((a: any) => (a.mediaType ?? '').toUpperCase() === 'IMAGE' || (a.mimeType ?? '').toLowerCase()?.startsWith('image/'))?.previewUrl ?? replyTarget.attachments?.find((a: any) => (a.mediaType ?? '').toUpperCase() === 'IMAGE' || (a.mimeType ?? '').toLowerCase()?.startsWith('image/'))?.thumbnailUrl ?? null) : null,
+    imageUrl: replyTarget ? apiUrl(replyImage?.previewUrl ?? replyImage?.thumbnailUrl ?? null) : null,
   } : null;
+  }, [message.id, message.replyTo, replyTarget]);
+  if (isInlineReactionMessage(message)) return null;
   return (
     <ReanimatedSwipeable
       ref={swipeRef}
