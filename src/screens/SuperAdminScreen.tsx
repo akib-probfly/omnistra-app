@@ -6,13 +6,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { adminQueryKeys, fetchAdminPlans, fetchAdminWorkspace, fetchAdminWorkspaces, runAdminWorkspaceAction, type AdminWorkspace, type AdminWorkspaceAction } from '../api/admin';
 import { useSuperAdminAccess } from '../hooks/useSuperAdminAccess';
 import { useTheme } from '../theme/ThemeContext';
-import { spacing } from '../theme/tokens';
-import { AppBadge, AppButton, AppCard, AppSearchField, AppText, ScreenHeader } from '../ui';
+import { radius, spacing } from '../theme/tokens';
+import { AppBadge, AppButton, AppCard, AppChip, AppSearchField, AppText, ScreenHeader, toneForStatus } from '../ui';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useAuth } from '../auth/AuthContext';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { SuperAdminDashboard } from '../components/SuperAdminDashboard';
-import { Building2, LayoutDashboard, Package } from 'lucide-react-native';
+import { Building2, CalendarDays, ChevronRight, LayoutDashboard, Package, UsersRound } from 'lucide-react-native';
 
 const actionLabels: Record<AdminWorkspaceAction, string> = { suspend: 'Suspend workspace', reactivate: 'Reactivate workspace', 'reset-usage': 'Reset usage' };
 const adminTabs = [
@@ -23,7 +23,9 @@ const adminTabs = [
 function dateLabel(value?: string | null) {
   if (!value) return 'Not set';
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? 'Not set' : date.toLocaleDateString();
+  return Number.isNaN(date.getTime()) ? 'Not set' : date.toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  }).toLowerCase();
 }
 
 export function SuperAdminScreen() {
@@ -37,6 +39,7 @@ export function SuperAdminScreen() {
   const [tab, setTab] = useState<'overview' | 'workspaces' | 'packages'>('overview');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [planFilter, setPlanFilter] = useState('');
   const [selected, setSelected] = useState<AdminWorkspace | null>(null);
   const [action, setAction] = useState<AdminWorkspaceAction | null>(null);
   useEffect(() => {
@@ -44,8 +47,8 @@ export function SuperAdminScreen() {
     return () => clearTimeout(timer);
   }, [search]);
   const workspaces = useInfiniteQuery({
-    queryKey: adminQueryKeys.workspaces(debouncedSearch, ''),
-    queryFn: ({ pageParam }) => fetchAdminWorkspaces(pageParam, debouncedSearch, ''),
+    queryKey: adminQueryKeys.workspaces(debouncedSearch, '', planFilter),
+    queryFn: ({ pageParam }) => fetchAdminWorkspaces(pageParam, debouncedSearch, '', planFilter),
     initialPageParam: 1,
     getNextPageParam: (last) => last.meta.page < last.meta.totalPages ? last.meta.page + 1 : undefined,
     enabled: access.isSuperAdmin && tab === 'workspaces',
@@ -55,7 +58,7 @@ export function SuperAdminScreen() {
     queryFn: () => fetchAdminWorkspace(selected!.id),
     enabled: access.isSuperAdmin && Boolean(selected),
   });
-  const plans = useQuery({ queryKey: adminQueryKeys.plans, queryFn: fetchAdminPlans, enabled: access.isSuperAdmin && tab === 'packages' });
+  const plans = useQuery({ queryKey: adminQueryKeys.plans, queryFn: fetchAdminPlans, enabled: access.isSuperAdmin && (tab === 'packages' || tab === 'workspaces') });
   const mutation = useMutation({
     mutationFn: (input: { id: string; action: AdminWorkspaceAction }) => runAdminWorkspaceAction(input.id, input.action),
     onSuccess: async () => {
@@ -96,7 +99,15 @@ export function SuperAdminScreen() {
         {!selected ? <View style={styles.toolbar}>
           {tab === 'workspaces' ? <>
             <AppSearchField value={search} onChangeText={setSearch} placeholder="Search workspaces or owners" fill={false} />
-            <AppText variant="caption" tone="secondary">{workspaces.data?.pages[0]?.meta.total ?? 0} workspaces</AppText>
+            <View style={styles.filterHeading}><AppText variant="small" tone="secondary">Filter by package</AppText>
+              {planFilter || search ? <AppButton label="Clear" variant="ghost" onPress={() => { setPlanFilter(''); setSearch(''); setDebouncedSearch(''); }} /> : null}
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+              <AppChip label="All packages" selected={!planFilter} onPress={() => setPlanFilter('')} />
+              {plans.data?.items.map((plan) => <AppChip key={plan.key} label={plan.name} selected={planFilter === plan.key} onPress={() => setPlanFilter(plan.key)} />)}
+            </ScrollView>
+            {plans.error ? <View style={styles.row}><AppText variant="small" tone="error">Unable to load package filters.</AppText><AppButton label="Retry" variant="ghost" onPress={() => { void plans.refetch(); }} /></View> : null}
+            <AppText variant="caption" tone="secondary">{workspaces.data?.pages[0]?.meta.total ?? '—'} workspaces{planFilter ? ` · ${plans.data?.items.find((plan) => plan.key === planFilter)?.name ?? planFilter}` : ''}</AppText>
           </> : null}
         </View> : null}
         {!selected && tab === 'overview' ? <SuperAdminDashboard onWorkspaces={() => setTab('workspaces')} onPackages={() => setTab('packages')} onWorkspace={setSelected} /> : pending ? <ActivityIndicator style={styles.content} color={colors.primary} /> : error ? <View style={styles.content}>
@@ -133,10 +144,20 @@ export function SuperAdminScreen() {
             ListFooterComponent={workspaces.isFetchingNextPage ? <ActivityIndicator color={colors.primary} /> : null}
             renderItem={({ item }) => <Pressable accessibilityRole="button" accessibilityLabel={`Manage ${item.name}`} onPress={() => setSelected(item)}>
               <AppCard style={styles.card}>
-                <AppText variant="subheading">{item.name}</AppText>
-                <AppText variant="caption" tone="secondary">{item.ownerEmail ?? item.ownerName ?? 'No owner'} </AppText>
-                <View style={styles.row}><AppBadge label={item.status} tone={item.status === 'SUSPENDED' ? 'danger' : 'neutral'} /><AppText variant="caption">{item.planName ?? 'No plan'}</AppText></View>
-                <AppText variant="small" tone="secondary">{item.memberCount ?? '—'} members · Expires {dateLabel(item.expiresAt)}</AppText>
+                <View style={styles.workspaceHeader}>
+                  <View style={[styles.workspaceAvatar, { backgroundColor: colors.primarySoft }]}><AppText variant="subheading" tone="primary">{item.name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase()}</AppText></View>
+                  <View style={styles.workspaceCopy}><AppText variant="subheading" numberOfLines={1}>{item.name}</AppText><AppText variant="small" tone="secondary" numberOfLines={1}>{item.ownerName ?? 'No admin assigned'}</AppText></View>
+                  <ChevronRight size={18} color={colors.textMuted} />
+                </View>
+                <AppText variant="caption" tone="secondary" numberOfLines={1}>{item.ownerEmail ?? 'No owner email'}</AppText>
+                <View style={styles.workspaceHeader}>
+                  <View style={styles.workspacePlan}><Package size={14} color={colors.primary} /><AppText variant="caption" tone="primary" numberOfLines={1}>{plans.data?.items.find((plan) => plan.key === item.planName)?.name ?? item.planName ?? 'No plan'}</AppText></View>
+                  <AppBadge label={item.status.replace(/_/g, ' ')} tone={item.status === 'SUSPENDED' ? 'danger' : toneForStatus(item.status)} />
+                </View>
+                <View style={[styles.workspaceFooter, { borderTopColor: colors.cardBorder }]}>
+                  <View style={styles.workspaceCopy}><View style={styles.row}><UsersRound size={14} color={colors.textMuted} /><AppText variant="small" tone="secondary">Members</AppText></View><AppText variant="bodyStrong">{item.memberCount ?? '—'}</AppText></View>
+                  <View style={styles.workspaceCopy}><View style={styles.row}><CalendarDays size={14} color={colors.textMuted} /><AppText variant="small" tone="secondary">Expires</AppText></View><AppText variant="caption">{dateLabel(item.expiresAt)}</AppText></View>
+                </View>
               </AppCard>
             </Pressable>} />
         ) : <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}>
@@ -178,6 +199,12 @@ const styles = StyleSheet.create({
   toolbar: { padding: spacing.lg, gap: spacing.md },
   row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
   card: { padding: spacing.lg, gap: spacing.sm },
+  filterHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  workspaceHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  workspaceAvatar: { height: 44, width: 44, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  workspaceCopy: { flex: 1, minWidth: 0, gap: spacing.xs },
+  workspacePlan: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  workspaceFooter: { borderTopWidth: 1, paddingTop: spacing.md, marginTop: spacing.xs, flexDirection: 'row', gap: spacing.md },
   bottomNav: { flexDirection: 'row', borderTopWidth: 1, paddingTop: spacing.sm, paddingHorizontal: spacing.sm, gap: spacing.sm },
   navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: spacing.sm, borderRadius: spacing.md },
 });

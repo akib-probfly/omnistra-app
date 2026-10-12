@@ -20,14 +20,15 @@ export type AdminWorkspacePage = {
 };
 export const adminQueryKeys = {
   all: ['super-admin'] as const,
-  workspaces: (search: string, status: string) => ['super-admin', 'workspaces', search, status] as const,
+  workspaces: (search: string, status: string, plan = '') => ['super-admin', 'workspaces', search, status, plan] as const,
   workspace: (id: string | null) => ['super-admin', 'workspace', id] as const,
   plans: ['super-admin', 'plans'] as const,
 };
-export function fetchAdminWorkspaces(page: number, search: string, status: string) {
+export function fetchAdminWorkspaces(page: number, search: string, status: string, plan = '') {
   const query = new URLSearchParams({ page: String(page), limit: '20' });
   if (search.trim()) query.set('search', search.trim());
   if (status) query.set('status', status);
+  if (plan) query.set('plan', plan);
   return apiFetch<AdminWorkspacePage>(`/admin/workspaces?${query}`);
 }
 export function fetchAdminWorkspace(id: string) {
