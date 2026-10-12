@@ -10,6 +10,7 @@ export type AdminWorkspaceDetail = Partial<AdminWorkspace> & {
   id: string; name: string; description?: string | null; timezone?: string | null;
   billingPlanKey?: string | null; billingStatus?: string | null;
   billingCurrentPeriodEnd?: string | null;
+  billingTrialEndsAt?: string | null;
   suspendedAt?: string | null;
   _count?: { members: number; channels: number; conversations: number };
   currentSubscription?: { planKey: string; status: string; billingCycle: string; currentPeriodEnd: string } | null;
@@ -38,6 +39,13 @@ export function fetchAdminPlans() {
   return apiFetch<{ items: BillingPlan[] }>('/admin/billing/plans');
 }
 export type AdminWorkspaceAction = 'suspend' | 'reactivate' | 'reset-usage';
+export function updateAdminWorkspaceSubscription(input: { workspaceId: string; planKey: string; billingCycle: 'MONTHLY' | 'YEARLY'; expiresAt: string | null }) {
+  const { workspaceId, expiresAt, ...fields } = input;
+  return apiFetch<unknown>(`/admin/workspaces/${encodeURIComponent(workspaceId)}/subscriptions`, {
+    method: 'PUT', body: JSON.stringify({ ...fields, expiresAt, currentPeriodEnd: expiresAt,
+      billingCurrentPeriodEnd: expiresAt, billingTrialEndsAt: expiresAt, subscriptionExpiresAt: expiresAt }),
+  });
+}
 export function runAdminWorkspaceAction(id: string, action: AdminWorkspaceAction) {
   return apiFetch<unknown>(`/admin/workspaces/${encodeURIComponent(id)}/${action}`, { method: 'POST' });
 }

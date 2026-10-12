@@ -14,6 +14,7 @@ import type { RootStackParamList } from '../navigation/AppNavigator';
 import { SuperAdminDashboard } from '../components/SuperAdminDashboard';
 import { Building2, CalendarDays, ChevronRight, Filter, LayoutDashboard, Package, UsersRound } from 'lucide-react-native';
 import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
+import { AdminWorkspaceEditor } from '../components/AdminWorkspaceEditor';
 
 const actionLabels: Record<AdminWorkspaceAction, string> = { suspend: 'Suspend workspace', reactivate: 'Reactivate workspace', 'reset-usage': 'Reset usage' };
 const adminTabs = [
@@ -47,6 +48,7 @@ export function SuperAdminScreen() {
   const [draftStatus, setDraftStatus] = useState('');
   const [selected, setSelected] = useState<AdminWorkspace | null>(null);
   const [action, setAction] = useState<AdminWorkspaceAction | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search.trim()), 350);
     return () => clearTimeout(timer);
@@ -125,18 +127,33 @@ export function SuperAdminScreen() {
         </View> : selected && workspace ? (
           <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}>
             <AppCard style={styles.card}>
-              <AppText variant="heading">{workspace.name}</AppText>
-              <AppBadge label={selectedStatus ?? 'Unknown'} tone={isSuspended ? 'danger' : 'neutral'} />
-              <AppText tone="secondary">{workspace.ownerName ?? selected.ownerName ?? 'No owner name'}</AppText>
-              <AppText selectable>{workspace.ownerEmail ?? selected.ownerEmail ?? 'No owner email'}</AppText>
-              <AppText>Plan: {workspace.currentSubscription?.planKey ?? workspace.billingPlanKey ?? selected.planName ?? 'None'}</AppText>
-              <AppText>Subscription: {workspace.currentSubscription?.status ?? workspace.billingStatus ?? 'Not set'}</AppText>
-              <AppText>Expires: {dateLabel(workspace.currentSubscription?.currentPeriodEnd ?? workspace.billingCurrentPeriodEnd ?? selected.expiresAt)}</AppText>
-              <AppText>Members: {workspace._count?.members ?? selected.memberCount ?? '—'}</AppText>
-              <AppText>Channels: {workspace._count?.channels ?? '—'} · Conversations: {workspace._count?.conversations ?? '—'}</AppText>
-              <AppText>Created: {dateLabel(workspace.createdAt ?? selected.createdAt)}</AppText>
-              {workspace.timezone ? <AppText>Timezone: {workspace.timezone}</AppText> : null}
-              {workspace.description ? <AppText tone="secondary">{workspace.description}</AppText> : null}
+              <View style={styles.workspaceHeader}>
+                <View style={[styles.workspaceAvatar, { backgroundColor: colors.primarySoft }]}><Building2 color={colors.primary} size={22} /></View>
+                <View style={styles.workspaceCopy}><AppText variant="heading">{workspace.name}</AppText><AppText variant="small" tone="secondary">Created {dateLabel(workspace.createdAt ?? selected.createdAt)}</AppText></View>
+              </View>
+              <View style={styles.row}><AppBadge label={selectedStatus ?? 'Unknown'} tone={isSuspended ? 'danger' : toneForStatus(selectedStatus)} /></View>
+              <View style={[styles.detailSection, { borderTopColor: colors.cardBorder }]}>
+                <AppText variant="small" tone="muted">WORKSPACE OWNER</AppText>
+                <AppText variant="bodyStrong">{workspace.ownerName ?? selected.ownerName ?? 'No owner name'}</AppText>
+                <AppText variant="caption" tone="secondary" selectable>{workspace.ownerEmail ?? selected.ownerEmail ?? 'No owner email'}</AppText>
+                {workspace.timezone ? <AppText variant="small" tone="secondary">Timezone · {workspace.timezone}</AppText> : null}
+              </View>
+              <View style={[styles.detailSection, { borderTopColor: colors.cardBorder }]}>
+                <View style={styles.filterHeading}><View style={styles.row}><Package color={colors.primary} size={16} /><AppText variant="bodyStrong">Subscription</AppText></View><AppButton label="Edit" variant="ghost" disabled={mutation.isPending} onPress={() => setEditOpen(true)} /></View>
+                <View style={[styles.subscriptionPanel, { backgroundColor: colors.surfaceSecondary }]}>
+                  <AppText variant="subheading">{plans.data?.items.find((plan) => plan.key === (workspace.currentSubscription?.planKey ?? workspace.billingPlanKey ?? selected.planName))?.name ?? workspace.currentSubscription?.planKey ?? workspace.billingPlanKey ?? selected.planName ?? 'No plan'}</AppText>
+                  <View style={styles.filterHeading}><AppText variant="caption" tone="secondary">Status</AppText><AppText variant="caption">{workspace.currentSubscription?.status ?? workspace.billingStatus ?? 'Not set'}</AppText></View>
+                  <View style={styles.filterHeading}><AppText variant="caption" tone="secondary">Billing cycle</AppText><AppText variant="caption">{workspace.currentSubscription?.billingCycle?.toUpperCase() === 'YEARLY' ? 'Yearly' : workspace.currentSubscription?.billingCycle ? 'Monthly' : 'Not set'}</AppText></View>
+                  <View style={styles.filterHeading}><AppText variant="caption" tone="secondary">Expires</AppText><AppText variant="bodyStrong">{dateLabel(workspace.currentSubscription?.currentPeriodEnd ?? workspace.billingCurrentPeriodEnd ?? workspace.billingTrialEndsAt ?? selected.expiresAt)}</AppText></View>
+                </View>
+              </View>
+              <View style={[styles.detailSection, { borderTopColor: colors.cardBorder }]}>
+                <AppText variant="small" tone="muted">WORKSPACE TOTALS</AppText>
+                <View style={styles.row}>
+                  {[{ label: 'Members', value: workspace._count?.members ?? selected.memberCount }, { label: 'Channels', value: workspace._count?.channels }, { label: 'Conversations', value: workspace._count?.conversations }].map((item) => <View key={item.label} style={[styles.totalTile, { backgroundColor: colors.surfaceSecondary }]}><AppText variant="subheading">{item.value ?? '—'}</AppText><AppText variant="small" tone="secondary">{item.label}</AppText></View>)}
+                </View>
+              </View>
+              {workspace.description ? <View style={[styles.detailSection, { borderTopColor: colors.cardBorder }]}><AppText variant="small" tone="muted">DESCRIPTION</AppText><AppText variant="caption" tone="secondary">{workspace.description}</AppText></View> : null}
             </AppCard>
             <AppButton block label={isSuspended ? 'Reactivate workspace' : 'Suspend workspace'} variant={isSuspended ? 'primary' : 'destructive'} disabled={mutation.isPending} onPress={() => { mutation.reset(); setAction(isSuspended ? 'reactivate' : 'suspend'); }} />
             <AppButton block label="Reset usage" variant="secondary" disabled={mutation.isPending} onPress={() => { mutation.reset(); setAction('reset-usage'); }} />
@@ -213,6 +230,7 @@ export function SuperAdminScreen() {
           <AppButton label="Apply filters" onPress={() => { setPlanFilter(draftPlan); setStatusFilter(draftStatus); setFilterOpen(false); }} />
         </View>
       </BottomSheet>
+      {editOpen && selected && workspace && access.isSuperAdmin ? <AdminWorkspaceEditor key={workspace.id} workspace={workspace} onClose={() => setEditOpen(false)} /> : null}
       <ConfirmDialog visible={Boolean(action && selected)} title={action ? actionLabels[action] : ''}
         body={`${action === 'reset-usage' ? 'Reset conversation usage for the current billing period for' : action === 'suspend' ? 'Suspend access to' : 'Restore access to'} ${selected?.name ?? 'this workspace'}?${mutation.error ? `\n\n${mutation.error.message}` : ''}`}
         confirmLabel={action ? actionLabels[action] : 'Confirm'} destructive={action !== 'reactivate'} loading={mutation.isPending}
@@ -238,6 +256,9 @@ const styles = StyleSheet.create({
   workspaceCopy: { flex: 1, minWidth: 0, gap: spacing.xs },
   workspacePlan: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   workspaceFooter: { borderTopWidth: 1, paddingTop: spacing.md, marginTop: spacing.xs, flexDirection: 'row', gap: spacing.md },
+  detailSection: { borderTopWidth: 1, paddingTop: spacing.lg, marginTop: spacing.sm, gap: spacing.sm },
+  subscriptionPanel: { borderRadius: radius.md, padding: spacing.md, gap: spacing.md },
+  totalTile: { flex: 1, minWidth: 80, alignItems: 'center', borderRadius: radius.md, paddingVertical: spacing.md, gap: spacing.xs },
   bottomNav: { flexDirection: 'row', borderTopWidth: 1, paddingTop: spacing.sm, paddingHorizontal: spacing.sm, gap: spacing.sm },
   navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: spacing.sm, borderRadius: spacing.md },
 });
