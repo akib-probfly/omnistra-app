@@ -12,7 +12,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useAuth } from '../auth/AuthContext';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { SuperAdminDashboard } from '../components/SuperAdminDashboard';
-import { Building2, CalendarDays, ChevronRight, Filter, LayoutDashboard, Package, UsersRound } from 'lucide-react-native';
+import { Building2, CalendarDays, Check, ChevronRight, Filter, LayoutDashboard, Package, RefreshCw, UsersRound } from 'lucide-react-native';
 import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 import { AdminWorkspaceEditor } from '../components/AdminWorkspaceEditor';
 
@@ -187,14 +187,36 @@ export function SuperAdminScreen() {
               </AppCard>
             </Pressable>} />
         ) : <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xxl }]}>
-          <AppButton label="Refresh packages" variant="secondary" loading={plans.isFetching} onPress={() => { void plans.refetch(); }} />
+          <View style={styles.filterHeading}>
+            <View style={styles.workspaceCopy}><AppText variant="heading">Billing packages</AppText><AppText variant="caption" tone="secondary">{plans.data?.items.length ?? 0} packages across the platform</AppText></View>
+            <AppIconButton icon={RefreshCw} accessibilityLabel="Refresh packages" loading={plans.isFetching} onPress={() => { void plans.refetch(); }} />
+          </View>
           {!plans.data?.items.length ? <AppText tone="secondary">No packages found.</AppText> : null}
-          {plans.data?.items.map((plan) => <AppCard key={plan.key} style={styles.card}>
-            <AppText variant="subheading">{plan.name}</AppText>
-            <AppBadge label={plan.isActive === false ? 'Inactive' : 'Active'} tone="neutral" />
-            <AppText tone="secondary">{plan.description}</AppText>
-            <AppText>{plan.monthlyPrice} / month · {plan.yearlyPrice} / year</AppText>
-            {plan.features.map((feature) => <AppText key={feature.key} variant="caption" tone="secondary">{feature.label}</AppText>)}
+          {plans.data?.items.map((plan) => <AppCard key={plan.key} style={[styles.packageCard, plan.highlighted ? { borderColor: colors.primary } : undefined]}>
+            <View style={styles.workspaceHeader}>
+              <View style={[styles.workspaceAvatar, { backgroundColor: colors.primarySoft }]}><Package size={22} color={colors.primary} /></View>
+              <View style={styles.workspaceCopy}><AppText variant="heading">{plan.name}</AppText><AppText variant="small" tone="muted">{plan.key}</AppText></View>
+              <AppBadge label={plan.isActive === false ? 'Inactive' : 'Active'} tone={plan.isActive === false ? 'neutral' : 'success'} />
+            </View>
+            {plan.badge ? <View style={styles.row}><AppBadge label={plan.badge} tone="primary" /></View> : null}
+            {plan.description ? <AppText variant="caption" tone="secondary">{plan.description}</AppText> : null}
+            <View style={styles.packagePricing}>
+              {(['monthly', 'yearly'] as const).map((interval) => {
+                const available = !plan.intervals || Boolean(plan.intervals[interval]);
+                return <View key={interval} style={[styles.packagePriceTile, { backgroundColor: colors.surfaceSecondary }]}>
+                  <AppText variant="small" tone="secondary">{interval === 'monthly' ? 'MONTHLY' : 'YEARLY'}</AppText>
+                  <AppText variant="heading">{available ? plan.intervals?.[interval]?.price ?? (interval === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice) : '—'}</AppText>
+                  <AppText variant="small" tone="muted">{available ? `${plan.currency} / ${interval === 'monthly' ? 'month' : 'year'}` : 'Not offered'}</AppText>
+                </View>;
+              })}
+            </View>
+            {plan.features.length ? <View style={[styles.detailSection, { borderTopColor: colors.cardBorder }]}>
+              <AppText variant="small" tone="muted">INCLUDED FEATURES</AppText>
+              {plan.features.map((feature) => <View key={feature.key} style={styles.packageFeature}>
+                <View style={[styles.featureIcon, { backgroundColor: colors.primarySoft }]}><Check size={12} color={colors.primary} /></View>
+                <View style={styles.workspaceCopy}><AppText variant="caption">{feature.label}</AppText>{feature.info ? <AppText variant="small" tone="secondary">{feature.info}</AppText> : null}</View>
+              </View>)}
+            </View> : null}
           </AppCard>)}
         </ScrollView>}
         </View>
@@ -259,6 +281,11 @@ const styles = StyleSheet.create({
   detailSection: { borderTopWidth: 1, paddingTop: spacing.lg, marginTop: spacing.sm, gap: spacing.sm },
   subscriptionPanel: { borderRadius: radius.md, padding: spacing.md, gap: spacing.md },
   totalTile: { flex: 1, minWidth: 80, alignItems: 'center', borderRadius: radius.md, paddingVertical: spacing.md, gap: spacing.xs },
+  packageCard: { padding: spacing.lg, gap: spacing.lg },
+  packagePricing: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  packagePriceTile: { flex: 1, minWidth: 120, padding: spacing.md, borderRadius: radius.md, gap: spacing.sm },
+  packageFeature: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, paddingVertical: spacing.xs },
+  featureIcon: { width: 20, height: 20, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   bottomNav: { flexDirection: 'row', borderTopWidth: 1, paddingTop: spacing.sm, paddingHorizontal: spacing.sm, gap: spacing.sm },
   navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: spacing.sm, borderRadius: spacing.md },
 });
