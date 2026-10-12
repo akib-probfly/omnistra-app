@@ -12,7 +12,8 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useAuth } from '../auth/AuthContext';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { SuperAdminDashboard } from '../components/SuperAdminDashboard';
-import { Building2, CalendarDays, ChevronRight, LayoutDashboard, Package, UsersRound } from 'lucide-react-native';
+import { Building2, CalendarDays, ChevronRight, LayoutDashboard, Package, SlidersHorizontal, UsersRound } from 'lucide-react-native';
+import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 
 const actionLabels: Record<AdminWorkspaceAction, string> = { suspend: 'Suspend workspace', reactivate: 'Reactivate workspace', 'reset-usage': 'Reset usage' };
 const adminTabs = [
@@ -40,6 +41,10 @@ export function SuperAdminScreen() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [planFilter, setPlanFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [draftPlan, setDraftPlan] = useState('');
+  const [draftStatus, setDraftStatus] = useState('');
   const [selected, setSelected] = useState<AdminWorkspace | null>(null);
   const [action, setAction] = useState<AdminWorkspaceAction | null>(null);
   useEffect(() => {
@@ -47,8 +52,8 @@ export function SuperAdminScreen() {
     return () => clearTimeout(timer);
   }, [search]);
   const workspaces = useInfiniteQuery({
-    queryKey: adminQueryKeys.workspaces(debouncedSearch, '', planFilter),
-    queryFn: ({ pageParam }) => fetchAdminWorkspaces(pageParam, debouncedSearch, '', planFilter),
+    queryKey: adminQueryKeys.workspaces(debouncedSearch, statusFilter, planFilter),
+    queryFn: ({ pageParam }) => fetchAdminWorkspaces(pageParam, debouncedSearch, statusFilter, planFilter),
     initialPageParam: 1,
     getNextPageParam: (last) => last.meta.page < last.meta.totalPages ? last.meta.page + 1 : undefined,
     enabled: access.isSuperAdmin && tab === 'workspaces',
@@ -99,15 +104,14 @@ export function SuperAdminScreen() {
         {!selected ? <View style={styles.toolbar}>
           {tab === 'workspaces' ? <>
             <AppSearchField value={search} onChangeText={setSearch} placeholder="Search workspaces or owners" fill={false} />
-            <View style={styles.filterHeading}><AppText variant="small" tone="secondary">Filter by package</AppText>
-              {planFilter || search ? <AppButton label="Clear" variant="ghost" onPress={() => { setPlanFilter(''); setSearch(''); setDebouncedSearch(''); }} /> : null}
+            <View style={styles.filterHeading}>
+              <AppText variant="caption" tone="secondary">{workspaces.data?.pages[0]?.meta.total ?? '—'} workspaces</AppText>
+              <AppButton label={`Filters${planFilter || statusFilter ? ` (${Number(Boolean(planFilter)) + Number(Boolean(statusFilter))})` : ''}`} icon={SlidersHorizontal} variant="secondary" onPress={() => { setDraftPlan(planFilter); setDraftStatus(statusFilter); setFilterOpen(true); }} />
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-              <AppChip label="All packages" selected={!planFilter} onPress={() => setPlanFilter('')} />
-              {plans.data?.items.map((plan) => <AppChip key={plan.key} label={plan.name} selected={planFilter === plan.key} onPress={() => setPlanFilter(plan.key)} />)}
-            </ScrollView>
-            {plans.error ? <View style={styles.row}><AppText variant="small" tone="error">Unable to load package filters.</AppText><AppButton label="Retry" variant="ghost" onPress={() => { void plans.refetch(); }} /></View> : null}
-            <AppText variant="caption" tone="secondary">{workspaces.data?.pages[0]?.meta.total ?? '—'} workspaces{planFilter ? ` · ${plans.data?.items.find((plan) => plan.key === planFilter)?.name ?? planFilter}` : ''}</AppText>
+            {planFilter || statusFilter ? <View style={styles.row}>
+              {statusFilter ? <AppChip label={`${statusFilter === 'ACTIVE' ? 'Active' : 'Expired'} ×`} selected onPress={() => setStatusFilter('')} /> : null}
+              {planFilter ? <AppChip label={`${plans.data?.items.find((plan) => plan.key === planFilter)?.name ?? planFilter} ×`} selected onPress={() => setPlanFilter('')} /> : null}
+            </View> : null}
           </> : null}
         </View> : null}
         {!selected && tab === 'overview' ? <SuperAdminDashboard onWorkspaces={() => setTab('workspaces')} onPackages={() => setTab('packages')} onWorkspace={setSelected} /> : pending ? <ActivityIndicator style={styles.content} color={colors.primary} /> : error ? <View style={styles.content}>
@@ -184,6 +188,26 @@ export function SuperAdminScreen() {
           })}
         </View>
       </>}
+      <BottomSheet visible={filterOpen} onClose={() => setFilterOpen(false)} sheetStyle={{ backgroundColor: colors.surface, maxHeight: '80%' }}>
+        <View style={styles.sheetHeader}><AppText variant="heading">Filters</AppText><AppButton label="Close" variant="ghost" onPress={() => setFilterOpen(false)} /></View>
+        <SheetScrollView contentContainerStyle={styles.content}>
+          <AppText variant="bodyStrong">Billing status</AppText>
+          <View style={styles.row}>
+            {[{ label: 'All', value: '' }, { label: 'Active', value: 'ACTIVE' }, { label: 'Expired', value: 'EXPIRED' }].map((item) => <AppChip key={item.value} label={item.label} selected={draftStatus === item.value} onPress={() => setDraftStatus(item.value)} />)}
+          </View>
+          <AppText variant="bodyStrong">Package</AppText>
+          <View style={styles.row}>
+            <AppChip label="All packages" selected={!draftPlan} onPress={() => setDraftPlan('')} />
+            {plans.data?.items.map((plan) => <AppChip key={plan.key} label={plan.name} selected={draftPlan === plan.key} onPress={() => setDraftPlan(plan.key)} />)}
+          </View>
+          {plans.isPending ? <ActivityIndicator color={colors.primary} /> : null}
+          {plans.error ? <><AppText tone="error">Unable to load packages.</AppText><AppButton label="Retry" variant="secondary" onPress={() => { void plans.refetch(); }} /></> : null}
+        </SheetScrollView>
+        <View style={[styles.sheetActions, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+          <AppButton label="Reset" variant="secondary" onPress={() => { setDraftPlan(''); setDraftStatus(''); }} />
+          <AppButton label="Apply filters" onPress={() => { setPlanFilter(draftPlan); setStatusFilter(draftStatus); setFilterOpen(false); }} />
+        </View>
+      </BottomSheet>
       <ConfirmDialog visible={Boolean(action && selected)} title={action ? actionLabels[action] : ''}
         body={`${action === 'reset-usage' ? 'Reset conversation usage for the current billing period for' : action === 'suspend' ? 'Suspend access to' : 'Restore access to'} ${selected?.name ?? 'this workspace'}?${mutation.error ? `\n\n${mutation.error.message}` : ''}`}
         confirmLabel={action ? actionLabels[action] : 'Confirm'} destructive={action !== 'reactivate'} loading={mutation.isPending}
@@ -200,6 +224,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
   card: { padding: spacing.lg, gap: spacing.sm },
   filterHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg },
+  sheetActions: { flexDirection: 'row', justifyContent: 'space-between', padding: spacing.lg, gap: spacing.md },
   workspaceHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   workspaceAvatar: { height: 44, width: 44, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   workspaceCopy: { flex: 1, minWidth: 0, gap: spacing.xs },
