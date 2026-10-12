@@ -242,6 +242,7 @@ export function ConversationScreen() {
       // conversation attachment request here; it was duplicating every page load.
       const page = await fetchConversationMessages<Message>(route.params.conversationId);
       const cachedItems = queryClient.getQueryData<{ items?: Message[] }>(['messages', route.params.conversationId])?.items;
+      const cachedMessagesById = new Map((cachedItems ?? []).map((message) => [message.id, message]));
       const hydratedItems = preserveMessageTextDuringAttachmentHydration(page.items, cachedItems);
       const items: Message[] = hydratedItems.map((message) => {
         const messageAttachments = message.attachments ?? [];
@@ -249,7 +250,15 @@ export function ConversationScreen() {
         const attachmentsWithLocalPreview = localImagePreviews
           ? messageAttachments.map((attachment, index) => ({ ...attachment, localPreviewUri: localImagePreviews[index] ?? null }))
           : messageAttachments;
-        return { ...message, attachments: attachmentsWithLocalPreview };
+        const cachedMetadata = cachedMessagesById.get(message.id)?.metadata;
+        const cachedBatchId = cachedMetadata?.mediaBatchId;
+        return {
+          ...message,
+          ...(typeof cachedBatchId === 'string' ? { metadata: {
+            ...message.metadata, mediaBatchId: cachedBatchId, mediaBatchIndex: cachedMetadata?.mediaBatchIndex,
+          } } : {}),
+          attachments: attachmentsWithLocalPreview,
+        };
       });
 
       // Keep in-flight optimistic bubbles across polling/refetch overwrites.
@@ -489,6 +498,11 @@ export function ConversationScreen() {
       deliveryPollUntilRef.current = Date.now() + 45_000;
       const clientKey = context?.clientKey ?? context?.tempId;
       const optimisticAttachments = context?.tempId ? pendingOptimisticRef.current.get(context.tempId)?.attachments ?? [] : [];
+      const sentAttachments = context?.previousAttachments ?? [];
+      const imageAttachmentCount = sentAttachments.filter((attachment) =>
+        attachment.type === 'IMAGE' || attachment.mimeType.toLowerCase().startsWith('image/'),
+      ).length;
+      const isMultiImageSend = imageAttachmentCount > 1;
       const createdMessages = (created as Message & { __createdMessages?: Message[] }).__createdMessages ?? [created];
       const confirmedMessages = createdMessages.map((createdMessage, messageIndex) => {
         const messageAttachments = (createdMessage.attachments ?? []).map((attachment, index) => {
@@ -506,6 +520,9 @@ export function ConversationScreen() {
           metadata: {
             ...(typeof createdMessage.metadata === 'object' && createdMessage.metadata ? createdMessage.metadata : {}),
             clientKey: messageIndex === createdMessages.length - 1 ? clientKey : `${clientKey}:${messageIndex}`,
+            ...(isMultiImageSend
+              ? { mediaBatchId: clientKey, mediaBatchIndex: messageIndex }
+              : {}),
             optimistic: false,
           },
         } as Message;
@@ -1002,7 +1019,118 @@ export function ConversationScreen() {
     void queryClient.invalidateQueries({ queryKey: ['active-calls'] });
   };
   const timeline = useMemo<ConversationTimelineEntry<Message>[]>(() => {
-    return buildConversationTimeline(allMessages, callSessions, assignmentEvents);
+    const entries = buildConversationTimeline(allMessages, callSessions, assignmentEvents);
+    const grouped: ConversationTimelineEntry<Message>[] = [];
+    const batchEntryIndexes = new Map<string, number>();
+    const isImageBatchMessage = (message: Message) =>
+      Array.isArray(message.attachments)
+      && message.attachments.length > 0
+      && message.attachments.every((attachment) => {
+        const mediaType = (attachment.mediaType ?? '').toUpperCase();
+        const mimeType = (attachment.mimeType ?? '').toLowerCase();
+        return mediaType === 'IMAGE' || mimeType.startsWith('image/')
+          || /\.(jpe?g|png|gif|webp|heic|heif|bmp)$/i.test(attachment.originalName ?? '');
+      });
+
+    // Older messages have no album marker. Infer only adjacent outgoing image runs;
+    // keep the API/cache records intact and stop at new captions or other events.
+    let previousImage: Message | null = null;
+    let previousTimestamp = 0;
+    let historicalBatchId = '';
+    let historicalBatchIndex = 0;
+    for (const originalEntry of entries) {
+      let entry = originalEntry;
+      if (entry.kind === 'message' && entry.message.direction === 'OUTBOUND'
+        && isImageBatchMessage(entry.message) && !entry.message.metadata?.mediaBatchId
+        && !entry.message.metadata?.optimistic && !entry.message.campaignId) {
+        const message = entry.message;
+        const body = message.text?.trim() ?? '';
+        const filenameOnly = message.attachments?.some((attachment) =>
+          attachment.originalName?.trim().toLowerCase() === body.toLowerCase());
+        const sameSender = previousImage !== null
+          && previousImage.senderType === message.senderType
+          && previousImage.sender?.userEmail === message.sender?.userEmail
+          && previousImage.sender?.userName === message.sender?.userName;
+        const continuesRun = sameSender && (!body || filenameOnly)
+          && previousImage?.replyToMessageId === message.replyToMessageId
+          && entry.timestamp >= previousTimestamp
+          && entry.timestamp - previousTimestamp <= 3 * 60 * 1000
+          && new Date(entry.timestamp).toDateString() === new Date(previousTimestamp).toDateString();
+        if (!continuesRun) {
+          historicalBatchId = `historical:${message.id}`;
+          historicalBatchIndex = 0;
+        } else {
+          historicalBatchIndex += 1;
+        }
+        previousImage = message;
+        previousTimestamp = entry.timestamp;
+        entry = { ...entry, message: { ...message, metadata: {
+          ...message.metadata, mediaBatchId: historicalBatchId, mediaBatchIndex: historicalBatchIndex,
+        } } };
+      } else {
+        previousImage = null;
+      }
+      const batchId = entry.kind === 'message' && entry.message.direction === 'OUTBOUND'
+        ? entry.message.metadata?.mediaBatchId
+        : null;
+
+      if (
+        typeof batchId === 'string'
+        && batchId.length > 0
+        && entry.kind === 'message'
+        && isImageBatchMessage(entry.message)
+      ) {
+        const entryIndex = Number(entry.message.metadata?.mediaBatchIndex ?? 0);
+        const existingIndex = batchEntryIndexes.get(batchId);
+        const existing = existingIndex === undefined ? null : grouped[existingIndex];
+        const existingMessage = existing?.kind === 'message' ? existing.message : null;
+        const existingParts = existingMessage && Array.isArray(existingMessage.metadata?.mediaBatchParts)
+          ? existingMessage.metadata.mediaBatchParts
+          : existingMessage
+            ? [{ index: Number(existingMessage.metadata?.mediaBatchIndex ?? 0), attachments: existingMessage.attachments ?? [] }]
+            : [];
+        const orderedParts = [...existingParts, { index: entryIndex, attachments: entry.message.attachments ?? [] }]
+          .sort((left, right) => left.index - right.index);
+        const mediaBatchParts = orderedParts.flatMap((part) => part.attachments);
+
+        if (existing?.kind === 'message' && existingIndex !== undefined) {
+          const currentMessage = existing.message;
+          grouped[existingIndex] = {
+            ...existing,
+            timestamp: Math.min(existing.timestamp, entry.timestamp),
+            message: {
+              ...currentMessage,
+              ...entry.message,
+              text: currentMessage.text ?? entry.message.text,
+              attachments: mediaBatchParts,
+              metadata: {
+                ...currentMessage.metadata,
+                ...entry.message.metadata,
+                mediaBatchId: batchId,
+                mediaBatchIndex: Math.min(Number(currentMessage.metadata?.mediaBatchIndex ?? 0), entryIndex),
+                mediaBatchParts: orderedParts,
+              },
+            },
+          };
+        } else {
+          batchEntryIndexes.set(batchId, grouped.length);
+          grouped.push({
+            ...entry,
+            id: `media-batch:${batchId}`,
+            message: {
+              ...entry.message,
+              attachments: mediaBatchParts,
+              metadata: { ...entry.message.metadata, mediaBatchId: batchId, mediaBatchParts: orderedParts },
+            },
+          });
+        }
+        continue;
+      }
+
+      grouped.push(entry);
+    }
+
+    return grouped;
   }, [allMessages, callSessions, assignmentEvents]);
   timelineRef.current = timeline;
   const displayEntries = useMemo<TimelineRow[]>(() => {

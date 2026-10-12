@@ -426,8 +426,15 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
         {showBody && imageAttachments.length > 0 ? renderBody() : null}
         {imageAttachments.length > 1 ? (
           <View style={styles.imageGrid}>
-            {imageAttachments.map((attachment: any) => (
-              <AuthenticatedImage key={attachment.id} url={previewUrl(attachment)} style={styles.gridImage} onPress={() => onImage?.(attachment.id)} adaptive />
+            {imageAttachments.slice(0, 4).map((attachment: any, index: number) => (
+              <View key={attachment.id} style={styles.gridCell}>
+                <AuthenticatedImage url={previewUrl(attachment)} style={styles.gridImage} onPress={() => onImage?.(attachment.id)} adaptive />
+                {index === 3 && imageAttachments.length > 4 ? (
+                  <Pressable style={styles.gridOverflow} onPress={() => onImage?.(attachment.id)} accessibilityRole="button" accessibilityLabel={`Show ${imageAttachments.length - 3} more images`}>
+                    <Text style={styles.gridOverflowText}>+{imageAttachments.length - 3}</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             ))}
           </View>
         ) : imageAttachments.length === 1 ? (
@@ -934,7 +941,10 @@ const styles = StyleSheet.create({
   templateButtonText: { color: '#2563eb', fontSize: 13, fontWeight: '700' },
   image: { borderRadius: 18, backgroundColor: '#e8eef7' },
   imageGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 3, borderRadius: 18, overflow: 'hidden', width: 250 },
+  gridCell: { height: 123, position: 'relative', width: 123 },
   gridImage: { width: 123, height: 123 },
+  gridOverflow: { ...StyleSheet.absoluteFill, alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.58)', justifyContent: 'center' },
+  gridOverflowText: { color: '#fff', fontSize: 28, fontWeight: '700' },
   voiceWrap: { gap: 6, maxWidth: 260 },
   docList: { gap: 6 },
   documentCard: { borderColor: '#d7e6fb', borderRadius: 16, borderWidth: 1, overflow: 'hidden', width: 250 },
