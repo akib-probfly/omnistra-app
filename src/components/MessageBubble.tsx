@@ -138,10 +138,31 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
     const urls = rawUrls.map((value) => resolveMediaUrl(process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://api.zurvis.io/api/v1', value));
     return urls.includes(templateHeaderUrl);
   };
-  const imageAttachments = (attachments ?? []).filter((a: any) => isImageAttachment(a) && !isAudioAttachment(a) && !isTemplateHeaderAttachment(a));
-  const voiceAttachments = (attachments ?? []).filter((a: any) => isAudioAttachment(a));
-  const videoAttachments = (attachments ?? []).filter((a: any) => !isAudioAttachment(a) && isVideoAttachment(a) && !isTemplateHeaderAttachment(a));
-  const documentAttachments = (attachments ?? []).filter((a: any) => !imageAttachments.includes(a) && !voiceAttachments.includes(a) && !videoAttachments.includes(a) && !isTemplateHeaderAttachment(a));
+  const { imageAttachments, voiceAttachments, videoAttachments, documentAttachments } = useMemo(() => {
+    const images: any[] = [];
+    const voices: any[] = [];
+    const videos: any[] = [];
+    const documents: any[] = [];
+
+    for (const attachment of attachments ?? []) {
+      const isAudio = isAudioAttachment(attachment);
+      const isTemplateHeader = isTemplateHeaderAttachment(attachment);
+      const isImage = isImageAttachment(attachment) && !isAudio && !isTemplateHeader;
+      const isVideo = !isAudio && isVideoAttachment(attachment) && !isTemplateHeader;
+
+      if (isImage) images.push(attachment);
+      if (isAudio) voices.push(attachment);
+      if (isVideo) videos.push(attachment);
+      if (!isImage && !isAudio && !isVideo && !isTemplateHeader) documents.push(attachment);
+    }
+
+    return {
+      imageAttachments: images,
+      voiceAttachments: voices,
+      videoAttachments: videos,
+      documentAttachments: documents,
+    };
+  }, [attachments, templateDisplay, templateHeaderUrl]);
 
   const referralPreview = useMemo(
     () => getMessageReferralPreview(message, channelName),
@@ -157,6 +178,10 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
   );
   const body = (message.text ?? '').trim();
   const bodyParts = useMemo(() => parseMessageTextParts(body), [body]);
+  const bodyIsImageFilename = outgoing && imageAttachments.some(
+    (attachment: any) => typeof attachment.originalName === 'string'
+      && attachment.originalName.trim().toLowerCase() === body.toLowerCase(),
+  );
   const isLocationFallbackText = isLocationFallbackBody(body, whatsappLocation);
   const isTikTokUnsupportedInboundVoice =
     !outgoing &&
@@ -168,6 +193,7 @@ function StandardMessageBubble({ message, outgoing, attachments, replyPreview, r
     ? false
     : !isTikTokUnsupportedInboundVoice &&
       !isLocationFallbackText &&
+      !bodyIsImageFilename &&
       !whatsappContacts?.length &&
       !whatsappOrder &&
       body.length > 0 &&
