@@ -7,12 +7,12 @@ import { adminQueryKeys, fetchAdminPlans, fetchAdminWorkspace, fetchAdminWorkspa
 import { useSuperAdminAccess } from '../hooks/useSuperAdminAccess';
 import { useTheme } from '../theme/ThemeContext';
 import { radius, spacing } from '../theme/tokens';
-import { AppBadge, AppButton, AppCard, AppChip, AppSearchField, AppText, ScreenHeader, toneForStatus } from '../ui';
+import { AppBadge, AppButton, AppCard, AppChip, AppIconButton, AppSearchField, AppText, ScreenHeader, toneForStatus } from '../ui';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useAuth } from '../auth/AuthContext';
 import type { RootStackParamList } from '../navigation/AppNavigator';
 import { SuperAdminDashboard } from '../components/SuperAdminDashboard';
-import { Building2, CalendarDays, ChevronRight, LayoutDashboard, Package, SlidersHorizontal, UsersRound } from 'lucide-react-native';
+import { Building2, CalendarDays, ChevronRight, Filter, LayoutDashboard, Package, UsersRound } from 'lucide-react-native';
 import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 
 const actionLabels: Record<AdminWorkspaceAction, string> = { suspend: 'Suspend workspace', reactivate: 'Reactivate workspace', 'reset-usage': 'Reset usage' };
@@ -103,10 +103,15 @@ export function SuperAdminScreen() {
         <View style={styles.screen}>
         {!selected ? <View style={styles.toolbar}>
           {tab === 'workspaces' ? <>
-            <AppSearchField value={search} onChangeText={setSearch} placeholder="Search workspaces or owners" fill={false} />
+            <View style={styles.searchRow}>
+              <AppSearchField value={search} onChangeText={setSearch} placeholder="Search workspaces or owners" size="sm" />
+              <View>
+                <AppIconButton icon={Filter} accessibilityLabel={`Filter workspaces${planFilter || statusFilter ? ', filters active' : ''}`} onPress={() => { setDraftPlan(planFilter); setDraftStatus(statusFilter); setFilterOpen(true); }} />
+                {planFilter || statusFilter ? <View pointerEvents="none" style={[styles.filterActiveDot, { backgroundColor: colors.primary, borderColor: colors.surface }]} /> : null}
+              </View>
+            </View>
             <View style={styles.filterHeading}>
               <AppText variant="caption" tone="secondary">{workspaces.data?.pages[0]?.meta.total ?? '—'} workspaces</AppText>
-              <AppButton label={`Filters${planFilter || statusFilter ? ` (${Number(Boolean(planFilter)) + Number(Boolean(statusFilter))})` : ''}`} icon={SlidersHorizontal} variant="secondary" onPress={() => { setDraftPlan(planFilter); setDraftStatus(statusFilter); setFilterOpen(true); }} />
             </View>
             {planFilter || statusFilter ? <View style={styles.row}>
               {statusFilter ? <AppChip label={`${statusFilter === 'ACTIVE' ? 'Active' : 'Expired'} ×`} selected onPress={() => setStatusFilter('')} /> : null}
@@ -204,7 +209,7 @@ export function SuperAdminScreen() {
           {plans.error ? <><AppText tone="error">Unable to load packages.</AppText><AppButton label="Retry" variant="secondary" onPress={() => { void plans.refetch(); }} /></> : null}
         </SheetScrollView>
         <View style={[styles.sheetActions, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
-          <AppButton label="Reset" variant="secondary" onPress={() => { setDraftPlan(''); setDraftStatus(''); }} />
+          <AppButton label="Reset" variant="secondary" onPress={() => { setDraftPlan(''); setDraftStatus(''); setPlanFilter(''); setStatusFilter(''); setFilterOpen(false); }} />
           <AppButton label="Apply filters" onPress={() => { setPlanFilter(draftPlan); setStatusFilter(draftStatus); setFilterOpen(false); }} />
         </View>
       </BottomSheet>
@@ -224,6 +229,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
   card: { padding: spacing.lg, gap: spacing.sm },
   filterHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  filterActiveDot: { position: 'absolute', top: 5, right: 5, width: 8, height: 8, borderRadius: radius.pill, borderWidth: 1 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg },
   sheetActions: { flexDirection: 'row', justifyContent: 'space-between', padding: spacing.lg, gap: spacing.md },
   workspaceHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
