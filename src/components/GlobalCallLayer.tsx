@@ -24,6 +24,8 @@ import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '
 import { CallPanel } from './CallPanel';
 import { getCallPartyHint, getCallUiRevision, isGenericCallLabel, subscribeCallChrome } from '../lib/call-chrome';
 import { pollingWhileUnlocked } from '../lib/billing-lock';
+import { latestAccessToken, subscribeAccessToken } from '../api/client';
+import { workspaceIdFromAccessToken } from '../lib/jwt-workspace';
 
 function firstRealLabel(...values: Array<string | null | undefined>) {
   for (const value of values) {
@@ -183,6 +185,8 @@ function getBizOpaqueCallbackData(metadata: unknown) {
 
 export function GlobalCallLayer() {
   const { session } = useAuth();
+  const accessToken = useSyncExternalStore(subscribeAccessToken, () => latestAccessToken);
+  const hasWorkspaceContext = Boolean(session && workspaceIdFromAccessToken(accessToken));
   const queryClient = useQueryClient();
   useSyncExternalStore(subscribeCallChrome, getCallUiRevision);
   const callController = useCallController();
@@ -205,7 +209,7 @@ export function GlobalCallLayer() {
   const activeCallsQuery = useQuery({
     queryKey: ['active-calls'],
     queryFn: () => fetchActiveConversationCallSessions({ limit: 5 }),
-    enabled: Boolean(session),
+    enabled: hasWorkspaceContext,
     staleTime: 60_000,
     refetchOnMount: false,
     refetchOnReconnect: false,

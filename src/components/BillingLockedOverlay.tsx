@@ -10,6 +10,7 @@ import { useTheme } from '../theme/ThemeContext';
 const UNLOCKED_ROUTES = new Set([
   'Settings',
   'SettingsList',
+  'SuperAdmin',
   'Billing',
   'BillingPlanDetails',
   'BillingCheckout',

@@ -8,6 +8,7 @@ import {
   writeIncomingCallPrompt,
 } from './incoming-call-prompt';
 import { navigationRef } from '../navigation/navigationRef';
+import { workspaceIdFromAccessToken } from './jwt-workspace';
 
 const SUPPORTED_NOTIFICATION_TYPES = new Set<NotificationType>(['NEW_MESSAGE', 'CONVERSATION_ASSIGNED', 'CONVERSATION_UNASSIGNED', 'INCOMING_CALL', 'CONTACT_EXPORT_READY', 'CAMPAIGN_EXPORT_READY']);
 
@@ -192,6 +193,7 @@ export function navigateFromMobileNotification(payload: NotificationCreatedRealt
 
 export async function reconnectAndRefreshActiveCalls(queryClient: QueryClient, conversationId: string | null) {
   reconnectRealtimeSocket();
+  if (!workspaceIdFromAccessToken()) return;
   await queryClient.invalidateQueries({
     queryKey: ['active-calls'],
     refetchType: 'active',

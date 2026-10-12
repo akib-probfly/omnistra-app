@@ -7,7 +7,7 @@ import { revokeRegisteredMobilePushDevice } from '../lib/mobilePushRegistration'
 type Session = {
   accessToken: string;
   refreshToken?: string;
-  user: { name: string | null; email: string; avatarUrl?: string | null };
+  user: { name: string | null; email: string; avatarUrl?: string | null; role?: string };
 };
 type AuthContextValue = {
   session: Session | null;

@@ -27,9 +27,11 @@ import {
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useMemo, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import { useNavigation, type NavigationProp, type CompositeNavigationProp } from '@react-navigation/native';
+import type { RootStackParamList } from '../navigation/AppNavigator';
 import { apiUrl } from '../api/client';
 import { fetchMyProfile } from '../api/profile';
+import { useSuperAdminAccess } from '../hooks/useSuperAdminAccess';
 import { useAuth } from '../auth/AuthContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
@@ -112,8 +114,9 @@ function getInitials(value?: string | null) {
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<NavigationProp<SettingsStackParamList>>();
+  const navigation = useNavigation<CompositeNavigationProp<NavigationProp<SettingsStackParamList>, NavigationProp<RootStackParamList>>>();
   const { session, logout } = useAuth();
+  const { isSuperAdmin } = useSuperAdminAccess();
   const { mode, setMode, isDark } = useTheme();
   const { workspace, canManage } = useWorkspaceAccess();
   const lockReason = useBillingLockReason();
@@ -215,6 +218,19 @@ export function SettingsScreen() {
             </View>
           </View>
         </AppCard>
+
+        {isSuperAdmin ? (
+          <Pressable accessibilityRole="button" onPress={() => navigation.navigate('SuperAdmin')}>
+            <AppCard style={styles.profileCard}>
+              <Building2 color={colors.primary} size={24} />
+              <View style={styles.copy}>
+                <AppText variant="subheading">Super admin</AppText>
+                <AppText variant="caption" tone="secondary">Manage platform workspaces and packages</AppText>
+              </View>
+              <ChevronRight color={colors.textMuted} size={18} />
+            </AppCard>
+          </Pressable>
+        ) : null}
 
         {subscriptionExpired ? (
           <Pressable

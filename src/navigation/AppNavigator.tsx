@@ -7,8 +7,9 @@ import { ForgotPasswordScreen } from '../screens/ForgotPasswordScreen';
 import { SignUpScreen } from '../screens/SignUpScreen';
 import { BillingLockedOverlay } from '../components/BillingLockedOverlay';
 import { useAuth } from '../auth/AuthContext';
+import { SuperAdminScreen } from '../screens/SuperAdminScreen';
 
-export type RootStackParamList = { Main: undefined };
+export type RootStackParamList = { Main: undefined; SuperAdmin: undefined };
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 type AuthView = 'login' | 'forgot' | 'signup';
@@ -23,9 +24,11 @@ function MainWithOverlays() {
 }
 
 function AuthenticatedApp() {
+  const { session } = useAuth();
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator initialRouteName={session?.user.role === 'super_admin' ? 'SuperAdmin' : 'Main'} screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Main" component={MainWithOverlays} />
+      <Stack.Screen name="SuperAdmin" component={SuperAdminScreen} />
     </Stack.Navigator>
   );
 }
