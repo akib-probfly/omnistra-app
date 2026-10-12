@@ -94,7 +94,6 @@ export function SuperAdminScreen() {
       ) : <>
         <View style={styles.screen}>
         {!selected ? <View style={styles.toolbar}>
-          {!navigation.canGoBack() ? <AppButton label="Open workspace" variant="ghost" onPress={() => navigation.navigate('Main')} /> : null}
           {tab === 'workspaces' ? <>
             <AppSearchField value={search} onChangeText={setSearch} placeholder="Search workspaces or owners" fill={false} />
             <AppText variant="caption" tone="secondary">{workspaces.data?.pages[0]?.meta.total ?? 0} workspaces</AppText>
