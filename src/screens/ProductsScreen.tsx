@@ -110,9 +110,14 @@ export function ProductsScreen() {
   }, [search, debouncedSearch]);
   const categoriesQuery = useQuery({ queryKey: ['product-categories'], queryFn: () => fetchProductCategories() });
   const channelsQuery = useQuery({ queryKey: ['channels'], queryFn: fetchChannels });
+  const productsQueryKey = ['products', debouncedSearch, status, availability, category, localOnly, salesChannelIds, page];
   const productsQuery = useQuery({
-    queryKey: ['products', debouncedSearch, status, availability, category, localOnly, salesChannelIds, page],
+    queryKey: productsQueryKey,
     queryFn: () => listProducts({ search: debouncedSearch || undefined, status: status === 'ALL' ? undefined : status, availability: availability === 'ALL' ? undefined : availability, category: category === 'ALL' ? undefined : category, localOnly, salesChannelIds, page, limit: 25 }),
+    // Preserve rows only for page changes, never for a different search/filter.
+    placeholderData: (previousData, previousQuery) =>
+      JSON.stringify(previousQuery?.queryKey.slice(0, -1)) === JSON.stringify(productsQueryKey.slice(0, -1))
+        ? previousData : undefined,
   });
   const importsQuery = useQuery({ queryKey: ['products', 'imports'], queryFn: fetchProductImports, refetchInterval: (query) => query.state.data?.items.some((job) => job.status === 'PENDING' || job.status === 'PROCESSING') ? 2500 : false });
   const exportsQuery = useQuery({ queryKey: ['products', 'exports'], queryFn: fetchProductExports, refetchInterval: (query) => query.state.data?.items.some((job) => job.status === 'PENDING' || job.status === 'PROCESSING') ? 2500 : false });
@@ -239,12 +244,14 @@ export function ProductsScreen() {
           <Pressable style={[styles.filterReset, !draftHasFilters && styles.filterResetDisabled]} onPress={resetDraftFilters} disabled={!draftHasFilters}><Text style={[styles.filterResetText, { color: draftHasFilters ? colors.error : colors.textMuted }]}>Clear all</Text></Pressable>
           <Pressable style={[styles.filterApply, { backgroundColor: colors.primary }]} onPress={applyFilters}><Text style={[styles.filterApplyText, { color: colors.primaryText }]}>Apply filters</Text></Pressable>
         </BottomSheet>
+        <View pointerEvents={productsQuery.isPlaceholderData ? 'none' : 'auto'} accessibilityElementsHidden={productsQuery.isPlaceholderData} importantForAccessibility={productsQuery.isPlaceholderData ? 'no-hide-descendants' : 'auto'} style={[styles.pageRows, productsQuery.isPlaceholderData && styles.pageRowsLoading]}>
         {selectedIds.length ? <AppCard style={styles.bulkCard}><Text style={{ color: colors.text }}>{selectedIds.length} selected</Text><AppButton label="Delete selected" variant="destructive" loading={bulkDeleteMutation.isPending} onPress={() => Alert.alert('Remove selected products?', 'Products published to connected catalogs may be archived instead of deleted.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Remove', style: 'destructive', onPress: () => bulkDeleteMutation.mutate(selectedIds) }])} /></AppCard> : null}
         {productsQuery.isLoading ? <FormSkeleton fields={5} /> : productsQuery.isError ? <ErrorState message="Could not load products." onRetry={() => productsQuery.refetch()} /> : products.length ? products.map((product) => (
           <ProductRow key={product.id} product={product} selected={selectedIds.includes(product.id)} onSelect={() => setSelectedIds((current) => current.includes(product.id) ? current.filter((id) => id !== product.id) : [...current, product.id])} onEdit={() => navigation.navigate('ProductForm', { productId: product.id })} onToggle={() => statusMutation.mutate({ product, next: product.status !== 'ACTIVE' })} onDelete={() => Alert.alert('Delete product?', `Delete ${product.name}?`, [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => deleteMutation.mutate(product.id) }])} />
         )) : <AppCard><Text style={[styles.empty, { color: colors.textMuted }]}>No products found.</Text></AppCard>}
         {statusMutation.isPending || deleteMutation.isPending ? <ActivityIndicator color={colors.primary} /> : null}
-        <View style={styles.pagination}><AppButton label="Previous" variant="secondary" disabled={page <= 1} onPress={() => setPage((value) => Math.max(1, value - 1))} /><Text style={{ color: colors.textSecondary }}>{products.length} products · Page {page}</Text><AppButton label="Next" variant="secondary" disabled={products.length < 25} onPress={() => setPage((value) => value + 1)} /></View>
+        </View>
+        <View style={styles.pagination}><AppButton label="Previous" variant="secondary" disabled={page <= 1 || productsQuery.isPlaceholderData || productsQuery.isLoading} onPress={() => setPage((value) => Math.max(1, value - 1))} />{productsQuery.isPlaceholderData ? <View style={styles.pageLoading}><ActivityIndicator size="small" color={colors.primary} /><Text style={{ color: colors.textSecondary }} accessibilityLiveRegion="polite">Loading page {page}</Text></View> : <Text style={{ color: colors.textSecondary }}>{products.length} products · Page {page}</Text>}<AppButton label="Next" variant="secondary" disabled={products.length < 25 || productsQuery.isPlaceholderData || productsQuery.isLoading} onPress={() => setPage((value) => value + 1)} /></View>
       </ScrollView>
     </View>
   );
@@ -257,6 +264,9 @@ const styles = StyleSheet.create({
   productMetricCopy: { flex: 1, minWidth: 0 },
   productMetricLabel: { fontSize: 9, lineHeight: 11 },
   productMetricValue: { fontSize: fontSize.caption, fontWeight: fontWeight.bold },
+  pageRows: { gap: spacing.md },
+  pageRowsLoading: { opacity: 0.55 },
+  pageLoading: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, flexShrink: 1 },
   screen: { flex: 1 },
   content: { gap: spacing.md, padding: spacing.lg },
   searchTools: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm },

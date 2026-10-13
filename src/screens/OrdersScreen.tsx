@@ -6,7 +6,7 @@ import { Image } from 'expo-image';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { CalendarDays, Check, ChevronDown, ChevronRight, Copy, CreditCard, ExternalLink, Filter, Hash, List, MapPin, Package, Phone, Plus, Printer, QrCode, RefreshCw, Search, Share2, ShoppingBag, Truck, UserRound, X, XCircle } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { LucideIcon } from 'lucide-react-native';
@@ -90,9 +90,14 @@ export function OrdersScreen() {
     }, 350);
     return () => clearTimeout(timer);
   }, [search, debouncedSearch]);
+  const ordersQueryKey = ['orders', status, debouncedSearch, phone, sourceIds, page];
   const ordersQuery = useQuery({
-    queryKey: ['orders', status, debouncedSearch, phone, sourceIds, page],
+    queryKey: ordersQueryKey,
     queryFn: () => listOrders({ search: debouncedSearch || undefined, phone: phone.trim() || undefined, source: sourceIds.length ? sourceIds : undefined, status: status === 'ALL' ? undefined : status, page, limit: 25 }),
+    // Preserve rows only for page changes, never for a different search/filter.
+    placeholderData: (previousData, previousQuery) =>
+      JSON.stringify(previousQuery?.queryKey.slice(0, -1)) === JSON.stringify(ordersQueryKey.slice(0, -1))
+        ? previousData : undefined,
   });
   const channelsQuery = useQuery({ queryKey: ['channels'], queryFn: fetchChannels });
   const courierQuery = useQuery({ queryKey: ['courier-connections'], queryFn: listCourierConnections, enabled: courierPickerOpen && Boolean(workspace?.ecommerceEnabled) });
@@ -237,6 +242,7 @@ export function OrdersScreen() {
           <Pressable style={[styles.filterReset, !draftHasFilters && styles.filterResetDisabled]} onPress={resetDraftFilters} disabled={!draftHasFilters}><Text style={[styles.filterResetText, { color: draftHasFilters ? colors.error : colors.textMuted }]}>Clear all</Text></Pressable>
           <Pressable style={[styles.filterApply, { backgroundColor: colors.primary }]} onPress={applyFilters}><Text style={[styles.filterApplyText, { color: colors.primaryText }]}>Apply filters</Text></Pressable>
         </BottomSheet>
+        <View pointerEvents={ordersQuery.isPlaceholderData ? 'none' : 'auto'} accessibilityElementsHidden={ordersQuery.isPlaceholderData} importantForAccessibility={ordersQuery.isPlaceholderData ? 'no-hide-descendants' : 'auto'} style={[styles.pageRows, ordersQuery.isPlaceholderData && styles.pageRowsLoading]}>
         {selectedOrders.length ? <AppCard style={styles.bulkCard}>
           <View style={styles.bulkToolbar}>
             <View style={styles.bulkSelection}><Text style={[styles.meta, { color: colors.text }]}>{selectedOrders.length} selected</Text><Pressable onPress={() => setSelectedIds([])} hitSlop={8}><Text style={[styles.clearSelection, { color: colors.textSecondary }]}>Clear</Text></Pressable></View>
@@ -247,7 +253,8 @@ export function OrdersScreen() {
           </View>
         </AppCard> : null}
         {ordersQuery.isLoading ? <FormSkeleton fields={5} /> : ordersQuery.isError ? <ErrorState message="Could not load orders." onRetry={() => ordersQuery.refetch()} /> : orders.length ? orders.map((order) => <OrderCard key={order.id} order={order} selected={selectedIds.includes(order.id)} onToggle={() => setSelectedIds((current) => current.includes(order.id) ? current.filter((id) => id !== order.id) : [...current, order.id])} onDetails={() => setDetailsOrder(order)} onEdit={() => navigation.navigate('CreateOrder', { editOrderId: order.id })} onInvoice={() => { setSelectedOrder(order); setInvoiceOpen(true); }} onStatus={() => { setSelectedOrder(order); setBulkStatusOpen(true); }} onCourier={() => { setSelectedOrder(order); setCourierPickerOpen(true); }} />) : <AppCard><Text style={[styles.empty, { color: colors.textMuted }]}>No orders found.</Text></AppCard>}
-        <View style={styles.pagination}><AppButton label="Previous" variant="secondary" disabled={page <= 1} onPress={() => setPage((value) => Math.max(1, value - 1))} /><Text style={[styles.meta, { color: colors.textSecondary }]}>{orders.length ? `${(page - 1) * 25 + 1}–${Math.min(page * 25, total)} of ${total}` : '0 orders'}</Text><AppButton label="Next" variant="secondary" disabled={page * 25 >= total} onPress={() => setPage((value) => value + 1)} /></View>
+        </View>
+        <View style={styles.pagination}><AppButton label="Previous" variant="secondary" disabled={page <= 1 || ordersQuery.isPlaceholderData || ordersQuery.isLoading} onPress={() => setPage((value) => Math.max(1, value - 1))} />{ordersQuery.isPlaceholderData ? <View style={styles.pageLoading}><ActivityIndicator size="small" color={colors.primary} /><Text style={{ color: colors.textSecondary }} accessibilityLiveRegion="polite">Loading page {page}</Text></View> : <Text style={[styles.meta, { color: colors.textSecondary }]}>{orders.length ? `${(page - 1) * 25 + 1}–${Math.min(page * 25, total)} of ${total}` : '0 orders'}</Text>}<AppButton label="Next" variant="secondary" disabled={page * 25 >= total || ordersQuery.isPlaceholderData || ordersQuery.isLoading} onPress={() => setPage((value) => value + 1)} /></View>
       </ScrollView>
 
       <BottomSheet visible={Boolean(detailsOrder)} onClose={() => setDetailsOrder(null)} sheetStyle={styles.orderDetailsSheet}>
@@ -385,6 +392,9 @@ const styles = StyleSheet.create({
   orderIdMeta: { alignItems: 'center', flexDirection: 'row', flexShrink: 1, gap: spacing.xs },
   orderIdText: { flexShrink: 1 },
   courierOption: { gap: spacing.md, justifyContent: 'flex-start' },
+  pageRows: { gap: spacing.md },
+  pageRowsLoading: { opacity: 0.55 },
+  pageLoading: { alignItems: 'center', flexDirection: 'row', gap: spacing.xs, flexShrink: 1 },
   screen: { flex: 1 }, content: { gap: spacing.md, padding: spacing.lg }, headerActions: { flexDirection: 'row', gap: spacing.sm }, iconButton: { alignItems: 'center', borderRadius: radius.pill, height: 38, justifyContent: 'center', width: 38 },
   searchTools: { alignItems: 'center', flexDirection: 'row', gap: spacing.sm }, search: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flex: 1, flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.md }, input: { flex: 1, fontSize: fontSize.body, height: inputHeight }, filterIconButton: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, height: inputHeight, justifyContent: 'center', position: 'relative', width: inputHeight }, filterActiveDot: { borderRadius: radius.pill, height: spacing.sm, position: 'absolute', right: 5, top: 5, width: spacing.sm },
   filterSheet: { paddingBottom: 20, paddingHorizontal: 20, paddingTop: 8 }, sheetHeader: { alignItems: 'center', flexDirection: 'row', marginBottom: spacing.md }, filterLayerTabs: { borderRadius: radius.lg, flexGrow: 0, marginBottom: spacing.md, padding: spacing.xs }, filterLayerTabsContent: { alignItems: 'center', flexDirection: 'row', gap: 4 }, filterLayerTab: { alignItems: 'center', borderRadius: 10, flexDirection: 'row', gap: 4, justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 8 }, filterLayerTabActive: { elevation: 1, shadowOpacity: 0.06, shadowRadius: 4 }, filterLayerTabText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold }, filterLayerCount: { borderRadius: 8, fontSize: 10, fontWeight: '700', marginLeft: 3, overflow: 'hidden', paddingHorizontal: 4, paddingVertical: 1 }, filterLayerBody: { maxHeight: 400 }, filterLayerContent: { paddingBottom: spacing.sm }, filterChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }, phoneFilterSection: { gap: spacing.sm }, phoneSearch: { borderRadius: radius.md, borderWidth: 1, fontSize: fontSize.body, minHeight: 46, paddingHorizontal: spacing.md }, channelFilter: { alignItems: 'center', borderRadius: radius.md, borderWidth: 1, flexDirection: 'row', gap: spacing.sm, maxWidth: '100%', paddingHorizontal: spacing.sm, paddingVertical: spacing.xs }, channelFilterLabel: { flexShrink: 1, fontSize: fontSize.small, fontWeight: fontWeight.semibold }, filterReset: { alignItems: 'center', marginTop: 14, paddingVertical: 6 }, filterResetDisabled: { opacity: 0.45 }, filterResetText: { fontSize: fontSize.body, fontWeight: fontWeight.semibold }, filterApply: { alignItems: 'center', borderRadius: radius.md, marginTop: spacing.sm, paddingVertical: spacing.md + 2 }, filterApplyText: { fontSize: fontSize.body, fontWeight: fontWeight.bold },
