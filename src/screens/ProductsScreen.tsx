@@ -5,7 +5,7 @@ import { Image } from 'expo-image';
 import { AlertTriangle, Archive, Check, CheckCircle2, Download, EllipsisVertical, Filter, Import, LayoutGrid, Package, Pencil, Plus, Search, Trash2 } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import { useNavigation, type NavigationProp } from '@react-navigation/native';
+import { useIsFocused, useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { deleteProduct, deleteProducts, exportProducts, fetchProductExports, fetchProductImports, importProducts, listProducts, updateProductStatus, type ProductExportMode, type ProductImportField, type ProductResponse } from '../api/products';
 import { fetchChannels } from '../api/channels';
@@ -74,6 +74,7 @@ function ProductRow({ product, selected, onSelect, onToggle, onDelete, onEdit }:
 }
 
 export function ProductsScreen() {
+  const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const navigation = useNavigation<NavigationProp<SettingsStackParamList>>();
@@ -119,8 +120,9 @@ export function ProductsScreen() {
       JSON.stringify(previousQuery?.queryKey.slice(0, -1)) === JSON.stringify(productsQueryKey.slice(0, -1))
         ? previousData : undefined,
   });
-  const importsQuery = useQuery({ queryKey: ['products', 'imports'], queryFn: fetchProductImports, refetchInterval: (query) => query.state.data?.items.some((job) => job.status === 'PENDING' || job.status === 'PROCESSING') ? 2500 : false });
-  const exportsQuery = useQuery({ queryKey: ['products', 'exports'], queryFn: fetchProductExports, refetchInterval: (query) => query.state.data?.items.some((job) => job.status === 'PENDING' || job.status === 'PROCESSING') ? 2500 : false });
+  // Re-enabling on return refreshes stale job status while retaining cached data.
+  const importsQuery = useQuery({ queryKey: ['products', 'imports'], queryFn: fetchProductImports, enabled: isFocused, refetchInterval: (query) => query.state.data?.items.some((job) => job.status === 'PENDING' || job.status === 'PROCESSING') ? 2500 : false });
+  const exportsQuery = useQuery({ queryKey: ['products', 'exports'], queryFn: fetchProductExports, enabled: isFocused, refetchInterval: (query) => query.state.data?.items.some((job) => job.status === 'PENDING' || job.status === 'PROCESSING') ? 2500 : false });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['products'] });
   const statusMutation = useMutation({
     mutationFn: ({ product, next }: { product: ProductResponse; next: boolean }) => updateProductStatus(product.id, next, product.salesChannels.filter((item) => item.catalogId).map((item) => item.channelId)),
