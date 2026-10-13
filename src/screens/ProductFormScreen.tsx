@@ -148,7 +148,7 @@ export function ProductFormScreen() {
     enabled: editing,
   });
   const connectedWhatsapp = (channelsQuery.data?.items ?? []).filter((channel) => channel.type === 'WHATSAPP' && channel.status === 'CONNECTED');
-  const catalogQueries = useQueries({ queries: connectedWhatsapp.map((channel) => ({ queryKey: ['whatsapp-product-catalog', channel.id], queryFn: () => fetchWhatsappProductCatalog(channel.id), enabled: !editing || Boolean(productQuery.data) })) });
+  const catalogQueries = useQueries({ queries: connectedWhatsapp.map((channel) => ({ queryKey: ['whatsapp-product-catalog', channel.id], queryFn: () => fetchWhatsappProductCatalog(channel.id), enabled: !editing || Boolean(productQuery.data), staleTime: 60_000 })) });
   const catalogOptions = useMemo(() => connectedWhatsapp.flatMap((channel, index) => {
     const result = catalogQueries[index]?.data;
     const catalog = result?.activeCatalog ?? result?.catalogs?.[0] ?? null;

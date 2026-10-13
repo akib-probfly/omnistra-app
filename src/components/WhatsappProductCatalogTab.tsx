@@ -73,7 +73,10 @@ export function WhatsappProductCatalogTab({ channelId }: { channelId: string }) 
     mutationFn: (id: string) => connectWhatsappProductCatalog(channelId, id),
     onSuccess: async (result) => {
       setCatalogIdDraft('');
-      await queryClient.invalidateQueries({ queryKey });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey }),
+        queryClient.invalidateQueries({ queryKey: ['whatsapp-product-catalog', channelId] }),
+      ]);
       Toast.show({ type: 'success', text1: 'Product catalog connected' });
       if (result.response) queryClient.setQueryData(queryKey, { pages: [result.response], pageParams: [undefined] });
     },
