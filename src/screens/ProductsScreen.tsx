@@ -3,7 +3,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import { AlertTriangle, Archive, Check, CheckCircle2, Download, EllipsisVertical, Filter, Import, LayoutGrid, Package, Pencil, Plus, Search, Trash2 } from 'lucide-react-native';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -80,6 +80,7 @@ export function ProductsScreen() {
   const queryClient = useQueryClient();
   const { colors } = useTheme();
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [status, setStatus] = useState<(typeof STATUS_FILTERS)[number]>('ALL');
   const [availability, setAvailability] = useState<'ALL' | 'LOW_STOCK' | 'OUT_OF_STOCK'>('ALL');
   const [category, setCategory] = useState('ALL');
@@ -95,11 +96,23 @@ export function ProductsScreen() {
   const [draftLocalOnly, setDraftLocalOnly] = useState(false);
   const [draftSalesChannelIds, setDraftSalesChannelIds] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  useEffect(() => {
+    const nextSearch = search.trim();
+    if (nextSearch === debouncedSearch) return;
+    const timer = setTimeout(() => {
+      // Commit the new search and its first page together, avoiding a request
+      // for the previous search on page 1 or the new search on a later page.
+      setDebouncedSearch(nextSearch);
+      setPage(1);
+      setSelectedIds([]);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [search, debouncedSearch]);
   const categoriesQuery = useQuery({ queryKey: ['product-categories'], queryFn: () => fetchProductCategories() });
   const channelsQuery = useQuery({ queryKey: ['channels'], queryFn: fetchChannels });
   const productsQuery = useQuery({
-    queryKey: ['products', search, status, availability, category, localOnly, salesChannelIds, page],
-    queryFn: () => listProducts({ search: search.trim() || undefined, status: status === 'ALL' ? undefined : status, availability: availability === 'ALL' ? undefined : availability, category: category === 'ALL' ? undefined : category, localOnly, salesChannelIds, page, limit: 25 }),
+    queryKey: ['products', debouncedSearch, status, availability, category, localOnly, salesChannelIds, page],
+    queryFn: () => listProducts({ search: debouncedSearch || undefined, status: status === 'ALL' ? undefined : status, availability: availability === 'ALL' ? undefined : availability, category: category === 'ALL' ? undefined : category, localOnly, salesChannelIds, page, limit: 25 }),
   });
   const importsQuery = useQuery({ queryKey: ['products', 'imports'], queryFn: fetchProductImports, refetchInterval: (query) => query.state.data?.items.some((job) => job.status === 'PENDING' || job.status === 'PROCESSING') ? 2500 : false });
   const exportsQuery = useQuery({ queryKey: ['products', 'exports'], queryFn: fetchProductExports, refetchInterval: (query) => query.state.data?.items.some((job) => job.status === 'PENDING' || job.status === 'PROCESSING') ? 2500 : false });
