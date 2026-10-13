@@ -441,8 +441,9 @@ export function InboxScreen() {
                 </View>
               )}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-              onEndReachedThreshold={0.4}
-              onEndReached={() => { const last = conversations.data?.pages?.at(-1); if (last?.pageInfo?.hasMore && !conversations.isFetchingNextPage) conversations.fetchNextPage(); }}
+              // Start fetching with two viewport lengths left to scroll.
+              onEndReachedThreshold={2}
+              onEndReached={() => { if (conversations.hasNextPage && !conversations.isFetchingNextPage) void conversations.fetchNextPage(); }}
               contentContainerStyle={styles.list}
               removeClippedSubviews={false}
               initialNumToRender={12}
