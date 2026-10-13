@@ -5,7 +5,7 @@ import { Pressable, RefreshControl, ScrollView, Text, TextInput, View, useWindow
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useIsFocused, useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { fetchDashboard, type DashboardResponse } from '../api/dashboard';
+import { fetchDashboard } from '../api/dashboard';
 import { fetchWorkspaceUsage } from '../api/billing';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 import { DashboardSkeleton } from '../components/Skeleton';
@@ -16,7 +16,7 @@ import { isBillingLocked, pollingWhileUnlocked } from '../lib/billing-lock';
 import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import {
-  BillingUsageCard, ChannelMix, compareValues, darkGradient, EMPTY_CHANNEL_MIX,
+  DashboardNumbersLoadingContext, BillingUsageCard, ChannelMix, compareValues, darkGradient, EMPTY_CHANNEL_MIX,
   formatDateRangeLabel, formatDuration, formatNumber, getTrendSnapshot,
   CarouselSection, LiveChannelStatus, MetricCarousel, MetricStack, mixHex, RangeSegment,
   resolveRange, styles as dashboardStyles, TeamCommandCenter, toUtcIso, UberCard,
@@ -187,7 +187,7 @@ export function DashboardScreen() {
             <AppButton icon={RefreshCw} label="Try again" onPress={() => { void dashboard.refetch(); }} style={dashboardStyles.retryBtn} />
           </View>
         ) : (
-          <>
+          <DashboardNumbersLoadingContext.Provider value={dashboard.isFetching && dashboard.isPlaceholderData}>
             <CarouselSection title="At a glance" colors={colors}>
               <MetricStack itemCount={overview.length}>
                 {overview.map((item) => {
@@ -230,7 +230,7 @@ export function DashboardScreen() {
             ) : null}
 
             <Text style={[dashboardStyles.footerNote, { color: colors.textMuted }]}>Scoped to the current workspace. Search and date range update every section.</Text>
-          </>
+          </DashboardNumbersLoadingContext.Provider>
         )}
       </ScrollView>
 

@@ -6,8 +6,8 @@ import {
   UserCheck,
   Wifi,
 } from 'lucide-react-native';
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Animated, PanResponder, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { createContext, memo, useContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { ActivityIndicator, Animated, PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle } from 'react-native-svg';
 import type { DashboardChannelHealthItem, DashboardResponse, DashboardTeamCommandCenterMember, DashboardTrendPoint } from '../api/dashboard';
@@ -20,6 +20,21 @@ import { styles } from './DashboardStyles';
 
 export type RangePreset = 'today' | '7d' | '30d';
 type PresenceFilter = 'all' | 'online' | 'offline';
+
+export const DashboardNumbersLoadingContext = createContext(false);
+
+function LoadingNumber({ color, children }: { color: string; children: ReactNode }) {
+  const loading = useContext(DashboardNumbersLoadingContext);
+  return (
+    <View style={styles.numberLoadingValue}>
+      <View style={loading ? styles.hiddenNumber : undefined} accessibilityElementsHidden={loading} importantForAccessibility={loading ? 'no-hide-descendants' : 'auto'}>
+        {children}
+      </View>
+      {loading ? <ActivityIndicator style={StyleSheet.absoluteFill} size="small" color={color} accessibilityLabel="Updating dashboard numbers" /> : null}
+    </View>
+  );
+}
+
 
 const RANGE_LABELS: Record<RangePreset, string> = { today: 'Today', '7d': '7 Days', '30d': '30 Days' };
 const INITIAL_VISIBLE_CHANNELS = 6;
@@ -322,6 +337,7 @@ export function UberCard({
   onDark?: boolean;
   valueColor?: string;
 }) {
+  const { colors: themeColors } = useTheme();
   const effectiveOnDark = isDark ? true : onDark;
   return (
     <View style={[styles.uberCard, { width }]}>
@@ -335,14 +351,18 @@ export function UberCard({
           </View>
           <View style={styles.uberHeaderRight}>
             {badge ? <View style={effectiveOnDark ? styles.uberBadgeDark : styles.uberBadgeLight}>{badge}</View> : null}
+            <View style={styles.numberWithSpinner}>
+            <LoadingNumber color={valueColor ?? (effectiveOnDark ? themeColors.primaryText : themeColors.text)}>
             <Text
-              style={[effectiveOnDark ? styles.posterHeroLight : styles.posterHeroDark, valueColor ? { color: valueColor } : null]}
+              style={[styles.numberLoadingValue, effectiveOnDark ? styles.posterHeroLight : styles.posterHeroDark, valueColor ? { color: valueColor } : null]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.5}
             >
               {value}
             </Text>
+            </LoadingNumber>
+            </View>
           </View>
         </View>
 
@@ -386,7 +406,11 @@ function ChannelMixComponent({ mix, colors }: { mix: DashboardResponse['channelM
           })}
         </Svg>
         <View style={styles.donutCenter} pointerEvents="none">
-          <Text style={[styles.donutValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>{formatNumber(total)}</Text>
+          <View style={styles.numberWithSpinner}>
+            <LoadingNumber color={colors.primary}>
+            <Text style={[styles.donutValue, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>{formatNumber(total)}</Text>
+            </LoadingNumber>
+          </View>
           <Text style={[styles.donutLabel, { color: colors.textMuted }]}>Total</Text>
         </View>
       </View>
@@ -534,7 +558,11 @@ function TeamCommandCenterComponent({ data, colors, isDark }: { data: DashboardR
                   { label: 'Assigned', value: row.assigned, color: colors.text },
                 ].map((metric, index) => (
                   <View key={metric.label} style={[styles.memberMetricTile, index > 0 && { borderLeftWidth: 1, borderLeftColor: colors.cardBorder }]}>
-                    <Text style={[styles.memberMetricValue, { color: metric.color }]}>{formatNumber(metric.value)}</Text>
+                    <View style={styles.numberWithSpinner}>
+                      <LoadingNumber color={metric.color}>
+                      <Text style={[styles.memberMetricValue, { color: metric.color }]}>{formatNumber(metric.value)}</Text>
+                      </LoadingNumber>
+                    </View>
                     <Text style={[styles.memberMetricLabel, { color: colors.textSecondary }]}>{metric.label}</Text>
                   </View>
                 ))}

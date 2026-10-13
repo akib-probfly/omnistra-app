@@ -197,6 +197,9 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.md - 2,
   },
+  hiddenNumber: { opacity: 0 },
+  numberLoadingValue: { flexShrink: 1 },
+  numberWithSpinner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, flexShrink: 1 },
   uberHeaderRight: {
     alignItems: 'flex-end',
     flex: 1,
