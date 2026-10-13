@@ -5,7 +5,7 @@ import * as Sharing from 'expo-sharing';
 import { Image } from 'expo-image';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { CalendarDays, Check, ChevronDown, ChevronRight, Copy, CreditCard, ExternalLink, Filter, Hash, List, MapPin, Package, Phone, Plus, Printer, QrCode, RefreshCw, Search, Share2, ShoppingBag, Truck, UserRound, X, XCircle } from 'lucide-react-native';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useNavigation, type NavigationProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -56,6 +56,7 @@ export function OrdersScreen() {
   const { workspace } = useWorkspaceAccess();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [phone, setPhone] = useState('');
   const [status, setStatus] = useState<OrderStatus | 'ALL'>('ALL');
   const [sourceIds, setSourceIds] = useState<string[]>([]);
@@ -77,9 +78,21 @@ export function OrdersScreen() {
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
   const [orderActionsOpen, setOrderActionsOpen] = useState(false);
+  useEffect(() => {
+    const nextSearch = search.trim();
+    if (nextSearch === debouncedSearch) return;
+    const timer = setTimeout(() => {
+      // Change search and page together so a later page is never requested
+      // for a newly entered search.
+      setDebouncedSearch(nextSearch);
+      setPage(1);
+      setSelectedIds([]);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [search, debouncedSearch]);
   const ordersQuery = useQuery({
-    queryKey: ['orders', status, search, phone, sourceIds, page],
-    queryFn: () => listOrders({ search: search.trim() || undefined, phone: phone.trim() || undefined, source: sourceIds.length ? sourceIds : undefined, status: status === 'ALL' ? undefined : status, page, limit: 25 }),
+    queryKey: ['orders', status, debouncedSearch, phone, sourceIds, page],
+    queryFn: () => listOrders({ search: debouncedSearch || undefined, phone: phone.trim() || undefined, source: sourceIds.length ? sourceIds : undefined, status: status === 'ALL' ? undefined : status, page, limit: 25 }),
   });
   const channelsQuery = useQuery({ queryKey: ['channels'], queryFn: fetchChannels });
   const courierQuery = useQuery({ queryKey: ['courier-connections'], queryFn: listCourierConnections, enabled: courierPickerOpen && Boolean(workspace?.ecommerceEnabled) });
@@ -201,7 +214,7 @@ export function OrdersScreen() {
           {orderMetrics.map(({ label, value, Icon, background, foreground }) => <View key={label} style={[styles.metricCard, { width: metricCardWidth, backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><View style={[styles.metricIcon, { backgroundColor: background }]}><Icon color={foreground} size={16} /></View><View style={styles.metricCopy}><Text numberOfLines={1} style={[styles.metricLabel, { color: colors.textSecondary }]}>{label}</Text><Text style={[styles.metricValue, { color: colors.text }]}>{value}</Text></View></View>)}
         </View>
         <View style={styles.searchTools}>
-          <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><Search color={colors.textMuted} size={17} /><TextInput value={search} onChangeText={(value) => { setSearch(value); setPage(1); setSelectedIds([]); }} placeholder="Search order or customer" placeholderTextColor={colors.textMuted} style={[styles.input, { color: colors.text }]} /></View>
+          <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><Search color={colors.textMuted} size={17} /><TextInput value={search} onChangeText={(value) => { setSearch(value); setSelectedIds([]); }} placeholder="Search order or customer" placeholderTextColor={colors.textMuted} style={[styles.input, { color: colors.text }]} /></View>
           <Pressable onPress={openFilters} style={[styles.filterIconButton, { backgroundColor: colors.surface, borderColor: activeFilterCount ? colors.primary : colors.cardBorder }]} accessibilityRole="button" accessibilityLabel={activeFilterCount ? `Filters, ${activeFilterCount} active` : 'Filters'}>
             <Filter color={activeFilterCount ? colors.primary : colors.textSecondary} size={18} />
             {activeFilterCount ? <View style={[styles.filterActiveDot, { backgroundColor: colors.primary }]} /> : null}
