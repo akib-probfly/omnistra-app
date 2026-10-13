@@ -66,14 +66,14 @@ export function AppTextField({
             backgroundColor: colors.surface,
             borderColor: error ? colors.error : colors.inputBorder,
             minHeight: inputProps.multiline ? inputHeight : undefined,
-            ...(fieldHeight && !inputProps.multiline ? { height: fieldHeight } : null),
+            height: inputProps.multiline ? undefined : (fieldHeight ?? inputHeight),
           },
         ]}
       >
         {Icon ? (
           <Icon color={colors.textMuted} size={16} style={styles.icon} />
         ) : null}
-        <View style={styles.inputWrap}>
+        <View style={[styles.inputWrap, !inputProps.multiline && styles.singleLineWrap]}>
         <TextInput
           placeholderTextColor={colors.textMuted}
           underlineColorAndroid="transparent"
@@ -118,6 +118,7 @@ const styles = StyleSheet.create({
   },
   icon: { marginRight: spacing.sm + 2 },
   inputWrap: { flex: 1, justifyContent: 'center' },
+  singleLineWrap: { alignSelf: 'stretch' },
   placeholderOverlay: { bottom: 0, justifyContent: 'center', left: 0, position: 'absolute', right: 0, top: 0 },
   trailing: { marginLeft: spacing.sm, padding: spacing.xs },
   input: { flex: 1, fontSize: fontSize.subheading, height: '100%' },
