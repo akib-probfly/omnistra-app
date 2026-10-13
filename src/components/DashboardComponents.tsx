@@ -510,48 +510,55 @@ function TeamCommandCenterComponent({ data, colors, isDark }: { data: DashboardR
           {list.length === 0 ? (
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No agents in this state.</Text>
           ) : list.map((row) => (
-            <View style={[styles.memberCard, { backgroundColor: colors.background, borderColor: colors.separator }, row.status === 'offline' && styles.memberOffline]} key={row.key}>
+            <AppCard style={styles.memberCard} key={row.key}>
               <View style={styles.memberTop}>
                 <View style={styles.memberAvatarWrap}>
-                  <View style={[styles.memberAvatar, { backgroundColor: colors.primarySoft }]}><Text style={[styles.memberInitials, { color: colors.primary }]}>{row.initials}</Text></View>
-                  <View style={[styles.presenceDot, { backgroundColor: row.status === 'online' ? '#22c55e' : colors.textMuted, borderColor: colors.surface }]} />
+                  <View style={[styles.memberAvatar, { backgroundColor: row.status === 'online' ? colors.primarySoft : colors.surfaceSecondary }]}><Text style={[styles.memberInitials, { color: row.status === 'online' ? colors.primary : colors.textSecondary }]}>{row.initials}</Text></View>
+                  <View style={[styles.presenceDot, { backgroundColor: row.status === 'online' ? colors.success : colors.textMuted, borderColor: colors.surface }]} />
                 </View>
                 <View style={styles.memberIdentity}>
                   <Text style={[styles.memberName, { color: colors.text }]} numberOfLines={1}>{row.name}</Text>
                   <Text style={[styles.memberActivity, { color: colors.textSecondary }]} numberOfLines={1}>{row.activity}</Text>
                 </View>
-                <View style={[styles.presenceBadge, { backgroundColor: row.status === 'online' ? isDark ? colors.surfaceSecondary : '#ecfdf5' : colors.surfaceSecondary }]}>
-                  <Text style={[styles.presenceBadgeText, { color: row.status === 'online' ? '#059669' : colors.textSecondary }]}>
+                <View style={[styles.presenceBadge, { backgroundColor: row.status === 'online' ? colors.successSoft : colors.surfaceSecondary }]}>
+                  <Text style={[styles.presenceBadgeText, { color: row.status === 'online' ? colors.success : colors.textSecondary }]}>
                     {row.status === 'online' ? 'Online' : 'Offline'}
                   </Text>
                 </View>
               </View>
 
-              <View style={styles.memberMetrics}>
+              <View style={[styles.memberMetrics, { backgroundColor: colors.surfaceSecondary }]}>
                 {[
                   { label: 'Replied', value: row.replied, color: colors.text },
                   { label: 'Open', value: row.open, color: colors.primary },
                   { label: 'Assigned', value: row.assigned, color: colors.text },
-                ].map((metric) => (
-                  <View key={metric.label} style={[styles.memberMetricTile, { backgroundColor: colors.surface }]}>
+                ].map((metric, index) => (
+                  <View key={metric.label} style={[styles.memberMetricTile, index > 0 && { borderLeftWidth: 1, borderLeftColor: colors.cardBorder }]}>
                     <Text style={[styles.memberMetricValue, { color: metric.color }]}>{formatNumber(metric.value)}</Text>
-                    <Text style={[styles.memberMetricLabel, { color: colors.textMuted }]}>{metric.label}</Text>
+                    <Text style={[styles.memberMetricLabel, { color: colors.textSecondary }]}>{metric.label}</Text>
                   </View>
                 ))}
               </View>
 
-              <View style={[styles.memberBottom, { borderTopColor: colors.separator }]}>
+              <View style={styles.memberBottom}>
                 <View style={styles.memberProgressWrap}>
-                  <View style={[styles.memberProgressTrack, { backgroundColor: colors.cardBorder }]}>
-                    <View style={[styles.memberProgressFill, { width: `${Math.min(Math.max(row.progress, 0), 100)}%`, backgroundColor: row.status === 'online' ? '#10b981' : colors.textMuted }]} />
+                  <View style={styles.memberProgressHeader}>
+                    <Text style={[styles.memberMetricLabel, { color: colors.textSecondary }]}>Reply progress</Text>
+                    <Text style={[styles.memberProgressPct, { color: colors.text }]}>{row.progress}%</Text>
                   </View>
-                  <Text style={[styles.memberProgressPct, { color: isDark ? colors.text : '#059669' }]}>{row.progress}%</Text>
+                  <View style={[styles.memberProgressTrack, { backgroundColor: colors.surfaceSecondary }]}>
+                    <View style={[styles.memberProgressFill, { width: `${Math.min(Math.max(row.progress, 0), 100)}%`, backgroundColor: colors.primary }]} />
+                  </View>
                 </View>
-                <View style={[styles.responseChip, { backgroundColor: isDark ? colors.surfaceSecondary : '#eff6ff' }]}>
-                  <Text style={[styles.responseChipText, { color: colors.primary }]} numberOfLines={1}>{row.responseLabel}</Text>
+                <View style={styles.responseChip}>
+                  <Text style={[styles.memberMetricLabel, { color: colors.textSecondary }]}>Avg response</Text>
+                  <View style={styles.memberResponseValue}>
+                    <Clock3 size={12} color={colors.textSecondary} />
+                    <Text style={[styles.responseChipText, { color: colors.text }]} numberOfLines={1}>{row.responseLabel}</Text>
+                  </View>
                 </View>
               </View>
-            </View>
+            </AppCard>
           ))}
         </View>
       </Section>
