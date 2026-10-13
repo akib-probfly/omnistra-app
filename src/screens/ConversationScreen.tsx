@@ -47,6 +47,7 @@ import { fetchWebchatSettings } from '../api/channels';
 import { fetchMyWorkspaces } from '../api/workspaces';
 import { isWhatsappCallSupported } from '../lib/whatsapp-calling';
 import { useInboxAppearance } from '../hooks/useInboxAppearance';
+import { useConversationScrollAnchor } from '../hooks/useConversationScrollAnchor';
 import { getCountryCodeFromPhone, getCountryFlag } from '../lib/countryFromPhone';
 import { useTheme } from '../theme/ThemeContext';
 import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
@@ -93,7 +94,9 @@ function TimelineSeparator() {
   return <View style={styles.rowGap} />;
 }
 
-const timelineVisibleContentPosition = { minIndexForVisible: 0, autoscrollToTopThreshold: 140 };
+// Following new messages is handled explicitly below; native auto-scroll must
+// not compete with preserving a historical message during pagination.
+const timelineVisibleContentPosition = { minIndexForVisible: 0 };
 
 const TimelineRowItem = memo(function TimelineRowItem({
   row,
@@ -211,6 +214,10 @@ export function ConversationScreen() {
   const lastScrollOffsetRef = useRef(0);
   const latestMessageIdsRef = useRef<Set<string>>(new Set());
   const pinToLatestRef = useRef(true);
+  const {
+    register: registerTimelineNode, onViewableItemsChanged, capture: captureScrollAnchor,
+    restore: restoreScrollAnchor, cancel: cancelScrollAnchor, isRestoring: isRestoringScrollAnchor,
+  } = useConversationScrollAnchor(listRef, lastScrollOffsetRef, olderMessages, route.params.conversationId);
 
   const pendingOptimisticRef = useRef<Map<string, Message>>(new Map());
   const localImagePreviewsRef = useRef<Map<string, Array<string | null>>>(new Map());
@@ -482,6 +489,7 @@ export function ConversationScreen() {
         return { ...current, items: [...current.items, optimistic] };
       });
       pinToLatestRef.current = true;
+      cancelScrollAnchor();
       isAtBottomRef.current = true;
       setAtBottom(true);
       requestAnimationFrame(() => {
@@ -756,6 +764,9 @@ export function ConversationScreen() {
         const messageAttachments = message.attachments ?? [];
         return { ...message, attachments: messageAttachments };
       });
+      // Capture immediately before inserting, so scrolling while the request is
+      // in flight does not restore an outdated position.
+      await captureScrollAnchor();
       setOlderMessages((current) => {
         const existing = new Set(current.map((message) => message.id));
         const fresh = items.filter((message) => !existing.has(message.id) && !latestIds.has(message.id));
@@ -771,7 +782,7 @@ export function ConversationScreen() {
       loadingOlderRef.current = false;
       setLoadingOlder(false);
     }
-  }, [olderCursor, hasMoreOlder, route.params.conversationId]);
+  }, [olderCursor, hasMoreOlder, route.params.conversationId, captureScrollAnchor]);
 
   loadOlderRef.current = loadOlder;
 
@@ -796,6 +807,7 @@ export function ConversationScreen() {
       const index = timelineRef.current.findIndex((entry) => entry.kind === 'message' && entry.message.id === messageId);
       if (index < 0) return false;
       const invertedIndex = timelineRef.current.length - 1 - index;
+      cancelScrollAnchor();
       void listRef.current?.scrollToIndex({ index: invertedIndex, viewPosition: 0.5, animated: true });
       highlightMessage(messageId);
       return true;
@@ -814,7 +826,7 @@ export function ConversationScreen() {
         if (scrollToTarget()) return;
       }
     })();
-  }, [highlightMessage]);
+  }, [highlightMessage, cancelScrollAnchor]);
 
   useEffect(() => {
     if (!messages.data) return;
@@ -1170,6 +1182,8 @@ export function ConversationScreen() {
     const offsetY = event.nativeEvent.contentOffset.y;
     lastScrollOffsetRef.current = offsetY;
     const nextAtBottom = Math.abs(offsetY) <= 96;
+    // Pagination/layout correction events are not a request to follow latest.
+    if (loadingOlderRef.current || isRestoringScrollAnchor()) return;
     isAtBottomRef.current = nextAtBottom;
     pinToLatestRef.current = nextAtBottom;
     setAtBottom((current) => (current === nextAtBottom ? current : nextAtBottom));
@@ -1177,35 +1191,39 @@ export function ConversationScreen() {
     if (lockedAt != null && Math.abs(offsetY - lockedAt) > 140) {
       olderLoadLockOffsetRef.current = null;
     }
-  }, []);
+  }, [isRestoringScrollAnchor]);
   const renderTimelineItem = useCallback(({ item }: { item: TimelineRow }) => {
     const message = item.entry.kind === 'message' ? item.entry.message : null;
     return (
-      <TimelineRowItem
-        row={item}
-        highlighted={Boolean(message && message.id === highlightedMessageId)}
-        channelName={channelName}
-        channelType={channelType}
-        channelId={channelId}
-        replyTarget={message ? (messageById.get(message.replyToMessageId ?? '') ?? null) : null}
-        reactions={message ? reactionGroups[message.id] : undefined}
-        dayLabelBg={colors.surfaceSecondary}
-        dayLabelColor={colors.textSecondary}
-        onReply={setReplyTo}
-        onReact={setReactTarget}
-        onImage={openImage}
-        onVideo={openVideo}
-        onJumpToMessage={jumpToMessage}
-        onCreateOrderFromMessage={ecommerceEnabled ? handleCreateOrderFromMessage : undefined}
-        creatingOrderDraftFor={creatingOrderDraftFor}
-      />
+      <View collapsable={false} ref={(node) => registerTimelineNode(timelineKeyExtractor(item), node)}>
+        <TimelineRowItem
+          row={item}
+          highlighted={Boolean(message && message.id === highlightedMessageId)}
+          channelName={channelName}
+          channelType={channelType}
+          channelId={channelId}
+          replyTarget={message ? (messageById.get(message.replyToMessageId ?? '') ?? null) : null}
+          reactions={message ? reactionGroups[message.id] : undefined}
+          dayLabelBg={colors.surfaceSecondary}
+          dayLabelColor={colors.textSecondary}
+          onReply={setReplyTo}
+          onReact={setReactTarget}
+          onImage={openImage}
+          onVideo={openVideo}
+          onJumpToMessage={jumpToMessage}
+          onCreateOrderFromMessage={ecommerceEnabled ? handleCreateOrderFromMessage : undefined}
+          creatingOrderDraftFor={creatingOrderDraftFor}
+        />
+      </View>
     );
-  }, [channelId, channelName, channelType, colors.surfaceSecondary, colors.textSecondary, creatingOrderDraftFor, ecommerceEnabled, handleCreateOrderFromMessage, highlightedMessageId, jumpToMessage, messageById, openImage, openVideo, reactionGroups]);
+  }, [channelId, channelName, channelType, colors.surfaceSecondary, colors.textSecondary, creatingOrderDraftFor, ecommerceEnabled, handleCreateOrderFromMessage, highlightedMessageId, jumpToMessage, messageById, openImage, openVideo, reactionGroups, registerTimelineNode]);
 
   const handleContentSizeChange = useCallback(() => {
+    if (isRestoringScrollAnchor()) { restoreScrollAnchor(); return; }
+    if (loadingOlderRef.current) return;
     if (!pinToLatestRef.current) return;
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
-  }, []);
+  }, [isRestoringScrollAnchor, restoreScrollAnchor]);
   const handleEndReached = useCallback(() => {
     if (!listReadyRef.current || loadingOlderRef.current || olderLoadLockOffsetRef.current != null || !hasMoreOlder || !olderCursor) return;
     void loadOlder();
@@ -1353,6 +1371,8 @@ export function ConversationScreen() {
                 maintainVisibleContentPosition={timelineVisibleContentPosition}
                 onContentSizeChange={handleContentSizeChange}
                 onScroll={onScroll}
+                onScrollBeginDrag={cancelScrollAnchor}
+                onViewableItemsChanged={onViewableItemsChanged}
                 scrollEventThrottle={16}
                 onEndReached={handleEndReached}
                 onEndReachedThreshold={0.08}
@@ -1363,7 +1383,7 @@ export function ConversationScreen() {
             <ConversationSkeleton />
           )}
           {!atBottom ? (
-            <Pressable style={[styles.fab, { backgroundColor: colors.primary }]} onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}><ChevronDown color={colors.primaryText} size={22} /></Pressable>
+            <Pressable style={[styles.fab, { backgroundColor: colors.primary }]} onPress={() => { cancelScrollAnchor(); listRef.current?.scrollToOffset({ offset: 0, animated: true }); }}><ChevronDown color={colors.primaryText} size={22} /></Pressable>
           ) : null}
         </View>
         {messages.isError ? (
