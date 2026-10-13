@@ -661,66 +661,87 @@ export function BillingUsageCard({
   loading,
   onPress,
   colors,
-  isDark,
 }: {
   usage?: WorkspaceUsage;
   loading: boolean;
   onPress: () => void;
   colors: ThemeColors;
-  isDark: boolean;
 }) {
-  const conversationCount = usage?.conversationCount;
-  const conversationLimit = usage?.conversationLimit;
-  const conversationPercent = conversationLimit != null && conversationLimit > 0 && conversationCount != null
-    ? Math.min(100, Math.round(conversationCount / conversationLimit * 100))
-    : 0;
-  const usageBreakdown = [
-    { label: 'Conversations', count: usage?.conversationCount, limit: usage?.conversationLimit, color: colors.primary, softColor: colors.primarySoft },
-    { label: 'Team members', count: usage?.seatCount, limit: usage?.seatLimit, color: colors.indigo, softColor: colors.indigoSoft },
-    { label: 'Channels', count: usage?.channelCount, limit: usage?.channelLimit, color: colors.success, softColor: colors.successSoft },
+  const ready = !loading && usage != null;
+  const count = usage?.conversationCount ?? 0;
+  const limit = usage?.conversationLimit;
+  const unlimited = ready && limit == null;
+  const percent = ready && limit != null && limit > 0 ? Math.min(100, Math.max(0, Math.round(count / limit * 100))) : 0;
+  const ringLength = 2 * Math.PI * 38;
+  const resources = [
+    { label: 'Team members', count: usage?.seatCount, limit: usage?.seatLimit, color: colors.indigo, softColor: colors.indigoSoft, Icon: UserCheck },
+    { label: 'Channels', count: usage?.channelCount, limit: usage?.channelLimit, color: colors.success, softColor: colors.successSoft, Icon: Wifi },
   ];
-  const circumference = 2 * Math.PI * 23;
 
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Open billing and plan usage">
-      <View style={[styles.billingUsageCard, { backgroundColor: isDark ? colors.primarySoft : mixHex(colors.primary, colors.surface, 0.88), borderColor: colors.primaryBorder }]}>
-        <View style={styles.usageHero}>
-          <View style={styles.usageHeroCopy}>
-            <Text style={[styles.usageSummaryLabel, { color: colors.textSecondary }]}>Conversations this cycle</Text>
-            <View style={styles.usageHeroValueRow}>
-              <Text style={[styles.usageHeroValue, { color: colors.text }]}>{loading || !usage ? '—' : formatNumber(conversationCount)}</Text>
-              <Text style={[styles.usageHeroLimit, { color: colors.textMuted }]}> / {loading || !usage ? '—' : conversationLimit == null ? '∞' : formatNumber(conversationLimit)}</Text>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Open billing and plan usage" style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}>
+      <View style={styles.billingUsageCard}>
+        <LinearGradient colors={[colors.primarySoft, colors.indigoSoft]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.usageSpotlight, { borderColor: colors.primaryBorder }]}>
+          <View pointerEvents="none" style={[styles.usageDecoration, { borderColor: colors.primaryBorder }]} />
+          <View style={styles.usageSpotlightHeader}>
+            <View style={[styles.usageIcon, { backgroundColor: colors.surface }]}>
+              <MessageSquareText size={18} color={colors.primary} />
+            </View>
+            <View style={[styles.usageCycleBadge, { backgroundColor: colors.surface }]}>
+              <Text style={[styles.usageRingDetail, { color: colors.primary }]}>This billing cycle</Text>
             </View>
           </View>
-          <View style={styles.usageHeroRing}>
-            <Svg width={58} height={58} viewBox="0 0 58 58">
-              <Circle cx="29" cy="29" r="23" fill="none" stroke={colors.surfaceSecondary} strokeWidth="5" />
-              <Circle cx="29" cy="29" r="23" fill="none" stroke={colors.text} strokeWidth="5" strokeDasharray={`${circumference * conversationPercent / 100} ${circumference}`} strokeLinecap="round" rotation="-90" origin="29, 29" />
-            </Svg>
-            <View style={styles.usageHeroRingCenter}><Text style={[styles.usageHeroPercent, { color: colors.text }]}>{loading || !usage ? '—' : `${conversationPercent}%`}</Text></View>
-          </View>
-        </View>
-        <View style={[styles.usageDivider, { backgroundColor: colors.separator }]} />
-        <View style={styles.usageRingsRow}>
-        {usageBreakdown.map(({ label, count, limit, color, softColor }) => {
-          const percent = limit != null && limit > 0 && count != null ? Math.min(100, Math.round(count / limit * 100)) : 0;
-          return (
-            <View key={label} style={[styles.usageRingItem, { backgroundColor: colors.surfaceSecondary }]}>
-              <Text style={[styles.usageBreakdownValue, { color: colors.text }]} numberOfLines={1}>{loading || !usage ? '—' : formatNumber(count)}</Text>
-              <Text style={[styles.usageRingLabel, { color: colors.textSecondary }]} numberOfLines={1}>{label}</Text>
-              <View style={styles.usageRing}>
-                <Svg width={38} height={38} viewBox="0 0 38 38">
-                  <Circle cx="19" cy="19" r="15" fill="none" stroke={softColor} strokeWidth="4" />
-                  <Circle cx="19" cy="19" r="15" fill="none" stroke={color} strokeWidth="4" strokeDasharray={`${2 * Math.PI * 15 * percent / 100} ${2 * Math.PI * 15}`} strokeLinecap="round" rotation="-90" origin="19, 19" />
-                </Svg>
-                <View style={styles.usageRingCenter}><Text style={[styles.usageRingPercent, { color: colors.textSecondary }]}>{loading || !usage ? '—' : `${percent}%`}</Text></View>
+          <View style={styles.usageSpotlightBody}>
+            <View style={styles.usageRowContent}>
+              <Text style={[styles.usageRingLabel, { color: colors.textSecondary }]}>Conversations</Text>
+              <Text style={[styles.usageHeroCount, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>{ready ? formatNumber(count) : '—'}</Text>
+              <Text style={[styles.usageRingDetail, { color: colors.textSecondary }]}>
+                {!ready ? loading ? 'Loading usage' : 'Usage unavailable' : unlimited ? 'Unlimited on your plan' : `of ${formatNumber(limit)} in your plan`}
+              </Text>
+            </View>
+            <View style={styles.usageHeroRing}>
+              <Svg width={92} height={92} viewBox="0 0 92 92">
+                <Circle cx="46" cy="46" r="38" fill="none" stroke={colors.primaryBorder} strokeWidth="7" />
+                {ready && !unlimited ? <Circle cx="46" cy="46" r="38" fill="none" stroke={colors.primary} strokeWidth="7" strokeDasharray={`${ringLength * percent / 100} ${ringLength}`} strokeLinecap="round" rotation="-90" origin="46, 46" /> : null}
+              </Svg>
+              <View style={styles.usageRingCenter}>
+                <Text style={[styles.usageHeroPercent, { color: colors.primary }]}>{!ready ? '—' : unlimited ? '∞' : `${percent}%`}</Text>
+                <Text style={[styles.usageRingDetail, { color: colors.textSecondary }]}>{unlimited ? 'no limit' : 'used'}</Text>
               </View>
-              <Text style={[styles.usageRingDetail, { color: colors.textMuted }]} numberOfLines={1}>{loading || !usage ? 'Loading' : `${limit == null ? 'No limit' : `${formatNumber(Math.max(0, limit - (count ?? 0)))} left`}`}</Text>
             </View>
-          );
-        })}
+          </View>
+          {ready && !unlimited ? (
+            <View style={[styles.usageRemaining, { borderTopColor: colors.primaryBorder }]}>
+              <View style={[styles.usageRemainingDot, { backgroundColor: colors.primary }]} />
+              <Text style={[styles.usageRingDetail, { color: colors.text }]}>{formatNumber(Math.max(0, (limit ?? 0) - count))} conversations remaining</Text>
+            </View>
+          ) : null}
+        </LinearGradient>
+        <View style={styles.usageResourceGrid}>
+          {resources.map(({ label, count: resourceCount, limit: resourceLimit, color, softColor, Icon }) => {
+            const resourcePercent = ready && resourceLimit != null && resourceLimit > 0 ? Math.min(100, Math.max(0, Math.round((resourceCount ?? 0) / resourceLimit * 100))) : 0;
+            return (
+              <View key={label} style={[styles.usageResourceCard, { backgroundColor: softColor }]}>
+                <Icon size={20} color={color} />
+                <Text style={[styles.usageRingLabel, { color: colors.text }]}>{label}</Text>
+                <Text style={[styles.usageResourceCount, { color: colors.text }]} numberOfLines={1} adjustsFontSizeToFit>
+                  {ready ? formatNumber(resourceCount) : '—'}
+                  <Text style={[styles.usageBreakdownValue, { color: colors.textSecondary }]}> / {ready ? resourceLimit == null ? '∞' : formatNumber(resourceLimit) : '—'}</Text>
+                </Text>
+                {ready && resourceLimit == null ? null : <View style={[styles.usageTrack, { backgroundColor: colors.surface }]}>
+                  <View style={[styles.usageFill, { width: `${resourcePercent}%`, backgroundColor: color }]} />
+                </View>}
+                <Text style={[styles.usageRingDetail, { color: colors.textSecondary }]}>
+                  {!ready ? loading ? 'Loading' : 'Unavailable' : resourceLimit == null ? 'Unlimited' : `${formatNumber(Math.max(0, resourceLimit - (resourceCount ?? 0)))} available`}
+                </Text>
+              </View>
+            );
+          })}
         </View>
-        <View style={styles.billingUsageFooter}><Text style={[styles.billingUsageFooterText, { color: colors.primary }]}>View billing details</Text><ArrowUpRight color={colors.primary} size={14} /></View>
+        <View style={[styles.billingUsageFooter, { backgroundColor: colors.primary }]}>
+          <Text style={[styles.billingUsageFooterText, { color: colors.primaryText }]}>View billing details</Text>
+          <View style={[styles.usageFooterArrow, { backgroundColor: colors.primaryText }]}><ArrowUpRight color={colors.primary} size={18} /></View>
+        </View>
       </View>
     </Pressable>
   );

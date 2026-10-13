@@ -210,19 +210,14 @@ export function DashboardScreen() {
 
             <MetricCarousel title="Key metrics" metrics={metrics} colors={colors} isDark={isDark} />
 
-            <View style={dashboardStyles.usageSection}>
-              <View style={dashboardStyles.usageSectionHeader}>
-                <Text style={[dashboardStyles.sectionTitle, { color: colors.text }]}>Current usage</Text>
-                <Text style={[dashboardStyles.sectionSubtitle, { color: colors.textSecondary }]}>Your billing cycle at a glance</Text>
-              </View>
+            <Section title="Current usage" subtitle="Your billing cycle at a glance" colors={colors}>
               <BillingUsageCard
                 usage={usage.data}
                 loading={usage.isLoading}
                 onPress={() => navigation.navigate('Settings', { screen: 'Billing', params: { tab: 'current' } })}
                 colors={colors}
-                isDark={isDark}
               />
-            </View>
+            </Section>
 
             <Section title="Channel mix" colors={colors}>
               <ChannelMix mix={mix} colors={colors} />
