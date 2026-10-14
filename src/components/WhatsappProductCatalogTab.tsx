@@ -101,7 +101,7 @@ export function WhatsappProductCatalogTab({ channelId }: { channelId: string }) 
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+      <View style={styles.catalogContent}>
         <View style={[styles.form, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
           <Text style={[styles.formLabel, { color: colors.text }]}>Meta catalog ID</Text>
           <View style={styles.formRow}>
@@ -129,7 +129,7 @@ export function WhatsappProductCatalogTab({ channelId }: { channelId: string }) 
 
 const styles = StyleSheet.create({
   content: { padding: 14, gap: 14, paddingBottom: 32 },
-  card: { borderWidth: 1, borderRadius: 26, padding: 14, gap: 14, shadowColor: '#0f172a', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.04, shadowRadius: 14, elevation: 2 },
+  catalogContent: { gap: 14 },
   subtitle: { color: '#64748b', fontSize: 13, lineHeight: 19, marginBottom: 14 },
   accessTitle: { fontSize: 13, fontWeight: '700' },
   connectedText: { fontSize: 11, fontWeight: '700' },
