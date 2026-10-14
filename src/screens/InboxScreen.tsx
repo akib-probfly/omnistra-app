@@ -448,8 +448,7 @@ export function InboxScreen() {
             </View>
           ) : null}
 
-          {tabPending || conversations.isPlaceholderData ? <Text style={{ color: colors.textSecondary, paddingHorizontal: spacing.md, paddingVertical: spacing.xs }}>Updating conversations…</Text> : null}
-          {conversations.isLoading ? <ListSkeleton rows={8} />
+          {tabPending || conversations.isPlaceholderData || conversations.isLoading ? <ListSkeleton rows={8} />
           : conversations.isError ? <ErrorState message="Unable to load conversations." onRetry={() => conversations.refetch()} />
           : (
             <FlatList
