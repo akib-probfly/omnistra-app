@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Text, type StyleProp, type TextStyle } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
-import { fontSize, fontWeight } from '../theme/tokens';
+import { fontSize, fontWeight, letterSpacing } from '../theme/tokens';
 
 type Variant = 'display' | 'title' | 'heading' | 'subheading' | 'section' | 'body' | 'bodyStrong' | 'caption' | 'small' | 'tiny';
 type Tone = 'default' | 'secondary' | 'muted' | 'primary' | 'error' | 'inverse';
@@ -16,11 +16,11 @@ type Props = {
 };
 
 const variantStyles: Record<Variant, TextStyle> = {
-  display: { fontSize: fontSize.display, fontWeight: fontWeight.semibold, letterSpacing: -0.6 },
+  display: { fontSize: fontSize.display, fontWeight: fontWeight.semibold, letterSpacing: letterSpacing.tight },
   title: { fontSize: fontSize.title, fontWeight: fontWeight.extrabold },
   heading: { fontSize: fontSize.heading, fontWeight: fontWeight.extrabold },
   subheading: { fontSize: fontSize.subheading, fontWeight: fontWeight.bold },
-  section: { fontSize: 14, fontWeight: fontWeight.extrabold },
+  section: { fontSize: fontSize.section, fontWeight: fontWeight.extrabold },
   body: { fontSize: fontSize.body, fontWeight: fontWeight.regular },
   bodyStrong: { fontSize: fontSize.body, fontWeight: fontWeight.bold },
   caption: { fontSize: fontSize.caption, fontWeight: fontWeight.regular },

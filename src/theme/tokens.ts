@@ -12,6 +12,8 @@
  */
 
 export const spacing = {
+  none: 0,
+  xxs: 2,
   xs: 4,
   sm: 8,
   md: 12,
@@ -19,16 +21,21 @@ export const spacing = {
   xl: 20,
   xxl: 24,
   xxxl: 32,
+  huge: 40,
+  section: 48,
 } as const;
 
 export type SpacingKey = keyof typeof spacing;
 
 export const radius = {
+  none: 0,
+  xs: 4,
   sm: 8,
   md: 12,
   lg: 14,
   xl: 18,
   xxl: 20,
+  xxxl: 24,
   pill: 999,
 } as const;
 
@@ -38,6 +45,7 @@ export const fontSize = {
   tiny: 10,
   small: 12,
   caption: 13,
+  section: 14,
   body: 15,
   subheading: 16,
   heading: 18,
@@ -55,11 +63,40 @@ export const fontWeight = {
   extrabold: '800',
 } as const;
 
+export type FontWeightKey = keyof typeof fontWeight;
+
+/** Optional explicit line heights; apply when a layout needs predictable text rhythm. */
+export const lineHeight = {
+  tiny: 14,
+  small: 16,
+  caption: 18,
+  section: 20,
+  body: 22,
+  subheading: 24,
+  heading: 26,
+  title: 32,
+  display: 36,
+} as const;
+
+export const letterSpacing = { tight: -0.6, normal: 0, wide: 0.4, overline: 0.8 } as const;
+
+export const iconSize = { xs: 12, sm: 16, md: 20, lg: 24, xl: 32 } as const;
+
+/** Visual control sizes. Compact controls can use hitSlop to expand their touch area. */
+export const controlSize = { compact: 38, icon: 40, touchTarget: 44, input: 50, large: 56 } as const;
+
+export const borderWidth = { none: 0, thin: 1, selected: 1.5, strong: 2 } as const;
+
+export const opacity = { disabled: 0.6, pressed: 0.8, subtle: 0.4 } as const;
+
+/** Animation durations in milliseconds; respect reduced-motion preferences at the call site. */
+export const duration = { instant: 0, fast: 120, normal: 200, slow: 300 } as const;
+
 /** Standard input height shared by text fields, search fields, and selects. */
-export const inputHeight = 50;
+export const inputHeight = controlSize.input;
 
 /** Dense toolbar height (search fields, filter rows). */
-export const inputHeightDense = 44;
+export const inputHeightDense = controlSize.touchTarget;
 
 /**
  * Decorative icon-tile palette used by settings rows, cards, and list items.
@@ -81,9 +118,8 @@ export const iconTiles = {
 export type IconTileKey = keyof typeof iconTiles;
 
 /**
- * Card shadow that works on the current Expo SDK (legacy shadow props +
- * Android elevation). When the app moves to SDK 57+ with the New Architecture,
- * prefer the CSS `boxShadow` style prop instead.
+ * Shared card shadow using native shadow props and Android elevation.
+ * Retained for consistent rendering with existing cards.
  */
 export const cardShadow = {
   shadowColor: '#000',

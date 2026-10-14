@@ -1,6 +1,7 @@
 import { type LucideIcon } from 'lucide-react-native';
 import { ActivityIndicator, Pressable, StyleSheet } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
+import { controlSize, iconSize, opacity, radius } from '../theme/tokens';
 
 type Props = {
   icon: LucideIcon;
@@ -34,7 +35,7 @@ export function AppIconButton({
       {loading ? (
         <ActivityIndicator color={colors.primary} size="small" />
       ) : (
-        <Icon color={colors.primary} size={16} />
+        <Icon color={colors.primary} size={iconSize.sm} />
       )}
     </Pressable>
   );
@@ -43,11 +44,11 @@ export function AppIconButton({
 const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
-    borderRadius: 999,
+    borderRadius: radius.pill,
     borderWidth: 1,
-    height: 38,
+    height: controlSize.compact,
     justifyContent: 'center',
-    width: 38,
+    width: controlSize.compact,
   },
-  disabled: { opacity: 0.6 },
+  disabled: { opacity: opacity.disabled },
 });

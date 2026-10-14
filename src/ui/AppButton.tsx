@@ -1,6 +1,7 @@
 import { type LucideIcon } from 'lucide-react-native';
 import { ActivityIndicator, Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
+import { controlSize, fontSize, fontWeight, iconSize, opacity, radius, spacing } from '../theme/tokens';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'destructive';
 
@@ -68,7 +69,7 @@ export function AppButton({
         </>
       ) : (
         <>
-          {Icon ? <Icon color={foreground} size={16} /> : null}
+          {Icon ? <Icon color={foreground} size={iconSize.sm} /> : null}
           <Text style={[styles.label, block && styles.blockLabel, { color: foreground }]}>{label}</Text>
         </>
       )}
@@ -79,15 +80,15 @@ export function AppButton({
 const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
-    borderRadius: 999,
+    borderRadius: radius.pill,
     flexDirection: 'row',
-    gap: 4,
-    height: 38,
+    gap: spacing.xs,
+    height: controlSize.compact,
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.md,
   },
-  blockButton: { borderRadius: 14, gap: 8, height: undefined, paddingVertical: 14 },
-  label: { fontSize: 13, fontWeight: '700' },
-  blockLabel: { fontSize: 15 },
-  disabled: { opacity: 0.6 },
+  blockButton: { borderRadius: radius.lg, gap: spacing.sm, height: undefined, paddingVertical: 14 },
+  label: { fontSize: fontSize.caption, fontWeight: fontWeight.bold },
+  blockLabel: { fontSize: fontSize.body },
+  disabled: { opacity: opacity.disabled },
 });
