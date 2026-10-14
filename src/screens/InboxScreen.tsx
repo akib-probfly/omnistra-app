@@ -1,8 +1,8 @@
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import { infiniteQueryOptions, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDownLeft, ArrowUpRight, Ban, Check, CheckCircle2, CircleSlash, Filter, Image as ImageIcon, Inbox, Mail, MessageSquareText, Mic, Phone, PhoneCall, PhoneIncoming, PhoneMissed, PhoneOff, Search, Star, Video, X } from 'lucide-react-native';
 import { Animated, Easing, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { AppToggle } from '../components/AppToggle';
 import { BottomSheet, SheetScrollView } from '../components/BottomSheet';
 import { ColorfulAvatar } from '../components/ColorfulAvatar';
@@ -12,7 +12,7 @@ import { ChannelTypeFilterList } from '../components/ChannelTypeFilterList';
 import { DateRangeFilter } from '../components/DateRangeFilter';
 import { InboxCallsPane } from '../components/InboxCallsPane';
 import { ListSkeleton, PanelSkeleton } from '../components/Skeleton';
-import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransition } from 'react';
 import { fetchConversations, fetchConversationCount, fetchConversationMessages, fetchConversationUnreadCount, fetchAssigneeOptions, type ConversationCallSession, type ConversationListItem } from '../api/inbox';
 import { fetchWorkspaceTags } from '../api/conversationDetails';
 import { countryDialCodeQueryKey, fetchCountryDialCodes } from '../api/countryDialCodes';
@@ -30,7 +30,7 @@ import {
 import { isConversationCustomerWindowExpired } from '../lib/inbox-utils';
 import { getCountryFlag } from '../lib/countryFromPhone';
 import { applyUnreadOverrideToPage } from '../lib/unread-count-override';
-import { pollingWhileUnlocked } from '../lib/billing-lock';
+import { isBillingLocked, pollingWhileUnlocked } from '../lib/billing-lock';
 import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { useTheme } from '../theme/ThemeContext';
 import { AppBadge } from '../ui';
@@ -38,6 +38,19 @@ import { chipSize, fontSize, fontWeight, radius, spacing } from '../theme/tokens
 
 type SidebarTab = 'chats' | 'calls';
 type Tab = 'all' | 'unread' | 'closed';
+
+function inboxConversationOptions(filters: Parameters<typeof fetchConversations>[0]) {
+  return infiniteQueryOptions({
+    queryKey: ['conversations', filters],
+    queryFn: async ({ pageParam }) => {
+      const result = await fetchConversations({ ...filters, limit: 25, cursor: pageParam });
+      return { ...result, items: applyUnreadOverrideToPage(result.items) };
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.pageInfo?.hasMore ? (lastPage.pageInfo.nextCursor ?? undefined) : undefined,
+    staleTime: 15_000,
+  });
+}
 type FilterLayer = 'channels' | 'tags' | 'countries' | 'users' | 'more';
 type AssignmentFilter = 'any' | 'assigned' | 'unassigned';
 type BanStatusFilter = 'all' | 'blocked' | 'unblocked';
@@ -57,12 +70,15 @@ const ASSIGNEE_ROLE_LABELS: Record<string, string> = {
 };
 
 export function InboxScreen() {
+  const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<any>();
   const { colors } = useTheme();
   const queryClient = useQueryClient();
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('chats');
   const [tab, setTab] = useState<Tab>('all');
+  const [selectedTab, setSelectedTab] = useState<Tab>('all');
+  const [tabPending, startTabTransition] = useTransition();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [unrepliedOnly, setUnrepliedOnly] = useState(false);
@@ -250,18 +266,38 @@ export function InboxScreen() {
   const inboxPollMs = realtimeStatus === 'connected' ? 60_000 : 20_000;
 
   const conversations = useInfiniteQuery({
-    queryKey: ['conversations', filters],
-    queryFn: async ({ pageParam }) => {
-      const result = await fetchConversations({ ...filters, limit: 25, cursor: pageParam });
-      return { ...result, items: applyUnreadOverrideToPage(result.items) };
+    ...inboxConversationOptions(filters),
+    placeholderData: () => {
+      if (!filters.unreadOnly && filters.status !== 'CLOSED') return undefined;
+      const allOptions = inboxConversationOptions({ ...filters, status: undefined, unreadOnly: undefined });
+      const cached = queryClient.getQueryData(allOptions.queryKey);
+      if (!cached) return undefined;
+      const matching = cached.pages.flatMap((page) => applyUnreadOverrideToPage(page.items))
+        .filter((item) => filters.unreadOnly ? item.unreadCount > 0 : item.status === 'CLOSED');
+      // A partial All cache cannot establish that a filtered tab is empty.
+      if (!matching.length) return undefined;
+      return { pages: [{ items: matching, pageInfo: { hasMore: false, nextCursor: null } }], pageParams: [undefined] };
     },
     enabled: sidebarTab === 'chats',
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => lastPage.pageInfo?.hasMore ? (lastPage.pageInfo.nextCursor ?? undefined) : undefined,
-    staleTime: 15_000,
     refetchInterval: pollingWhileUnlocked(inboxPollMs),
     refetchOnWindowFocus: false,
   });
+
+  useEffect(() => {
+    if (!isFocused || sidebarTab !== 'chats' || !conversations.isSuccess || conversations.isPlaceholderData || isBillingLocked()) return;
+    // Warm only missing tab caches; never copy rows across filters or reload paginated caches.
+    for (const nextTab of ['all', 'unread', 'closed'] as const) {
+      if (nextTab === tab) continue;
+      const options = inboxConversationOptions({
+        ...filters,
+        status: nextTab === 'closed' ? 'CLOSED' : undefined,
+        unreadOnly: nextTab === 'unread' ? true : undefined,
+      });
+      if (queryClient.getQueryData(options.queryKey) === undefined) {
+        void queryClient.prefetchInfiniteQuery({ ...options, pages: 1 });
+      }
+    }
+  }, [isFocused, sidebarTab, conversations.isSuccess, conversations.isPlaceholderData, tab, filters, queryClient]);
 
   const unreadCount = useQuery({
     queryKey: ['inbox-unread-count', advancedFilterParams],
@@ -381,9 +417,12 @@ export function InboxScreen() {
           <View style={[styles.filtersRow, { borderBottomColor: colors.separator }]}>
             <View style={[styles.filters, { backgroundColor: colors.surfaceSecondary }]}>
               {(['all', 'unread', 'closed'] as Tab[]).map((key) => {
-                const active = tab === key;
+                const active = selectedTab === key;
                 return (
-                  <Pressable key={key} style={[styles.filterPill, active && styles.filterPillActive, active && { backgroundColor: colors.surface }]} onPress={() => setTab(key)}>
+                  <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: active }} style={[styles.filterPill, active && styles.filterPillActive, active && { backgroundColor: colors.surface }]} onPress={() => {
+                    setSelectedTab(key);
+                    startTabTransition(() => setTab(key));
+                  }}>
                     <Text style={[styles.filterText, { color: active ? colors.text : colors.textSecondary }]}>{key === 'all' ? 'All' : key === 'unread' ? 'Unread' : 'Closed'}</Text>
                   </Pressable>
                 );
@@ -409,6 +448,7 @@ export function InboxScreen() {
             </View>
           ) : null}
 
+          {tabPending || conversations.isPlaceholderData ? <Text style={{ color: colors.textSecondary, paddingHorizontal: spacing.md, paddingVertical: spacing.xs }}>Updating conversations…</Text> : null}
           {conversations.isLoading ? <ListSkeleton rows={8} />
           : conversations.isError ? <ErrorState message="Unable to load conversations." onRetry={() => conversations.refetch()} />
           : (
@@ -443,7 +483,7 @@ export function InboxScreen() {
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
               // Start fetching with two viewport lengths left to scroll.
               onEndReachedThreshold={2}
-              onEndReached={() => { if (conversations.hasNextPage && !conversations.isFetchingNextPage) void conversations.fetchNextPage(); }}
+              onEndReached={() => { if (!tabPending && !conversations.isPlaceholderData && conversations.hasNextPage && !conversations.isFetchingNextPage) void conversations.fetchNextPage(); }}
               contentContainerStyle={styles.list}
               removeClippedSubviews={false}
               initialNumToRender={12}
