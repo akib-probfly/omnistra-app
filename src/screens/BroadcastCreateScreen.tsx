@@ -3,8 +3,10 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import {
+  CalendarDays,
   Check,
   ChevronRight,
+  Clock3,
   Paperclip,
   Plus,
   X,
@@ -650,12 +652,32 @@ export function BroadcastCreateScreen() {
             />
             {scheduleType === 'schedule' ? (
               <Pressable
-                style={[styles.inputButton, { backgroundColor: colors.background, borderColor: colors.inputBorder }]}
+                accessibilityRole={Platform.OS === 'android' ? 'button' : undefined}
+                accessibilityLabel={`Scheduled for ${formatCampaignSchedule(scheduledAt)}`}
+                style={[styles.scheduleCard, { backgroundColor: colors.background, borderColor: colors.inputBorder }]}
                 onPress={() => {
                   if (Platform.OS === 'android') setAndroidPicker('date');
                 }}
               >
-                <Text style={[styles.inputButtonText, { color: colors.text }]}>{formatCampaignSchedule(scheduledAt)}</Text>
+                <View style={styles.scheduleRow}>
+                  <View style={[styles.scheduleIcon, { backgroundColor: colors.primarySoft }]}>
+                    <CalendarDays color={colors.primary} size={20} />
+                  </View>
+                  <View style={styles.scheduleCopy}>
+                    <Text style={[styles.scheduleCaption, { color: colors.textSecondary }]}>Scheduled send</Text>
+                    <Text style={[styles.scheduleDate, { color: colors.text }]}>
+                      {scheduledAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </Text>
+                  </View>
+                  {Platform.OS === 'android' ? <ChevronRight color={colors.textMuted} size={18} /> : null}
+                </View>
+                <View style={[styles.scheduleTimeRow, { borderTopColor: colors.separator }]}>
+                  <Clock3 color={colors.primary} size={16} />
+                  <Text style={[styles.scheduleTime, { color: colors.text }]}>
+                    {scheduledAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase()}
+                  </Text>
+                  <Text style={[styles.scheduleCaption, { color: colors.textMuted }]}>Local time</Text>
+                </View>
               </Pressable>
             ) : null}
             {scheduleType === 'schedule' && (Platform.OS === 'ios' || androidPicker) ? (
@@ -967,6 +989,14 @@ function formatChannelStatus(status?: string | null) {
 }
 
 const styles = StyleSheet.create({
+  scheduleCard: { borderRadius: radius.lg, borderWidth: 1, marginTop: spacing.md, padding: spacing.md },
+  scheduleRow: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
+  scheduleIcon: { alignItems: 'center', justifyContent: 'center', width: 40, height: 40, borderRadius: radius.md },
+  scheduleCopy: { flex: 1, gap: spacing.xs },
+  scheduleCaption: { fontSize: fontSize.small },
+  scheduleDate: { fontSize: fontSize.body, fontWeight: fontWeight.semibold },
+  scheduleTimeRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, marginTop: spacing.md, paddingTop: spacing.md },
+  scheduleTime: { fontSize: fontSize.caption, fontWeight: fontWeight.semibold, flex: 1 },
   screen: { flex: 1 },
   progress: { borderBottomWidth: 1, flexDirection: 'row', paddingHorizontal: spacing.sm, paddingVertical: spacing.sm },
   progressItem: { alignItems: 'center', flex: 1, gap: spacing.xs },
