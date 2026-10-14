@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import { AlertCircle, ArrowUpRight, CheckCircle2, CircleDollarSign, Hash, Link2, Package, PackageCheck, RefreshCw, Tag } from 'lucide-react-native';
+import { AlertCircle, ArrowUpRight, CircleDollarSign, Hash, Link2, Package, PackageCheck, RefreshCw, Tag } from 'lucide-react-native';
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Toast from 'react-native-toast-message';
@@ -87,20 +87,6 @@ export function WhatsappProductCatalogTab({ channelId }: { channelId: string }) 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
-        <View style={[styles.hero, { backgroundColor: colors.surfaceSecondary }]}>
-          <View style={[styles.heroIcon, { backgroundColor: colors.surface }]}><Package color={colors.primary} size={21} /></View>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.eyebrow, { color: colors.primary }]}>WHATSAPP COMMERCE</Text>
-            <Text style={[styles.title, { color: colors.text }]}>Product catalog</Text>
-            <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>Browse products connected to this WhatsApp Business account.</Text>
-          </View>
-          <View style={[styles.statusBadge, { backgroundColor: latest?.status === 'CONNECTED' ? '#dcfce7' : colors.surface }]}><View style={[styles.statusDot, { backgroundColor: latest?.status === 'CONNECTED' ? '#16a34a' : '#94a3b8' }]} /><Text style={[styles.statusText, { color: latest?.status === 'CONNECTED' ? '#15803d' : colors.textSecondary }]}>{latest?.status === 'CONNECTED' ? 'Active' : 'Setup'}</Text></View>
-        </View>
-        <View style={[styles.accessCard, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
-          <View style={styles.accessIcon}><Link2 color={colors.primary} size={17} /></View>
-          <View style={styles.accessCopy}><Text style={[styles.accessTitle, { color: colors.text }]}>Secure Meta connection</Text><Text style={[styles.subtitle, { marginTop: 4, marginBottom: 0, fontSize: 12 }]}>Catalog access uses this channel’s saved credentials.</Text></View>
-          <View style={styles.connectedPill}><CheckCircle2 color={colors.primary} size={13} /><Text style={[styles.connectedText, { color: colors.primary }]}>{latest?.status === 'CONNECTED' ? 'Connected' : 'Not connected'}</Text></View>
-        </View>
         <View style={[styles.form, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
           <Text style={[styles.formLabel, { color: colors.text }]}>Meta catalog ID</Text>
           <View style={styles.formRow}>
@@ -129,20 +115,8 @@ export function WhatsappProductCatalogTab({ channelId }: { channelId: string }) 
 const styles = StyleSheet.create({
   content: { padding: 14, gap: 14, paddingBottom: 32 },
   card: { borderWidth: 1, borderRadius: 26, padding: 14, gap: 14, shadowColor: '#0f172a', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.04, shadowRadius: 14, elevation: 2 },
-  hero: { borderRadius: 20, padding: 15, flexDirection: 'row', alignItems: 'center', gap: 11 },
-  heroIcon: { width: 46, height: 46, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  eyebrow: { fontSize: 9, fontWeight: '800', letterSpacing: 1.1, marginBottom: 3 },
-  title: { fontSize: 19, fontWeight: '800', letterSpacing: -0.35 },
-  heroSubtitle: { fontSize: 11, lineHeight: 15, marginTop: 3 },
-  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
-  statusText: { fontSize: 10, fontWeight: '700' },
   subtitle: { color: '#64748b', fontSize: 13, lineHeight: 19, marginBottom: 14 },
-  accessCard: { borderWidth: 1, borderRadius: 17, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  accessIcon: { width: 38, height: 38, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' },
-  accessCopy: { flex: 1 },
   accessTitle: { fontSize: 13, fontWeight: '700' },
-  connectedPill: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderColor: '#c7d2fe', backgroundColor: '#fff', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
   connectedText: { fontSize: 11, fontWeight: '700' },
   form: { borderWidth: 1, borderRadius: 18, padding: 13, gap: 8 },
   formLabel: { fontSize: 12, fontWeight: '600' },
