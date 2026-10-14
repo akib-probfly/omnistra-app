@@ -23,13 +23,16 @@ export function AppIconButton({
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: busy, busy: loading }}
       accessibilityLabel={accessibilityLabel}
+      hitSlop={(controlSize.touchTarget - controlSize.compact) / 2}
       disabled={busy}
       onPress={onPress}
-      style={[
+      style={({ pressed }) => [
         styles.button,
         { backgroundColor: colors.background, borderColor: colors.cardBorder },
-        busy && styles.disabled,
+        busy ? styles.disabled : pressed && styles.pressed,
       ]}
     >
       {loading ? (
@@ -51,4 +54,5 @@ const styles = StyleSheet.create({
     width: controlSize.compact,
   },
   disabled: { opacity: opacity.disabled },
+  pressed: { opacity: opacity.pressed },
 });

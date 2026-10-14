@@ -4,12 +4,15 @@ import { useTheme } from '../theme/ThemeContext';
 import { controlSize, fontSize, fontWeight, iconSize, opacity, radius, spacing } from '../theme/tokens';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'destructive';
+type Size = 'sm' | 'md' | 'lg';
 
 type Props = {
   label: string;
   onPress: () => void;
   icon?: LucideIcon;
   variant?: Variant;
+  /** Omit to preserve the existing inline/block sizing. */
+  size?: Size;
   disabled?: boolean;
   loading?: boolean;
   loadingLabel?: string;
@@ -25,6 +28,7 @@ export function AppButton({
   onPress,
   icon: Icon,
   variant = 'primary',
+  size,
   disabled = false,
   loading = false,
   loadingLabel,
@@ -47,22 +51,25 @@ export function AppButton({
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: busy, busy: loading }}
       accessibilityLabel={accessibilityLabel ?? label}
       disabled={busy}
       onPress={onPress}
-      style={[
+      style={({ pressed }) => [
         styles.button,
         block && styles.blockButton,
+        size && sizeStyles[size],
         { backgroundColor, borderColor, borderWidth: variant === 'secondary' ? 1 : 0 },
-        busy && styles.disabled,
         style,
+        busy ? styles.disabled : pressed && styles.pressed,
       ]}
     >
       {loading ? (
         <>
           <ActivityIndicator color={foreground} size={block ? undefined : 'small'} />
           {loadingLabel ? (
-            <Text style={[styles.label, block && styles.blockLabel, { color: foreground }]}>
+            <Text style={[styles.label, block && styles.blockLabel, size && labelSizeStyles[size], { color: foreground }]}>
               {loadingLabel}
             </Text>
           ) : null}
@@ -70,7 +77,7 @@ export function AppButton({
       ) : (
         <>
           {Icon ? <Icon color={foreground} size={iconSize.sm} /> : null}
-          <Text style={[styles.label, block && styles.blockLabel, { color: foreground }]}>{label}</Text>
+          <Text style={[styles.label, block && styles.blockLabel, size && labelSizeStyles[size], { color: foreground }]}>{label}</Text>
         </>
       )}
     </Pressable>
@@ -91,4 +98,17 @@ const styles = StyleSheet.create({
   label: { fontSize: fontSize.caption, fontWeight: fontWeight.bold },
   blockLabel: { fontSize: fontSize.body },
   disabled: { opacity: opacity.disabled },
+  pressed: { opacity: opacity.pressed },
+});
+
+const sizeStyles = StyleSheet.create({
+  sm: { height: controlSize.compact, paddingHorizontal: spacing.md, paddingVertical: 0 },
+  md: { height: controlSize.touchTarget, paddingHorizontal: spacing.lg, paddingVertical: 0 },
+  lg: { height: controlSize.large, paddingHorizontal: spacing.xl, paddingVertical: 0 },
+});
+
+const labelSizeStyles = StyleSheet.create({
+  sm: { fontSize: fontSize.caption },
+  md: { fontSize: fontSize.body },
+  lg: { fontSize: fontSize.subheading },
 });
