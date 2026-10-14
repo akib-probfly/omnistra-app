@@ -49,7 +49,7 @@ import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ErrorState } from '../components/ErrorState';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 import { useTheme } from '../theme/ThemeContext';
-import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
+import { chipSize, fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 import { groupChannelsByType } from '../lib/channel-filter-groups';
 import { getCountryFlag } from '../lib/countryFromPhone';
 import type { ContactsStackParamList } from '../navigation/ContactsStack';
@@ -1244,7 +1244,7 @@ const styles = StyleSheet.create({
   optionTextActive: { color: '#1d4ed8', fontWeight: '700' },
   selectedTagCount: { fontSize: fontSize.small, marginVertical: spacing.sm },
   tagCloud: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  tagPill: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.sm - 2, maxWidth: '100%', paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  tagPill: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.sm - 2, maxWidth: '100%', ...chipSize.compact },
   tagPillActive: { borderWidth: 1.5 },
   tagPillDot: { borderRadius: 4, height: 8, width: 8 },
   tagPillText: { flexShrink: 1, fontSize: fontSize.caption, fontWeight: fontWeight.medium },

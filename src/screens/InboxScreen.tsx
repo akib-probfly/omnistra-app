@@ -34,7 +34,7 @@ import { pollingWhileUnlocked } from '../lib/billing-lock';
 import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { useTheme } from '../theme/ThemeContext';
 import { AppBadge } from '../ui';
-import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
+import { chipSize, fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 
 type SidebarTab = 'chats' | 'calls';
 type Tab = 'all' | 'unread' | 'closed';
@@ -1045,7 +1045,7 @@ const styles = StyleSheet.create({
   tagSwatch: { alignItems: 'center', borderRadius: 10, height: 34, justifyContent: 'center', width: 34 },
   tagSwatchDot: { borderRadius: 7, height: 14, width: 14 },
   tagCloud: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tagPill: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.sm - 2, maxWidth: '100%', paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  tagPill: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.sm - 2, maxWidth: '100%', ...chipSize.compact },
   tagPillActive: { borderWidth: 1.5 },
   tagPillDot: { borderRadius: 4, height: 8, width: 8 },
   tagPillText: { flexShrink: 1, fontSize: fontSize.caption, fontWeight: fontWeight.medium },

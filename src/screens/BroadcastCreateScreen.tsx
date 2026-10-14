@@ -66,7 +66,7 @@ import {
 import { listCountryCallingCodes } from '../lib/countryFromPhone';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
 import { useTheme } from '../theme/ThemeContext';
-import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
+import { chipSize, fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 import { AppButton, AppChip, AppSearchField, AppSegmentedControl, ScreenHeader } from '../ui';
 
 type StepKey = 'details' | 'message' | 'mapping' | 'audience' | 'review';
@@ -1039,7 +1039,7 @@ const styles = StyleSheet.create({
   sheetRowMeta: { fontSize: fontSize.small, marginTop: 2 },
   sheetEmpty: { fontSize: fontSize.caption, paddingVertical: spacing.lg, textAlign: 'center' },
   selectedChipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
-  selectedChip: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.xs + 2, maxWidth: '100%', paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  selectedChip: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.xs + 2, maxWidth: '100%', ...chipSize.compact },
   selectedChipText: { flexShrink: 1, fontSize: fontSize.small, fontWeight: fontWeight.bold },
   tagDot: { borderRadius: spacing.xs, height: 10, width: 10 },
 });

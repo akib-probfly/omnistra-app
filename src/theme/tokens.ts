@@ -87,6 +87,12 @@ export const controlSize = { compact: 38, icon: 40, touchTarget: 44, input: 50, 
 
 export const borderWidth = { none: 0, thin: 1, selected: 1.5, strong: 2 } as const;
 
+/** Shared chip padding; compact is used by tag filters throughout the app. */
+export const chipSize = {
+  compact: { paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  default: { paddingHorizontal: 11, paddingVertical: 6 },
+} as const;
+
 export const opacity = { disabled: 0.6, pressed: 0.8, subtle: 0.4 } as const;
 
 /** Animation durations in milliseconds; respect reduced-motion preferences at the call site. */
