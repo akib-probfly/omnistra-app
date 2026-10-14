@@ -10,6 +10,21 @@ import { useTheme } from '../theme/ThemeContext';
 
 const PAGE_SIZE = 25;
 
+function formatCatalogUpdatedAt(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Not fetched yet';
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? '';
+  return `Updated ${part('day')} ${part('month').toLowerCase()} ${part('year')} ${Number(part('hour'))}:${part('minute')} ${part('dayPeriod').toLowerCase()}`;
+}
+
 function formatPrice(price: number | null, currency: string | null) {
   if (price === null) return 'Price unavailable';
   const amount = (price / 100).toFixed(2);
@@ -102,7 +117,7 @@ export function WhatsappProductCatalogTab({ channelId }: { channelId: string }) 
               <View style={styles.catalogIdentity}><View style={[styles.catalogIcon, { backgroundColor: colors.surfaceSecondary }]}><PackageCheck color={colors.primary} size={18} /></View><View style={{ flex: 1 }}><Text style={styles.overline}>CONNECTED META CATALOG</Text><Text style={[styles.catalogName, { color: colors.text }]}>{activeCatalog?.name || 'Untitled catalog'}</Text><Text style={[styles.subtitle, { marginTop: 3, marginBottom: 0 }]}>ID {activeCatalog?.id || 'unavailable'}</Text></View></View>
               <View style={styles.summaryActions}><View style={styles.oneCatalog}><Text style={[styles.connectedText, { color: colors.primary }]}>One catalog per WABA</Text></View><AppButton label="Refresh" icon={RefreshCw} variant="secondary" loading={catalog.isFetching} onPress={() => void catalog.refetch()} /></View>
             </View>
-            <View style={[styles.resultsHeader, { borderBottomColor: colors.separator }]}><View style={styles.resultsHeaderInfo}><Text style={[styles.resultsTitle, { color: colors.text }]}>Products</Text><Text style={[styles.subtitle, { marginTop: 2, marginBottom: 0 }]}>{products.length} loaded{catalog.hasNextPage ? ' · more available' : ''}</Text></View><Text style={[styles.subtitle, styles.resultsUpdated, { marginBottom: 0, color: colors.textSecondary }]}>{latest?.lastFetchedAt ? `Updated ${new Date(latest.lastFetchedAt).toLocaleString()}` : 'Not fetched yet'}</Text></View>
+            <View style={[styles.resultsHeader, { borderBottomColor: colors.separator }]}><View style={styles.resultsHeaderInfo}><Text style={[styles.resultsTitle, { color: colors.text }]}>Products</Text><Text style={[styles.subtitle, { marginTop: 2, marginBottom: 0 }]}>{products.length} loaded{catalog.hasNextPage ? ' · more available' : ''}</Text></View><Text style={[styles.subtitle, styles.resultsUpdated, { marginBottom: 0, color: colors.textSecondary }]}>{latest?.lastFetchedAt ? formatCatalogUpdatedAt(latest.lastFetchedAt) : 'Not fetched yet'}</Text></View>
             {products.length === 0 ? <View style={[styles.empty, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}><Text style={[styles.subtitle, { marginBottom: 0 }]}>No products were returned for this catalog.</Text></View> : products.map((product) => <ProductCard key={product.id} product={product} />)}
             {catalog.hasNextPage ? <AppButton label={catalog.isFetchingNextPage ? 'Loading products…' : 'Load more products'} icon={ArrowUpRight} variant="secondary" loading={catalog.isFetchingNextPage} onPress={() => void catalog.fetchNextPage()} style={{ alignSelf: 'center' }} /> : null}
           </>
