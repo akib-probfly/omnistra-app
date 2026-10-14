@@ -189,7 +189,18 @@ export function SettingsScreen() {
         <View style={styles.topbarCopy}>
           <AppText variant="title">Settings</AppText>
         </View>
-        <NotificationBell onOpen={() => setNotificationsOpen(true)} />
+        <View style={styles.headerActions}>
+          <NotificationBell onOpen={() => setNotificationsOpen(true)} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
+            style={[styles.signOut, { backgroundColor: colors.surface, borderColor: colors.dangerBorder }]}
+            onPress={handleSignOut}
+            hitSlop={8}
+          >
+            <LogOut color={colors.error} size={18} />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
@@ -278,13 +289,6 @@ export function SettingsScreen() {
         })}
       </ScrollView>
 
-      <View style={[styles.signOutWrap, { paddingBottom: Math.max(insets.bottom, spacing.lg), backgroundColor: colors.background, borderTopColor: colors.cardBorder }]}>
-        <Pressable style={[styles.signOut, { backgroundColor: colors.surface, borderColor: colors.dangerBorder }]} onPress={handleSignOut}>
-          <LogOut color={colors.error} size={20} />
-          <AppText variant="bodyStrong" tone="error" style={styles.signOutText}>Sign out</AppText>
-        </Pressable>
-      </View>
-
       <NotificationCenter visible={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
       <ConfirmDialog
         visible={signOutOpen}
@@ -347,18 +351,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     padding: spacing.xs,
   },
-  signOutWrap: {
-    borderTopWidth: 1,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
-  },
+  headerActions: { alignItems: 'center', flexDirection: 'row', gap: spacing.md },
   signOut: {
     alignItems: 'center',
-    borderRadius: radius.xl,
+    borderRadius: radius.xxl + 2,
     borderWidth: 1,
-    flexDirection: 'row',
+    height: 40,
     justifyContent: 'center',
-    padding: spacing.lg,
+    width: 40,
   },
-  signOutText: { marginLeft: spacing.sm },
 });
