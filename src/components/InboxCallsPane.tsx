@@ -167,7 +167,7 @@ export function InboxCallsPane({ onOpenConversation }: Props) {
                 </View>
               )}
               refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-              onEndReachedThreshold={0.4}
+              onEndReachedThreshold={2}
               onEndReached={() => {
                 if (sessionsQuery.hasNextPage && !sessionsQuery.isFetchingNextPage) {
                   void sessionsQuery.fetchNextPage();
