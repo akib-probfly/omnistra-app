@@ -496,6 +496,7 @@ export function ConversationComposer({
   }
 
   const recordingSeconds = Math.floor(recorderState.durationMillis / 1000);
+  const recordingTime = `${Math.floor(recordingSeconds / 60)}:${String(recordingSeconds % 60).padStart(2, '0')}`;
 
   const isWhatsApp = isWhatsAppChannel;
   const whatsappWindowExpired = isWhatsApp && canSendFreeform === false;
@@ -566,7 +567,7 @@ export function ConversationComposer({
     return (
         <View style={styles.recording}>
         <Pressable accessibilityRole="button" accessibilityLabel="Delete recording" disabled={sending} onPress={() => stopRecording(false)} style={[styles.delete, { backgroundColor: colors.dangerBorder }, sending && styles.sendDisabled]}><Trash2 color={colors.error} size={17} /></Pressable>
-        <Text style={[styles.recordTime, paused && styles.recordTimePaused]}>{paused ? '⏸ Paused' : `● ${`0:${String(recordingSeconds).padStart(2, '0')}`}`}</Text>
+        <Text style={[styles.recordTime, paused && styles.recordTimePaused]}>{paused ? '⏸ Paused' : `● ${recordingTime}`}</Text>
         <View style={styles.recordingLevels}>
           {[0.4, 0.8, 0.5, 1, 0.6, 0.9, 0.45, 0.75, 0.55, 1, 0.7, 0.4].map((height, index) => (
             <View key={index} style={[styles.levelBar, { height: height * 22 }]} />
