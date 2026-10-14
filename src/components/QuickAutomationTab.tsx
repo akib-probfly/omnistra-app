@@ -216,10 +216,10 @@ export function QuickAutomationTab({ channelId, channelType }: { channelId: stri
           mode="time"
           is24Hour={false}
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={(event, date) => {
+          onDismiss={() => setPicker(null)}
+          onValueChange={(_event, date) => {
             if (Platform.OS === 'android') setPicker(null);
-            if (event.type === 'set' && date) setHour(picker.day, picker.slot, toTimeString(date));
-            if (Platform.OS === 'ios' && date) setHour(picker.day, picker.slot, toTimeString(date));
+            setHour(picker.day, picker.slot, toTimeString(date));
           }}
         />
       ) : null}

@@ -664,17 +664,14 @@ export function BroadcastCreateScreen() {
                 mode={Platform.OS === 'ios' ? 'datetime' : androidPicker === 'time' ? 'time' : 'date'}
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                 minimumDate={new Date()}
-                onChange={(event, date) => {
+                onDismiss={() => setAndroidPicker(null)}
+                onValueChange={(_event, date) => {
                   if (Platform.OS === 'android') {
-                    if (event.type !== 'set' || !date) {
-                      setAndroidPicker(null);
-                      return;
-                    }
                     setScheduledAt((current) => mergePickerDate(current, date, androidPicker === 'time' ? 'time' : 'date'));
                     setAndroidPicker(androidPicker === 'date' ? 'time' : null);
                     return;
                   }
-                  if (date) setScheduledAt(date);
+                  setScheduledAt(date);
                 }}
               />
             ) : null}
