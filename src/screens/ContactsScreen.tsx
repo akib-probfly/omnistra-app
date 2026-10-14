@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { Ban, CheckCircle2, CheckSquare, CircleSlash, ContactRound, Download, EllipsisVertical, Filter, Import, Mail, Phone, Plus, Search, Trash2, X } from 'lucide-react-native';
+import { Ban, Check, CheckCircle2, CheckSquare, CircleSlash, ContactRound, Download, EllipsisVertical, Filter, Import, Mail, Phone, Plus, Search, Trash2, X } from 'lucide-react-native';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -49,6 +49,7 @@ import { ColorfulAvatar } from '../components/ColorfulAvatar';
 import { ErrorState } from '../components/ErrorState';
 import { NotificationBell, NotificationCenter } from '../components/NotificationCenter';
 import { useTheme } from '../theme/ThemeContext';
+import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
 import { groupChannelsByType } from '../lib/channel-filter-groups';
 import { getCountryFlag } from '../lib/countryFromPhone';
 import type { ContactsStackParamList } from '../navigation/ContactsStack';
@@ -117,7 +118,6 @@ export function ContactsScreen() {
   const [channelIds, setChannelIds] = useState<string[]>([]);
   const [expandedPlatformKeys, setExpandedPlatformKeys] = useState<string[]>([]);
   const [tagIds, setTagIds] = useState<string[]>([]);
-  const [selectedTagLabels, setSelectedTagLabels] = useState<Record<string, string>>({});
   const [countryCodes, setCountryCodes] = useState<string[]>([]);
   const [countrySearch, setCountrySearch] = useState('');
   const [ownerId, setOwnerId] = useState<string | null>(null);
@@ -335,9 +335,10 @@ export function ContactsScreen() {
   const tagOptions = useMemo(() => {
     const query = tagSearch.trim().toLowerCase();
     const tags = tagsQuery.data?.items ?? [];
-    if (!query) return tags;
-    return tags.filter((tag) => tag.text.toLowerCase().includes(query));
-  }, [tagsQuery.data?.items, tagSearch]);
+    const selected = tags.filter((tag) => tagIds.includes(tag.id));
+    const rest = tags.filter((tag) => !tagIds.includes(tag.id) && (!query || tag.text.toLowerCase().includes(query)));
+    return [...selected, ...rest];
+  }, [tagsQuery.data?.items, tagSearch, tagIds]);
 
   const resetFilters = () => {
     setAssignment('all');
@@ -349,7 +350,6 @@ export function ContactsScreen() {
     setChannelIds([]);
     setExpandedPlatformKeys([]);
     setTagIds([]);
-    setSelectedTagLabels({});
     setCountryCodes([]);
     setCountrySearch('');
     setOwnerId(null);
@@ -659,54 +659,35 @@ export function ContactsScreen() {
               {filterLayer === 'labels' ? (
                 <>
                   <AppSearchField value={tagSearch} onChangeText={setTagSearch} placeholder="Search tags" tone="background" />
-                  {tagIds.length ? (
-                    <View style={styles.selectedLabelRow}>
-                      <Text style={[styles.selectedLabelHeading, { color: colors.textSecondary }]}>Selected:</Text>
-                      {tagIds.map((tagId) => (
-                        <Pressable
-                          key={tagId}
-                          style={[styles.selectedLabelChip, { backgroundColor: colors.primarySoft, borderColor: colors.primaryBorder }]}
-                          onPress={() => {
-                            setTagIds((current) => current.filter((id) => id !== tagId));
-                            setSelectedTagLabels((current) => {
-                              const next = { ...current };
-                              delete next[tagId];
-                              return next;
-                            });
-                          }}
-                          accessibilityLabel={`Remove ${selectedTagLabels[tagId] ?? 'label'} filter`}
-                        >
-                          <Text style={[styles.selectedLabelText, { color: colors.primary }]} numberOfLines={1}>{selectedTagLabels[tagId] ?? 'Label'}</Text>
-                          <X color={colors.primary} size={13} />
-                        </Pressable>
-                      ))}
-                    </View>
-                  ) : null}
+                  <Text style={[styles.selectedTagCount, { color: colors.textSecondary }]}>{tagIds.length} selected</Text>
+                  {tagsQuery.isLoading ? <InlineSkeleton /> : (
+                  <View style={styles.tagCloud}>
                   {tagOptions.map((tag) => {
                     const active = tagIds.includes(tag.id);
-                    const color = tag.color?.trim() || '#64748b';
+                    const color = tag.color?.trim() || colors.textMuted;
                     return (
                       <Pressable
                         key={tag.id}
-                        style={[styles.optionRow, active && [styles.optionRowActive, { backgroundColor: colors.surfaceSecondary }]]}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        style={[
+                          styles.tagPill,
+                          { backgroundColor: colors.surface, borderColor: colors.cardBorder },
+                          active && [styles.tagPillActive, { backgroundColor: colors.primarySoft, borderColor: colors.primary }],
+                        ]}
                         onPress={() => {
                           setTagIds((current) => (active ? current.filter((id) => id !== tag.id) : [...current, tag.id]));
-                          setSelectedTagLabels((current) => {
-                            if (active) {
-                              const next = { ...current };
-                              delete next[tag.id];
-                              return next;
-                            }
-                            return { ...current, [tag.id]: tag.text };
-                          });
                         }}
                       >
-                        <View style={[styles.tagDot, { backgroundColor: color }]} />
-                        <Text style={[styles.optionText, { color: colors.textSecondary }, active && [styles.optionTextActive, { color: colors.primary }]]} numberOfLines={1}>{tag.text}</Text>
+                        <View style={[styles.tagPillDot, { backgroundColor: color }]} />
+                        <Text style={[styles.tagPillText, { color: active ? colors.primary : colors.textSecondary }, active && styles.tagPillTextActive]} numberOfLines={1}>{tag.text}</Text>
+                        {active ? <Check color={colors.primary} size={12} strokeWidth={3} /> : null}
                       </Pressable>
                     );
                   })}
                   {!tagOptions.length ? <Text style={[styles.emptyHint, { color: colors.textMuted }]}>No tags found.</Text> : null}
+                  </View>
+                  )}
                 </>
               ) : null}
 
@@ -1187,10 +1168,6 @@ const styles = StyleSheet.create({
   addButton: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   iconButton: { alignItems: 'center', borderColor: '#d8e6fb', borderRadius: 18, borderWidth: 1, height: 36, justifyContent: 'center', width: 36 },
   searchRow: { alignItems: 'center', flexDirection: 'row', gap: 10, marginHorizontal: 16, marginTop: 16 },
-  selectedLabelRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 16, paddingTop: 8 },
-  selectedLabelHeading: { fontSize: 12, fontWeight: '600' },
-  selectedLabelChip: { alignItems: 'center', borderRadius: 999, borderWidth: 1, flexDirection: 'row', gap: 4, maxWidth: '100%', paddingHorizontal: 8, paddingVertical: 4 },
-  selectedLabelText: { fontSize: 12, fontWeight: '600', maxWidth: 160 },
   filterButton: { alignItems: 'center', backgroundColor: '#fff', borderColor: '#cfe0fa', borderRadius: 18, borderWidth: 1, height: 44, justifyContent: 'center', position: 'relative', width: 44 },
   filterButtonActive: { borderColor: '#2563eb' },
   filterDot: { backgroundColor: '#2563eb', borderRadius: 4, height: 8, position: 'absolute', right: 8, top: 8, width: 8 },
@@ -1265,7 +1242,13 @@ const styles = StyleSheet.create({
   optionRowActive: { backgroundColor: '#dbeafe' },
   optionText: { color: '#334155', flex: 1, fontSize: 14, fontWeight: '500' },
   optionTextActive: { color: '#1d4ed8', fontWeight: '700' },
-  tagDot: { borderRadius: 5, height: 10, width: 10 },
+  selectedTagCount: { fontSize: fontSize.small, marginVertical: spacing.sm },
+  tagCloud: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  tagPill: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.sm - 2, maxWidth: '100%', paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  tagPillActive: { borderWidth: 1.5 },
+  tagPillDot: { borderRadius: 4, height: 8, width: 8 },
+  tagPillText: { flexShrink: 1, fontSize: fontSize.caption, fontWeight: fontWeight.medium },
+  tagPillTextActive: { fontWeight: fontWeight.bold },
   emptyHint: { color: '#94a3b8', fontSize: 13, paddingVertical: 12 },
   countryHint: { fontSize: 12, lineHeight: 18, marginBottom: 10 },
   countryChipList: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
