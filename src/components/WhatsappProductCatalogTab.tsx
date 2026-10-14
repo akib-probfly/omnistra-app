@@ -42,6 +42,7 @@ function ProductCard({ product }: { product: WhatsappCatalogProduct }) {
   const { colors } = useTheme();
   return (
     <View style={[styles.productCard, { backgroundColor: colors.surface, borderColor: colors.cardBorder }]}>
+      <View style={styles.productHeader}>
       {product.imageUrl ? (
         <Image source={{ uri: product.imageUrl }} style={styles.productImage} contentFit="cover" cachePolicy="memory-disk" />
       ) : (
@@ -52,6 +53,8 @@ function ProductCard({ product }: { product: WhatsappCatalogProduct }) {
           <Text style={[styles.productTitle, { color: colors.text }]} numberOfLines={2}>{product.name || product.retailerId || 'Untitled product'}</Text>
           <View style={styles.price}><Tag color="#059669" size={12} /><Text style={styles.priceText}>{formatPrice(product.priceMinorUnits, product.currency)}</Text></View>
         </View>
+      </View>
+      </View>
         <View style={[styles.metadata, { borderTopColor: colors.separator }]}>
           <MetaItem icon={Tag} label="SKU" value={product.retailerId || 'Not provided'} />
           <MetaItem icon={Hash} label="Meta ID" value={product.id} />
@@ -59,7 +62,6 @@ function ProductCard({ product }: { product: WhatsappCatalogProduct }) {
           <MetaItem icon={PackageCheck} label="Availability" value={formatAvailability(product.availability)} />
           <MetaItem icon={Package} label="Status" value={product.status} />
         </View>
-      </View>
     </View>
   );
 }
@@ -148,12 +150,13 @@ const styles = StyleSheet.create({
   resultsHeaderInfo: { flex: 1, minWidth: 0 },
   resultsUpdated: { flexShrink: 1, maxWidth: '52%', lineHeight: 16, textAlign: 'right' },
   resultsTitle: { fontSize: 16, fontWeight: '800' },
-  productCard: { borderWidth: 1, borderRadius: 19, padding: 10, flexDirection: 'row', gap: 11, shadowColor: '#0f172a', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.035, shadowRadius: 8, elevation: 1 },
-  productImage: { width: 72, height: 72, borderRadius: 15 },
+  productCard: { borderWidth: 1, borderRadius: 19, padding: 10, shadowColor: '#0f172a', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.035, shadowRadius: 8, elevation: 1 },
+  productHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  productImage: { width: 48, height: 48, borderRadius: 10 },
   imagePlaceholder: { alignItems: 'center', justifyContent: 'center' },
   productContent: { flex: 1, minWidth: 0 },
-  productTitleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
-  productTitle: { flex: 1, fontSize: 13, lineHeight: 17, fontWeight: '700' },
+  productTitleRow: { alignItems: 'flex-start', gap: 6 },
+  productTitle: { fontSize: 13, lineHeight: 17, fontWeight: '700' },
   price: { color: '#047857', backgroundColor: '#ecfdf5', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 4 },
   priceText: { color: '#047857', fontSize: 11, fontWeight: '700' },
   description: { marginTop: 4, fontSize: 11, lineHeight: 16 },
