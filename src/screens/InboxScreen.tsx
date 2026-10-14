@@ -1045,7 +1045,7 @@ const styles = StyleSheet.create({
   tagSwatch: { alignItems: 'center', borderRadius: 10, height: 34, justifyContent: 'center', width: 34 },
   tagSwatchDot: { borderRadius: 7, height: 14, width: 14 },
   tagCloud: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tagPill: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.sm - 2, maxWidth: '100%', paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  tagPill: { alignItems: 'center', borderRadius: radius.pill, borderWidth: 1, flexDirection: 'row', gap: spacing.sm - 2, maxWidth: '100%', paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   tagPillActive: { borderWidth: 1.5 },
   tagPillDot: { borderRadius: 4, height: 8, width: 8 },
   tagPillText: { flexShrink: 1, fontSize: fontSize.caption, fontWeight: fontWeight.medium },
