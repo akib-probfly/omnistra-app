@@ -35,7 +35,7 @@ export function badgePalette(colors: ThemeColors, tone: BadgeTone): { bg: string
       return { bg: colors.surfaceSecondary, fg: colors.textSecondary };
     case 'info':
     default:
-      return { bg: colors.primarySoft, fg: colors.primary };
+      return { bg: colors.infoSoft, fg: colors.info };
   }
 }
 

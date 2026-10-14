@@ -13,6 +13,14 @@ export const lightColors = {
   primaryBorder: '#bfdbfe',
   success: '#059669',
   successSoft: '#ecfdf5',
+  successBorder: '#a7f3d0',
+  info: '#2563eb',
+  infoSoft: '#eff6ff',
+  infoBorder: '#bfdbfe',
+  disabledBackground: '#e2e8f0',
+  disabledText: '#64748b',
+  disabledBorder: '#cbd5e1',
+  overlay: 'rgba(0,0,0,0.45)',
   warning: '#ea580c',
   warningSoft: '#fff7ed',
   warningBorder: '#f6d78d',
@@ -43,6 +51,14 @@ export const darkColors = {
   primaryBorder: '#2c4d7d',
   success: '#34d399',
   successSoft: '#134e3a',
+  successBorder: '#047857',
+  info: '#3b82f6',
+  infoSoft: '#1e3a5f',
+  infoBorder: '#2c4d7d',
+  disabledBackground: '#334155',
+  disabledText: '#94a3b8',
+  disabledBorder: '#475569',
+  overlay: 'rgba(0,0,0,0.6)',
   warning: '#fb923c',
   warningSoft: '#4a2c12',
   warningBorder: '#92610f',
@@ -56,6 +72,6 @@ export const darkColors = {
   error: '#ef4444',
   dangerSoft: '#3f1d2e',
   dangerBorder: '#9f1239',
-};
+} satisfies ThemeColors;
 
 export type ThemeColors = typeof lightColors;
