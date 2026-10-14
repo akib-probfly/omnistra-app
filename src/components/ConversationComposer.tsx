@@ -565,7 +565,7 @@ export function ConversationComposer({
   if (recording) {
     return (
         <View style={styles.recording}>
-        <Pressable disabled={sending} onPress={() => stopRecording(false)} style={styles.delete}><Trash2 color={colors.surface} size={17} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Delete recording" disabled={sending} onPress={() => stopRecording(false)} style={[styles.delete, { backgroundColor: colors.dangerBorder }, sending && styles.sendDisabled]}><Trash2 color={colors.error} size={17} /></Pressable>
         <Text style={[styles.recordTime, paused && styles.recordTimePaused]}>{paused ? '⏸ Paused' : `● ${`0:${String(recordingSeconds).padStart(2, '0')}`}`}</Text>
         <View style={styles.recordingLevels}>
           {[0.4, 0.8, 0.5, 1, 0.6, 0.9, 0.45, 0.75, 0.55, 1, 0.7, 0.4].map((height, index) => (
@@ -1053,7 +1053,7 @@ const styles = StyleSheet.create({
   attachOptionTitle: { fontSize: 15, fontWeight: '700' },
   attachOptionBody: { fontSize: 12, marginTop: 2 },
   recording: { alignItems: 'center', backgroundColor: '#fff5f5', borderColor: '#fecaca', borderRadius: 24, borderWidth: 1, flexDirection: 'row', gap: 12, margin: 12, padding: 12 },
-  delete: { alignItems: 'center', backgroundColor: '#fee2e2', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
+  delete: { alignItems: 'center', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   recordTime: { color: '#17233a', fontWeight: '600' },
   recordTimePaused: { color: '#94a3b8' },
   recordingLevels: { alignItems: 'center', flex: 1, flexDirection: 'row', gap: 3, height: 24, justifyContent: 'center' },
