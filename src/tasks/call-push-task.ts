@@ -1,5 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
+import * as SecureStore from 'expo-secure-store';
+import { latestAccessToken, setLatestAccessToken } from '../api/client';
 import { isExpoGo } from '../lib/expo-go';
 import { declineConversationCall } from '../api/inbox';
 import {
@@ -36,7 +38,7 @@ async function handleRemoteCallPush(rawData: Record<string, unknown>) {
 
   if (event === 'ENDED') {
     const callSessionId = typeof rawData.entityId === 'string' ? rawData.entityId : null;
-    clearIncomingCallPrompt(callSessionId);
+    await clearIncomingCallPrompt(callSessionId);
     await dismissIncomingCallNotification(callSessionId);
     return;
   }
@@ -52,7 +54,7 @@ async function handleRemoteCallPush(rawData: Record<string, unknown>) {
 
   // Persisted first: if the process is killed before the user reacts, the app can
   // still restore the ringing call on cold start.
-  writeIncomingCallPrompt(payload as Parameters<typeof writeIncomingCallPrompt>[0]);
+  await writeIncomingCallPrompt(payload as Parameters<typeof writeIncomingCallPrompt>[0]);
   const presented = await presentIncomingCallNotification(
     payload as Parameters<typeof presentIncomingCallNotification>[0],
   );
@@ -66,7 +68,7 @@ async function handleCallAction(response: Notifications.NotificationResponse) {
   if (!payload || payload.type !== 'INCOMING_CALL') return;
 
   if (response.actionIdentifier === DECLINE_CALL_ACTION_ID) {
-    clearIncomingCallPrompt(payload.entityId);
+    await clearIncomingCallPrompt(payload.entityId);
     await dismissIncomingCallNotification(payload.entityId);
     if (!payload.conversationId) return;
     try {
@@ -82,7 +84,7 @@ async function handleCallAction(response: Notifications.NotificationResponse) {
 
   if (response.actionIdentifier === ANSWER_CALL_ACTION_ID) {
     // Answer opens the app; keep the prompt so the call screen appears on launch.
-    writeIncomingCallPrompt(payload as Parameters<typeof writeIncomingCallPrompt>[0]);
+    await writeIncomingCallPrompt(payload as Parameters<typeof writeIncomingCallPrompt>[0]);
     await dismissIncomingCallNotification(payload.entityId);
   }
 }
@@ -90,6 +92,8 @@ async function handleCallAction(response: Notifications.NotificationResponse) {
 TaskManager.defineTask<Notifications.NotificationTaskPayload>(CALL_PUSH_TASK, async ({ data, error }) => {
   if (error || !data) return;
   try {
+    // Headless tasks may start before AuthProvider restores the token.
+    if (!latestAccessToken) setLatestAccessToken(await SecureStore.getItemAsync('access-token'));
     if ('actionIdentifier' in data) {
       if (await handleMessageNotificationAction(data)) return;
       await handleCallAction(data);

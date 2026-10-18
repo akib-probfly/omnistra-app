@@ -483,7 +483,12 @@ export async function fetchActiveConversationCallSessions(params: {
   return apiFetch<ConversationCallSessionsResponse>(`/calls/active${buildQueryString({
     cursor: params.cursor,
     limit: params.limit ?? 10,
+    liveOnly: true,
   })}`);
+}
+
+export function fetchConversationCallSession(params: { conversationId: string; callSessionId: string }): Promise<ConversationCallSession> {
+  return apiFetch(`/conversations/${params.conversationId}/calls/${params.callSessionId}`);
 }
 
 export async function startConversationCall(params: {

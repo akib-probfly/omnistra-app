@@ -4,6 +4,7 @@ import type { UserProfile } from '../api/profile';
 import { dismissIncomingCallNotification } from './call-notification';
 import { clearIncomingCallPrompt, writeIncomingCallPrompt } from './incoming-call-prompt';
 import { isCallSessionTerminal } from './inbox-utils';
+import { activeCallQueryKey, callScopeFromAccessToken } from './jwt-workspace';
 
 export type CallSessionUpdatedEvent = {
   workspaceId: string;
@@ -49,13 +50,15 @@ function isIncomingUnclaimed(payload: CallSessionUpdatedEvent) {
 }
 
 function isRoutedToUser(payload: CallSessionUpdatedEvent, userId: string | undefined) {
-  if (!Array.isArray(payload.targetUserIds) || payload.targetUserIds.length === 0) return true;
-  if (!userId) return true;
+  if (!userId) return false;
+  if (!Array.isArray(payload.targetUserIds)) return true;
   return payload.targetUserIds.includes(userId);
 }
 
 export function upsertActiveCallSessionCache(queryClient: QueryClient, payload: CallSessionUpdatedEvent) {
-  const userId = currentUserId(queryClient);
+  const scope = callScopeFromAccessToken();
+  if (!scope || payload.workspaceId !== scope.workspaceId) return;
+  const userId = scope.userId || currentUserId(queryClient);
   const isActiveStatus = ACTIVE_STATUSES.has(payload.status);
   const isClaimedByOther = Boolean(userId && payload.claimedByUserId && payload.claimedByUserId !== userId);
   const shouldKeep =
@@ -66,7 +69,7 @@ export function upsertActiveCallSessionCache(queryClient: QueryClient, payload: 
     && isRoutedToUser(payload, userId);
 
   queryClient.cancelQueries({ queryKey: ['active-calls'] });
-  queryClient.setQueryData<ConversationCallSessionsResponse>(['active-calls'], (current) => {
+  queryClient.setQueryData<ConversationCallSessionsResponse>(activeCallQueryKey(), (current) => {
     const items = current?.items ?? [];
     const existing = items.find((session) => session.id === payload.callSessionId);
     const without = items.filter((session) => session.id !== payload.callSessionId);

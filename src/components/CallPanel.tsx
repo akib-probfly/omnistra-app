@@ -1,3 +1,4 @@
+import { isActionableIncomingCall } from '../lib/incoming-call-state';
 import { RTCView } from '../native/webrtc';
 import { activatePlaybackSession, routeCallAudio } from '../lib/audio-session';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -347,13 +348,7 @@ export function CallPanel({
   const [speakerError, setSpeakerError] = useState<string | null>(null);
 
   const label = getCallPartyLabel(conversation, activeCallSession);
-  const isIncomingCall = Boolean(
-    activeCallSession
-    && activeCallSession.direction === 'INBOUND'
-    && (activeCallSession.status === 'REQUESTED'
-      || activeCallSession.status === 'PERMISSION_REQUESTED'
-      || activeCallSession.status === 'RINGING'),
-  );
+  const isIncomingCall = isActionableIncomingCall(activeCallSession);
   const isTerminal = activeCallSession ? isCallSessionTerminal(activeCallSession.status) : false;
   const isOngoing = Boolean(activeCallSession) && !isTerminal && !isIncomingCall;
   const isConnected = Boolean(

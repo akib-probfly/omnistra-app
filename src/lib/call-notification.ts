@@ -3,14 +3,15 @@ import { AppState, Platform } from 'react-native';
 import { CALL_CHANNEL_ID } from './mobilePushRegistration';
 import type { IncomingCallPrompt } from './incoming-call-prompt';
 import { startIncomingCallRingtone, stopIncomingCallRingtone } from './notificationSound';
+import { isIncomingCallPromptExpired } from './incoming-call-state';
+import { callScopeFromAccessToken } from './jwt-workspace';
+import { readIncomingCallPrompt } from './incoming-call-prompt';
+export { INCOMING_CALL_TTL_MS, isIncomingCallPromptExpired } from './incoming-call-state';
 
 export const INCOMING_CALL_CATEGORY_ID = 'zurvis_incoming_call';
 export const ANSWER_CALL_ACTION_ID = 'answer_call';
 export const DECLINE_CALL_ACTION_ID = 'decline_call';
 const LEGACY_CATEGORY_ID = 'incoming_call';
-
-/** Match the FCM RINGING ttl so a delayed push is still shown. */
-export const INCOMING_CALL_TTL_MS = 90_000;
 
 let categoryConfigured = false;
 
@@ -80,7 +81,9 @@ function buildContent(prompt: IncomingCallPrompt): Notifications.NotificationCon
  * The notification identifier is the call session id so it can be dismissed later.
  */
 export async function presentIncomingCallNotification(prompt: IncomingCallPrompt): Promise<boolean> {
-  if (prompt.callEvent === 'ENDED') return false;
+  const scope = callScopeFromAccessToken();
+  if (prompt.callEvent === 'ENDED' || isIncomingCallPromptExpired(prompt) ||
+      !scope?.canManageCalls || scope.workspaceId !== prompt.workspaceId) return false;
   await ensureIncomingCallCategory();
   try {
     await Notifications.scheduleNotificationAsync({
@@ -120,6 +123,7 @@ export async function dismissRemoteIncomingCallBanners(callSessionId: string) {
           data && typeof data === 'object' && !Array.isArray(data)
             ? (data as Record<string, unknown>).entityId
             : null;
+        if (entityId !== callSessionId) return;
         if (
           category !== INCOMING_CALL_CATEGORY_ID &&
           type !== 'INCOMING_CALL' &&
@@ -137,7 +141,8 @@ export async function dismissRemoteIncomingCallBanners(callSessionId: string) {
 
 /** Stop ringing once the call is answered, declined, missed, or taken on another device. */
 export async function dismissIncomingCallNotification(callSessionId?: string | null) {
-  stopIncomingCallRingtone();
+  const current = readIncomingCallPrompt();
+  if (!callSessionId || !current || current.entityId === callSessionId) stopIncomingCallRingtone();
   if (!callSessionId) return;
   try {
     await Notifications.dismissNotificationAsync(callSessionId);
@@ -145,10 +150,4 @@ export async function dismissIncomingCallNotification(callSessionId?: string | n
   } catch {
     // Already gone, or the notification was never displayed on this device.
   }
-}
-
-export function isIncomingCallPromptExpired(prompt: Pick<IncomingCallPrompt, 'createdAt'>) {
-  const createdAt = Date.parse(prompt.createdAt);
-  if (!Number.isFinite(createdAt)) return false;
-  return Date.now() - createdAt > INCOMING_CALL_TTL_MS;
 }

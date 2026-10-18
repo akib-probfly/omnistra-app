@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import { AppState } from 'react-native';
 import {
   fetchActiveConversationCallSessions,
+  fetchConversationCallSession,
   type ConversationCallConversation,
   type ConversationCallSession,
 } from '../api/inbox';
@@ -23,9 +24,10 @@ import { useCallController } from '../providers/CallControllerProvider';
 import { getRealtimeConnectionStatus, subscribeRealtimeConnectionStatus } from '../api/realtime';
 import { CallPanel } from './CallPanel';
 import { getCallPartyHint, getCallUiRevision, isGenericCallLabel, subscribeCallChrome } from '../lib/call-chrome';
-import { pollingWhileUnlocked } from '../lib/billing-lock';
-import { latestAccessToken, subscribeAccessToken } from '../api/client';
-import { workspaceIdFromAccessToken } from '../lib/jwt-workspace';
+import { pollingWhileUnlocked, isBillingLocked } from '../lib/billing-lock';
+import { latestAccessToken, subscribeAccessToken, ApiError } from '../api/client';
+import { callScopeFromAccessToken, activeCallQueryKey } from '../lib/jwt-workspace';
+import { INCOMING_CALL_TTL_MS, isIncomingCallPromptInScope, isActionableIncomingCall, isCallSessionRoutedToUser } from '../lib/incoming-call-state';
 
 function firstRealLabel(...values: Array<string | null | undefined>) {
   for (const value of values) {
@@ -91,70 +93,6 @@ function selectIncomingCallSession(sessions: ConversationCallSession[]) {
   ) ?? null;
 }
 
-function buildPromptedCallSession(prompt: IncomingCallPrompt): ConversationCallSession | null {
-  if (prompt.type !== 'INCOMING_CALL') return null;
-  const metadata = prompt.metadata && typeof prompt.metadata === 'object' && !Array.isArray(prompt.metadata)
-    ? prompt.metadata as Record<string, unknown>
-    : null;
-  const contactDisplayName = typeof metadata?.contactDisplayName === 'string' ? metadata.contactDisplayName : null;
-  const contactPhone = typeof metadata?.contactPhone === 'string' ? metadata.contactPhone : null;
-  const isWebchat = String(metadata?.channelType ?? metadata?.provider ?? '').toUpperCase() === 'WEBCHAT';
-  const channelName = typeof metadata?.channelName === 'string' ? metadata.channelName : isWebchat ? 'Web chat' : 'WhatsApp';
-
-  return {
-    id: prompt.entityId,
-    workspaceId: prompt.workspaceId,
-    conversationId: prompt.conversationId ?? '',
-    channelAccountId: prompt.channelId ?? '',
-    initiatedByWorkspaceMemberId: null,
-    claimedByWorkspaceMemberId: null,
-    claimedByUserId: null,
-    claimedAt: null,
-    initiatedBy: null,
-    claimedBy: null,
-    direction: 'INBOUND',
-    provider: isWebchat ? 'webchat' : 'WHATSAPP',
-    providerCallId: null,
-    providerSessionId: null,
-    permissionRequestMessageId: null,
-    recipientIdentityValue: contactPhone ?? '',
-    recipientDisplayName: contactDisplayName,
-    status: 'REQUESTED',
-    permissionStatus: 'REQUESTED',
-    requestedPermissionAt: prompt.createdAt,
-    permissionRespondedAt: null,
-    startedAt: prompt.createdAt,
-    connectedAt: null,
-    endedAt: null,
-    durationSeconds: null,
-    endedReason: null,
-    metadata: prompt.metadata,
-    conversation: prompt.conversationId
-      ? {
-          id: prompt.conversationId,
-          workspaceId: prompt.workspaceId,
-          status: 'OPEN',
-          unreadCount: 0,
-          contact: {
-            id: prompt.conversationId,
-            displayName: contactDisplayName,
-            primaryPhone: contactPhone,
-            avatarUrl: null,
-          },
-          channel: {
-            channelId: prompt.channelId ?? '',
-            channelType: isWebchat ? 'WEBCHAT' : 'WHATSAPP',
-            channelName,
-            displayPhoneNumber: null,
-          },
-          assignee: null,
-        }
-      : undefined,
-    createdAt: prompt.createdAt,
-    updatedAt: prompt.createdAt,
-  };
-}
-
 function fallbackConversation(session: ConversationCallSession): ConversationCallConversation {
   return session.conversation ?? {
     id: session.conversationId,
@@ -186,7 +124,8 @@ function getBizOpaqueCallbackData(metadata: unknown) {
 export function GlobalCallLayer() {
   const { session } = useAuth();
   const accessToken = useSyncExternalStore(subscribeAccessToken, () => latestAccessToken);
-  const hasWorkspaceContext = Boolean(session && workspaceIdFromAccessToken(accessToken));
+  const callScope = useMemo(() => callScopeFromAccessToken(accessToken), [accessToken]);
+  const hasWorkspaceContext = Boolean(session && callScope?.canManageCalls);
   const queryClient = useQueryClient();
   useSyncExternalStore(subscribeCallChrome, getCallUiRevision);
   const callController = useCallController();
@@ -204,48 +143,48 @@ export function GlobalCallLayer() {
     enabled: Boolean(session),
     staleTime: 5 * 60_000,
   });
-  const currentUserId = profileQuery.data?.id;
+  const currentUserId = callScope?.userId ?? profileQuery.data?.id;
 
   const activeCallsQuery = useQuery({
-    queryKey: ['active-calls'],
+    queryKey: activeCallQueryKey(),
     queryFn: () => fetchActiveConversationCallSessions({ limit: 5 }),
-    enabled: hasWorkspaceContext,
-    staleTime: 60_000,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-    refetchOnWindowFocus: false,
+    enabled: hasWorkspaceContext && appState === 'active',
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
+    select: (data) => ({ ...data, items: data.items.filter((item) => item.workspaceId === callScope?.workspaceId && isCallSessionRoutedToUser(item, currentUserId ?? '')) }),
     refetchIntervalInBackground: false,
     refetchInterval: pollingWhileUnlocked(() => {
       if (appState !== 'active') return false;
-      if (callController.isBusy) return 5000;
-      return false;
+      return (queryClient.getQueryData<{ items?: ConversationCallSession[] }>(activeCallQueryKey())?.items ?? []).some(isLiveCallSession) ? 5000 : 60_000;
     }),
   });
 
   const [incomingCallPrompt, setIncomingCallPrompt] = useState<IncomingCallPrompt | null>(() => readIncomingCallPrompt());
   const dismissedPromptSessionIdsRef = useRef(new Set<string>());
   const { incomingCallAlertsEnabled, isLoaded: areNotificationPrefsLoaded } = useNotificationPreferences();
-  const canShowIncomingCallAlerts = areNotificationPrefsLoaded && incomingCallAlertsEnabled;
+  const canShowIncomingCallAlerts = hasWorkspaceContext && areNotificationPrefsLoaded && incomingCallAlertsEnabled;
 
-  useEffect(() => subscribeIncomingCallPrompt((prompt) => {
-    if (!prompt) {
-      setIncomingCallPrompt(null);
-      return;
-    }
-    if (!canShowIncomingCallAlerts) return;
-    if (dismissedPromptSessionIdsRef.current.has(prompt.entityId)) return;
-    setIncomingCallPrompt(prompt);
-  }), [canShowIncomingCallAlerts]);
+  useEffect(() => {
+    setIncomingCallPrompt(readIncomingCallPrompt());
+    return subscribeIncomingCallPrompt((prompt) => {
+      if (!prompt) { setIncomingCallPrompt(null); return; }
+      if (!canShowIncomingCallAlerts || dismissedPromptSessionIdsRef.current.has(prompt.entityId)) return;
+      setIncomingCallPrompt(prompt);
+    });
+  }, [canShowIncomingCallAlerts]);
 
   // A call that rang while the app was killed is restored from storage on launch.
   useEffect(() => {
+    if (!hasWorkspaceContext || appState !== 'active') return;
     void hydrateIncomingCallPrompt().then((prompt) => {
       if (prompt && isIncomingCallPromptExpired(prompt)) {
         clearIncomingCallPrompt(prompt.entityId);
         void dismissIncomingCallNotification(prompt.entityId);
       }
     });
-  }, []);
+  }, [hasWorkspaceContext, appState, callScope?.userId, callScope?.workspaceId]);
 
   // Once the in-app call screen is on top the OS notification is redundant noise,
   // but it must keep ringing while the app sits in the background.
@@ -262,10 +201,41 @@ export function GlobalCallLayer() {
     () => (canShowIncomingCallAlerts ? selectIncomingCallSession(activeCallsQuery.data?.items ?? []) : null),
     [activeCallsQuery.data?.items, canShowIncomingCallAlerts],
   );
-  const promptCallSession = useMemo(
-    () => (canShowIncomingCallAlerts && incomingCallPrompt ? buildPromptedCallSession(incomingCallPrompt) : null),
-    [canShowIncomingCallAlerts, incomingCallPrompt],
-  );
+  const promptValid = isIncomingCallPromptInScope(incomingCallPrompt, callScope);
+  const resolvedPrompt = useQuery({
+    queryKey: ['call-session-state', callScope?.workspaceId, callScope?.userId, incomingCallPrompt?.conversationId, incomingCallPrompt?.entityId],
+    queryFn: () => fetchConversationCallSession({ conversationId: incomingCallPrompt!.conversationId!, callSessionId: incomingCallPrompt!.entityId }),
+    enabled: canShowIncomingCallAlerts && promptValid && appState === 'active',
+    staleTime: 0, gcTime: 0,
+    refetchOnMount: 'always', refetchOnReconnect: 'always', refetchOnWindowFocus: 'always',
+    refetchIntervalInBackground: false,
+    refetchInterval: pollingWhileUnlocked(() => appState === 'active' && promptValid ? 5000 : false),
+    retry: (count, error) => !(error instanceof ApiError && [401, 403, 404].includes(error.status)) && count < 1,
+  });
+  const promptCallSession = canShowIncomingCallAlerts && promptValid && isActionableIncomingCall(resolvedPrompt.data)
+    ? resolvedPrompt.data! : null;
+
+  useEffect(() => {
+    if (!hasWorkspaceContext || appState !== 'active' || isBillingLocked()) return;
+    void activeCallsQuery.refetch({ cancelRefetch: false });
+    if (promptValid) void resolvedPrompt.refetch({ cancelRefetch: false });
+  }, [appState, hasWorkspaceContext, callScope?.userId, callScope?.workspaceId]);
+
+  useEffect(() => {
+    const prompt = incomingCallPrompt;
+    if (!prompt || !callScope || !areNotificationPrefsLoaded) return;
+    const unavailable = resolvedPrompt.error instanceof ApiError && [403, 404].includes(resolvedPrompt.error.status);
+    if (!canShowIncomingCallAlerts || !promptValid || unavailable || (resolvedPrompt.data && !isActionableIncomingCall(resolvedPrompt.data))) {
+      clearIncomingCallPrompt(prompt.entityId);
+      void dismissIncomingCallNotification(prompt.entityId);
+      return;
+    }
+    const timer = setTimeout(() => {
+      clearIncomingCallPrompt(prompt.entityId);
+      void dismissIncomingCallNotification(prompt.entityId);
+    }, Math.max(0, INCOMING_CALL_TTL_MS - (Date.now() - Date.parse(prompt.createdAt))));
+    return () => clearTimeout(timer);
+  }, [incomingCallPrompt, callScope, areNotificationPrefsLoaded, canShowIncomingCallAlerts, promptValid, resolvedPrompt.data, resolvedPrompt.error]);
 
   const activeCallSession = visibleCallSession ?? incomingCallSession ?? promptCallSession;
   const activeCallSignal = useMemo(

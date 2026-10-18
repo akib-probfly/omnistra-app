@@ -1,3 +1,4 @@
+import { activeCallQueryKey } from '../lib/jwt-workspace';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
@@ -109,7 +110,7 @@ export function useWhatsappCallController() {
   const clearError = useCallback(() => setErrorMessage(null), []);
 
   const removeActiveCallSession = useCallback((params: { conversationId: string; callSessionId: string }) => {
-    queryClient.setQueryData<ConversationCallSessionsResponse>(['active-calls'], (current) => {
+    queryClient.setQueryData<ConversationCallSessionsResponse>(activeCallQueryKey(), (current) => {
       if (!current) return current;
       return {
         ...current,

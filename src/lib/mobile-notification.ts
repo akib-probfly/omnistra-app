@@ -8,7 +8,7 @@ import {
   writeIncomingCallPrompt,
 } from './incoming-call-prompt';
 import { navigationRef } from '../navigation/navigationRef';
-import { workspaceIdFromAccessToken } from './jwt-workspace';
+import { workspaceIdFromAccessToken, activeCallQueryKey } from './jwt-workspace';
 
 const SUPPORTED_NOTIFICATION_TYPES = new Set<NotificationType>(['NEW_MESSAGE', 'CONVERSATION_ASSIGNED', 'CONVERSATION_UNASSIGNED', 'INCOMING_CALL', 'CONTACT_EXPORT_READY', 'CAMPAIGN_EXPORT_READY']);
 
@@ -199,10 +199,10 @@ export async function reconnectAndRefreshActiveCalls(queryClient: QueryClient, c
     refetchType: 'active',
   });
   void queryClient.fetchQuery({
-    queryKey: ['active-calls'],
+    queryKey: activeCallQueryKey(),
     queryFn: () => fetchActiveConversationCallSessions({ limit: 5 }),
     staleTime: 0,
-  });
+  }).catch(() => {});
   if (!conversationId) return;
   await queryClient.invalidateQueries({
     queryKey: ['conversation-calls', conversationId],

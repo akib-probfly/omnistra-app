@@ -1,3 +1,4 @@
+import { activeCallQueryKey } from '../lib/jwt-workspace';
 import { useEffect, useRef, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
@@ -587,7 +588,7 @@ export function useRealtimeSync(accessToken: string | null) {
       const awayMs = backgroundedAt == null ? 0 : Date.now() - backgroundedAt;
       const afterBackground = backgroundedAt != null;
       backgroundedAt = null;
-      const liveCalls = queryClient.getQueryData<{ items?: unknown[] }>(['active-calls'])?.items;
+      const liveCalls = queryClient.getQueryData<{ items?: unknown[] }>(activeCallQueryKey())?.items;
       const inCallFlow =
         isCallAudioHeld()
         || Boolean(readIncomingCallPrompt())

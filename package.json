@@ -63,6 +63,7 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
+    "test:calls": "node --test tests/*calls*.test.mjs",
     "postinstall": "patch-package",
     "start": "expo start --go",
     "start:go": "expo start --go",
