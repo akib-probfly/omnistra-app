@@ -96,3 +96,33 @@ test('the app waits for an authoritative call and suppresses ended calls on cold
   resolved = call;
   assert.equal(GlobalCallLayer().props.activeCallSession.id, 'call-1');
 });
+
+for (const platform of ['android', 'ios']) {
+  test(`${platform}: expired rings are suppressed and an old dismissal preserves the newer call`, async () => {
+    let scheduled = 0;
+    let stopped = 0;
+    const dismissed = [];
+    const load = application({
+      'expo-notifications': {
+        AndroidNotificationPriority: { MAX: 5 }, deleteNotificationCategoryAsync: async () => {}, setNotificationCategoryAsync: async () => {},
+        scheduleNotificationAsync: async () => { scheduled++; }, dismissNotificationAsync: async (id) => { dismissed.push(id); }, cancelScheduledNotificationAsync: async () => {},
+        getPresentedNotificationsAsync: async () => ['old-call', 'new-call'].map((id) => ({ request: { identifier: `remote:${id}`, content: { categoryIdentifier: 'zurvis_incoming_call', data: { type: 'INCOMING_CALL', entityId: id } } } })),
+      },
+      'react-native': { AppState: { currentState: 'background' }, Platform: { OS: platform } },
+      'src/lib/mobilePushRegistration': { CALL_CHANNEL_ID: 'incoming_calls' },
+      'src/lib/notificationSound': { startIncomingCallRingtone: async () => {}, stopIncomingCallRingtone: () => { stopped++; } },
+      'src/lib/jwt-workspace': { callScopeFromAccessToken: () => scope },
+      'src/lib/incoming-call-prompt': { readIncomingCallPrompt: () => ({ ...prompt, entityId: 'new-call' }) },
+    });
+    const notifications = load('src/lib/call-notification');
+    assert.equal(await notifications.presentIncomingCallNotification({ ...prompt, createdAt: new Date(Date.now() - 120_000).toISOString() }), false);
+    assert.equal(scheduled, 0);
+    assert.equal(await notifications.presentIncomingCallNotification(prompt), true);
+    assert.equal(scheduled, 1);
+    await notifications.dismissIncomingCallNotification('old-call');
+    await notifications.dismissRemoteIncomingCallBanners('old-call');
+    assert.equal(stopped, 0);
+    assert(!dismissed.includes('remote:new-call'));
+    assert(dismissed.includes('remote:old-call'));
+  });
+}

@@ -3,7 +3,7 @@ import * as TaskManager from 'expo-task-manager';
 import * as SecureStore from 'expo-secure-store';
 import { latestAccessToken, setLatestAccessToken } from '../api/client';
 import { isExpoGo } from '../lib/expo-go';
-import { declineConversationCall } from '../api/inbox';
+import { declineCallFromNotification } from '../lib/call-session-reconciliation';
 import {
   ANSWER_CALL_ACTION_ID,
   DECLINE_CALL_ACTION_ID,
@@ -68,21 +68,15 @@ async function handleCallAction(response: Notifications.NotificationResponse) {
   if (!payload || payload.type !== 'INCOMING_CALL') return;
 
   if (response.actionIdentifier === DECLINE_CALL_ACTION_ID) {
-    await clearIncomingCallPrompt(payload.entityId);
-    await dismissIncomingCallNotification(payload.entityId);
-    if (!payload.conversationId) return;
     try {
-      await declineConversationCall({
-        conversationId: payload.conversationId,
-        callSessionId: payload.entityId,
-      });
+      await declineCallFromNotification(payload);
     } catch (error) {
       if (__DEV__) console.warn('[call-push] decline failed', error);
     }
     return;
   }
 
-  if (response.actionIdentifier === ANSWER_CALL_ACTION_ID) {
+  if (response.actionIdentifier === ANSWER_CALL_ACTION_ID && !isIncomingCallPromptExpired(payload)) {
     // Answer opens the app; keep the prompt so the call screen appears on launch.
     await writeIncomingCallPrompt(payload as Parameters<typeof writeIncomingCallPrompt>[0]);
     await dismissIncomingCallNotification(payload.entityId);

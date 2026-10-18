@@ -1,10 +1,11 @@
+import Toast from 'react-native-toast-message';
 import * as Notifications from "expo-notifications";
 import { useCallback, useEffect, useRef } from "react";
 import { AppState } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
 import { useNotificationPreferences } from "./useNotificationPreferences";
-import { declineConversationCall } from "../api/inbox";
+import { declineCallFromNotification, callStateErrorMessage } from '../lib/call-session-reconciliation';
 import { claimNotification } from "../lib/notification-dedupe";
 import {
   ensureMessageNotificationCategory,
@@ -18,6 +19,7 @@ import {
 } from "../lib/message-notification";
 import {
   ANSWER_CALL_ACTION_ID,
+  isIncomingCallPromptExpired,
   DECLINE_CALL_ACTION_ID,
   dismissIncomingCallNotification,
   ensureIncomingCallCategory,
@@ -225,19 +227,19 @@ export function useMobileNotificationHandlers() {
         Notifications.clearLastNotificationResponse();
         return;
       }
+      if (payload.type === 'INCOMING_CALL' && payload.callEvent !== 'ENDED' && isIncomingCallPromptExpired(payload)) {
+        void clearIncomingCallPrompt(payload.entityId);
+        void dismissIncomingCallNotification(payload.entityId);
+        Notifications.clearLastNotificationResponse();
+        return;
+      }
       claimNotification(payload.notificationId);
 
       if (response.actionIdentifier === DECLINE_CALL_ACTION_ID) {
-        clearIncomingCallPrompt(payload.entityId);
-        void dismissIncomingCallNotification(payload.entityId);
-        if (payload.conversationId) {
-          void declineConversationCall({
-            conversationId: payload.conversationId,
-            callSessionId: payload.entityId,
-          }).catch(() => {
-            // The call may have already ended on the other side.
-          });
-        }
+        void declineCallFromNotification(payload, queryClient).catch((error) => {
+          if (AppState.currentState === 'active') Toast.show({ type: 'info', text1: 'Call state changed',
+            text2: callStateErrorMessage(error) ?? 'Could not decline the call. Please try again.' });
+        });
         Notifications.clearLastNotificationResponse();
         return;
       }

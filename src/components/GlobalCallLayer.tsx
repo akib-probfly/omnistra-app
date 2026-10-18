@@ -129,6 +129,8 @@ export function GlobalCallLayer() {
   const queryClient = useQueryClient();
   useSyncExternalStore(subscribeCallChrome, getCallUiRevision);
   const callController = useCallController();
+  const resetPeerContext = callController.resetPeerContext;
+  useEffect(() => () => resetPeerContext(), [callScope?.userId, callScope?.workspaceId, hasWorkspaceContext, resetPeerContext]);
   useSyncExternalStore(subscribeRealtimeConnectionStatus, getRealtimeConnectionStatus);
   const appState = useSyncExternalStore(
     (onStoreChange) => {
@@ -273,7 +275,7 @@ export function GlobalCallLayer() {
     }
   }, [activeCallSession, callController]);
 
-  if (!session) return null;
+  if (!session || !hasWorkspaceContext) return null;
 
   if (
     !activeCallSession

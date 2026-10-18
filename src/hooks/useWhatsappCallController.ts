@@ -1,4 +1,3 @@
-import { activeCallQueryKey } from '../lib/jwt-workspace';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
@@ -8,7 +7,6 @@ import {
   declineConversationCall,
   endConversationCall,
   startConversationCall,
-  type ConversationCallSessionsResponse,
   type ConversationCallSignalSession,
 } from '../api/inbox';
 import {
@@ -21,7 +19,7 @@ import {
 } from '../lib/whatsapp-calling';
 import { MediaStream, RTCSessionDescription } from '../native/webrtc';
 import { releaseCallSession, scheduleCallAudioReapply } from '../lib/audio-session';
-import { clearIncomingCallPrompt } from '../lib/incoming-call-prompt';
+import { performVerifiedCallAction, reconcileCallSuccess, reconcileCallActionError, isCallStateError, callStateErrorMessage } from '../lib/call-session-reconciliation';
 
 export type CallConnectionState =
   | 'idle'
@@ -33,16 +31,36 @@ export type CallConnectionState =
 
 export function useWhatsappCallController() {
   const queryClient = useQueryClient();
-  const startCallMutation = useMutation({ mutationFn: startConversationCall });
-  const answerCallMutation = useMutation({ mutationFn: answerConversationCall });
-  const declineCallMutation = useMutation({ mutationFn: declineConversationCall });
-  const endCallMutation = useMutation({ mutationFn: endConversationCall });
+  const startCallMutation = useMutation({ mutationFn: startConversationCall, onSuccess: (current) => reconcileCallSuccess(queryClient, current) });
+  const answerCallMutation = useMutation({
+    mutationFn: (params: Parameters<typeof answerConversationCall>[0]) => performVerifiedCallAction(params, 'answer', answerConversationCall),
+    onSuccess: (current) => reconcileCallSuccess(queryClient, current),
+    onError: (error, params) => reconcileCallActionError(queryClient, error, params),
+  });
+  const declineCallMutation = useMutation({
+    mutationFn: (params: Parameters<typeof declineConversationCall>[0]) => performVerifiedCallAction(params, 'decline', declineConversationCall),
+    onSuccess: (current) => reconcileCallSuccess(queryClient, current),
+    onError: (error, params) => reconcileCallActionError(queryClient, error, params),
+  });
+  const endCallMutation = useMutation({
+    mutationFn: (params: Parameters<typeof endConversationCall>[0]) => performVerifiedCallAction(params, 'end', endConversationCall),
+    onSuccess: (current) => reconcileCallSuccess(queryClient, current),
+    onError: (error, params) => reconcileCallActionError(queryClient, error, params),
+  });
   const peerContextRef = useRef<WhatsappCallPeerContext | null>(null);
   const appliedRemoteSignalRef = useRef<string | null>(null);
   const [remoteStream, setRemoteStream] = useState<any | null>(null);
   const [connectionState, setConnectionState] = useState<CallConnectionState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
+  const pendingActionRef = useRef(false);
+  const [actionPending, setActionPending] = useState(false);
+  const beginAction = useCallback(() => {
+    if (pendingActionRef.current) return false;
+    pendingActionRef.current = true; setActionPending(true); return true;
+  }, []);
+  const finishAction = useCallback(() => { pendingActionRef.current = false; setActionPending(false); }, []);
+
 
   useEffect(() => {
     if (Platform.OS !== 'ios' || connectionState !== 'connected') return;
@@ -108,27 +126,6 @@ export function useWhatsappCallController() {
   }, []);
 
   const clearError = useCallback(() => setErrorMessage(null), []);
-
-  const removeActiveCallSession = useCallback((params: { conversationId: string; callSessionId: string }) => {
-    queryClient.setQueryData<ConversationCallSessionsResponse>(activeCallQueryKey(), (current) => {
-      if (!current) return current;
-      return {
-        ...current,
-        items: current.items.filter((session) => session.id !== params.callSessionId),
-      };
-    });
-    queryClient.setQueryData<ConversationCallSessionsResponse>(['conversation-calls', params.conversationId], (current) => {
-      if (!current) return current;
-      return {
-        ...current,
-        items: current.items.filter((session) => session.id !== params.callSessionId),
-      };
-    });
-    clearIncomingCallPrompt(params.callSessionId);
-    void queryClient.invalidateQueries({ queryKey: ['active-calls'], refetchType: 'active' });
-    void queryClient.invalidateQueries({ queryKey: ['conversation-calls', params.conversationId], refetchType: 'active' });
-    void queryClient.invalidateQueries({ queryKey: ['conversations'], refetchType: 'active' });
-  }, [queryClient]);
 
   const toggleMute = useCallback(() => {
     const localStream = peerContextRef.current?.localStream;
@@ -227,6 +224,7 @@ export function useWhatsappCallController() {
   }, []);
 
   const startOutboundCall = useCallback(async (params: { conversationId: string; note?: string | null }) => {
+    if (!beginAction()) return;
     clearError();
     setConnectionState('preparing');
     try {
@@ -270,8 +268,10 @@ export function useWhatsappCallController() {
       const message = error instanceof Error ? error.message : 'Could not start the voice call';
       Toast.show({ type: 'error', text1: 'Could not start the voice call', text2: message });
       setErrorMessage(message);
+    } finally {
+      finishAction();
     }
-  }, [applyRemoteSignal, clearError, initializePeerContext, resetPeerContext, startCallMutation]);
+  }, [beginAction, finishAction, applyRemoteSignal, clearError, initializePeerContext, resetPeerContext, startCallMutation]);
 
   const answerCall = useCallback(async (params: {
     conversationId: string;
@@ -279,6 +279,7 @@ export function useWhatsappCallController() {
     remoteOffer: ConversationCallSignalSession;
     bizOpaqueCallbackData?: string | null;
   }) => {
+    if (!beginAction()) return;
     clearError();
     setConnectionState('preparing');
     try {
@@ -299,39 +300,47 @@ export function useWhatsappCallController() {
     } catch (error) {
       resetPeerContext();
       setConnectionState('failed');
-      const message = error instanceof Error ? error.message : 'Could not answer the voice call';
-      Toast.show({ type: 'error', text1: 'Could not answer the call', text2: message });
+      const message = callStateErrorMessage(error) ?? (error instanceof Error ? error.message : 'Could not answer the voice call');
+      Toast.show({ type: isCallStateError(error) ? 'info' : 'error', text1: isCallStateError(error) ? 'Call state changed' : 'Could not answer the call', text2: message });
       setErrorMessage(message);
+    } finally {
+      finishAction();
     }
-  }, [answerCallMutation, applyRemoteSignal, clearError, initializePeerContext, resetPeerContext]);
+  }, [beginAction, finishAction, answerCallMutation, applyRemoteSignal, clearError, initializePeerContext, resetPeerContext]);
 
   const declineCall = useCallback(async (params: { conversationId: string; callSessionId: string }) => {
+    if (!beginAction()) return;
     clearError();
     try {
-      removeActiveCallSession(params);
       const session = await declineCallMutation.mutateAsync(params);
       resetPeerContext();
       return session;
     } catch (error) {
       setConnectionState('failed');
-      const message = error instanceof Error ? error.message : 'Could not decline the voice call';
+      const message = callStateErrorMessage(error) ?? (error instanceof Error ? error.message : 'Could not decline the voice call');
+      if (isCallStateError(error)) Toast.show({ type: 'info', text1: 'Call state changed', text2: message });
       setErrorMessage(message);
+    } finally {
+      finishAction();
     }
-  }, [clearError, declineCallMutation, removeActiveCallSession, resetPeerContext]);
+  }, [beginAction, finishAction, clearError, declineCallMutation, resetPeerContext]);
 
   const endCall = useCallback(async (params: { conversationId: string; callSessionId: string }) => {
+    if (!beginAction()) return;
     clearError();
     try {
-      removeActiveCallSession(params);
       const session = await endCallMutation.mutateAsync(params);
       resetPeerContext();
       return session;
     } catch (error) {
       setConnectionState('failed');
-      const message = error instanceof Error ? error.message : 'Could not end the voice call';
+      const message = callStateErrorMessage(error) ?? (error instanceof Error ? error.message : 'Could not end the voice call');
+      if (isCallStateError(error)) Toast.show({ type: 'info', text1: 'Call state changed', text2: message });
       setErrorMessage(message);
+    } finally {
+      finishAction();
     }
-  }, [clearError, endCallMutation, removeActiveCallSession, resetPeerContext]);
+  }, [beginAction, finishAction, clearError, endCallMutation, resetPeerContext]);
 
   useEffect(() => () => {
     resetPeerContext();
@@ -342,7 +351,7 @@ export function useWhatsappCallController() {
     errorMessage,
     isMuted,
     isBusy:
-      startCallMutation.isPending
+      actionPending || startCallMutation.isPending
       || answerCallMutation.isPending
       || declineCallMutation.isPending
       || endCallMutation.isPending,
