@@ -27,7 +27,7 @@ import { getCallPartyHint, getCallUiRevision, isGenericCallLabel, subscribeCallC
 import { pollingWhileUnlocked, isBillingLocked } from '../lib/billing-lock';
 import { latestAccessToken, subscribeAccessToken, ApiError } from '../api/client';
 import { callScopeFromAccessToken, activeCallQueryKey } from '../lib/jwt-workspace';
-import { INCOMING_CALL_TTL_MS, isIncomingCallPromptInScope, isActionableIncomingCall, isCallSessionRoutedToUser } from '../lib/incoming-call-state';
+import { INCOMING_CALL_TTL_MS, isIncomingCallPromptInScope, isActionableIncomingCall, isCallSessionRoutedToUser, isExpiredIncomingWhatsappCall } from '../lib/incoming-call-state';
 
 function firstRealLabel(...values: Array<string | null | undefined>) {
   for (const value of values) {
@@ -84,13 +84,7 @@ function selectVisibleCallSession(sessions: ConversationCallSession[], currentUs
 }
 
 function selectIncomingCallSession(sessions: ConversationCallSession[]) {
-  return sessions.find(
-    (session) =>
-      isLiveCallSession(session)
-      && session.direction === 'INBOUND'
-      && !session.claimedByUserId
-      && (session.status === 'REQUESTED' || session.status === 'PERMISSION_REQUESTED' || session.status === 'RINGING'),
-  ) ?? null;
+  return sessions.find(isActionableIncomingCall) ?? null;
 }
 
 function fallbackConversation(session: ConversationCallSession): ConversationCallConversation {
@@ -155,7 +149,7 @@ export function GlobalCallLayer() {
     refetchOnMount: 'always',
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
-    select: (data) => ({ ...data, items: data.items.filter((item) => item.workspaceId === callScope?.workspaceId && isCallSessionRoutedToUser(item, currentUserId ?? '')) }),
+    select: (data) => ({ ...data, items: data.items.filter((item) => item.workspaceId === callScope?.workspaceId && !isExpiredIncomingWhatsappCall(item) && isCallSessionRoutedToUser(item, currentUserId ?? '')) }),
     refetchIntervalInBackground: false,
     refetchInterval: pollingWhileUnlocked(() => {
       if (appState !== 'active') return false;

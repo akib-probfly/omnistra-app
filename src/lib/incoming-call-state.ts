@@ -26,6 +26,14 @@ export function isCallSessionRoutedToUser(session: ConversationCallSession, user
 
 export function isActionableIncomingCall(session: ConversationCallSession | null | undefined) {
   return Boolean(session && session.direction === 'INBOUND' && !session.endedAt &&
+    !isExpiredIncomingWhatsappCall(session) &&
     !session.claimedByWorkspaceMemberId && !session.claimedByUserId &&
     ['REQUESTED', 'PERMISSION_REQUESTED', 'RINGING'].includes(session.status));
+}
+
+export function isExpiredIncomingWhatsappCall(session: ConversationCallSession, now = Date.now()) {
+  return session.provider === 'whatsapp' && session.direction === 'INBOUND' &&
+    !session.claimedByWorkspaceMemberId && !session.claimedByUserId &&
+    ['REQUESTED', 'PERMISSION_REQUESTED', 'RINGING'].includes(session.status) &&
+    now - Date.parse(session.createdAt) >= INCOMING_CALL_TTL_MS;
 }

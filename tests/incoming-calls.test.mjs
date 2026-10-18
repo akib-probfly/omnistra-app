@@ -22,6 +22,17 @@ test('expired, malformed and cross-account prompts cannot become actionable', ()
   assert.equal(state.isCallSessionRoutedToUser({ ...call, metadata: { routingTargetUserIds: [] } }, 'user-1'), false);
 });
 
+test('stale WhatsApp rings expire while connected, outbound and web chat flows remain intact', () => {
+  const state = application()('src/lib/incoming-call-state');
+  const stale = { ...call, provider: 'whatsapp', createdAt: new Date(Date.now() - 90_001).toISOString() };
+  assert.equal(state.isActionableIncomingCall(stale), false);
+  for (const changed of [{ status: 'CONNECTED' }, { direction: 'OUTBOUND' }, { provider: 'webchat' },
+    { claimedByWorkspaceMemberId: 'member-1' }]) {
+    assert.equal(state.isExpiredIncomingWhatsappCall({ ...stale, ...changed }), false);
+  }
+  assert.equal(state.isActionableIncomingCall({ ...stale, provider: 'webchat' }), true);
+});
+
 function promptStore(initial = null) {
   let stored = initial ? JSON.stringify(initial) : null;
   const load = application({
