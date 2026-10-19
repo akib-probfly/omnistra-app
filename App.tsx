@@ -22,6 +22,7 @@ import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { navigationRef } from './src/navigation/navigationRef';
 import { isSafeNotificationId } from './src/lib/mobile-notification';
 import { ensureAudioSessionLifecycle } from './src/lib/audio-session';
+import { AppErrorBoundary } from './src/components/AppErrorBoundary';
 
 configureMobileForegroundNotificationHandler();
 ensureAudioSessionLifecycle();
@@ -242,7 +243,9 @@ export default function App() {
       <AuthProvider>
         <CallControllerProvider>
           <ThemeProvider>
-            <RootApp />
+            <AppErrorBoundary>
+              <RootApp />
+            </AppErrorBoundary>
           </ThemeProvider>
         </CallControllerProvider>
       </AuthProvider>
