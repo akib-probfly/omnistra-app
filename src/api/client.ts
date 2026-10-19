@@ -33,9 +33,14 @@ export function isApiErrorWithStatus(error: unknown, status: number) {
 export let latestAccessToken: string | null = null;
 let authExpiredHandler: (() => void) | null = null;
 const accessTokenListeners = new Set<(token: string | null) => void>();
+let tokenRevision = 0;
+let sessionRevision = 0;
+let refreshInFlight: { revision: number; promise: Promise<string | null> } | null = null;
 
-export function setLatestAccessToken(token: string | null) {
+export function setLatestAccessToken(token: string | null, refreshed = false) {
   if (latestAccessToken === token) return;
+  if (!refreshed) sessionRevision += 1;
+  tokenRevision += 1;
   latestAccessToken = token;
   accessTokenListeners.forEach((listener) => listener(token));
 }
@@ -49,6 +54,45 @@ export function subscribeAccessToken(listener: (token: string | null) => void) {
 
 export function setAuthExpiredHandler(handler: (() => void) | null) {
   authExpiredHandler = handler;
+}
+
+async function refreshAccessToken(revision: number): Promise<string | null> {
+  if (refreshInFlight?.revision === revision) return refreshInFlight.promise;
+  const promise = (async () => {
+    const refreshToken = await SecureStore.getItemAsync('refresh-token');
+    if (revision !== tokenRevision) return null;
+    if (!refreshToken) {
+      authExpiredHandler?.();
+      return null;
+    }
+    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-auth-transport': 'body' },
+      body: JSON.stringify({ refreshToken }),
+    });
+    if (revision !== tokenRevision) return null;
+    if (!response.ok) {
+      // A temporary outage must not log the user out.
+      if (response.status === 401 || response.status === 403) authExpiredHandler?.();
+      throw new ApiError('Unable to refresh your session. Please try again.', response.status);
+    }
+    const payload = await response.json() as { accessToken?: string; refreshToken?: string; data?: { accessToken?: string; refreshToken?: string } };
+    const refreshed = payload.data ?? payload;
+    if (revision !== tokenRevision) return null;
+    if (!refreshed.accessToken) throw new ApiError('Session refresh returned no access token.', 502);
+    await SecureStore.setItemAsync('access-token', refreshed.accessToken);
+    if (revision !== tokenRevision) return null;
+    if (refreshed.refreshToken) await SecureStore.setItemAsync('refresh-token', refreshed.refreshToken);
+    if (revision !== tokenRevision) return null;
+    setLatestAccessToken(refreshed.accessToken, true);
+    return refreshed.accessToken;
+  })();
+  refreshInFlight = { revision, promise };
+  try {
+    return await promise;
+  } finally {
+    if (refreshInFlight?.promise === promise) refreshInFlight = null;
+  }
 }
 
 export async function uploadFile(path: string, uri: string, name: string, mimeType: string, fields: Record<string, string> = {}) {
@@ -105,6 +149,8 @@ export async function apiFetch<T>(path: string, init: RequestInit & { auth?: boo
   // release builds while the in-memory session is already valid.
   const token = auth ? (latestAccessToken ?? await SecureStore.getItemAsync('access-token')) : null;
   if (auth) setLatestAccessToken(token);
+  const requestRevision = tokenRevision;
+  const requestSessionRevision = sessionRevision;
   if (__DEV__) console.log(`[api] request ${fetchInit.method ?? 'GET'} ${path}`, { authenticated: Boolean(token) });
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...fetchInit,
@@ -118,28 +164,21 @@ export async function apiFetch<T>(path: string, init: RequestInit & { auth?: boo
 
   const requestHeaders = new Headers(fetchInit.headers);
   if (auth && response.status === 401 && requestHeaders.get('x-mobile-retry') !== '1') {
-    const refreshToken = await SecureStore.getItemAsync('refresh-token');
-    if (refreshToken) {
-      const refreshResponse = await fetch(`${API_BASE_URL}/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-auth-transport': 'body' },
-        body: JSON.stringify({ refreshToken }),
-      });
-      if (refreshResponse.ok) {
-        const refreshPayload = await refreshResponse.json() as { accessToken?: string; refreshToken?: string; data?: { accessToken?: string; refreshToken?: string } };
-        const refreshed = refreshPayload.data ?? refreshPayload;
-        if (refreshed.accessToken) {
-          await SecureStore.setItemAsync('access-token', refreshed.accessToken);
-          if (refreshed.refreshToken) await SecureStore.setItemAsync('refresh-token', refreshed.refreshToken);
-          setLatestAccessToken(refreshed.accessToken);
-          return apiFetch<T>(path, { ...init, headers: { ...Object.fromEntries(requestHeaders.entries()), 'x-mobile-retry': '1' } });
-        }
-      }
+    // A late 401 can belong to a token that another request already refreshed.
+    // Reuse that token only within this request's refresh transition.
+    const newerToken = requestSessionRevision === sessionRevision && latestAccessToken !== token && latestAccessToken;
+    const refreshedToken = requestRevision === tokenRevision
+      ? await refreshAccessToken(requestRevision)
+      : newerToken;
+    if (refreshedToken) {
+      requestHeaders.delete('Authorization');
+      requestHeaders.set('x-mobile-retry', '1');
+      return apiFetch<T>(path, { ...init, headers: Object.fromEntries(requestHeaders.entries()) });
     }
   }
 
   if (!response.ok) {
-    if (auth && response.status === 401 && requestHeaders.get('x-mobile-retry') !== '1') {
+    if (auth && response.status === 401 && requestRevision === tokenRevision) {
       authExpiredHandler?.();
     }
     const raw = await response.text();
