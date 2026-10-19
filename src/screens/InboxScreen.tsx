@@ -423,7 +423,9 @@ export function InboxScreen() {
                     setSelectedTab(key);
                     startTabTransition(() => setTab(key));
                   }}>
-                    <Text style={[styles.filterText, { color: active ? colors.text : colors.textSecondary }]}>{key === 'all' ? 'All' : key === 'unread' ? 'Unread' : 'Closed'}</Text>
+                    <Text style={[styles.filterText, { color: active ? colors.text : colors.textSecondary }]}>
+                      {key === 'all' ? 'All' : key === 'unread' ? 'Unread' : 'Closed'}
+                    </Text>
                   </Pressable>
                 );
               })}
@@ -441,9 +443,10 @@ export function InboxScreen() {
           </View>
 
           {tab === 'closed' ? (
-            <View style={[styles.closedBanner, { backgroundColor: colors.surfaceSecondary, borderColor: colors.cardBorder }]}>
-              <Text style={[styles.closedBannerTitle, { color: colors.text }]}>
-                {closedCount.isLoading ? 'Loading closed count...' : `${new Intl.NumberFormat().format(closedCount.data ?? 0)} closed`}
+            <View style={styles.closedCountRow}>
+              <Text style={[styles.closedCountLabel, { color: colors.textMuted }]}>Closed chats</Text>
+              <Text accessibilityLiveRegion="polite" style={[styles.closedCountValue, { color: colors.textSecondary }]}>
+                {closedCount.data !== undefined ? new Intl.NumberFormat().format(closedCount.data) : closedCount.isError ? 'Unavailable' : 'Loading…'}
               </Text>
             </View>
           ) : null}
@@ -1040,8 +1043,9 @@ const styles = StyleSheet.create({
   filterPillActive: { elevation: 1, shadowOpacity: 0.06, shadowRadius: 4 },
   filterText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
   filterTextActive: { fontWeight: fontWeight.bold },
-  closedBanner: { borderRadius: radius.sm, borderWidth: 1, marginHorizontal: spacing.md, marginTop: spacing.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs + 2 },
-  closedBannerTitle: { fontSize: fontSize.small, fontWeight: fontWeight.bold },
+  closedCountRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+  closedCountLabel: { fontSize: fontSize.small, fontWeight: fontWeight.medium },
+  closedCountValue: { flexShrink: 1, fontSize: fontSize.small, fontWeight: fontWeight.semibold, fontVariant: ['tabular-nums'] },
   unrepliedToggle: { alignItems: 'center', borderRadius: radius.lg, borderWidth: 1, flexDirection: 'row', flexShrink: 0, gap: spacing.xs + 2, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   unrepliedToggleActive: {},
   unrepliedLabel: { fontSize: fontSize.tiny, fontWeight: fontWeight.semibold },
