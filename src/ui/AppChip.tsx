@@ -9,9 +9,11 @@ type Props = {
   tone?: 'default' | 'danger';
   labelColor?: string;
   size?: keyof typeof chipSize;
+  disabled?: boolean;
+  accessibilityLabel?: string;
 };
 
-export function AppChip({ label, selected = false, onPress, tone = 'default', labelColor, size = 'default' }: Props) {
+export function AppChip({ label, selected = false, onPress, tone = 'default', labelColor, size = 'default', disabled = false, accessibilityLabel }: Props) {
   const { colors } = useTheme();
   const selectedBg = tone === 'danger' ? colors.error : colors.primary;
   const idleColor = tone === 'danger' ? colors.error : colors.textSecondary;
@@ -19,7 +21,10 @@ export function AppChip({ label, selected = false, onPress, tone = 'default', la
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ selected }}
+      accessibilityState={{ selected, disabled }}
+      accessibilityLabel={accessibilityLabel ?? label}
+      disabled={disabled}
+      hitSlop={spacing.md}
       onPress={onPress}
       style={({ pressed }) => [
         styles.chip,
@@ -29,7 +34,7 @@ export function AppChip({ label, selected = false, onPress, tone = 'default', la
           borderColor: selected ? selectedBg : labelColor ?? colors.cardBorder,
         },
         tone === 'danger' && !selected && styles.plain,
-        pressed && styles.pressed,
+        disabled ? styles.disabled : pressed && styles.pressed,
       ]}
     >
       <Text
@@ -50,4 +55,5 @@ const styles = StyleSheet.create({
   plain: { borderWidth: borderWidth.none, paddingHorizontal: spacing.sm },
   label: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
   pressed: { opacity: opacity.pressed },
+  disabled: { opacity: opacity.disabled },
 });
