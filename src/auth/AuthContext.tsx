@@ -107,22 +107,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ),
         updateUser,
         logout: async () => {
-          const refreshToken = await SecureStore.getItemAsync('refresh-token');
-          if (refreshToken)
-            await apiFetch('/auth/logout', {
-              method: 'POST',
-              headers: { 'x-auth-transport': 'body' },
-              body: JSON.stringify({ refreshToken }),
-            });
-          await revokeRegisteredMobilePushDevice();
-          clearBillingLock();
-          await clearIncomingCallPrompt();
-          setSession(null);
-          setLatestAccessToken(null);
-          queryClient.clear();
-          await SecureStore.deleteItemAsync('session');
-          await SecureStore.deleteItemAsync('access-token');
-          await SecureStore.deleteItemAsync('refresh-token');
+          try {
+            const refreshToken = await SecureStore.getItemAsync('refresh-token');
+            if (refreshToken) {
+              await apiFetch('/auth/logout', {
+                method: 'POST',
+                headers: { 'x-auth-transport': 'body' },
+                body: JSON.stringify({ refreshToken }),
+              });
+            }
+          } catch (error) {
+            console.warn('[auth] server logout failed', error);
+          } finally {
+            try {
+              await revokeRegisteredMobilePushDevice();
+            } catch (error) {
+              console.warn('[auth] push cleanup failed', error);
+            } finally {
+              setSession(null);
+              setLatestAccessToken(null);
+              queryClient.clear();
+              clearBillingLock();
+              // Attempt every local cleanup even if one storage operation fails.
+              const results = await Promise.allSettled([
+                clearIncomingCallPrompt(),
+                SecureStore.deleteItemAsync('session'),
+                SecureStore.deleteItemAsync('access-token'),
+                SecureStore.deleteItemAsync('refresh-token'),
+              ]);
+              for (const result of results) {
+                if (result.status === 'rejected') console.warn('[auth] local logout cleanup failed', result.reason);
+              }
+            }
+          }
         },
       }}
     >
