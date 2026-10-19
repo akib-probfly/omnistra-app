@@ -91,7 +91,8 @@ export function getWhatsappOrder(message: { metadata?: unknown }): WhatsappOrder
   const items = (Array.isArray(rawOrder.product_items) ? rawOrder.product_items : [])
     .map((rawItem: unknown) => {
       const item = metadataRecord(rawItem);
-      const productRetailerId = typeof item?.product_retailer_id === 'string' ? item.product_retailer_id : null;
+      if (!item) return null;
+      const productRetailerId = typeof item.product_retailer_id === 'string' ? item.product_retailer_id : null;
       if (!productRetailerId) return null;
       const parsedQuantity = Number(item.quantity ?? 1);
       const quantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0 ? parsedQuantity : 1;
