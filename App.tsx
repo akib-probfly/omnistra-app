@@ -98,6 +98,7 @@ const linking = {
       Main: {
         screens: {
           Inbox: {
+            initialRouteName: 'InboxList',
             screens: {
               InboxList: 'inbox',
               Conversation: 'inbox/conversation/:conversationId',
@@ -129,8 +130,9 @@ const linking = {
     try {
       const parsed = new URL(`https://osaas.app/${path.replace(/^\/+/, '')}`);
       const pathname = parsed.pathname.replace(/^\/+|\/+$/g, '');
-      const conversationId = parsed.searchParams.get('conversation');
-      if ((pathname === 'inbox' || pathname === 'calls') && isSafeNotificationId(conversationId)) {
+      const conversationPath = pathname.match(/^inbox\/conversation\/([^/]+)$/);
+      const conversationId = parsed.searchParams.get('conversation') ?? conversationPath?.[1];
+      if ((pathname === 'inbox' || pathname === 'calls' || conversationPath) && isSafeNotificationId(conversationId)) {
         return {
           routes: [{
             name: 'Main',
@@ -138,7 +140,8 @@ const linking = {
               routes: [{
                 name: 'Inbox',
                 state: {
-                  routes: [{
+                  index: 1,
+                  routes: [{ name: 'InboxList' }, {
                     name: 'Conversation',
                     params: { conversationId, contactName: 'Conversation' },
                   }],
