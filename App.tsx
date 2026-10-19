@@ -23,6 +23,7 @@ import { navigationRef } from './src/navigation/navigationRef';
 import { isSafeNotificationId } from './src/lib/mobile-notification';
 import { ensureAudioSessionLifecycle } from './src/lib/audio-session';
 import { AppErrorBoundary } from './src/components/AppErrorBoundary';
+import { useQueryLifecycle } from './src/hooks/useQueryLifecycle';
 
 configureMobileForegroundNotificationHandler();
 ensureAudioSessionLifecycle();
@@ -39,7 +40,10 @@ const queryClient = new QueryClient({
         if (error instanceof ApiError && error.status >= 400 && error.status < 500) return false;
         return failureCount < 3;
       },
-      refetchOnWindowFocus: () => !isBillingLocked(),
+      // These queries already recover through useRealtimeSync on foreground.
+      refetchOnWindowFocus: (query) => !isBillingLocked() && ![
+        'conversations', 'conversation-count', 'inbox-unread-count', 'messages', 'dashboard',
+      ].includes(String(query.queryKey[0])),
       refetchOnReconnect: () => !isBillingLocked(),
     },
   },
@@ -238,6 +242,7 @@ function RootApp() {
 }
 
 export default function App() {
+  useQueryLifecycle();
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
