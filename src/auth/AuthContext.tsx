@@ -1,5 +1,6 @@
 import { clearIncomingCallPrompt } from '../lib/incoming-call-prompt';
 import * as SecureStore from 'expo-secure-store';
+import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { apiFetch, setAuthExpiredHandler, setLatestAccessToken } from '../api/client';
 import { clearBillingLock } from '../lib/billing-lock';
@@ -20,6 +21,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -39,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         const parsed = JSON.parse(value) as { user?: Session['user'] };
         if (!parsed.user) throw new Error('Invalid stored session');
+        queryClient.clear();
         setSession({ user: parsed.user, accessToken });
         setLatestAccessToken(accessToken);
       } catch (error) {
@@ -55,19 +58,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       active = false;
       clearTimeout(timeout);
     };
-  }, []);
+  }, [queryClient]);
   useEffect(() => {
     const clearExpiredSession = () => {
       clearBillingLock();
       void clearIncomingCallPrompt();
       setSession(null);
       setLatestAccessToken(null);
+      queryClient.clear();
       void Promise.all([SecureStore.deleteItemAsync('session'), SecureStore.deleteItemAsync('access-token'), SecureStore.deleteItemAsync('refresh-token')]);
     };
     setAuthExpiredHandler(clearExpiredSession);
     return () => setAuthExpiredHandler(null);
-  }, []);
+  }, [queryClient]);
   async function save(next: Session) {
+    // Login establishes a new account boundary. clear() destroys pending query
+    // retries and removes both query and mutation caches before screens mount.
+    queryClient.clear();
     setSession(next);
     setLatestAccessToken(next.accessToken);
     await SecureStore.setItemAsync('session', JSON.stringify({ user: next.user }));
@@ -112,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await clearIncomingCallPrompt();
           setSession(null);
           setLatestAccessToken(null);
+          queryClient.clear();
           await SecureStore.deleteItemAsync('session');
           await SecureStore.deleteItemAsync('access-token');
           await SecureStore.deleteItemAsync('refresh-token');
