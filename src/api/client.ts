@@ -95,51 +95,109 @@ async function refreshAccessToken(revision: number): Promise<string | null> {
   }
 }
 
-export async function uploadFile(path: string, uri: string, name: string, mimeType: string, fields: Record<string, string> = {}) {
-  const token = latestAccessToken ?? await SecureStore.getItemAsync('access-token');
-  setLatestAccessToken(token);
-  const form = new FormData();
-  Object.entries(fields).forEach(([key, value]) => form.append(key, value));
-  // React Native's native XHR networking supports local URI file parts.
-  // Expo's fetch FormData converter rejects these React Native descriptors.
-  form.append('file', { uri, name, type: mimeType } as any);
-
-  const responseText = await new Promise<string>((resolve, reject) => {
-    const request = new XMLHttpRequest();
-    request.open('POST', `${API_BASE_URL}${path}`);
-    request.setRequestHeader('Accept', 'application/json');
-    if (token) request.setRequestHeader('Authorization', `Bearer ${token}`);
-    request.onload = () => {
-      if (request.status >= 200 && request.status < 300) {
-        resolve(request.responseText);
-        return;
-      }
-      let message = `File upload failed (${request.status})`;
-      try {
-        const parsed = JSON.parse(request.responseText) as { message?: string | string[]; error?: string };
-        const serverMessage = parsed.message ?? parsed.error;
-        if (Array.isArray(serverMessage)) message = serverMessage.join(', ');
-        else if (serverMessage) message = serverMessage;
-      } catch {
-        if (request.responseText && request.responseText.length < 240) message = request.responseText;
-      }
-      reject(new ApiError(message, request.status));
-    };
-    request.onerror = () => reject(new Error('File upload failed due to a network error.'));
-    request.onabort = () => reject(new Error('File upload was cancelled.'));
-    request.send(form);
+export async function uploadFile(path: string, uri: string, name: string, mimeType: string, fields: Record<string, string> = {}, options: { signal?: AbortSignal; timeoutMs?: number } = {}) {
+  const controller = new AbortController();
+  let timedOut = false;
+  const cancel = () => controller.abort();
+  options.signal?.addEventListener('abort', cancel);
+  if (options.signal?.aborted) cancel();
+  const timeout = setTimeout(() => { timedOut = true; cancel(); }, options.timeoutMs ?? 120_000);
+  const cancellationError = () => new Error(timedOut ? 'File upload timed out. Please try again.' : 'File upload was cancelled.');
+  let rejectCancelled: () => void = () => {};
+  const cancelled = new Promise<never>((_, reject) => {
+    rejectCancelled = () => reject(cancellationError());
+    controller.signal.addEventListener('abort', rejectCancelled);
+    if (controller.signal.aborted) rejectCancelled();
   });
-  const payload = JSON.parse(responseText) as any;
-  return (payload?.data ?? payload) as {
-    id: string;
-    mimeType?: string;
-    mediaType?: string;
-    originalName?: string | null;
-    sizeBytes?: number | null;
-    downloadUrl?: string;
-    previewUrl?: string | null;
-    thumbnailUrl?: string | null;
+
+  const upload = async () => {
+    const token = latestAccessToken ?? await SecureStore.getItemAsync('access-token');
+    if (controller.signal.aborted) throw cancellationError();
+    setLatestAccessToken(token);
+    const uploadSessionRevision = sessionRevision;
+    let uploadToken = token;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const uploadRevision = tokenRevision;
+      if (controller.signal.aborted) throw cancellationError();
+      if (uploadSessionRevision !== sessionRevision) throw new Error('Your session changed. Please upload again.');
+      const form = new FormData();
+      Object.entries(fields).forEach(([key, value]) => form.append(key, value));
+      // React Native's native XHR networking supports local URI file parts.
+      // Expo's fetch FormData converter rejects these React Native descriptors.
+      form.append('file', { uri, name, type: mimeType } as any);
+
+      let responseText: string;
+      try {
+        responseText = await new Promise<string>((resolve, reject) => {
+          const request = new XMLHttpRequest();
+          request.open('POST', `${API_BASE_URL}${path}`);
+          request.setRequestHeader('Accept', 'application/json');
+          if (uploadToken) request.setRequestHeader('Authorization', `Bearer ${uploadToken}`);
+          const abortRequest = () => { request.abort(); reject(cancellationError()); };
+          controller.signal.addEventListener('abort', abortRequest);
+          request.onloadend = () => controller.signal.removeEventListener('abort', abortRequest);
+          request.onload = () => {
+            if (request.status >= 200 && request.status < 300) {
+              resolve(request.responseText);
+              return;
+            }
+            let message = `File upload failed (${request.status})`;
+            try {
+              const parsed = JSON.parse(request.responseText) as { message?: string | string[]; error?: string };
+              const serverMessage = parsed.message ?? parsed.error;
+              if (Array.isArray(serverMessage)) message = serverMessage.join(', ');
+              else if (serverMessage) message = serverMessage;
+            } catch {
+              if (request.responseText && request.responseText.length < 240) message = request.responseText;
+            }
+            reject(new ApiError(message, request.status));
+          };
+          request.onerror = () => reject(new Error('File upload failed due to a network error.'));
+          request.onabort = () => reject(cancellationError());
+          if (controller.signal.aborted) abortRequest();
+          else {
+            try { request.send(form); }
+            catch (error) { controller.signal.removeEventListener('abort', abortRequest); reject(error); }
+          }
+        });
+      } catch (error) {
+        if (controller.signal.aborted) throw cancellationError();
+        if (error instanceof ApiError && error.status === 401 && uploadSessionRevision === sessionRevision) {
+          if (attempt === 0) {
+            const refreshedToken = uploadRevision === tokenRevision
+              ? await refreshAccessToken(uploadRevision)
+              : latestAccessToken;
+            if (controller.signal.aborted) throw cancellationError();
+            if (refreshedToken && uploadSessionRevision === sessionRevision) {
+              uploadToken = refreshedToken;
+              continue;
+            }
+          }
+          if (uploadRevision === tokenRevision) authExpiredHandler?.();
+        }
+        throw error;
+      }
+      const payload = JSON.parse(responseText) as any;
+      return (payload?.data ?? payload) as {
+        id: string;
+        mimeType?: string;
+        mediaType?: string;
+        originalName?: string | null;
+        sizeBytes?: number | null;
+        downloadUrl?: string;
+        previewUrl?: string | null;
+        thumbnailUrl?: string | null;
+      };
+    }
+    throw new Error('File upload failed. Please try again.');
   };
+  try {
+    return await Promise.race([upload(), cancelled]);
+  } finally {
+    clearTimeout(timeout);
+    options.signal?.removeEventListener('abort', cancel);
+    controller.signal.removeEventListener('abort', rejectCancelled);
+  }
 }
 
 export async function apiFetch<T>(path: string, init: RequestInit & { auth?: boolean } = {}): Promise<T> {
