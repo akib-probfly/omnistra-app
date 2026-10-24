@@ -39,6 +39,9 @@ import { chipSize, fontSize, fontWeight, radius, spacing } from '../theme/tokens
 type SidebarTab = 'chats' | 'calls';
 type Tab = 'all' | 'unread' | 'closed';
 
+// Matches the backend conversation search validation and trigram index minimum.
+const CONVERSATION_SEARCH_MIN_LENGTH = 3;
+
 function inboxConversationOptions(filters: Parameters<typeof fetchConversations>[0]) {
   return infiniteQueryOptions({
     queryKey: ['conversations', filters],
@@ -246,7 +249,10 @@ export function InboxScreen() {
   const onSearchChange = (value: string) => {
     setSearch(value);
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => setDebouncedSearch(value), 500);
+    searchTimer.current = setTimeout(() => {
+      const trimmed = value.trim();
+      setDebouncedSearch(trimmed.length >= CONVERSATION_SEARCH_MIN_LENGTH ? trimmed : '');
+    }, 500);
   };
 
   const onTagTextChange = (value: string) => {
@@ -405,8 +411,8 @@ export function InboxScreen() {
           <View style={[styles.searchRow, { borderBottomColor: colors.separator }]}>
             <View style={[styles.search, { backgroundColor: colors.surface, borderColor: colors.inputBorder }]}>
               <Search color={colors.textMuted} size={16} />
-              <TextInput value={search} onChangeText={onSearchChange} placeholder="Search..." placeholderTextColor={colors.textMuted} style={[styles.input, { color: colors.text }]} />
-              {debouncedSearch ? <Pressable onPress={() => { setSearch(''); setDebouncedSearch(''); }}><Text style={[styles.clearSearch, { color: colors.textMuted }]}>✕</Text></Pressable> : null}
+              <TextInput value={search} onChangeText={onSearchChange} placeholder="Search (min. 3 characters)" placeholderTextColor={colors.textMuted} style={[styles.input, { color: colors.text }]} />
+              {search ? <Pressable onPress={() => { if (searchTimer.current) clearTimeout(searchTimer.current); setSearch(''); setDebouncedSearch(''); }}><Text style={[styles.clearSearch, { color: colors.textMuted }]}>✕</Text></Pressable> : null}
             </View>
             <Pressable style={[styles.filterButton, { borderColor: hasAdvancedFilters ? colors.primary : colors.cardBorder }]} onPress={() => setFilterOpen(true)}>
               <Filter color={hasAdvancedFilters ? colors.primary : colors.textSecondary} size={15} />

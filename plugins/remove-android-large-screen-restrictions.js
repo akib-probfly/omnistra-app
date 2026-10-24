@@ -1,4 +1,4 @@
-const { withAndroidManifest } = require('@expo/config-plugins');
+const { withAndroidManifest } = require('expo/config-plugins');
 
 const APP_ACTIVITIES = new Set([
   '.MainActivity',

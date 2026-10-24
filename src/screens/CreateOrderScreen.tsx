@@ -2,7 +2,7 @@ import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { Check, ChevronDown, Minus, Package, Plus, Search, Trash2, Truck, X } from 'lucide-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputInstance } from 'react-native';
 import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchChannels } from '../api/channels';
@@ -142,7 +142,7 @@ export function CreateOrderScreen() {
   const [recipientEmail, setRecipientEmail] = useState(initialRecipient?.email ?? '');
   const [address, setAddress] = useState(initialRecipient?.address ?? '');
   const [productSearch, setProductSearch] = useState('');
-  const productSearchRef = useRef<TextInput>(null);
+  const productSearchRef = useRef<TextInputInstance>(null);
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [locationSearch, setLocationSearch] = useState('');

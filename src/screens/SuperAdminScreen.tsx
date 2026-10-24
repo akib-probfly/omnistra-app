@@ -177,7 +177,7 @@ export function SuperAdminScreen() {
             onEndReached={() => { if (workspaces.hasNextPage && !workspaces.isFetching) void workspaces.fetchNextPage(); }}
             onEndReachedThreshold={0.3}
             ListEmptyComponent={<AppText tone="secondary">No workspaces found.</AppText>}
-            ListFooterComponent={workspaces.isFetchingNextPage ? <ActivityIndicator color={colors.primary} /> : null}
+            ListFooterComponent={workspaces.isFetchingNextPage ? <ActivityIndicator color={colors.primary} /> : undefined}
             renderItem={({ item }) => <Pressable accessibilityRole="button" accessibilityLabel={`Manage ${item.name}`} onPress={() => setSelected(item)}>
               <AppCard style={styles.card}>
                 <View style={styles.workspaceHeader}>

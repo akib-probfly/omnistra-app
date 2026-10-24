@@ -95,7 +95,7 @@ export function ChannelsScreen() {
         <FlatList
           data={items}
           keyExtractor={(item) => item.id}
-          refreshControl={<RefreshControl refreshing={channels.isRefetching} onRefresh={() => channels.refetch()} tintColor={colors.primary} />}
+          refreshControl={<RefreshControl refreshing={channels.isRefetching} onRefresh={() => { void channels.refetch(); }} tintColor={colors.primary} />}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <EmptyState

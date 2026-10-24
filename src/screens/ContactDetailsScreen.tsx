@@ -639,7 +639,7 @@ export function ContactDetailsScreen() {
         onConfirm={() => banMutation.mutate(pendingBanAction)}
       />
 
-      <Modal visible={deleteOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => !deleteMutation.isPending && setDeleteOpen(false)}>
+      <Modal visible={deleteOpen} transparent animationType="fade" statusBarTranslucent onRequestClose={() => { if (!deleteMutation.isPending) setDeleteOpen(false); }}>
         <View style={styles.deleteModalOverlay}>
           <View style={[styles.deleteModalCard, { backgroundColor: colors.surface }]}>
             <Pressable

@@ -1,4 +1,4 @@
-const { withSettingsGradle } = require('@expo/config-plugins');
+const { withSettingsGradle } = require('expo/config-plugins');
 
 const DEV_CLIENT_MODULES = [
   'expo-dev-client',

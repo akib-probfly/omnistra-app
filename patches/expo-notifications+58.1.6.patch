@@ -1,0 +1,24 @@
+diff --git a/node_modules/expo-notifications/build/BackgroundNotificationTasksModule.native.js b/node_modules/expo-notifications/build/BackgroundNotificationTasksModule.native.js
+index c646f51..d5869a4 100644
+--- a/node_modules/expo-notifications/build/BackgroundNotificationTasksModule.native.js
++++ b/node_modules/expo-notifications/build/BackgroundNotificationTasksModule.native.js
+@@ -1,4 +1,5 @@
+-import { requireNativeModule } from 'expo';
+-export default requireNativeModule('ExpoBackgroundNotificationTasksModule');
++import { isRunningInExpoGo, requireNativeModule, requireOptionalNativeModule } from 'expo';
++// Remote push modules are absent in Expo Go; keep local notifications importable.
++export default (isRunningInExpoGo() ? requireOptionalNativeModule : requireNativeModule)('ExpoBackgroundNotificationTasksModule');
+ 
+ //# sourceMappingURL=BackgroundNotificationTasksModule.native.js.map
+diff --git a/node_modules/expo-notifications/build/TopicSubscriptionModule.android.js b/node_modules/expo-notifications/build/TopicSubscriptionModule.android.js
+index 4ad9aff..7522f7a 100644
+--- a/node_modules/expo-notifications/build/TopicSubscriptionModule.android.js
++++ b/node_modules/expo-notifications/build/TopicSubscriptionModule.android.js
+@@ -1,4 +1,5 @@
+-import { requireNativeModule } from 'expo';
+-export default requireNativeModule('ExpoTopicSubscriptionModule');
++import { isRunningInExpoGo, requireNativeModule, requireOptionalNativeModule } from 'expo';
++// Remote push modules are absent in Expo Go; keep local notifications importable.
++export default (isRunningInExpoGo() ? requireOptionalNativeModule : requireNativeModule)('ExpoTopicSubscriptionModule');
+ 
+ //# sourceMappingURL=TopicSubscriptionModule.android.js.map

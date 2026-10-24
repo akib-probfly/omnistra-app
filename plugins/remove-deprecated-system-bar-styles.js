@@ -1,7 +1,7 @@
 const {
   AndroidConfig,
   withAndroidStyles,
-} = require('@expo/config-plugins');
+} = require('expo/config-plugins');
 
 const APP_THEME = AndroidConfig.Styles.getAppThemeGroup();
 const DEPRECATED_SYSTEM_BAR_STYLE_ITEMS = [

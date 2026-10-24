@@ -68,7 +68,7 @@ export function BillingCheckoutScreen() {
             <Text style={[styles.message, { color: colors.text }]}>{error}</Text>
           </View>
         ) : (
-          <WebView
+          <WebView<object>
             source={{ uri: checkoutUrl }}
             startInLoadingState
             javaScriptEnabled

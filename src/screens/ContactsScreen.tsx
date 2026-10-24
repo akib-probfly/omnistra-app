@@ -623,7 +623,7 @@ export function ContactsScreen() {
               }
             />
           )}
-          ListFooterComponent={contactsQuery.isFetchingNextPage ? <View style={{ alignItems: 'center', marginVertical: 16 }}><InlineSkeleton width={140} height={14} /></View> : null}
+          ListFooterComponent={contactsQuery.isFetchingNextPage ? <View style={{ alignItems: 'center', marginVertical: 16 }}><InlineSkeleton width={140} height={14} /></View> : undefined}
           renderItem={renderContactRow}
           extraData={navigation}
         />

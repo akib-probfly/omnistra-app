@@ -2,7 +2,7 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as SecureStore from 'expo-secure-store';
 import { Pause, Play, RotateCw } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, PanResponder, Pressable, StyleSheet, Text, View, type ViewInstance } from 'react-native';
 import { latestAccessToken, setLatestAccessToken, subscribeAccessToken } from '../api/client';
 import { activatePlaybackSession, ensureAudioSessionLifecycle, isCallAudioHeld, registerCallPlaybackInterruptor } from '../lib/audio-session';
 import { parseAudioDurationSeconds } from '../lib/audio-duration';
@@ -147,7 +147,7 @@ function PlayerShell({
   const duration = playerDuration ?? fallbackDuration ?? positiveSeconds(observedDuration);
   const progress = duration && duration > 0 ? Math.min(1, Math.max(0, status.currentTime / duration)) : 0;
   const filledCount = Math.round(BAR_PATTERN.length * progress);
-  const barWrap = useRef<View>(null);
+  const barWrap = useRef<ViewInstance>(null);
 
   const playerRef = useRef(player);
   playerRef.current = player;

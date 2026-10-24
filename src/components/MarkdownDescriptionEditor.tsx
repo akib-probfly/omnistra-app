@@ -65,7 +65,7 @@ root.addEventListener('input',send);document.addEventListener('selectionchange',
 
 export function MarkdownDescriptionEditor({ value, onChange }: { value: string; onChange: (markdown: string) => void }) {
   const { colors } = useTheme();
-  const webView = useRef<WebView>(null);
+  const webView = useRef<WebView<object>>(null);
   const lastSentValue = useRef(value);
   const source = useMemo(() => ({ html: `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><style>
     *{box-sizing:border-box}body{margin:0;padding:0;background:${colors.surface};color:${colors.text};font:15px -apple-system,BlinkMacSystemFont,sans-serif}#toolbar{display:flex;align-items:center;gap:5px;padding:9px 11px;background:${colors.surfaceSecondary};border-bottom:1px solid ${colors.cardBorder}}.tool-mark{display:flex;align-items:center;justify-content:center;width:30px;height:30px;margin-right:3px;border-radius:9px;background:${colors.primarySoft};color:${colors.primary};font-size:14px;font-weight:800}button{display:flex;align-items:center;justify-content:center;height:34px;min-width:34px;padding:0 8px;border:1px solid transparent;border-radius:9px;background:transparent;color:${colors.textSecondary};font-size:14px;font-weight:600}button.active{border-color:${colors.primaryBorder};background:${colors.primarySoft};color:${colors.primary}}button:active{background:${colors.surface}}.divider{height:20px;width:1px;margin:0 2px;background:${colors.cardBorder}}#editor{min-height:158px;padding:15px 16px;outline:none;line-height:1.6;overflow-wrap:anywhere}#editor:empty:before{content:'Describe this product';color:${colors.textMuted}}#editor p{margin:0 0 9px}#editor h1,#editor h2,#editor h3{font-size:1.18em;font-weight:700;margin:0 0 9px}#editor ul,#editor ol{padding-left:24px;margin:0 0 9px}a{color:${colors.primary}}
@@ -84,7 +84,7 @@ export function MarkdownDescriptionEditor({ value, onChange }: { value: string; 
     onChange(markdown);
   };
 
-  return <View style={[styles.container, { borderColor: colors.inputBorder, backgroundColor: colors.surface }]}><WebView ref={webView} source={source} onMessage={handleMessage} originWhitelist={['*']} javaScriptEnabled scrollEnabled={false} nestedScrollEnabled={false} keyboardDisplayRequiresUserAction={false} setSupportMultipleWindows={false} style={styles.webView} /></View>;
+  return <View style={[styles.container, { borderColor: colors.inputBorder, backgroundColor: colors.surface }]}><WebView<object> ref={webView} source={source} onMessage={handleMessage} originWhitelist={['*']} javaScriptEnabled scrollEnabled={false} nestedScrollEnabled={false} keyboardDisplayRequiresUserAction={false} setSupportMultipleWindows={false} style={styles.webView} /></View>;
 }
 
 const styles = StyleSheet.create({

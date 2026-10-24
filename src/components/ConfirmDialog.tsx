@@ -30,7 +30,7 @@ export function ConfirmDialog({
   const { colors } = useTheme();
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => !loading && onClose()}>
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={() => { if (!loading) onClose(); }}>
       <View style={styles.overlay}>
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <Pressable style={styles.close} onPress={() => !loading && onClose()} hitSlop={8}>

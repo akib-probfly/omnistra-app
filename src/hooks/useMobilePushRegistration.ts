@@ -2,7 +2,6 @@ import * as Notifications from "expo-notifications";
 import { useEffect } from "react";
 import {
   AppState,
-  type AppStateStatus,
   Platform,
 } from "react-native";
 import { useAuth } from "../auth/AuthContext";
@@ -31,7 +30,7 @@ function scheduleIdleTask(task: () => void): { cancel: () => void } {
   return { cancel: () => clearTimeout(handle) };
 }
 
-function isForeground(state: AppStateStatus): boolean {
+function isForeground(state: string | null | undefined): boolean {
   return state === "active";
 }
 

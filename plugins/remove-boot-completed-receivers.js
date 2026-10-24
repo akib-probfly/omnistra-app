@@ -1,4 +1,4 @@
-const { withAndroidManifest } = require('@expo/config-plugins');
+const { withAndroidManifest } = require('expo/config-plugins');
 
 // Android 15+ forbids BOOT_COMPLETED receivers from launching restricted
 // foreground service types (microphone, mediaPlayback, mediaProjection, ...).

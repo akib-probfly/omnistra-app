@@ -1569,7 +1569,7 @@ const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, 
       leftThreshold={28}
       overshootLeft={false}
       overshootRight={false}
-      dragOffsetFromLeftEdge={18}
+      dragOffsetFromLeft={18}
       renderLeftActions={renderLeftActions}
       onSwipeableWillOpen={handleWillOpen}
     >

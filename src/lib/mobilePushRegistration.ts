@@ -2,6 +2,7 @@ import * as Application from "expo-application";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
+import { AndroidImportance, AndroidNotificationVisibility, AndroidAudioUsage, AndroidAudioContentType } from "expo-notifications";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 import {
@@ -134,7 +135,7 @@ async function configureAndroidChannels(): Promise<void> {
 
   await Notifications.setNotificationChannelAsync(DEFAULT_CHANNEL_ID, {
     name: "Messages",
-    importance: Notifications.AndroidImportance.HIGH,
+    importance: AndroidImportance.HIGH,
     sound: "message.wav",
     vibrationPattern: [0, 250, 200, 250],
     lightColor: NOTIFICATION_COLOR,
@@ -142,16 +143,16 @@ async function configureAndroidChannels(): Promise<void> {
   await Notifications.setNotificationChannelAsync(CALL_CHANNEL_ID, {
     name: "Incoming calls",
     description: "Ringing WhatsApp voice calls",
-    importance: Notifications.AndroidImportance.MAX,
+    importance: AndroidImportance.MAX,
     sound: "call.wav",
     vibrationPattern: [0, 1000, 500, 1000, 500, 1000],
     lightColor: NOTIFICATION_COLOR,
     enableVibrate: true,
     bypassDnd: true,
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    lockscreenVisibility: AndroidNotificationVisibility.PUBLIC,
     audioAttributes: {
-      usage: Notifications.AndroidAudioUsage.NOTIFICATION_RINGTONE,
-      contentType: Notifications.AndroidAudioContentType.SONIFICATION,
+      usage: AndroidAudioUsage.NOTIFICATION_RINGTONE,
+      contentType: AndroidAudioContentType.SONIFICATION,
       flags: {
         enforceAudibility: true,
         requestHardwareAudioVideoSynchronization: false,
@@ -161,11 +162,11 @@ async function configureAndroidChannels(): Promise<void> {
   await Notifications.setNotificationChannelAsync(CALL_ENDED_CHANNEL_ID, {
     name: "Ended calls",
     description: "Notifications when WhatsApp voice calls finish",
-    importance: Notifications.AndroidImportance.HIGH,
+    importance: AndroidImportance.HIGH,
     sound: "default",
     vibrationPattern: [0, 250, 200, 250],
     lightColor: NOTIFICATION_COLOR,
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    lockscreenVisibility: AndroidNotificationVisibility.PUBLIC,
   });
 }
 

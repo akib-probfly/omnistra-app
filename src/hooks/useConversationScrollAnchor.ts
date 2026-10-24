@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
-import { type FlatList, type View, type ViewToken } from 'react-native';
+import { type FlatList, type ViewInstance, type ListViewToken } from 'react-native';
 
 type Anchor = { key: string; y: number };
 
@@ -12,7 +12,7 @@ export function useConversationScrollAnchor<T>(
   entries: T[],
   conversationId: string,
 ) {
-  const nodes = useRef(new Map<string, View>());
+  const nodes = useRef(new Map<string, ViewInstance>());
   const visibleKeys = useRef<string[]>([]);
   const anchor = useRef<Anchor | null>(null);
   const frame = useRef<number | null>(null);
@@ -31,12 +31,12 @@ export function useConversationScrollAnchor<T>(
     return cancel;
   }, [conversationId, cancel]);
 
-  const register = useCallback((key: string, node: View | null) => {
+  const register = useCallback((key: string, node: ViewInstance | null) => {
     if (node) nodes.current.set(key, node);
     else nodes.current.delete(key);
   }, []);
 
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ListViewToken[] }) => {
     visibleKeys.current = viewableItems.filter((item) => item.isViewable).map((item) => item.key);
   }).current;
 
