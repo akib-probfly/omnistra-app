@@ -45,6 +45,16 @@ import type { SettingsStackParamList } from '../navigation/SettingsStack';
 
 type BillingTab = 'current' | 'packages' | 'invoices' | 'history';
 
+const PACKAGE_ORDER = ['starter', 'growth', 'pro', 'enterprise'];
+
+function getPackageOrder(plan: BillingPlan) {
+  const keyIndex = PACKAGE_ORDER.indexOf(plan.key.trim().toLowerCase());
+  const index = keyIndex >= 0
+    ? keyIndex
+    : PACKAGE_ORDER.indexOf(plan.name.trim().toLowerCase());
+  return index >= 0 ? index : PACKAGE_ORDER.length;
+}
+
 const TABS: Array<{ id: BillingTab; label: string }> = [
   { id: 'current', label: 'Current' },
   { id: 'packages', label: 'Packages' },
@@ -181,7 +191,7 @@ export function BillingSettingsScreen() {
   const billingState = subscriptionQuery.data?.billingState ?? null;
   const usage = usageQuery.data;
   const plans = useMemo(
-    () => [...(plansQuery.data?.items ?? [])].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)),
+    () => [...(plansQuery.data?.items ?? [])].sort((a, b) => getPackageOrder(a) - getPackageOrder(b)),
     [plansQuery.data?.items],
   );
   const hasLiveSubscription = isLiveSubscriptionStatus(subscription?.status);
