@@ -118,7 +118,7 @@ if ($gradle -notmatch "signingConfigs.release" -and $gradle -notmatch "MYAPP_UPL
 }
 
 $preload = Join-Path $root "android\cmake-preload.cmake"
-Set-Content -Path $preload -Value 'set(CMAKE_OBJECT_PATH_MAX 80 CACHE STRING "Shorten ninja object paths on Windows" FORCE)' -Encoding ascii
+Set-Content -Path $preload -Value 'set(CMAKE_OBJECT_PATH_MAX 240 CACHE STRING "Shorten ninja object paths on Windows" FORCE)' -Encoding ascii
 $gradle = [System.IO.File]::ReadAllText($appGradle)
 if ($gradle -notmatch "cmake-preload.cmake") {
   $gradle = $gradle.Replace(
@@ -131,6 +131,24 @@ if ($gradle -notmatch "cmake-preload.cmake") {
   )
   $utf8NoBom = New-Object System.Text.UTF8Encoding $false
   [System.IO.File]::WriteAllText($appGradle, $gradle, $utf8NoBom)
+}
+
+# Library builds (notably Reanimated) resolve the junction back to the long
+# checkout path. Apply CMake object-path hashing to those projects as well.
+$projectGradle = Join-Path $root "android\build.gradle"
+$projectGradleText = [System.IO.File]::ReadAllText($projectGradle)
+if ($projectGradleText -notmatch "zurvisWindowsCmakePaths") {
+  Add-Content -Path $projectGradle -Value @'
+
+// zurvisWindowsCmakePaths
+subprojects { nativeProject ->
+    ['com.android.application', 'com.android.library'].each { pluginId ->
+        nativeProject.plugins.withId(pluginId) {
+            nativeProject.extensions.getByName('android').defaultConfig.externalNativeBuild.cmake.arguments('-DCMAKE_OBJECT_PATH_MAX=240')
+        }
+    }
+}
+'@
 }
 
 $googleServices = Join-Path $root "google-services.json"

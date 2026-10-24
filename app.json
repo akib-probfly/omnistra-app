@@ -1,8 +1,8 @@
-﻿{
+{
     "expo":  {
                  "name":  "Zurvis",
                  "slug":  "osaas-mobile",
-                 "version":  "1.0.24",
+                 "version":  "1.0.25",
                  "scheme":  "osaas",
                  "icon":  "./assets/icon.png",
                  "userInterfaceStyle":  "light",
@@ -27,7 +27,7 @@
                                  "softwareKeyboardLayoutMode":  "resize",
                                  "backgroundColor":  "#f4f7fb",
                                  "package":  "com.zurvis.mobile",
-                                 "versionCode":  25,
+                                 "versionCode":  26,
                                  "predictiveBackGestureEnabled":  false,
                                  "blockedPermissions":  [
                                                             "android.permission.READ_EXTERNAL_STORAGE",
@@ -64,7 +64,6 @@
                              "favicon":  "./assets/favicon.png"
                          },
                  "plugins":  [
-                                 "expo-web-browser",
                                  "expo-dev-client",
                                  "./plugins/remove-deprecated-system-bar-styles",
                                  "./plugins/remove-android-large-screen-restrictions",
@@ -119,7 +118,7 @@
                                      "expo-build-properties",
                                      {
                                          "android":  {
-                                                         "compileSdkVersion":  36,
+                                                         "compileSdkVersion":  37,
                                                          "targetSdkVersion":  36,
                                                          "buildToolsVersion":  "36.0.0",
                                                          "enablePngCrunchInReleaseBuilds":  true,

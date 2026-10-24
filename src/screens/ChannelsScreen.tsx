@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
-import { CheckCircle2, ChevronRight, CircleAlert, Pause, Plus } from 'lucide-react-native';
+import { CheckCircle2, ChevronRight, CircleAlert, Pause } from 'lucide-react-native';
 import { useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -14,7 +14,7 @@ import { ListSkeleton } from '../components/Skeleton';
 import type { ChannelsStackParamList } from '../navigation/ChannelsStack';
 import { useTheme } from '../theme/ThemeContext';
 import { fontSize, fontWeight, radius, spacing } from '../theme/tokens';
-import { AppBadge, AppButton, AppSearchField, AppText, EmptyState } from '../ui';
+import { AppBadge, AppSearchField, AppText, EmptyState } from '../ui';
 
 type Channel = {
   id: string;
@@ -85,7 +85,6 @@ export function ChannelsScreen() {
 
       <View style={styles.searchRow}>
         <AppSearchField value={search} onChangeText={setSearch} placeholder="Search channels..." fill={false} />
-        <AppButton label="Connect channel" icon={Plus} onPress={() => navigation.navigate('ChannelCatalog')} />
       </View>
 
       {channels.isError ? (
@@ -102,8 +101,7 @@ export function ChannelsScreen() {
             <EmptyState
               illustration={<ChannelLogo box={52} glyph={26} radius={18} />}
               title="No channels connected"
-              message="Connect a channel to start managing customer conversations."
-              action={<AppButton label="Browse channels" onPress={() => navigation.navigate('ChannelCatalog')} />}
+              message="Your connected channels will appear here."
             />
           }
           renderItem={({ item }) => <ChannelRow channel={item} onPress={() => openDetails(item)} />}

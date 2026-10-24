@@ -148,56 +148,6 @@ export type ChannelsListResponse = {
   summary?: ChannelsListSummary;
 };
 
-export function connectWhatsAppCloudApi(values: {
-  workspaceId: string;
-  wabaId: string;
-  phoneNumberId: string;
-  accessToken: string;
-}) {
-  return apiFetch<{ provider: 'meta_whatsapp_cloud_api'; channel: Channel; completedAt: string; pollPath: string }>(
-    '/channels/whatsapp/cloud-api',
-    { method: 'POST', body: JSON.stringify(values) },
-  );
-}
-
-export type MessengerConnectPreview = {
-  workspaceId: string;
-  state: string;
-  previewToken: string;
-  expiresAt: string;
-  remainingChannelSlots: number | null;
-  pages: Array<{
-    id: string;
-    name: string | null;
-    isConnectedInWorkspace: boolean;
-    isConnectedElsewhere: boolean;
-  }>;
-};
-
-export function startMessengerManualConnect(workspaceId: string) {
-  return apiFetch<{ state: string; expiresAt: string }>('/channels/messenger/connect', {
-    method: 'POST', body: JSON.stringify({ workspaceId, connectionMode: 'user_access_token' }),
-  });
-}
-
-export function startMessengerBusinessConnect(workspaceId: string) {
-  return apiFetch<{ state: string; expiresAt: string; launchUrl: string; redirectUri: string }>('/channels/messenger/connect', {
-    method: 'POST', body: JSON.stringify({ workspaceId, connectionMode: 'business_manager' }),
-  });
-}
-
-export function previewMessengerConnect(values: { state: string; accessToken?: string; code?: string; codeSource?: 'sdk' | 'redirect' }) {
-  return apiFetch<MessengerConnectPreview>('/channels/messenger/callback/preview', {
-    method: 'POST', body: JSON.stringify(values),
-  });
-}
-
-export function confirmMessengerConnect(values: { state: string; previewToken: string; selectedPageIds: string[] }) {
-  return apiFetch<{ channels: Channel[] }>('/channels/messenger/callback/confirm', {
-    method: 'POST', body: JSON.stringify(values),
-  });
-}
-
 export type WhatsappBusinessProfile = {
   messagingProduct: 'whatsapp';
   about: string | null;
