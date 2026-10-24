@@ -1,7 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
 import { Check, CheckCheck, FileText, ExternalLink, ChevronDown, ChevronUp, Megaphone, Sparkles, Image as ImageIcon, Video, Mic, MapPin, ContactRound, Copy, Phone, Mail, Building2, PackagePlus } from 'lucide-react-native';
 import { useEffect, useState, useMemo } from 'react';
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { AuthenticatedImage } from './AuthenticatedImage';
 import { VideoThumb } from './VideoThumb';
@@ -901,7 +901,9 @@ const styles = StyleSheet.create({
   messageText: { color: '#334155', fontSize: 15 },
   outgoingText: { color: '#fff', fontSize: 15 },
   emojiOnly: { fontSize: 44, lineHeight: 52 },
-  link: { color: '#2563eb', textDecorationLine: 'underline' },
+  // RN 0.88 Android can crash drawing decorated spans beyond numberOfLines.
+  // Keep links colored and tappable without invoking that native drawing path.
+  link: { color: '#2563eb', textDecorationLine: Platform.OS === 'android' ? 'none' : 'underline' },
   outgoingLink: { color: '#eaf1ff' },
   readMore: { color: '#2563eb', fontSize: 12, fontWeight: '600' },
   readMoreRow: { alignItems: 'center', flexDirection: 'row', gap: 3, marginTop: 4 },

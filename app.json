@@ -64,6 +64,7 @@
                              "favicon":  "./assets/favicon.png"
                          },
                  "plugins":  [
+                                 "expo-web-browser",
                                  "expo-dev-client",
                                  "./plugins/remove-deprecated-system-bar-styles",
                                  "./plugins/remove-android-large-screen-restrictions",

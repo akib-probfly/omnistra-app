@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreVertical, PackagePlus, Phone, Reply, RotateCcw, UserRound } from 'lucide-react-native';
+import { ArrowLeft, ChevronDown, Mail, MailOpen, MoreVertical, PackagePlus, Phone, RotateCcw, UserRound } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
 import { ConversationAssignmentSheet } from '../components/ConversationAssignmentSheet';
@@ -9,7 +9,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExterna
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { showNotice } from '../components/AppToast';
-import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
+import { SwipeToReply } from '../components/SwipeToReply';
 import { useIsFocused, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch, isApiErrorWithStatus, uploadFile } from '../api/client';
@@ -1517,29 +1517,9 @@ async function sendTemplateMutation(conversationId: string, params: { templateNa
 }
 
 const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, channelType, channelId, setReplyTo, setReactTarget, onImage, onVideo, replyTarget, reactions, onJumpToMessage, onCreateOrderFromMessage, creatingOrderDraftFor }: { message: Message; channelName?: string | null; channelType?: string | null; channelId?: string | null; setReplyTo: (message: Message) => void; setReactTarget: (message: Message) => void; onImage: (attachId: string) => void; onVideo: (attachment: any) => void; replyTarget: Message | null; reactions?: Array<{ emoji: string; count: number }>; onJumpToMessage?: (messageId: string) => void; onCreateOrderFromMessage?: (message: Message) => void; creatingOrderDraftFor: string | null }) {
-  const { colors } = useTheme();
   const outgoing = message.direction === 'OUTBOUND';
-  const swipeRef = useRef<SwipeableMethods | null>(null);
-  const replyLockRef = useRef(false);
   const onReply = useCallback(() => setReplyTo(message), [setReplyTo, message]);
   const onReact = useCallback(() => setReactTarget(message), [setReactTarget, message]);
-  const renderLeftActions = useCallback(() => (
-    <View style={styles.replyAction}>
-      <View style={[styles.replyIconCircle, { backgroundColor: colors.surfaceSecondary }]}>
-        <Reply color={colors.primary} size={20} strokeWidth={2.4} />
-      </View>
-    </View>
-  ), [colors]);
-  const handleWillOpen = useCallback(() => {
-    if (replyLockRef.current) return;
-    replyLockRef.current = true;
-    // Snap closed immediately so the reply state update doesn't fight an open/close animation.
-    swipeRef.current?.reset();
-    onReply();
-    requestAnimationFrame(() => {
-      replyLockRef.current = false;
-    });
-  }, [onReply]);
   const replyTargetId = message.replyToMessageId ?? replyTarget?.id ?? message.replyTo?.id ?? null;
   const replyPreview = useMemo(() => {
     const quotedSource = replyTarget ?? message.replyTo;
@@ -1563,20 +1543,11 @@ const SwipeableMessage = memo(function SwipeableMessage({ message, channelName, 
   }, [message.id, message.replyTo, replyTarget]);
   if (isInlineReactionMessage(message)) return null;
   return (
-    <ReanimatedSwipeable
-      ref={swipeRef}
-      friction={1}
-      leftThreshold={28}
-      overshootLeft={false}
-      overshootRight={false}
-      dragOffsetFromLeft={18}
-      renderLeftActions={renderLeftActions}
-      onSwipeableWillOpen={handleWillOpen}
-    >
+    <SwipeToReply onReply={onReply}>
       <View style={[styles.group, outgoing && styles.outgoingGroup]}>
         <MessageBubble message={message} outgoing={outgoing} attachments={message.attachments ?? []} replyPreview={replyPreview} reactions={reactions} channelName={channelName} channelType={channelType} channelId={channelId} onImage={onImage} onVideo={onVideo} onLongPress={onReact} onReplyPress={onJumpToMessage && replyTargetId ? () => onJumpToMessage(replyTargetId) : undefined} onCreateOrderFromMessage={onCreateOrderFromMessage} creatingOrderDraft={creatingOrderDraftFor === message.id} />
       </View>
-    </ReanimatedSwipeable>
+    </SwipeToReply>
   );
 });
 
@@ -1620,13 +1591,4 @@ const styles = StyleSheet.create({
   reopenIcon: { alignItems: 'center', borderRadius: 11, height: 22, justifyContent: 'center', width: 22 },
   reopenText: { fontSize: fontSize.small, fontWeight: fontWeight.semibold },
   fab: { alignItems: 'center', backgroundColor: '#2563eb', borderRadius: radius.xxl + 2, bottom: spacing.lg, elevation: 3, height: 44, justifyContent: 'center', position: 'absolute', right: spacing.lg, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 5, width: 44 },
-  replyAction: { alignItems: 'center', justifyContent: 'center', marginVertical: 3, width: 56 },
-  replyIconCircle: {
-    alignItems: 'center',
-    backgroundColor: '#e8f0ff',
-    borderRadius: radius.xl,
-    height: 36,
-    justifyContent: 'center',
-    width: 36,
-  },
 });
